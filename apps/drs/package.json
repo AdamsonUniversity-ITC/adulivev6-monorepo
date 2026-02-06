@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
+    "@repo/axios-config": "workspace:^",
     "@repo/ui": "workspace:*",
     "@tanstack/react-router": "^1.157.14",
     "@tanstack/react-router-devtools": "^1.157.14",
+    "@xyflow/react": "^12.10.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

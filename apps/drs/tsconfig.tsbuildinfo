@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx"],"version":"5.9.3"}
+{"root":["./src/axios.ts","./src/main.tsx","./src/routetree.gen.ts","./src/routes/__root.tsx","./src/routes/about.tsx","./src/routes/index.tsx","./src/routes/routetree.gen.ts"],"errors":true,"version":"5.9.3"}
