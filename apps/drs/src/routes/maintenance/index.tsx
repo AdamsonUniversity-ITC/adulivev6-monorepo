@@ -1,6 +1,11 @@
 import { Card, CardContent } from '@repo/ui/components/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@repo/ui/components/sheet';
-import { Spinner } from "@repo/ui/components/spinner";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@repo/ui/components/sheet';
+import { Spinner } from '@repo/ui/components/spinner';
 import { useAuth } from '@repo/ui/hooks/use-auth';
 import { createFileRoute } from '@tanstack/react-router';
 import { JSX, useState } from 'react';
@@ -22,11 +27,11 @@ export const Route = createFileRoute('/maintenance/')({
 
 type Step = {
   label: string;
-  component: JSX.Element
-}
+  component: JSX.Element;
+};
 
 const steps: Step[] = [
-  { label: 'Application', component: <ApplicationSheet/> },
+  { label: 'Application', component: <ApplicationSheet /> },
   // { label: 'Clearance', component: ClearanceSheet },
   // { label: 'Assessment', component: AssessmentSheet },
   // { label: 'Payment', component: PaymentSheet },
@@ -36,14 +41,13 @@ const steps: Step[] = [
   // { label: 'Delivered', component: DeliveredSheet },
 ];
 
-
 function Index() {
-  const [isSheetOpen, setIsSheetOpen] = useState<boolean>(false)
-  const [sheetStep, setSheetStep] = useState<Step | null>(null)
+  const [isSheetOpen, setIsSheetOpen] = useState<boolean>(false);
+  const [sheetStep, setSheetStep] = useState<Step | null>(null);
 
   return (
     <main id="root" className="p-2">
-      <div className="max-h-[80dvh] overflow-y-auto flex flex-wrap items-center justify-center gap-6 p-8">
+      <div className="flex max-h-[80dvh] flex-wrap items-center justify-center gap-6 overflow-y-auto p-8">
         <div className="flex flex-col items-center p-8">
           {steps.map((step, index) => (
             <div key={index} className="flex flex-col items-center">
@@ -52,7 +56,7 @@ function Index() {
                   setIsSheetOpen(true);
                   setSheetStep(step);
                 }}
-                className="w-64 rounded-2xl shadow-md cursor-pointer hover:bg-gray-50 transition-all"
+                className="w-64 cursor-pointer rounded-2xl shadow-md transition-all hover:bg-gray-50"
               >
                 <CardContent className="py-4 text-center font-medium">
                   {step.label}
@@ -60,7 +64,7 @@ function Index() {
               </Card>
 
               {index < steps.length - 1 && (
-                <div className="h-8 w-[2px] bg-muted-foreground/40" />
+                <div className="bg-muted-foreground/40 h-8 w-[2px]" />
               )}
             </div>
           ))}
@@ -70,7 +74,7 @@ function Index() {
         onOpenChange={setIsSheetOpen}
         open={isSheetOpen && Boolean(sheetStep)}
       >
-        <SheetContent className="sm:w- sm:max-w-none">
+        <SheetContent className="sm:w- overflow-y-auto sm:max-w-none">
           {sheetStep && (
             <>
               <SheetHeader>
