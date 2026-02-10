@@ -39,7 +39,7 @@ interface Document {
 }
 
 const DOCUMENTS: Document[] = [
-  { value: 'diploma', label: 'Diploma' },
+  { value: 'diploma', label: '2nd Copy of Diploma' },
   { value: 'tor', label: 'Transcript of Records' },
   { value: 'good_moral', label: 'Good Moral' },
   { value: 'rds', label: 'RDS' },
