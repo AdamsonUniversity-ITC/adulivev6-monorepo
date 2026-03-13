@@ -6,15 +6,16 @@ import {
   CardTitle,
 } from '@repo/ui/components/card';
 import { JSX } from 'react';
-import { DisplayGroup } from './-display-group.tsx';
-import { DocumentSelector } from './-document-selector.tsx';
-import { PackageSelector } from './-package-selector.tsx';
+import { DisplayGroup } from './-components/-display-group.tsx';
+import { DocumentSelector } from './-components/-document-selector.tsx';
+import { PackageSelector } from './-components/-package-selector.tsx';
 
 const documents = ['Diploma', 'Transcript of Records', 'Good Moral Character'];
+
 export const ApplicationSheet = (): JSX.Element => {
   return (
     <div className="bg-background min-h-screen p-4">
-      <div className="mx-auto max-w-4xl space-y-8">
+      <div className="w-full space-y-8">
         <div className="space-y-2">
           <h1 className="text-foreground text-3xl font-bold">
             Document Management

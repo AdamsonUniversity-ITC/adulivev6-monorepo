@@ -1,3 +1,4 @@
+import { getAccess } from '@/api/getAccess.ts';
 import { Card, CardContent } from '@repo/ui/components/card';
 import {
   Sheet,
@@ -10,16 +11,20 @@ import { useAuth } from '@repo/ui/hooks/use-auth';
 import { createFileRoute } from '@tanstack/react-router';
 import { JSX, useState } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
+import { ClearanceSheet } from './-clearance-sheet.tsx';
+import { DocumentMangementProvider } from './-providers/-document-management-context.tsx';
 
 export const Route = createFileRoute('/maintenance/')({
-  beforeLoad: async ({ location }) => {
+  loader: async () => {
     const { check } = useAuth();
-    // if (!check()) {
-    //   throw redirect({
-    //     to: env.aduLive,
-    //     replace: true,
-    //   });
-    // }
+    const { data } = await check();
+    const result = await getAccess({ user_id: data.id });
+    const access = result.data?.access ?? [];
+
+    return { access: [] };
+    return {
+      access: access,
+    };
   },
   component: Index,
   pendingComponent: () => <Spinner />,
@@ -31,8 +36,15 @@ type Step = {
 };
 
 const steps: Step[] = [
-  { label: 'Application', component: <ApplicationSheet /> },
-  // { label: 'Clearance', component: ClearanceSheet },
+  {
+    label: 'Application',
+    component: (
+      <DocumentMangementProvider>
+        <ApplicationSheet />
+      </DocumentMangementProvider>
+    ),
+  },
+  { label: 'Clearance', component: <ClearanceSheet /> },
   // { label: 'Assessment', component: AssessmentSheet },
   // { label: 'Payment', component: PaymentSheet },
   // { label: 'Verification', component: VerificationSheet },
@@ -74,7 +86,7 @@ function Index() {
         onOpenChange={setIsSheetOpen}
         open={isSheetOpen && Boolean(sheetStep)}
       >
-        <SheetContent className="sm:w- overflow-y-auto sm:max-w-none">
+        <SheetContent className="overflow-y-auto sm:w-[95dvw] sm:max-w-none">
           {sheetStep && (
             <>
               <SheetHeader>

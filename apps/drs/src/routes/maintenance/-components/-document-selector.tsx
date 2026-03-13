@@ -1,5 +1,4 @@
-'use client';
-
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import {
@@ -25,31 +24,65 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@repo/ui/components/dialog';
-import { Input } from '@repo/ui/components/input';
-import { Label } from '@repo/ui/components/label';
 import { Separator } from '@repo/ui/components/separator';
-import { Textarea } from '@repo/ui/components/textarea';
 import { FormCheckbox } from '@repo/ui/form-components/form-checkbox';
+import { FormInput } from '@repo/ui/form-components/form-input';
+
+import { toast } from '@repo/ui/exports';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Edit, Plus, Settings, Trash2 } from 'lucide-react';
-import { JSX, useState } from 'react';
+import { JSX, useContext, useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import z from 'zod';
+import { createDocument } from '../-lib/api/createDocument.ts';
+import { fetchDocuments } from '../-lib/api/fetchDocuments.ts';
+import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
+import { Route } from '../index.tsx';
 
 interface Document {
   value: string;
   label: string;
 }
 
-const DOCUMENTS: Document[] = [
-  { value: 'diploma', label: '2nd Copy of Diploma' },
-  { value: 'tor', label: 'Transcript of Records' },
-  { value: 'good_moral', label: 'Good Moral' },
-  { value: 'rds', label: 'RDS' },
-];
-
 interface DocumentSelectorProps {
   onAddDocument?: () => void;
 }
 
+const new_document_schema = z.object({
+  document_name: z
+    .string()
+    .min(1, { message: 'This field is required.' })
+    .max(255),
+  price: z.number().min(0).max(999999999),
+  is_active: z.boolean(),
+});
+
 const AddDocumentDialog = () => {
+  const queryClient = useQueryClient();
+  const { selectedGroup } = useContext(DocumentManagementContext);
+  const form = useForm({
+    resolver: zodResolver(new_document_schema),
+    defaultValues: {
+      document_name: '',
+      price: 0,
+      is_active: true,
+    },
+  });
+
+  const newDocument = useMutation({
+    mutationFn: (e) => createDocument(e, selectedGroup),
+  });
+
+  const onSubmit = (formValues) => {
+    newDocument.mutate(formValues, {
+      onSuccess: () => {
+        toast('Document added successfully.');
+        form.reset();
+        queryClient.invalidateQueries([`documents-${selectedGroup}`]);
+      },
+    });
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -65,27 +98,21 @@ const AddDocumentDialog = () => {
             Create a new document type that can be requested
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="doc-name">Document Name</Label>
-            <Input id="doc-name" placeholder="e.g., Honorable Dismissal" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="doc-description">Description (optional)</Label>
-            <Textarea
-              id="doc-description"
-              placeholder="Brief description of the document..."
-              className="resize-none"
-              rows={3}
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <div className="space-y-4">
+            <FormInput
+              form={form}
+              name="document_name"
+              label="Document Name"
+              placeholder="Diploma"
             />
-          </div>
+            <FormInput form={form} name="price" type="numeric" label="Price" />
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button>Add Document</Button>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button disabled={newDocument.isPending}>Add Document</Button>
+            </div>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -164,6 +191,22 @@ export const DocumentSelector = ({
   );
   const [showAdminDialog, setShowAdminDialog] = useState<boolean>(false);
 
+  const { selectedGroup } = useContext(DocumentManagementContext);
+  const { access } = Route.useLoaderData();
+  const { data, isLoading, refetch } = useQuery({
+    refetchOnWindowFocus: false,
+    queryKey: [`documents-${selectedGroup}`],
+    queryFn: () => fetchDocuments(access, selectedGroup),
+    enabled: false,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (selectedGroup) {
+      refetch();
+    }
+  }, [selectedGroup]);
+
   return (
     <Card className="border-border border">
       <CardHeader>
@@ -180,10 +223,11 @@ export const DocumentSelector = ({
                 Select Document
               </label>
               <Combobox
+                disabled={isLoading}
                 itemToStringValue={(item) => item.label}
                 value={selectedDocument}
                 onValueChange={setSelectedDocument}
-                items={DOCUMENTS}
+                items={data?.data ?? []}
               >
                 <ComboboxInput placeholder="Select a document" />
                 <ComboboxContent>
