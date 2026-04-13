@@ -3,7 +3,7 @@ import { env } from './env';
 
 export const authSvc = axios.create({
   baseURL: env.authService,
-  timeout: 5000,
+  timeout: 30000,
   withCredentials: true,
   withXSRFToken: true,
 });

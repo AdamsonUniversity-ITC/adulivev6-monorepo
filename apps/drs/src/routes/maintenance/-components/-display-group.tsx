@@ -59,7 +59,9 @@ const DisplayGroupDialog = () => {
       onSuccess: () => {
         toast('Group name added successfully.');
         form.reset();
-        queryClient.invalidateQueries(['document_groups']);
+        queryClient.invalidateQueries({
+          queryKey: ['document_groups'],
+        });
       },
     });
   };
@@ -98,6 +100,7 @@ export const DisplayGroup = () => {
   const { access } = Route.useLoaderData();
   const { data, isLoading } = useQuery({
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
     queryKey: ['document_groups'],
     queryFn: () => fetchDocumentGroups(access),
   });
@@ -122,7 +125,7 @@ export const DisplayGroup = () => {
               <SelectContent>
                 {!isLoading &&
                   data.data.map((item) => (
-                    <SelectItem value={String(item.id)}>
+                    <SelectItem key={item.id} value={String(item.id)}>
                       {item.group_name}
                     </SelectItem>
                   ))}

@@ -12,7 +12,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import { JSX, useState } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
 import { ClearanceSheet } from './-clearance-sheet.tsx';
-import { DocumentMangementProvider } from './-providers/-document-management-context.tsx';
 
 export const Route = createFileRoute('/maintenance/')({
   loader: async () => {
@@ -38,11 +37,7 @@ type Step = {
 const steps: Step[] = [
   {
     label: 'Application',
-    component: (
-      <DocumentMangementProvider>
-        <ApplicationSheet />
-      </DocumentMangementProvider>
-    ),
+    component: <ApplicationSheet />,
   },
   { label: 'Clearance', component: <ClearanceSheet /> },
   // { label: 'Assessment', component: AssessmentSheet },
@@ -76,7 +71,7 @@ function Index() {
               </Card>
 
               {index < steps.length - 1 && (
-                <div className="bg-muted-foreground/40 h-8 w-[2px]" />
+                <div className="bg-muted-foreground/40 h-8 w-0.5" />
               )}
             </div>
           ))}

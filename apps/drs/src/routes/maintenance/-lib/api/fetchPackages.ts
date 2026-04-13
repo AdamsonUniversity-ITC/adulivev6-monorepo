@@ -1,11 +1,11 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
-export const fetchDocuments = async (
+export const fetchPackages = async (
   access: string[],
   selectedGroup: string,
 ) => {
   const { data } = await registrarSvc.get(
-    `v1/drs/document-groups/${selectedGroup}/documents`,
+    `v1/drs/document-groups/${selectedGroup}/packages`,
   );
   return data;
 };
