@@ -1,9 +1,12 @@
 import { Outlet } from '@tanstack/react-router';
+import { ThemeProvider } from './context/ThemeContext';
 
 export default function App() {
   return (
     <div>
-      <Outlet />
+      <ThemeProvider>
+        <Outlet />
+      </ThemeProvider>
     </div>
   );
 }

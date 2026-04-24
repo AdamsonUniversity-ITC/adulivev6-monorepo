@@ -9,6 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@repo/ui/components/accordion";
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -35,91 +36,91 @@ interface SidebarProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Design tokens — every token used in the file is defined here
+// Design tokens — Sidebar (Modern Adamson Futuristic)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const T = {
   dark: {
     // Layout
-    sidebar:       'linear-gradient(180deg, #0b1426 0%, #080e1a 100%)',
-    border:        'rgba(59, 130, 246, 0.12)',
-    borderVivid:   'rgba(59, 130, 246, 0.25)',
+    sidebar: 'linear-gradient(180deg, #070c1a 0%, #040812 100%)',
+    border: 'rgba(56, 189, 248, 0.08)',
+    borderVivid: 'rgba(56, 189, 248, 0.25)',
     // Brand
-    brandBg:       '#0f1a30',
-    brandBorder:   'rgba(59, 130, 246, 0.3)',
-    brandGlow:     '0 4px 20px rgba(0, 0, 0, 0.4)',
-    logoA:         '#60a5fa',
-    logoB:         '#3b82f6',
-    subTitle:      '#64748b',
+    brandBg: 'transparent',
+    brandBorder: 'rgba(56, 189, 248, 0.15)',
+    brandGlow: '0 4px 20px rgba(0, 0, 0, 0.6)',
+    logoA: '#38bdf8', // Neon Cyan for dark mode contrast
+    logoB: '#2563eb', // Royal Blue
+    subTitle: '#475569',
     // Nav section label
-    sectionLabel:  '#64748b',
+    sectionLabel: '#475569',
     // Nav items
-    textMuted:     '#b1b8c2',
-    textHover:     '#f8fafc',
-    activeBg:      'rgba(59, 130, 246, 0.15)',
-    activeBorder:  'rgba(59, 130, 246, 0.4)',
-    activeShadow:  'inset 0 0 20px rgba(59, 130, 246, 0.06)',
-    activeBar:     '#3b82f6',
-    activeBarGlow: '0 0 12px rgba(59, 130, 246, 0.5)',
-    activeIcon:    '#60a5fa',
-    activeText:    '#f8fafc',
-    hoverBg:       'rgba(255, 255, 255, 0.03)',
-    hoverBorder:   'rgba(59, 130, 246, 0.2)',
-    shimmer:       'rgba(59, 130, 246, 0.1)',
+    textMuted: '#8b9cb6',
+    textHover: '#e2e8f0',
+    activeBg: 'rgba(37, 99, 235, 0.08)',
+    activeBorder: 'rgba(56, 189, 248, 0.2)',
+    activeShadow: 'inset 0 0 20px rgba(56, 189, 248, 0.03)',
+    activeBar: '#38bdf8',
+    activeBarGlow: '0 0 16px rgba(56, 189, 248, 0.6)',
+    activeIcon: '#38bdf8',
+    activeText: '#f8fafc',
+    hoverBg: 'rgba(255, 255, 255, 0.02)',
+    hoverBorder: 'rgba(56, 189, 248, 0.1)',
+    shimmer: 'rgba(56, 189, 248, 0.05)',
     // Sub-items
-    subBorder:     'rgba(59, 130, 246, 0.2)',
-    subText:       '#b1b8c2',
-    subHoverText:  '#f8fafc',
-    subHoverBg:    'rgba(59, 130, 246, 0.08)',
+    subBorder: 'rgba(56, 189, 248, 0.1)',
+    subText: '#64748b',
+    subHoverText: '#e2e8f0',
+    subHoverBg: 'rgba(37, 99, 235, 0.05)',
     // Footer
-    footerBorder:  'rgba(255, 255, 255, 0.05)',
-    logoutColor:   '#475569',
-    logoutHover:   'rgba(239, 68, 68, 0.1)',
+    footerBorder: 'rgba(255, 255, 255, 0.03)',
+    logoutColor: '#475569',
+    logoutHover: 'rgba(239, 68, 68, 0.1)',
     // Collapsed expand pill
-    toggleBg:      'linear-gradient(135deg, #0c1e38, #071428)',
-    toggleBorder:  'rgba(59, 130, 246, 0.45)',
-    toggleGlow:    '0 0 12px rgba(37, 99, 235, 0.28)',
+    toggleBg: '#0a1224',
+    toggleBorder: 'rgba(56, 189, 248, 0.3)',
+    toggleGlow: '0 0 15px rgba(56, 189, 248, 0.15)',
   },
   light: {
     // Layout
-    sidebar:       '#fcfdfe',
-    border:        '#e2e8f0',
-    borderVivid:   '#cbd5e1',
+    sidebar: 'linear-gradient(180deg, #f0f5ff 0%, #d8e6ff 100%)',
+    border: 'rgba(0, 48, 135, 0.14)',
+    borderVivid: 'rgba(0, 48, 135, 0.32)',
     // Brand
-    brandBg:       '#ffffff',
-    brandBorder:   '#d1d5db',
-    brandGlow:     '0 2px 10px rgba(0, 48, 135, 0.05)',
-    logoA:         '#003087',
-    logoB:         '#0046c7',
-    subTitle:      '#64748b',
+    brandBg: 'transparent',
+    brandBorder: 'rgba(0, 48, 135, 0.18)',
+    brandGlow: '0 2px 16px rgba(0, 48, 135, 0.12)',
+    logoA: '#001e6e',
+    logoB: '#0040c0',
+    subTitle: '#2C4A72',
     // Nav section label
-    sectionLabel:  '#94a3b8',
+    sectionLabel: '#5272A0',
     // Nav items
-    textMuted:     '#64748b',
-    textHover:     '#003087',
-    activeBg:      '#eff6ff',
-    activeBorder:  '#bfdbfe',
-    activeShadow:  'inset 0 0 18px rgba(0, 48, 135, 0.04)',
-    activeBar:     '#003087',
-    activeBarGlow: '0 0 8px rgba(0, 48, 135, 0.2)',
-    activeIcon:    '#003087',
-    activeText:    '#003087',
-    hoverBg:       '#f1f5f9',
-    hoverBorder:   'rgba(0, 48, 135, 0.18)',
-    shimmer:       'rgba(0, 48, 135, 0.06)',
+    textMuted: '#2C4272',
+    textHover: '#00082E',
+    activeBg: 'rgba(0, 70, 199, 0.13)',
+    activeBorder: 'rgba(0, 70, 199, 0.32)',
+    activeShadow: 'inset 0 0 18px rgba(0, 48, 135, 0.10)',
+    activeBar: '#0040c0',
+    activeBarGlow: '0 0 14px rgba(0, 70, 199, 0.60)',
+    activeIcon: '#0040c0',
+    activeText: '#00082E',
+    hoverBg: 'rgba(0, 48, 135, 0.08)',
+    hoverBorder: 'rgba(0, 48, 135, 0.20)',
+    shimmer: 'rgba(0, 48, 135, 0.09)',
     // Sub-items
-    subBorder:     '#e2e8f0',
-    subText:       '#94a3b8',
-    subHoverText:  '#003087',
-    subHoverBg:    'rgba(0, 48, 135, 0.055)',
+    subBorder: 'rgba(0, 48, 135, 0.16)',
+    subText: '#2C4A72',
+    subHoverText: '#0040c0',
+    subHoverBg: 'rgba(0, 48, 135, 0.09)',
     // Footer
-    footerBorder:  '#e2e8f0',
-    logoutColor:   '#94a3b8',
-    logoutHover:   'rgba(239, 68, 68, 0.06)',
+    footerBorder: 'rgba(0, 48, 135, 0.14)',
+    logoutColor: '#2C4A72',
+    logoutHover: 'rgba(239, 68, 68, 0.09)',
     // Collapsed expand pill
-    toggleBg:      'linear-gradient(135deg, #dbeafe, #eff6ff)',
-    toggleBorder:  'rgba(0, 48, 135, 0.35)',
-    toggleGlow:    '0 0 10px rgba(0, 48, 135, 0.12)',
+    toggleBg: '#dde8ff',
+    toggleBorder: 'rgba(0, 48, 135, 0.35)',
+    toggleGlow: '0 0 16px rgba(0, 48, 135, 0.18)',
   },
 };
 
@@ -131,17 +132,18 @@ const NAV_ITEMS: NavItem[] = [
   {
     icon: LayoutDashboard,
     label: 'Dashboard',
-    active: true,
+    href: '/',
   },
   {
     icon: Settings,
     label: 'Administration',
     children: [
-      { label: 'Budget Overview'     },
-      { label: 'Department Funds'    },
-      { label: 'Personnel & Payroll' },
-      { label: 'Reports & Audit'     },
-      { label: 'System Config'       },
+      { label: 'Budget Settings', href: '/admin/budget-settings' },
+      { label: 'Budget Status', href: '/admin/budget-status' },
+      { label: 'Sections', href: '/admin/sections' },
+      { label: 'Department Access', href: '/admin/department-access' },
+      { label: 'Chart of Accounts', href: '/admin/chart-of-accounts' },
+      { label: 'Office Supplies', href: '/admin/office-supplies' },
     ],
   },
 ];
@@ -162,34 +164,19 @@ const ShimmerSweep: React.FC<{ color: string }> = ({ color }) => (
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Adamson "A" monogram SVG
-// The `themeKey` is included in the gradient ID so the SVG paint server
-// re-registers when the theme changes — prevents gradient caching.
+// Adamson logo
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AdamsonMonogram({ a, b, uid }: { a: string; b: string; uid: string }) {
-  const gradId = `adm-grad-${uid}`;
+function AdamsonLogo({ size = 28 }: { size?: number }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path
-        d="M10 2.5L17 16.5H3L10 2.5Z"
-        stroke={`url(#${gradId})`}
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6.2 12.5h7.6"
-        stroke={`url(#${gradId})`}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <defs>
-        <linearGradient id={gradId} x1="3" y1="2" x2="17" y2="17" gradientUnits="userSpaceOnUse">
-          <stop stopColor={a} />
-          <stop offset="1" stopColor={b} />
-        </linearGradient>
-      </defs>
-    </svg>
+    <img
+      src="/logos/adulogo.png"
+      alt="Adamson University"
+      width={size}
+      height={size}
+      style={{ objectFit: 'contain', display: 'block' }}
+      draggable={false}
+    />
   );
 }
 
@@ -201,42 +188,46 @@ function NavButton({
   item,
   isOpen,
   t,
+  isActive,
 }: {
   item: NavItem;
   isOpen: boolean;
   t: typeof T.dark;
+  isActive: boolean;
 }) {
   const Icon = item.icon;
+  const navigate = useNavigate();
   return (
     <button
       className={`relative w-full h-11 rounded-lg overflow-hidden flex items-center transition-all duration-200 border
         ${isOpen ? 'gap-3 px-3' : 'justify-center px-0'}
       `}
       style={
-        item.active
+        isActive
           ? {
-              background: t.activeBg,
-              border: `1px solid ${t.activeBorder}`,
-              boxShadow: t.activeShadow,
-            }
+            background: t.activeBg,
+            border: `1px solid ${t.activeBorder}`,
+            boxShadow: t.activeShadow,
+          }
           : { background: 'transparent', border: '1px solid transparent' }
       }
+      onClick={() => item.href && navigate({ to: item.href })}
       onMouseEnter={e => {
-        if (!item.active) {
+        if (!isActive) {
           const el = e.currentTarget as HTMLButtonElement;
           el.style.background = t.hoverBg;
           el.style.borderColor = t.hoverBorder;
         }
       }}
       onMouseLeave={e => {
-        if (!item.active) {
+        if (!isActive) {
           const el = e.currentTarget as HTMLButtonElement;
           el.style.background = 'transparent';
           el.style.borderColor = 'transparent';
         }
       }}
     >
-      {item.active && (
+      {isActive && (
         <>
           <div
             className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
@@ -247,7 +238,7 @@ function NavButton({
       )}
       <Icon
         className="w-[18px] h-[18px] shrink-0 transition-colors"
-        style={{ color: item.active ? t.activeIcon : t.textMuted }}
+        style={{ color: isActive ? t.activeIcon : t.textMuted }}
       />
       <AnimatePresence>
         {isOpen && (
@@ -256,7 +247,7 @@ function NavButton({
             animate={{ opacity: 1, width: 'auto' }}
             exit={{ opacity: 0, width: 0 }}
             className="text-sm font-medium tracking-wide whitespace-nowrap overflow-hidden"
-            style={{ color: item.active ? t.activeText : t.textMuted }}
+            style={{ color: isActive ? t.activeText : t.textMuted }}
           >
             {item.label}
           </motion.span>
@@ -272,11 +263,16 @@ function NavButton({
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
   const t = isDark ? T.dark : T.light;
-
-  // Used in keys to force remount of gradient-text elements on theme change.
-  // Without this, the -webkit-background-clip: text gradient doesn't repaint
-  // when isDark flips because framer-motion keeps the same DOM node.
   const themeKey = isDark ? 'dark' : 'light';
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Compute which accordion groups should be open by default (when a child matches)
+  const defaultOpenAccordions = NAV_ITEMS
+    .map((item, index) =>
+      item.children?.some((child) => child.href === pathname) ? `nav-${index}` : null
+    )
+    .filter(Boolean) as string[];
 
   return (
     <motion.aside
@@ -301,14 +297,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
 
       {/* ── Brand ─────────────────────────────────────────────────── */}
       <div
-        className="h-[72px] flex items-center justify-between px-3 shrink-0"
+        className="h-[80px] flex items-center justify-between px-3 shrink-0" // Increased height slightly for larger text
         style={{ borderBottom: `1px solid ${t.border}` }}
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
             <motion.div
-              // themeKey in key forces a full remount when isDark changes,
-              // which guarantees the gradient text colour repaints immediately.
               key={`brand-open-${themeKey}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -316,36 +310,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
               transition={{ duration: 0.2 }}
               className="flex items-center gap-3 min-w-0"
             >
-              <div
-                className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl"
-                style={{
-                  background: t.brandBg,
-                  border: `1px solid ${t.brandBorder}`,
-                  boxShadow: t.brandGlow,
-                }}
-              >
-                <AdamsonMonogram a={t.logoA} b={t.logoB} uid={`open-${themeKey}`} />
+              <div className="flex-shrink-0 flex items-center justify-center w-12 h-12">
+                <AdamsonLogo size={48} /> {/* Slightly larger logo */}
               </div>
-              <div>
+              <div className="flex flex-col justify-center">
                 <h1
-                  className="text-sm font-extrabold tracking-[0.14em] uppercase leading-none"
+                  className="text-xl font-black tracking-[0.2em] uppercase leading-none" // Enlarged text and weight
                   style={{
-                    background: `linear-gradient(90deg, ${t.logoA}, ${t.logoB})`,
+                    background: `linear-gradient(135deg, ${t.logoA}, ${t.logoB})`,
                     WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    // Standard property fallback
                     backgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
                     color: 'transparent',
+                    display: 'inline-block',
                   }}
                 >
                   ABMS
                 </h1>
-                <p
-                  className="text-[9px] tracking-[0.22em] uppercase mt-[3px]"
+                {/* <p
+                  className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1 opacity-80"
                   style={{ color: t.subTitle }}
                 >
-                  {/* Adamson Budget Monitoring System */}
-                </p>
+                  SYSTEM
+                </p> */}
               </div>
             </motion.div>
           ) : (
@@ -356,15 +343,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
               exit={{ opacity: 0 }}
               className="flex items-center justify-center w-full"
             >
-              <div
-                className="flex items-center justify-center w-10 h-10 rounded-xl"
-                style={{
-                  background: t.brandBg,
-                  border: `1px solid ${t.brandBorder}`,
-                  boxShadow: t.brandGlow,
-                }}
-              >
-                <AdamsonMonogram a={t.logoA} b={t.logoB} uid={`closed-${themeKey}`} />
+              <div className="flex items-center justify-center w-12 h-12">
+                <AdamsonLogo size={44} />
               </div>
             </motion.div>
           )}
@@ -375,12 +355,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
             onClick={onToggle}
             className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
             style={{ color: t.subTitle }}
-            onMouseEnter={e =>
-              ((e.currentTarget as HTMLElement).style.background = t.hoverBg)
-            }
-            onMouseLeave={e =>
-              ((e.currentTarget as HTMLElement).style.background = 'transparent')
-            }
+          // ... hover logic
           >
             <Menu className="w-4 h-4" />
           </button>
@@ -403,12 +378,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
         )}
       </AnimatePresence>
 
-      {/* ── Nav ───────────────────────────────────────────────────── */}
       <nav className="flex-1 py-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        <Accordion type="multiple" className="w-full border-none space-y-0.5">
+        <Accordion type="multiple" defaultValue={defaultOpenAccordions} className="w-full border-none space-y-0.5">
           {NAV_ITEMS.map((item, index) => {
             const Icon = item.icon;
             const hasChildren = item.children && item.children.length > 0;
+            const isActive = !hasChildren && item.href === pathname;
 
             if (!hasChildren) {
               return (
@@ -417,7 +392,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
                   whileHover={{ x: isOpen ? 2 : 0 }}
                   transition={{ duration: 0.14 }}
                 >
-                  <NavButton item={item} isOpen={isOpen} t={t} />
+                  <NavButton item={item} isOpen={isOpen} t={t} isActive={isActive} />
                 </motion.div>
               );
             }
@@ -463,34 +438,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
                       className="ml-[23px] pl-3 space-y-0.5"
                       style={{ borderLeft: `1px solid ${t.subBorder}` }}
                     >
-                      {item.children?.map((child, ci) => (
-                        <motion.button
-                          key={ci}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: ci * 0.05, duration: 0.18 }}
-                          className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-xs font-medium tracking-wide transition-all duration-150 border border-transparent"
-                          style={{ color: child.active ? t.activeIcon : t.subText }}
-                          onMouseEnter={e => {
-                            const el = e.currentTarget as HTMLElement;
-                            el.style.background = t.subHoverBg;
-                            el.style.borderColor = t.hoverBorder;
-                            el.style.color = t.subHoverText;
-                          }}
-                          onMouseLeave={e => {
-                            const el = e.currentTarget as HTMLElement;
-                            el.style.background = 'transparent';
-                            el.style.borderColor = 'transparent';
-                            el.style.color = child.active ? t.activeIcon : t.subText;
-                          }}
-                        >
-                          <span
-                            className="w-1 h-1 rounded-full shrink-0 opacity-70"
-                            style={{ background: child.active ? t.activeBar : t.subText }}
-                          />
-                          {child.label}
-                        </motion.button>
-                      ))}
+                      {item.children?.map((child, ci) => {
+                        const isChildActive = child.href === pathname;
+                        return (
+                          <motion.button
+                            key={ci}
+                            onClick={() => child.href && navigate({ to: child.href })}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: ci * 0.05, duration: 0.18 }}
+                            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-xs font-medium tracking-wide transition-all duration-150 border border-transparent"
+                            style={{ color: isChildActive ? t.activeIcon : t.subText }}
+                            onMouseEnter={e => {
+                              const el = e.currentTarget as HTMLElement;
+                              el.style.background = t.subHoverBg;
+                              el.style.borderColor = t.hoverBorder;
+                              el.style.color = t.subHoverText;
+                            }}
+                            onMouseLeave={e => {
+                              const el = e.currentTarget as HTMLElement;
+                              el.style.background = 'transparent';
+                              el.style.borderColor = 'transparent';
+                              el.style.color = isChildActive ? t.activeIcon : t.subText;
+                            }}
+                          >
+                            <span
+                              className="w-1 h-1 rounded-full shrink-0 opacity-70"
+                              style={{ background: isChildActive ? t.activeBar : t.subText }}
+                            />
+                            {child.label}
+                          </motion.button>
+                        );
+                      })}
                     </div>
                   </AccordionContent>
                 )}
@@ -499,7 +478,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
           })}
         </Accordion>
       </nav>
-{/* 
+      {/* 
       ── Footer ────────────────────────────────────────────────── */}
       <div className="shrink-0 p-2" style={{ borderTop: `1px solid ${t.footerBorder}` }}>
         {/* <button

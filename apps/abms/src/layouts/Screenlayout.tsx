@@ -1,96 +1,118 @@
-import React, { useState, ReactNode } from 'react';
+import React, { useState, ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar';
 import Sidebar from '../components/Sidebar';
+import { authSvc } from '@repo/axios-config/auth-service';
+import { financeSvc } from '@repo/axios-config';
+import { useTheme } from '../context/ThemeContext';
+import { useRouterState } from '@tanstack/react-router';  // ← added
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LayoutProps {
-  children?: ReactNode;
+  children?: ReactNode | ((isDark: boolean) => ReactNode);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Layout design tokens — every token used in this file is defined here
+// Layout design tokens (Modern Adamson Futuristic)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const L = {
   dark: {
-    // Background
-    base:            '#080e1a',
-    gridLine:        'rgba(59, 130, 246, 0.03)',
-    glowLeft:        'radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%)',
-    glowRight:       'radial-gradient(circle, rgba(30, 64, 175, 0.05) 0%, transparent 70%)',
-    // Header
-    headerBg:        'rgba(11, 20, 38, 0.85)',
-    headerBorder:    'rgba(255, 255, 255, 0.06)',
-    headerRule:      'linear-gradient(90deg, transparent, rgba(59,130,246,0.22) 40%, rgba(37,99,235,0.1) 70%, transparent)',
-    titleColor:      '#f1f5f9',
-    subColor:        '#94a3b8',
-    // Theme toggle
-    toggleBg:        'rgba(29, 78, 216, 0.12)',
-    toggleBorder:    'rgba(59, 130, 246, 0.28)',
-    toggleColor:     '#60a5fa',
-    toggleHoverBg:   'rgba(29, 78, 216, 0.22)',
-    // User chip
-    userNameColor:   '#e2e8f0',
-    userRoleColor:   '#64748b',
-    avatarBorder:    'rgba(59, 130, 246, 0.3)',
-    avatarGlow:      '0 0 16px rgba(37, 99, 235, 0.25)',
-    avatarGradient:  'linear-gradient(135deg, #1e293b, #0f172a)',
-    avatarText:      '#60a5fa',
-    // Online indicator
-    onlineDot:       '#22c55e',
-    onlineBorder:    '#080e1a',
-    onlineGlow:      '0 0 6px rgba(34, 197, 94, 0.75)',
-    // Content scroll
-    scrollThumb:     'rgba(37, 99, 235, 0.2)',
-    // Status bar
-    statusBarBg:     '#0b1426',
-    statusBorder:    'rgba(255, 255, 255, 0.05)',
-    statusOnline:    'rgba(34, 197, 94, 0.55)',
-    statusText:      '#475569',
+    base: '#010818',
+    gridLine: 'rgba(79,168,255,0.025)',
+    glowLeft: 'radial-gradient(ellipse 60% 50% at 0% 40%, rgba(0,40,120,0.22) 0%, transparent 100%)',
+    glowRight: 'radial-gradient(ellipse 50% 60% at 100% 60%, rgba(0,70,199,0.1) 0%, transparent 100%)',
+    glowTop: 'radial-gradient(ellipse 80% 30% at 50% 0%, rgba(79,168,255,0.07) 0%, transparent 100%)',
+
+    headerBg: 'rgba(1,12,36,0.72)',
+    headerBorder: 'rgba(255,255,255,0.04)',
+    headerRule: 'linear-gradient(90deg, transparent 0%, rgba(79,168,255,0.18) 35%, rgba(0,40,120,0.12) 65%, transparent 100%)',
+    headerGlow: '0 1px 0 rgba(79,168,255,0.06)',
+
+    titleColor: '#FFFFFF',
+    titleAccent: '#4FA8FF',
+    subColor: '#3A5070',
+
+    toggleBg: 'rgba(0,40,120,0.25)',
+    toggleBorder: 'rgba(79,168,255,0.22)',
+    toggleColor: '#4FA8FF',
+    toggleHoverBg: 'rgba(0,70,199,0.3)',
+
+    userNameColor: '#E8F0FF',
+    userRoleColor: '#3A5070',
+
+    avatarBorder: 'rgba(79,168,255,0.35)',
+    avatarGlow: '0 0 18px rgba(79,168,255,0.18)',
+    avatarGradient: 'linear-gradient(135deg, #0A1535, #020818)',
+    avatarText: '#4FA8FF',
+
+    dividerColor: 'rgba(255,255,255,0.05)',
+
+    onlineDot: '#10b981',
+    onlineBorder: '#010818',
+    onlineGlow: '0 0 10px rgba(16,185,129,0.5)',
+
+    scrollThumb: 'rgba(79,168,255,0.12)',
+
+    statusBarBg: 'rgba(1,8,24,0.85)',
+    statusBorder: 'rgba(255,255,255,0.025)',
+    statusOnline: '#10b981',
+    statusText: '#2A4060',
+
+    contentBg: 'transparent',
+    noise: 'rgba(79,168,255,0.008)',
   },
+
   light: {
-    // Background
-    base:            '#f8fafc',
-    gridLine:        'rgba(0, 48, 135, 0.03)',
-    glowLeft:        'radial-gradient(circle, rgba(191, 219, 254, 0.3) 0%, transparent 70%)',
-    glowRight:       'radial-gradient(circle, rgba(219, 234, 254, 0.2) 0%, transparent 70%)',
-    // Header
-    headerBg:        'rgba(252, 253, 254, 0.85)',
-    headerBorder:    '#e2e8f0',
-    headerRule:      'linear-gradient(90deg, transparent, rgba(0,48,135,0.14) 40%, rgba(0,48,135,0.07) 70%, transparent)',
-    titleColor:      '#0f172a',
-    subColor:        '#64748b',
-    // Theme toggle
-    toggleBg:        'rgba(0, 48, 135, 0.06)',
-    toggleBorder:    'rgba(0, 48, 135, 0.18)',
-    toggleColor:     '#003087',
-    toggleHoverBg:   'rgba(0, 48, 135, 0.12)',
-    // User chip
-    userNameColor:   '#1e293b',
-    userRoleColor:   '#475569',
-    avatarBorder:    '#cbd5e1',
-    avatarGlow:      '0 0 12px rgba(0, 48, 135, 0.08)',
-    avatarGradient:  'linear-gradient(135deg, #f1f5f9, #e2e8f0)',
-    avatarText:      '#003087',
-    // Online indicator
-    onlineDot:       '#16a34a',
-    onlineBorder:    '#f8fafc',
-    onlineGlow:      '0 0 5px rgba(22, 163, 74, 0.6)',
-    // Content scroll
-    scrollThumb:     'rgba(0, 48, 135, 0.15)',
-    // Status bar
-    statusBarBg:     '#f1f5f9',
-    statusBorder:    '#e2e8f0',
-    statusOnline:    'rgba(22, 163, 74, 0.55)',
-    statusText:      '#94a3b8',
+    base: '#E0EAFB',
+    gridLine: 'rgba(0,26,94,0.07)',
+    glowLeft: 'radial-gradient(ellipse 60% 50% at 0% 40%, rgba(0,70,199,0.13) 0%, transparent 100%)',
+    glowRight: 'radial-gradient(ellipse 50% 60% at 100% 60%, rgba(0,26,94,0.11) 0%, transparent 100%)',
+    glowTop: 'radial-gradient(ellipse 80% 30% at 50% 0%, rgba(0,40,160,0.14) 0%, transparent 100%)',
+
+    headerBg: 'rgba(255,255,255,0.96)',
+    headerBorder: 'rgba(0,26,94,0.14)',
+    headerRule: 'linear-gradient(90deg, transparent 0%, rgba(0,70,199,0.28) 35%, rgba(0,26,94,0.12) 65%, transparent 100%)',
+    headerGlow: '0 2px 0 rgba(0,26,94,0.10)',
+
+    titleColor: '#00082E',
+    titleAccent: '#0040C0',
+    subColor: '#2C4A72',
+
+    toggleBg: '#DDE8FF',
+    toggleBorder: 'rgba(0,26,94,0.28)',
+    toggleColor: '#0040C0',
+    toggleHoverBg: 'rgba(0,70,199,0.16)',
+
+    userNameColor: '#00082E',
+    userRoleColor: '#2C4A72',
+
+    avatarBorder: 'rgba(0,26,94,0.35)',
+    avatarGlow: '0 0 20px rgba(0,70,199,0.28)',
+    avatarGradient: 'linear-gradient(135deg, #C8DCFF, #A8C4F8)',
+    avatarText: '#00082E',
+
+    dividerColor: 'rgba(0,26,94,0.14)',
+
+    onlineDot: '#059669',
+    onlineBorder: '#FFFFFF',
+    onlineGlow: '0 0 10px rgba(5,150,105,0.55)',
+
+    scrollThumb: 'rgba(0,26,94,0.22)',
+
+    statusBarBg: 'rgba(255,255,255,0.92)',
+    statusBorder: 'rgba(0,26,94,0.13)',
+    statusOnline: '#059669',
+    statusText: '#2C4A72',
+
+    contentBg: 'transparent',
+    noise: 'transparent',
   },
 };
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Grid background
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,113 +179,33 @@ const ThemeToggle: React.FC<{
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Placeholder shown when no children are passed
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PlaceholderState({ isDark, t }: { isDark: boolean; t: typeof L.dark }) {
-  const bars = [38, 58, 34, 72, 48, 64, 42, 55];
-  return (
-    <motion.div
-      key="placeholder"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.45 }}
-      className="flex flex-col items-center justify-center min-h-[60vh] gap-5"
-    >
-      {/* Rotating crest rings */}
-      <div className="relative flex items-center justify-center">
-        <motion.div
-          className="w-20 h-20 rounded-full border"
-          style={{
-            borderColor: isDark ? 'rgba(37,99,235,0.25)' : 'rgba(0,48,135,0.15)',
-            borderStyle: 'dashed',
-          }}
-          animate={{ rotate: 360 }}
-          transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
-        />
-        <motion.div
-          className="absolute w-14 h-14 rounded-full border"
-          style={{
-            borderColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(0,48,135,0.12)',
-          }}
-          animate={{ rotate: -360 }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
-        />
-        <div
-          className="absolute w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{
-            background: isDark
-              ? 'linear-gradient(135deg, #0c1e38, #071428)'
-              : 'linear-gradient(135deg, #dbeafe, #eff6ff)',
-            border: isDark
-              ? '1px solid rgba(59,130,246,0.35)'
-              : '1px solid rgba(0,48,135,0.22)',
-            boxShadow: isDark
-              ? '0 0 20px rgba(37,99,235,0.3)'
-              : '0 0 12px rgba(0,48,135,0.1)',
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path
-              d="M10 2.5L17 16.5H3L10 2.5Z"
-              stroke={isDark ? '#60a5fa' : '#003087'}
-              strokeWidth="1.7"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M6.2 12.5h7.6"
-              stroke={isDark ? '#60a5fa' : '#003087'}
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
-      </div>
-
-      <div className="text-center space-y-1.5">
-        <h2
-          className="text-lg font-bold tracking-[0.18em] uppercase"
-          style={{ color: isDark ? 'rgba(96,165,250,0.65)' : 'rgba(0,48,135,0.55)' }}
-        >
-          System Initialized
-        </h2>
-        <p
-          className="text-sm"
-          style={{ color: isDark ? 'rgba(51,78,114,0.9)' : 'rgba(148,163,184,0.9)' }}
-        >
-          Select a module from the sidebar to begin.
-        </p>
-      </div>
-
-      {/* Equalizer bars */}
-      <div className="flex items-end gap-1 mt-1">
-        {bars.map((h, i) => (
-          <motion.div
-            key={i}
-            className="w-1.5 rounded-full"
-            style={{
-              background: isDark ? 'rgba(37,99,235,0.35)' : 'rgba(0,48,135,0.22)',
-            }}
-            animate={{ height: [h * 0.3, h, h * 0.45] }}
-            transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.1, ease: 'easeInOut' }}
-          />
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Layout — wraps every page; renders children or fallback placeholder
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
-  const [isDark, setIsDark] = useState<boolean>(true);
-
+  const { isDark, toggleTheme } = useTheme();
   const t = isDark ? L.dark : L.light;
 
+  // ← The pathname is the transition key. When it changes, AnimatePresence
+  //   exits the old page and enters the new one. The sidebar, header, and
+  //   status bar are outside AnimatePresence so they stay mounted/untouched.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const [user, setUser] = useState<{ name: string; username: string; role: string; avatar?: string } | null>(null);
+
+  useEffect(() => {
+    authSvc.get('/user')
+      .then(res => {
+        const username = res.data.username;
+        return financeSvc.get(`/user/${username}`)
+          .then(nameRes => ({ username, ...nameRes.data }));
+      })
+      .then(merged => setUser(merged))
+      .catch(() => setUser(null));
+  }, []);
+
+  console.log(user);
   return (
     <motion.div
       className="min-h-screen flex overflow-hidden"
@@ -324,7 +266,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex items-center gap-4">
             <ThemeToggle
               isDark={isDark}
-              onToggle={() => setIsDark(p => !p)}
+              onToggle={toggleTheme}
               t={t}
             />
 
@@ -341,13 +283,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
                   className="text-sm font-semibold leading-none"
                   style={{ color: t.userNameColor }}
                 >
-                  System Admin
-                </p>
-                <p
-                  className="text-[10px] tracking-widest uppercase mt-[4px]"
-                  style={{ color: t.userRoleColor }}
-                >
-                  Access Level 1
+                  {user ? user.name : 'Loading...'}
                 </p>
               </div>
 
@@ -360,12 +296,17 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
                   className="h-10 w-10 rounded-xl"
                   style={{ border: `1px solid ${t.avatarBorder}` }}
                 >
-                  <AvatarImage src="" alt="Admin" />
+                  <AvatarImage
+                    src={user?.username ? `https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${user.username}_2` : ''}
+                    alt={user?.name ?? 'User'}
+                  />
                   <AvatarFallback
                     className="rounded-xl text-sm font-bold"
                     style={{ background: t.avatarGradient, color: t.avatarText }}
                   >
-                    NA
+                    {user?.name
+                      ? user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                      : 'NA'}
                   </AvatarFallback>
                 </Avatar>
                 {/* Online dot */}
@@ -390,11 +331,11 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* ── Content area ──────────────────────────────────────── */}
         {/*
-          Always renders children when provided.
-          Falls back to PlaceholderState when no children are passed.
-          The AnimatePresence key is "children" when content exists
-          and "placeholder" when it doesn't, giving a clean crossfade
-          when navigating between a page and the empty shell.
+          AnimatePresence mode="wait" exits the old page fully before the new
+          one enters. The key is the current pathname so Framer Motion treats
+          every route change as a distinct element swap.
+          The sidebar, header, and status bar are outside this wrapper so they
+          remain mounted and do not flicker or re-animate on navigation.
         */}
         <div
           className="flex-1 overflow-y-auto p-8"
@@ -404,19 +345,15 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
           }}
         >
           <AnimatePresence mode="wait">
-            {children != null ? (
-              <motion.div
-                key="page-content"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.28 }}
-              >
-                {children}
-              </motion.div>
-            ) : (
-              <PlaceholderState isDark={isDark} t={t} />
-            )}
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
+              {typeof children === 'function' ? children(isDark) : children}
+            </motion.div>
           </AnimatePresence>
         </div>
 
@@ -445,7 +382,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
               className="text-[10px] tracking-widest uppercase"
               style={{ color: t.statusText }}
             >
-              AduLive v2.0
+              AduLive v6.0
             </span>
           </div>
           <span
