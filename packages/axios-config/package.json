@@ -5,7 +5,8 @@
   "exports": {
     ".": "./index.ts",
     "./auth-service": "./auth-service.ts",
-    "./registrar-service": "./registrar-service.ts"
+    "./registrar-service": "./registrar-service.ts",
+    "./finance-service": "./finance-service.ts"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
