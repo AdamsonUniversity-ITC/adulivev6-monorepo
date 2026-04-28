@@ -1,9 +1,11 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
 export type AssessmentAllowedUser = {
-  id: number;
+  emp_no: string;
   name?: string | null;
   email?: string | null;
+  position?: string | null;
+  department?: string | null;
   role?: string | null;
 };
 

@@ -12,7 +12,6 @@ const latestTap = {
   name: 'Andrea Mikaela Santos',
   studentNumber: '2021-10458',
   program: 'BS Computer Science',
-  gate: 'Main Gate - North Reader',
   avatarUrl:
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=420&q=80',
 };
@@ -96,10 +95,7 @@ function CampusTrackDisplay() {
                   </Avatar>
                 </div>
 
-                <div className="rounded-lg border border-white/10 bg-white/10 p-4">
-                  <p className="text-sm text-slate-300">Reader location</p>
-                  <p className="mt-1 text-xl font-semibold">{latestTap.gate}</p>
-                </div>
+                <div />
               </div>
 
               <div className="flex min-h-0 flex-col justify-center p-6 sm:p-8 lg:p-12">

@@ -2,11 +2,7 @@ import { createContext, JSX, useState } from 'react';
 
 type DocumentManagementContextType = {
   selectedGroup: string | null;
-  setSelectedGroup: React.Dispatch<React.SetStateAction<string | null>>;
-  selectedDocument: string | null;
-  setSelectedDocument: React.Dispatch<React.SetStateAction<string | null>>;
-  selectedPackage: string | null;
-  setSelectedPackage: React.Dispatch<React.SetStateAction<string | null>>;
+  setSelectedGroup: (next: string | null) => void;
 };
 
 export const DocumentManagementContext =
@@ -18,18 +14,12 @@ export const DocumentMangementProvider = ({
   children: JSX.Element;
 }) => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
 
   return (
     <DocumentManagementContext.Provider
       value={{
         selectedGroup,
         setSelectedGroup,
-        selectedDocument,
-        setSelectedDocument,
-        selectedPackage,
-        setSelectedPackage,
       }}
     >
       {children}
