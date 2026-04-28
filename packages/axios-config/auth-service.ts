@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from './env';
+import { buildLoginUrl } from './login-url';
 
 export const authSvc = axios.create({
   baseURL: env.authService,
@@ -8,14 +9,12 @@ export const authSvc = axios.create({
   withXSRFToken: true,
 });
 
-// authSvc.interceptors.response.use(
-//   function onFulfilled(response) {
-//     return response;
-//   },
-//   function onRejected(error) {
-//     if (error.status === 401) {
-//       window.location.href = `${env.aduLive}login`;
-//     }
-//     return Promise.reject(error);
-//   },
-// );
+authSvc.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.location.assign(buildLoginUrl());
+    }
+    return Promise.reject(error);
+  },
+);

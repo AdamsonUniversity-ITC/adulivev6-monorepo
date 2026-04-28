@@ -40,7 +40,7 @@ import { editDocument } from '../-lib/api/editDocument.ts';
 import { fetchDocument } from '../-lib/api/fetchDocument.ts';
 import { fetchDocuments } from '../-lib/api/fetchDocuments.ts';
 import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
-import { Route } from '../index.tsx';
+import { useMaintenanceLoaderData } from '../-maintenance-loader-data-context.tsx';
 
 interface Document {
   value: string;
@@ -54,6 +54,7 @@ const new_document_schema = z.object({
     .max(255),
   price: z.coerce.number().min(0).max(999999999),
   is_active: z.boolean(),
+  allow_multiple_per_request: z.boolean(),
 });
 
 const AddDocumentDialog = () => {
@@ -65,6 +66,7 @@ const AddDocumentDialog = () => {
       document_name: '',
       price: 0,
       is_active: true,
+      allow_multiple_per_request: true,
     },
   });
 
@@ -114,6 +116,11 @@ const AddDocumentDialog = () => {
               label="Active"
               desc="Temporarily enable/disable this document. "
             />
+            <FormCheckbox
+              form={form}
+              name="allow_multiple_per_request"
+              label="Allow multiple in one request (otherwise one copy per submission)"
+            />
 
             <div className="flex justify-end gap-3 pt-4">
               <Button disabled={newDocument.isPending}>Add Document</Button>
@@ -141,6 +148,7 @@ const document_schema = z.object({
     unenrolled: z.coerce.boolean(),
   }),
   is_active: z.coerce.boolean(),
+  allow_multiple_per_request: z.coerce.boolean(),
 });
 
 const DocumentDetails = () => {
@@ -175,6 +183,8 @@ const DocumentDetails = () => {
           unenrolled: false,
         },
         is_active: data.is_active,
+        allow_multiple_per_request:
+          data.allow_multiple_per_request !== false,
       });
 
       data.rules?.forEach((rule) => {
@@ -274,6 +284,14 @@ const DocumentDetails = () => {
               </div>
 
               <div className="space-y-2">
+                <FormCheckbox
+                  form={form}
+                  name="allow_multiple_per_request"
+                  label="Allow multiple in one request (otherwise one copy per submission)"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <p className="text-sm">Rules</p>
                 <Separator className="my-4" />
                 <FormCheckbox
@@ -335,7 +353,7 @@ export const DocumentSelector = (): JSX.Element => {
     setSelectedGroup,
     selectedDocument,
   } = useContext(DocumentManagementContext);
-  const { access } = Route.useLoaderData();
+  const { access } = useMaintenanceLoaderData();
   const { data, isFetching } = useQuery({
     refetchOnWindowFocus: false,
     queryKey: ['documents', selectedGroup],

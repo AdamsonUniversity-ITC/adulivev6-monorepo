@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance/index'
+import { Route as ApplyIndexRouteImport } from './routes/apply/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +23,39 @@ const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
   path: '/maintenance/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApplyIndexRoute = ApplyIndexRouteImport.update({
+  id: '/apply/',
+  path: '/apply/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/apply/': typeof ApplyIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/apply': typeof ApplyIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/apply/': typeof ApplyIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/maintenance/'
+  fullPaths: '/' | '/apply/' | '/maintenance/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/maintenance'
-  id: '__root__' | '/' | '/maintenance/'
+  to: '/' | '/apply' | '/maintenance'
+  id: '__root__' | '/' | '/apply/' | '/maintenance/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApplyIndexRoute: typeof ApplyIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
 }
 
@@ -65,11 +75,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaintenanceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/apply/': {
+      id: '/apply/'
+      path: '/apply'
+      fullPath: '/apply/'
+      preLoaderRoute: typeof ApplyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApplyIndexRoute: ApplyIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,12 +1,12 @@
-import { authSvc, env } from '@repo/axios-config';
+import { authSvc, buildLoginUrl } from '@repo/axios-config';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/about')({
   component: About,
   beforeLoad: async () => {
     authSvc.get('user').catch((error) => {
-      if (error.status === 401) {
-        window.location.href = `${env.aduLive}login?redirect-url=${window.location}`;
+      if (error.response?.status === 401) {
+        window.location.assign(buildLoginUrl({ returnTo: window.location.href }));
       }
     });
   },
