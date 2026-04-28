@@ -1,9 +1,15 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
-export const createDocumentGroup = async (newDocumentGroup, access) => {
+export type CreateDocumentGroupPayload = {
+  group_name: string;
+};
+
+export const createDocumentGroup = async (
+  payload: CreateDocumentGroupPayload,
+) => {
   const response = await registrarSvc.post(
     `v1/drs/document-groups/create-document-group`,
-    newDocumentGroup,
+    payload,
   );
   return response?.data;
 };

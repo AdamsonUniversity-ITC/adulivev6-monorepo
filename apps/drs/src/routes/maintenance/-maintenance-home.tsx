@@ -9,6 +9,7 @@ import { JSX, useState } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
 import { AssessmentSheet } from './-assessment-sheet.tsx';
 import { ClearanceSheet } from './-clearance-sheet.tsx';
+import { WorkflowSheet } from './-workflow-sheet.tsx';
 import {
   MaintenanceLoaderDataProvider,
   type MaintenanceLoaderAccess,
@@ -20,12 +21,7 @@ type Step = {
 };
 
 const steps: Step[] = [
-  {
-    label: 'Application',
-    component: <ApplicationSheet />,
-  },
-  { label: 'Clearance', component: <ClearanceSheet /> },
-  { label: 'Assessment', component: <AssessmentSheet /> },
+  { label: 'Workflow', component: <WorkflowSheet /> },
 ];
 
 export function MaintenanceHome({ access }: { access: MaintenanceLoaderAccess }) {
