@@ -33,14 +33,14 @@ import z from 'zod';
 import { createDocumentGroup } from '../-lib/api/createDocumentGroup.ts';
 import { fetchDocumentGroups } from '../-lib/api/fetchDocumentGroups.ts';
 import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
-import { Route } from '../index.tsx';
+import { useMaintenanceLoaderData } from '../-maintenance-loader-data-context.tsx';
 
 const form_schema = z.object({
   group_name: z.string().min(1, { message: 'This field is required' }),
 });
 
 const DisplayGroupDialog = () => {
-  const { access } = Route.useLoaderData();
+  const { access } = useMaintenanceLoaderData();
   const queryClient = useQueryClient();
 
   const form = useForm({
@@ -97,7 +97,7 @@ const DisplayGroupDialog = () => {
 };
 
 export const DisplayGroup = () => {
-  const { access } = Route.useLoaderData();
+  const { access } = useMaintenanceLoaderData();
   const { data, isLoading } = useQuery({
     refetchOnWindowFocus: false,
     refetchOnMount: false,

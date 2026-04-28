@@ -39,7 +39,7 @@ import { editPackage } from '../-lib/api/editPackage.ts';
 import { fetchPackage } from '../-lib/api/fetchPackage.ts';
 import { fetchPackages } from '../-lib/api/fetchPackages.ts';
 import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
-import { Route } from '../index.tsx';
+import { useMaintenanceLoaderData } from '../-maintenance-loader-data-context.tsx';
 
 const new_package_schema = z.object({
   package_name: z
@@ -48,6 +48,7 @@ const new_package_schema = z.object({
     .max(255),
   price: z.coerce.number().min(0).max(999999999),
   is_active: z.boolean(),
+  allow_multiple_per_request: z.boolean(),
 });
 
 export const PackageSelector = (): JSX.Element => {
@@ -56,7 +57,7 @@ export const PackageSelector = (): JSX.Element => {
   const { selectedGroup, setSelectedPackage, selectedPackage } = useContext(
     DocumentManagementContext,
   );
-  const { access } = Route.useLoaderData();
+  const { access } = useMaintenanceLoaderData();
   const { data, isFetching } = useQuery({
     refetchOnWindowFocus: false,
     queryKey: ['packages', selectedGroup],
@@ -162,6 +163,7 @@ const AddPackageDialog = () => {
       package_name: '',
       price: 0,
       is_active: true,
+      allow_multiple_per_request: true,
     },
   });
 
@@ -211,6 +213,11 @@ const AddPackageDialog = () => {
               label="Active"
               desc="Temporarily enable/disable this package. "
             />
+            <FormCheckbox
+              form={form}
+              name="allow_multiple_per_request"
+              label="Allow multiple in one request (otherwise one copy per submission)"
+            />
 
             <div className="flex justify-end gap-3 pt-4">
               <Button disabled={newDocument.isPending}>Add Package</Button>
@@ -238,6 +245,7 @@ const package_schema = z.object({
     unenrolled: z.coerce.boolean(),
   }),
   is_active: z.coerce.boolean(),
+  allow_multiple_per_request: z.coerce.boolean(),
 });
 
 const PackageDetails = () => {
@@ -254,6 +262,7 @@ const PackageDetails = () => {
     queryKey: ['package', selectedPackage?.id],
     queryFn: () => fetchPackage(selectedPackage.id),
     enabled: !!selectedPackage?.id,
+    retry: false,
   });
 
   const mutation = useMutation({
@@ -272,6 +281,8 @@ const PackageDetails = () => {
           unenrolled: false,
         },
         is_active: data.is_active,
+        allow_multiple_per_request:
+          data.allow_multiple_per_request !== false,
       });
 
       data.rules?.forEach((rule) => {
@@ -286,10 +297,6 @@ const PackageDetails = () => {
     mutation.mutate(formValues, {
       onSuccess: () => {
         toast.success('Document updated successfully.');
-        queryClient.invalidateQueries({
-          queryKey: [`packages`, selectedGroup],
-        });
-
         queryClient.invalidateQueries({
           queryKey: [`packages`, selectedGroup],
         });
@@ -368,6 +375,14 @@ const PackageDetails = () => {
                     {isActive ? 'Deactivate' : 'Activate'}
                   </Button>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <FormCheckbox
+                  form={form}
+                  name="allow_multiple_per_request"
+                  label="Allow multiple in one request (otherwise one copy per submission)"
+                />
               </div>
 
               <div className="space-y-2">
