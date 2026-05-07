@@ -21,21 +21,26 @@ import {
 } from 'lucide-react';
 import { budgetsettingsRoute } from '../../router.tsx';
 import { financeSvc } from '@repo/axios-config/finance-service';
+import { useRouter } from '@tanstack/react-router';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Zod schema
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Reusable school year validator ─────────────────────────────────────────
+const schoolYearSchema = z
+  .string()
+  .min(1, 'School year is required')
+  .regex(/^\d{4}-\d{4}$/, 'Format must be YYYY-YYYY (e.g. 2025-2026)')
+  .refine(
+    (val) => {
+      const [start, end] = val.split('-').map(Number);
+      return end === start + 1;
+    },
+    { message: 'The second year must be exactly 1 year after the first (e.g. 2025-2026)' }
+  );
 
+// ── Schema ──────────────────────────────────────────────────────────────────
 const budgetSettingsSchema = z
   .object({
-    schoolYear: z
-      .string()
-      .min(1, 'School year is required')
-      .regex(/^\d{4}-\d{4}$/, 'Format must be YYYY-YYYY (e.g. 2025-2026)'),
-    proposalSchoolYear: z
-      .string()
-      .min(1, 'Proposal entry school year is required')
-      .regex(/^\d{4}-\d{4}$/, 'Format must be YYYY-YYYY (e.g. 2025-2026)'),
+    schoolYear: schoolYearSchema,
+    proposalSchoolYear: schoolYearSchema,
     allowFrom: z.string().min(1, 'Start date is required'),
     allowTo: z.string().min(1, 'End date is required'),
   })
@@ -105,6 +110,7 @@ const T = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BudgetSettings() {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const { data } = budgetsettingsRoute.useLoaderData();
 
@@ -132,6 +138,7 @@ export default function BudgetSettings() {
         allow_entry_to: formData.allowTo,
       });
       setIsEditing(false);
+      await router.invalidate();
       toast.success('Budget settings saved', {
         description: 'Configuration has been updated successfully.',
       });
