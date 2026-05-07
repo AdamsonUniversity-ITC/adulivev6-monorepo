@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import { toast, Toaster } from 'sonner';
 import { financeSvc } from '@repo/axios-config/finance-service';
+import { budgetstatusRoute } from '../../router.tsx';
 import {
     Save, Plus, Trash2, RotateCcw, Loader2, AlertTriangle,
 } from 'lucide-react';
@@ -155,36 +156,22 @@ function emptyRow(): RowState {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BudgetStatus() {
-    const [rows, setRows] = useState<RowState[]>([]);
-    const [loading, setLoading] = useState(true);
+    const loaderData = budgetstatusRoute.useLoaderData();
+
+    const originalRef = useRef<BudgetStatus[]>(loaderData.data as BudgetStatus[]);
+    const [rows, setRows] = useState<RowState[]>(() =>
+        (loaderData.data as BudgetStatus[]).map(toRowState)
+    );
+    const [loading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [confirmReset, setConfirmReset] = useState(false);
     const [deleteKey, setDeleteKey] = useState<string | null>(null);
-    const originalRef = useRef<BudgetStatus[]>([]);
 
     const rowSchema = z.object({
         status_no: z.string()
             .min(1, 'Status No. is required')
             .refine(val => /^\d+$/.test(val.trim()), 'Status No. must be a whole number'),
     });
-
-    // ── Fetch ──────────────────────────────────────────────────────────────────
-
-    const fetchAll = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await financeSvc.get('/abms/budget-status');
-            const data: BudgetStatus[] = res.data;
-            originalRef.current = data;
-            setRows(data.map(toRowState));
-        } catch {
-            toast.error('Failed to load budget status records.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => { fetchAll(); }, [fetchAll]);
 
     // ── Cell change ───────────────────────────────────────────────────────────
 

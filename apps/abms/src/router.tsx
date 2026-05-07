@@ -5,11 +5,14 @@ import Test from './pages/Test';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import MaintenanceScreen from './pages/MaintenanceScreen';
 import BudgetSettings from './pages/administration/BudgetSettings.tsx';
-import Sections from './pages/administration/Sections.tsx';
 import OfficeSupplies from './pages/administration/OfficeSupplies.tsx';
 import MainAccount from './pages/administration/MainAccount.tsx';
 import SubAccounts from './pages/administration/SubAccounts.tsx';
 import BudgetStatus from './pages/administration/BudgetStatus.tsx';
+import Department from './pages/administration/Department.tsx';
+import UserAccess from './pages/administration/UserAccess.tsx';
+import { authSvc } from '@repo/axios-config/auth-service';
+import BudgetProposalEntry from './pages/transactions/BudgetProposalEntry.tsx';
 
 
 const rootRoute = new RootRoute({
@@ -25,12 +28,22 @@ const protectedRoute = new Route({
         } catch (error: any) {
             if (error.response?.status === 401) {
                 window.location.href = 'http://localhost.test:8081/login';
-                await new Promise(() => { });
+                await new Promise(() => {});
             }
             if (error.response?.status === 503) {
                 window.location.href = '/maintenance';
-                await new Promise(() => { });
+                await new Promise(() => {});
             }
+        }
+
+        // Fetch user once here, pass it down as context
+        try {
+            const authRes = await authSvc.get('/user');
+            const username = authRes.data.username;
+            const nameRes = await financeSvc.get(`/user/${username}`);
+            return { user: { username, ...nameRes.data } };
+        } catch {
+            return { user: null };
         }
     },
     component: () => <Outlet />,
@@ -65,14 +78,33 @@ export const budgetstatusRoute = new Route({
     component: BudgetStatus,
 });
 
-export const sectionsRoute = new Route({
+export const departmentRoute = new Route({
     getParentRoute: () => protectedRoute,
-    path: '/admin/sections',
-    // loader: async () => {
-    //     const response = await financeSvc.get('/abms/sections');
-    //     return { data: response.data };  
-    // },
-    component: Sections,
+    path: '/admin/department',
+    loader: async () => {
+        const response = await financeSvc.get('/abms/department');
+        return { data: response.data };  
+    },
+    component: Department,
+});
+
+export const userdepartmentRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/admin/user-department-access',
+    loader: async () => {
+        const [permissionsRes, departmentsRes, usersRes] = await Promise.all([
+            authSvc.get('/abms-permissions'),
+            financeSvc.get('/abms/department'), 
+            financeSvc.get('/abms/access'),
+        ]);
+
+        return {
+            data: permissionsRes.data,
+            departments: departmentsRes.data,
+            users:       usersRes.data,
+        };
+    },
+    component: UserAccess,
 });
 
 export const officeSuppliesRoute = new Route({
@@ -108,6 +140,28 @@ export const subAccountsRoute = new Route({
     component: SubAccounts,
 });
 
+export const budgetproposalentryRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/transactions/budget-proposal-entry',
+    loader: async ({ context }) => {
+        const { user } = context;
+
+        // 1. Fetch permissions first
+        const permissionsRes = await authSvc.get('/abms-permissions');
+        const permissions = permissionsRes.data.permissions; 
+
+        // 2. Pass it along to the finance service
+        const response = await financeSvc.get('/abms/budget-proposal-entry', {
+            params: {
+                username: user.username,
+                permissions,
+            },
+        });
+
+        return { data: response.data };
+    },
+    component: BudgetProposalEntry,
+});
 export const testRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/test',
@@ -131,7 +185,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, sectionsRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);

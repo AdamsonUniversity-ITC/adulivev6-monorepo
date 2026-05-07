@@ -6,7 +6,7 @@ import Sidebar from '../components/Sidebar';
 import { authSvc } from '@repo/axios-config/auth-service';
 import { financeSvc } from '@repo/axios-config';
 import { useTheme } from '../context/ThemeContext';
-import { useRouterState } from '@tanstack/react-router';  // ← added
+import { useRouterState, useRouteContext } from '@tanstack/react-router';  
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -183,6 +183,7 @@ const ThemeToggle: React.FC<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
+  const { user } = useRouteContext({ strict: false });
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const { isDark, toggleTheme } = useTheme();
   const t = isDark ? L.dark : L.light;
@@ -191,20 +192,6 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
   //   exits the old page and enters the new one. The sidebar, header, and
   //   status bar are outside AnimatePresence so they stay mounted/untouched.
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-
-  const [user, setUser] = useState<{ name: string; username: string; role: string; avatar?: string } | null>(null);
-
-  useEffect(() => {
-    authSvc.get('/user')
-      .then(res => {
-        const username = res.data.username;
-        return financeSvc.get(`/user/${username}`)
-          .then(nameRes => ({ username, ...nameRes.data }));
-      })
-      .then(merged => setUser(merged))
-      .catch(() => setUser(null));
-  }, []);
-
   console.log(user);
   return (
     <motion.div

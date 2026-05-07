@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,6 +27,7 @@ import {
   MoreHorizontal, Eye,
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
+import { officeSuppliesRoute } from '../../router';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -133,7 +134,9 @@ const T = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function OfficeSupplies() {
-  const [page, setPage] = useState<CursorPage | null>(null);
+  const loaderData = officeSuppliesRoute.useLoaderData();
+
+  const [page, setPage] = useState<CursorPage | null>(loaderData.data as CursorPage);
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
@@ -185,7 +188,13 @@ export default function OfficeSupplies() {
     setCursorIdx(0);
   }, [search, sortDir]);
 
+  const hasMounted = useRef(false);
+
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
     fetchPage(cursors[cursorIdx]);
   }, [cursors, cursorIdx, fetchPage]);
 
