@@ -16,29 +16,53 @@ import { financeSvc } from '@repo/axios-config';
 import { useRouteContext } from '@tanstack/react-router';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// These permissions are stored directly on the user (user_general_permissions),
+// not tied to any department or section.
+// ─────────────────────────────────────────────────────────────────────────────
+const GENERAL_PERMISSION_NAMES = [
+  'budget-access',
+  'admin-access',
+  'logistics-access',
+  'stockroom-access',
+  'cashier-access',
+  'accounting-access',
+] as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Zod schema
 // ─────────────────────────────────────────────────────────────────────────────
-const userAccessSchema = z.object({
-  emp_no: z.string(),
-  proposal_permission_id: z.union([z.string(), z.number()]).nullable().optional(),
-  departments: z
-    .array(z.object({
-      id: z.union([z.string(), z.number()]),
-      name: z.string(),
-      kind: z.enum(['Department', 'Section']),
-      permissions: z
-        .array(z.union([z.string(), z.number()]))
-        .min(1, 'At least one permission must be selected per department/section.'),
-      proposal_entry: z.union([
-        z.object({
-          from: z.string().min(1, 'Start date is required.'),
-          to: z.string().min(1, 'End date is required.'),
-        }),
-        z.null(),
-      ]),
-    }))
-    .min(1, 'At least one department or section must be assigned.'),
-});
+const userAccessSchema = z
+  .object({
+    emp_no: z.string(),
+    proposal_permission_id: z.union([z.string(), z.number()]).nullable().optional(),
+    general_permissions: z.array(z.union([z.string(), z.number()])).optional(),
+    departments: z
+      .array(z.object({
+        id: z.union([z.string(), z.number()]),
+        name: z.string(),
+        kind: z.enum(['Department', 'Section']),
+        permissions: z
+          .array(z.union([z.string(), z.number()]))
+          .min(1, 'At least one permission must be selected per department/section.'),
+        proposal_entry: z.union([
+          z.object({
+            from: z.string().min(1, 'Start date is required.'),
+            to: z.string().min(1, 'End date is required.'),
+          }),
+          z.null(),
+        ]),
+      }))
+      .optional(),
+  })
+  .refine(
+    (data) =>
+      (data.general_permissions?.length ?? 0) > 0 ||
+      (data.departments?.length ?? 0) > 0,
+    {
+      message: 'At least one general permission or department assignment is required.',
+      path: ['departments'],
+    }
+  );
 
 type FormErrors = Partial<Record<
   'departments' | string,
@@ -49,6 +73,7 @@ type FormErrors = Partial<Record<
 // Toast
 // ─────────────────────────────────────────────────────────────────────────────
 interface ToastData {
+  id: number;
   emp_no: string;
   type: 'success' | 'error';
   message: string;
@@ -177,6 +202,9 @@ const T = {
     badgeBg: 'rgba(37, 99, 235, 0.20)',
     badgeBorder: 'rgba(99, 155, 255, 0.40)',
     badgeText: '#93c5fd',
+    // General permission section
+    generalSectionBg: 'rgba(99, 155, 255, 0.06)',
+    generalSectionBorder: 'rgba(99, 155, 255, 0.20)',
   },
   light: {
     titleColor: '#0f172a',
@@ -240,6 +268,9 @@ const T = {
     badgeBg: 'rgba(37, 99, 235, 0.10)',
     badgeBorder: 'rgba(37, 99, 235, 0.30)',
     badgeText: '#1d4ed8',
+    // General permission section
+    generalSectionBg: 'rgba(37, 99, 235, 0.04)',
+    generalSectionBorder: 'rgba(37, 99, 235, 0.15)',
   },
 };
 
@@ -294,6 +325,7 @@ interface ExistingAccessEntry {
   permissions: (number | string)[];
   proposal_entry: { from: string; to: string } | null;
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // User Management Modal
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,6 +340,7 @@ function UserManagementModal({
   onToast,
   onUserSaved,
   existingAccess,
+  existingGeneralPermissions,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -319,8 +352,20 @@ function UserManagementModal({
   onToast: (type: 'success' | 'error', message: string) => void;
   onUserSaved?: () => void;
   existingAccess: ExistingAccessEntry[] | null;
+  existingGeneralPermissions: (string | number)[] | null;
 }) {
   const t = isDark ? T.dark : T.light;
+
+  // Split permissions into general (user-level) vs. department-bound
+  const generalPermissions = permissions.filter((p) =>
+    GENERAL_PERMISSION_NAMES.includes(p.name as typeof GENERAL_PERMISSION_NAMES[number])
+  );
+  const deptPermissions = permissions.filter(
+    (p) => !GENERAL_PERMISSION_NAMES.includes(p.name as typeof GENERAL_PERMISSION_NAMES[number])
+  );
+
+  // General (user-level) permission toggles
+  const [generalPerms, setGeneralPerms] = useState<Record<string | number, boolean>>({});
 
   // Per-dept permissions: key = `${kind}-${id}`, value = Record<permId, bool>
   const [deptPerms, setDeptPerms] = useState<Record<string, Record<string | number, boolean>>>({});
@@ -342,6 +387,10 @@ function UserManagementModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
 
+  const hasExistingAccess =
+    (existingAccess && existingAccess.length > 0) ||
+    (existingGeneralPermissions && existingGeneralPermissions.length > 0);
+
   const handleRemoveAll = async () => {
     if (!teacher) return;
     setIsRemoving(true);
@@ -359,14 +408,14 @@ function UserManagementModal({
 
   const deptKey = (item: DeptOrSection) => `${item.kind}-${item.id}`;
 
-  // When a dept is added initialise its permission map
+  // When a dept is added, initialise its permission map (dept-level perms only)
   const addDept = (item: DeptOrSection) => {
     const key = deptKey(item);
     setSelectedDepts((prev) => [...prev, item]);
     setDeptPerms((prev) => {
       if (prev[key]) return prev;
       const init: Record<string | number, boolean> = {};
-      permissions.forEach((p) => { init[p.id] = false; });
+      deptPermissions.forEach((p) => { init[p.id] = false; });
       return { ...prev, [key]: init };
     });
     setCollapsedDepts((prev) => ({ ...prev, [key]: false }));
@@ -391,12 +440,15 @@ function UserManagementModal({
   const toggleAllDeptPerms = (key: string) => {
     setDeptPerms((prev) => {
       const current = prev[key] ?? {};
-      const allOn = permissions.every((p) => current[p.id]);
+      const allOn = deptPermissions.every((p) => current[p.id]);
       const next: Record<string | number, boolean> = {};
-      permissions.forEach((p) => { next[p.id] = !allOn; });
+      deptPermissions.forEach((p) => { next[p.id] = !allOn; });
       return { ...prev, [key]: next };
     });
+  };
 
+  const toggleGeneralPerm = (permId: string | number) => {
+    setGeneralPerms((prev) => ({ ...prev, [permId]: !prev[permId] }));
   };
 
   useEffect(() => {
@@ -406,8 +458,24 @@ function UserManagementModal({
       setErrors({});
       setIsSaving(false);
 
+      // ── Rehydrate general (user-level) permissions ──
+      const gInit: Record<string | number, boolean> = {};
+      permissions.forEach((p) => {
+        if (GENERAL_PERMISSION_NAMES.includes(p.name as typeof GENERAL_PERMISSION_NAMES[number])) {
+          gInit[p.id] = false;
+        }
+      });
+      if (existingGeneralPermissions) {
+        existingGeneralPermissions.forEach((pid) => { gInit[pid] = true; });
+      }
+      setGeneralPerms(gInit);
+
       if (existingAccess && existingAccess.length > 0) {
-        // ── Edit mode: rehydrate from existing data ──
+        // ── Edit mode: rehydrate dept-level from existing data ──
+        const dPerms = permissions.filter(
+          (p) => !GENERAL_PERMISSION_NAMES.includes(p.name as typeof GENERAL_PERMISSION_NAMES[number])
+        );
+
         const depts: DeptOrSection[] = existingAccess.map((e) => {
           const list = e.kind === 'Department'
             ? deptData?.departments
@@ -424,7 +492,7 @@ function UserManagementModal({
         existingAccess.forEach((e) => {
           const key = `${e.kind}-${e.id}`;
           const init: Record<string | number, boolean> = {};
-          permissions.forEach((p) => { init[p.id] = false; });
+          dPerms.forEach((p) => { init[p.id] = false; });
           e.permissions.forEach((pid) => { init[pid] = true; });
           perms[key] = init;
           if (e.proposal_entry) {
@@ -448,20 +516,24 @@ function UserManagementModal({
         setSelectedDepts([]);
       }
     }
-  }, [isOpen, teacher, permissions, existingAccess]);
+  }, [isOpen, teacher, permissions, existingAccess, existingGeneralPermissions]);
 
-  const proposalPermId = permissions.find((p) => p.name === 'allow-budget-proposal-entry')?.id;
+  const proposalPermId = deptPermissions.find((p) => p.name === 'allow-budget-proposal-entry')?.id;
 
-  // Counts helper
+  // Counts helper (dept-level only)
   const deptCheckedCount = (key: string) =>
     Object.values(deptPerms[key] ?? {}).filter(Boolean).length;
   const deptAllChecked = (key: string) =>
-    permissions.length > 0 && deptCheckedCount(key) === permissions.length;
+    deptPermissions.length > 0 && deptCheckedCount(key) === deptPermissions.length;
   const deptSomeChecked = (key: string) =>
     deptCheckedCount(key) > 0 && !deptAllChecked(key);
 
-  // Total granted across all depts (for header badge)
-  const totalGranted = selectedDepts.reduce((sum, d) => sum + deptCheckedCount(deptKey(d)), 0);
+  const generalGrantedCount = Object.values(generalPerms).filter(Boolean).length;
+
+  // Total granted across all depts + general (for header badge)
+  const totalGranted =
+    generalGrantedCount +
+    selectedDepts.reduce((sum, d) => sum + deptCheckedCount(deptKey(d)), 0);
 
   // Merge & sort departments + sections alphabetically
   const mergedList: DeptOrSection[] = [
@@ -473,19 +545,22 @@ function UserManagementModal({
     ? mergedList.filter((item) => item.name.toLowerCase().includes(deptSearch.trim().toLowerCase()))
     : mergedList;
 
-
   const handleSave = async () => {
     if (!teacher) return;
 
+    const generalPermissionsPayload = generalPermissions
+      .filter((p) => generalPerms[p.id])
+      .map((p) => p.id);
+
     const departmentsPayload = selectedDepts.map((dept) => {
       const key = deptKey(dept);
-      const granted = permissions.filter((p) => deptPerms[key]?.[p.id]).map((p) => p.id);
+      const granted = deptPermissions.filter((p) => deptPerms[key]?.[p.id]).map((p) => p.id);
       const isProposalOn = proposalPermId !== undefined && !!deptPerms[key]?.[proposalPermId];
       return {
-        id: dept.id,
+        id: String(dept.id),        // ← ensure string
         name: dept.name,
         kind: dept.kind,
-        permissions: granted,
+        permissions: granted.map(String),  // ← ensure strings
         proposal_entry: isProposalOn
           ? { from: deptProposalFrom[key] ?? '', to: deptProposalTo[key] ?? '' }
           : null,
@@ -493,8 +568,9 @@ function UserManagementModal({
     });
 
     const payload = {
-      emp_no: teacher.emp_no,
+      emp_no: String(teacher.emp_no),   // ← ensure string
       proposal_permission_id: proposalPermId ?? null,
+      general_permissions: generalPermissionsPayload.map(String),
       departments: departmentsPayload,
     };
 
@@ -506,22 +582,21 @@ function UserManagementModal({
       for (const issue of result.error.issues) {
         const path = issue.path.join('.');
         if (path === 'departments') fieldErrors.departments = issue.message;
-        // per-dept: departments.0.permissions → capture index
         const deptPermMatch = path.match(/^departments\.(\d+)\.permissions/);
         if (deptPermMatch) {
           const idx = Number(deptPermMatch[1]);
           const d = selectedDepts[idx];
           if (d) fieldErrors[`dept_${deptKey(d)}_permissions`] = issue.message;
         }
-        const deptProposalFrom = path.match(/^departments\.(\d+)\.proposal_entry\.from/);
-        if (deptProposalFrom) {
-          const idx = Number(deptProposalFrom[1]);
+        const deptProposalFromMatch = path.match(/^departments\.(\d+)\.proposal_entry\.from/);
+        if (deptProposalFromMatch) {
+          const idx = Number(deptProposalFromMatch[1]);
           const d = selectedDepts[idx];
           if (d) fieldErrors[`dept_${deptKey(d)}_proposal_from`] = issue.message;
         }
-        const deptProposalTo = path.match(/^departments\.(\d+)\.proposal_entry\.to/);
-        if (deptProposalTo) {
-          const idx = Number(deptProposalTo[1]);
+        const deptProposalToMatch = path.match(/^departments\.(\d+)\.proposal_entry\.to/);
+        if (deptProposalToMatch) {
+          const idx = Number(deptProposalToMatch[1]);
           const d = selectedDepts[idx];
           if (d) fieldErrors[`dept_${deptKey(d)}_proposal_to`] = issue.message;
         }
@@ -535,13 +610,11 @@ function UserManagementModal({
     // ── API call ─────────────────────────────────────────────────────────────
     setIsSaving(true);
     try {
-      const { data } = await financeSvc.post('/abms/access/users', result.data);
-      // console.log('Store response:', data);
+      await financeSvc.post('/abms/access/users', result.data);
       onToast('success', 'User access saved successfully.');
       onUserSaved?.();
       onClose();
-    } catch (err) {
-      // console.error('Failed to save user access:', err);
+    } catch {
       onToast('error', 'Failed to save user access. Please try again.');
     } finally {
       setIsSaving(false);
@@ -578,7 +651,7 @@ function UserManagementModal({
             <span className="text-sm font-semibold tracking-wide" style={{ color: t.resultNameText }}>
               Manage User Permissions
             </span>
-            {existingAccess && existingAccess.length > 0 && (
+            {hasExistingAccess && (
               <span
                 className="text-xs font-semibold px-2 py-0.5 rounded-full"
                 style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
@@ -588,7 +661,6 @@ function UserManagementModal({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Back button */}
             <button
               onClick={onBack}
               className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-150"
@@ -597,539 +669,603 @@ function UserManagementModal({
                 color: t.backBtnText,
                 border: `1px solid ${t.backBtnBorder}`,
               }}
-              onMouseEnter={e =>
-                ((e.currentTarget as HTMLElement).style.background = t.backBtnHoverBg)
-              }
-              onMouseLeave={e =>
-                ((e.currentTarget as HTMLElement).style.background = t.backBtnBg)
-              }
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.backBtnHoverBg)}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = t.backBtnBg)}
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               Back
             </button>
-            {/* Close button */}
             <button
               onClick={onClose}
               className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150"
               style={{ color: t.cellMuted, background: 'transparent' }}
-              onMouseEnter={e =>
-                ((e.currentTarget as HTMLElement).style.background = t.resultRowHover)
-              }
-              onMouseLeave={e =>
-                ((e.currentTarget as HTMLElement).style.background = 'transparent')
-              }
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.resultRowHover)}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* ── User Profile Card ── */}
-        <div
-          className="px-6 py-5 flex items-center gap-4 shrink-0"
-          style={{ borderBottom: `1px solid ${t.dividerColor}` }}
-        >
-          {/* Avatar */}
-          <div
-            className="relative shrink-0"
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              boxShadow: `0 0 0 3px ${t.avatarRing}, 0 4px 16px rgba(37,99,235,0.25)`,
-            }}
-          >
-            <img
-              src={avatarSrc}
-              alt={teacher.full_name}
-              className="w-16 h-16 rounded-full object-cover"
-              onError={e => {
-                (e.currentTarget as HTMLImageElement).src = fallbackSrc;
-              }}
-            />
-          </div>
+        {/* ── Scrollable Body ── */}
+        <div className="overflow-y-auto flex-1 flex flex-col">
 
-          {/* Info */}
-          <div className="flex flex-col gap-1 min-w-0">
-            <span
-              className="text-base font-bold leading-tight truncate"
-              style={{ color: t.resultNameText }}
+          {/* ── User Profile Card ── */}
+          <div
+            className="px-6 py-5 flex items-center gap-4 shrink-0"
+            style={{ borderBottom: `1px solid ${t.dividerColor}` }}
+          >
+            <div
+              className="relative shrink-0"
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                boxShadow: `0 0 0 3px ${t.avatarRing}, 0 4px 16px rgba(37,99,235,0.25)`,
+              }}
             >
-              {teacher.full_name}
-            </span>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md"
-                style={{
-                  background: t.badgeBg,
-                  color: t.badgeText,
-                  border: `1px solid ${t.badgeBorder}`,
-                }}
-              >
-                {teacher.emp_no}
+              <img
+                src={avatarSrc}
+                alt={teacher.full_name}
+                className="w-16 h-16 rounded-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).src = fallbackSrc; }}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-base font-bold leading-tight truncate" style={{ color: t.resultNameText }}>
+                {teacher.full_name}
               </span>
-              {teacher.department && (
-                <span className="text-xs truncate" style={{ color: t.cellMuted }}>
-                  {teacher.department}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md"
+                  style={{ background: t.badgeBg, color: t.badgeText, border: `1px solid ${t.badgeBorder}` }}
+                >
+                  {teacher.emp_no}
                 </span>
-              )}
+                {teacher.department && (
+                  <span className="text-xs truncate" style={{ color: t.cellMuted }}>
+                    {teacher.department}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="ml-auto shrink-0 text-right">
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
+              >
+                {totalGranted} granted
+              </span>
+              <p className="text-xs mt-0.5" style={{ color: t.emptyText }}>
+                {generalGrantedCount > 0 && `${generalGrantedCount} general`}
+                {generalGrantedCount > 0 && selectedDepts.length > 0 && ', '}
+                {selectedDepts.length > 0 && `${selectedDepts.length} dept(s)`}
+                {generalGrantedCount === 0 && selectedDepts.length === 0 && 'none assigned'}
+              </p>
             </div>
           </div>
 
-          {/* Permission count badge */}
-          <div className="ml-auto shrink-0 text-right">
-            <span
-              className="text-xs font-semibold px-2.5 py-1 rounded-full"
+          {/* ── General (User-Level) Permissions ── */}
+          {generalPermissions.length > 0 && (
+            <div
+              className="px-6 py-4"
               style={{
-                background: t.pillBg,
-                color: t.pillText,
-                border: `1px solid ${t.pillBorder}`,
+                borderBottom: `1px solid ${t.dividerColor}`,
+                background: isDark ? T.dark.generalSectionBg : T.light.generalSectionBg,
               }}
             >
-              {totalGranted} granted
-            </span>
-            <p className="text-xs mt-0.5" style={{ color: t.emptyText }}>
-              across {selectedDepts.length} dept(s)
-            </p>
-          </div>
-        </div>
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" style={{ color: t.tableHeadText }} />
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
+                  User-Level Access
+                </p>
+                <span
+                  className="text-xs font-medium px-1.5 py-0.5 rounded-md ml-auto"
+                  style={{
+                    background: t.pillBg,
+                    color: t.pillText,
+                    border: `1px solid ${t.pillBorder}`,
+                  }}
+                >
+                  {generalGrantedCount}/{generalPermissions.length}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {generalPermissions.map((permission) => {
+                  const isChecked = !!generalPerms[permission.id];
+                  const displayLabel = permission.label ?? permission.name;
+                  return (
+                    <label
+                      key={permission.id}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-150"
+                      style={{
+                        background: isChecked
+                          ? (isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(219, 234, 254, 0.60)')
+                          : 'transparent',
+                        border: `1px solid ${isChecked
+                          ? (isDark ? 'rgba(99,155,255,0.25)' : 'rgba(37,99,235,0.20)')
+                          : 'transparent'}`,
+                      }}
+                      onMouseEnter={e =>
+                        !isChecked && ((e.currentTarget as HTMLElement).style.background = t.permRowHover)
+                      }
+                      onMouseLeave={e =>
+                        !isChecked && ((e.currentTarget as HTMLElement).style.background = 'transparent')
+                      }
+                    >
+                      <div className="relative shrink-0 flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleGeneralPerm(permission.id)}
+                          className="sr-only"
+                        />
+                        <div
+                          className="w-4 h-4 rounded flex items-center justify-center transition-all duration-150"
+                          style={{
+                            background: isChecked ? t.checkboxAccent : 'transparent',
+                            border: `2px solid ${isChecked ? t.checkboxAccent : t.inputBorder}`,
+                          }}
+                        >
+                          {isChecked && (
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        className="text-sm flex-1 leading-snug"
+                        style={{
+                          color: isChecked ? t.resultMetaText : t.resultNameText,
+                          fontWeight: isChecked ? 600 : 400,
+                        }}
+                      >
+                        {displayLabel}
+                      </span>
+                      {isChecked && (
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: t.checkboxAccent }} />
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-        {/* ── Assign Department / Section (multi-select) ── */}
-        <div
-          className="px-6 py-3 shrink-0"
-          style={{ borderBottom: `1px solid ${t.dividerColor}` }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
-              Assigned Department / Section
-            </p>
-            {selectedDepts.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  selectedDepts.forEach(removeDept);
+          {/* ── Assign Department / Section (multi-select) ── */}
+          <div
+            className="px-6 py-3"
+            style={{ borderBottom: `1px solid ${t.dividerColor}` }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
+                Assigned Department / Section
+              </p>
+              {selectedDepts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { selectedDepts.forEach(removeDept); }}
+                  className="text-xs font-medium transition-all duration-150"
+                  style={{ color: t.cellMuted }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = t.resultMetaText)}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = t.cellMuted)}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {/* Trigger button */}
+            <button
+              type="button"
+              onClick={() => setDeptPickerOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all duration-150"
+              style={{
+                background: t.inputBg,
+                border: `1px solid ${errors.departments ? '#f87171' : (deptPickerOpen ? t.inputBorderFocus : t.inputBorder)}`,
+                color: t.inputPlaceholder,
+                borderRadius: deptPickerOpen ? '0.75rem 0.75rem 0 0' : '0.75rem',
+              }}
+            >
+              <span className="text-sm">
+                {selectedDepts.length === 0 ? 'Select departments or sections…' : 'Add more…'}
+              </span>
+              {deptPickerOpen
+                ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
+                : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
+              }
+            </button>
+
+            {errors.departments && (
+              <p className="flex items-center gap-1 mt-1.5 text-xs font-medium" style={{ color: '#f87171' }}>
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                {errors.departments}
+              </p>
+            )}
+
+            {/* Dropdown list */}
+            {deptPickerOpen && (
+              <div
+                style={{
+                  background: t.inputBg,
+                  border: `1px solid ${t.inputBorder}`,
+                  borderTop: 'none',
+                  borderRadius: '0 0 0.75rem 0.75rem',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
                 }}
-                className="text-xs font-medium transition-all duration-150"
-                style={{ color: t.cellMuted }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = t.resultMetaText)}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = t.cellMuted)}
               >
-                Clear all
-              </button>
+                {/* Search inside dropdown */}
+                <div className="px-3 py-2" style={{ borderBottom: `1px solid ${t.dividerColor}` }}>
+                  <div className="relative">
+                    <Search
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+                      style={{ color: t.inputPlaceholder }}
+                    />
+                    <input
+                      type="text"
+                      value={deptSearch}
+                      onChange={(e) => setDeptSearch(e.target.value)}
+                      placeholder="Search…"
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-150"
+                      style={{
+                        background: t.resultRowBg,
+                        border: `1px solid ${t.inputBorder}`,
+                        color: t.inputText,
+                      }}
+                      onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorderFocus)}
+                      onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorder)}
+                    />
+                  </div>
+                </div>
+
+                {filteredList.length === 0 ? (
+                  <div className="flex items-center justify-center py-6">
+                    <span className="text-xs" style={{ color: t.emptyText }}>No results found.</span>
+                  </div>
+                ) : (
+                  filteredList.map((item, idx) => {
+                    const isSelected = selectedDepts.some((d) => d.id === item.id && d.kind === item.kind);
+                    const isDept = item.kind === 'Department';
+                    return (
+                      <div
+                        key={`${item.kind}-${item.id}`}
+                        onClick={() => { if (isSelected) removeDept(item); else addDept(item); }}
+                        className="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer transition-all duration-150"
+                        style={{
+                          background: isSelected
+                            ? (isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.80)')
+                            : 'transparent',
+                          borderBottom: idx < filteredList.length - 1 ? `1px solid ${t.resultRowBorder}` : 'none',
+                        }}
+                        onMouseEnter={e => {
+                          if (!isSelected) (e.currentTarget as HTMLElement).style.background = t.resultRowHover;
+                        }}
+                        onMouseLeave={e => {
+                          if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                        }}
+                      >
+                        <div
+                          className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-all duration-150"
+                          style={{
+                            background: isSelected ? t.checkboxAccent : 'transparent',
+                            border: `2px solid ${isSelected ? t.checkboxAccent : t.inputBorder}`,
+                          }}
+                        >
+                          {isSelected && (
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                        {isDept
+                          ? <Building2 className="w-3.5 h-3.5 shrink-0" style={{ color: isDark ? '#93c5fd' : '#1d4ed8' }} />
+                          : <Layers className="w-3.5 h-3.5 shrink-0" style={{ color: isDark ? '#6ee7b7' : '#047857' }} />
+                        }
+                        <span className="text-sm flex-1 truncate" style={{ color: t.resultNameText, fontWeight: isSelected ? 600 : 400 }}>
+                          {item.name}
+                        </span>
+                        <span
+                          className="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                          style={{
+                            background: isDept
+                              ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(37,99,235,0.10)')
+                              : (isDark ? 'rgba(16,185,129,0.20)' : 'rgba(16,185,129,0.10)'),
+                            color: isDept
+                              ? (isDark ? '#93c5fd' : '#1d4ed8')
+                              : (isDark ? '#6ee7b7' : '#047857'),
+                            border: `1px solid ${isDept
+                              ? (isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.20)')
+                              : (isDark ? 'rgba(52,211,153,0.30)' : 'rgba(16,185,129,0.20)')}`,
+                          }}
+                        >
+                          {item.kind}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
 
-          {/* Trigger button */}
-          <button
-            type="button"
-            onClick={() => setDeptPickerOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-all duration-150"
-            style={{
-              background: t.inputBg,
-              border: `1px solid ${errors.departments ? '#f87171' : (deptPickerOpen ? t.inputBorderFocus : t.inputBorder)}`,
-              color: t.inputPlaceholder,
-              borderRadius: deptPickerOpen ? '0.75rem 0.75rem 0 0' : '0.75rem',
-            }}
-          >
-            <span className="text-sm">
-              {selectedDepts.length === 0
-                ? 'Select departments or sections…'
-                : `Add more…`}
-            </span>
-            {deptPickerOpen
-              ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
-              : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
-            }
-          </button>
-
-          {errors.departments && (
-            <p className="flex items-center gap-1 mt-1.5 text-xs font-medium" style={{ color: '#f87171' }}>
-              <AlertCircle className="w-3 h-3 shrink-0" />
-              {errors.departments}
-            </p>
-          )}
-
-          {/* Dropdown list */}
-          {deptPickerOpen && (
-            <div
-              style={{
-                background: t.inputBg,
-                border: `1px solid ${t.inputBorder}`,
-                borderTop: 'none',
-                borderRadius: '0 0 0.75rem 0.75rem',
-                maxHeight: '200px',
-                overflowY: 'auto',
-              }}
-            >
-              {/* Search inside dropdown */}
-              <div className="px-3 py-2" style={{ borderBottom: `1px solid ${t.dividerColor}` }}>
-                <div className="relative">
-                  <Search
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
-                    style={{ color: t.inputPlaceholder }}
-                  />
-                  <input
-                    type="text"
-                    value={deptSearch}
-                    onChange={(e) => setDeptSearch(e.target.value)}
-                    placeholder="Search…"
-                    className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-150"
-                    style={{
-                      background: t.resultRowBg,
-                      border: `1px solid ${t.inputBorder}`,
-                      color: t.inputText,
-                    }}
-                    onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorderFocus)}
-                    onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorder)}
-                  />
-                </div>
+          {/* ── Per-Dept Permission Cards ── */}
+          <div className="px-6 py-3 space-y-3 flex-1">
+            {selectedDepts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <Building2 className="w-5 h-5" style={{ color: t.emptyText }} />
+                <span className="text-xs text-center" style={{ color: t.emptyText }}>
+                  Add a department or section above to configure department-level permissions.
+                </span>
               </div>
+            ) : (
+              selectedDepts.map((dept) => {
+                const key = deptKey(dept);
+                const isDept = dept.kind === 'Department';
+                const isCollapsed = collapsedDepts[key] ?? false;
+                const checkedCount = deptCheckedCount(key);
+                const allOn = deptAllChecked(key);
+                const someOn = deptSomeChecked(key);
+                const permMap = deptPerms[key] ?? {};
+                const isProposalOn = proposalPermId !== undefined && !!permMap[proposalPermId];
+                const permError = errors[`dept_${key}_permissions`];
+                const fromError = errors[`dept_${key}_proposal_from`];
+                const toError = errors[`dept_${key}_proposal_to`];
 
-              {filteredList.length === 0 ? (
-                <div className="flex items-center justify-center py-6">
-                  <span className="text-xs" style={{ color: t.emptyText }}>No results found.</span>
-                </div>
-              ) : (
-                filteredList.map((item, idx) => {
-                  const isSelected = selectedDepts.some((d) => d.id === item.id && d.kind === item.kind);
-                  const isDept = item.kind === 'Department';
-                  return (
+                return (
+                  <div
+                    key={key}
+                    className="rounded-xl overflow-hidden"
+                    style={{
+                      border: `1px solid ${permError
+                        ? '#f87171'
+                        : isDept
+                          ? (isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.25)')
+                          : (isDark ? 'rgba(52,211,153,0.30)' : 'rgba(16,185,129,0.25)')}`,
+                    }}
+                  >
+                    {/* Dept card header */}
                     <div
-                      key={`${item.kind}-${item.id}`}
-                      onClick={() => {
-                        if (isSelected) removeDept(item); else addDept(item);
-                      }}
-                      className="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer transition-all duration-150"
+                      className="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer select-none"
                       style={{
-                        background: isSelected
-                          ? (isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.80)')
-                          : 'transparent',
-                        borderBottom: idx < filteredList.length - 1 ? `1px solid ${t.resultRowBorder}` : 'none',
+                        background: isDept
+                          ? (isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.70)')
+                          : (isDark ? 'rgba(16,185,129,0.15)' : 'rgba(209,250,229,0.70)'),
+                        borderBottom: isCollapsed ? 'none' : `1px solid ${isDept
+                          ? (isDark ? 'rgba(99,155,255,0.20)' : 'rgba(37,99,235,0.15)')
+                          : (isDark ? 'rgba(52,211,153,0.20)' : 'rgba(16,185,129,0.15)')}`,
                       }}
-                      onMouseEnter={e => {
-                        if (!isSelected) (e.currentTarget as HTMLElement).style.background = t.resultRowHover;
-                      }}
-                      onMouseLeave={e => {
-                        if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent';
-                      }}
+                      onClick={() => setCollapsedDepts((prev) => ({ ...prev, [key]: !isCollapsed }))}
                     >
-                      {/* Checkbox indicator */}
-                      <div
-                        className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-all duration-150"
-                        style={{
-                          background: isSelected ? t.checkboxAccent : 'transparent',
-                          border: `2px solid ${isSelected ? t.checkboxAccent : t.inputBorder}`,
-                        }}
-                      >
-                        {isSelected && (
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </div>
-
                       {isDept
                         ? <Building2 className="w-3.5 h-3.5 shrink-0" style={{ color: isDark ? '#93c5fd' : '#1d4ed8' }} />
                         : <Layers className="w-3.5 h-3.5 shrink-0" style={{ color: isDark ? '#6ee7b7' : '#047857' }} />
                       }
-                      <span className="text-sm flex-1 truncate" style={{ color: t.resultNameText, fontWeight: isSelected ? 600 : 400 }}>
-                        {item.name}
+                      <span
+                        className="text-sm font-semibold flex-1 truncate"
+                        style={{ color: isDept ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#6ee7b7' : '#047857') }}
+                      >
+                        {dept.name}
                       </span>
                       <span
-                        className="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                        className="text-xs font-semibold px-1.5 py-0.5 rounded-md shrink-0"
                         style={{
                           background: isDept
                             ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(37,99,235,0.10)')
                             : (isDark ? 'rgba(16,185,129,0.20)' : 'rgba(16,185,129,0.10)'),
-                          color: isDept
-                            ? (isDark ? '#93c5fd' : '#1d4ed8')
-                            : (isDark ? '#6ee7b7' : '#047857'),
-                          border: `1px solid ${isDept
-                            ? (isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.20)')
-                            : (isDark ? 'rgba(52,211,153,0.30)' : 'rgba(16,185,129,0.20)')}`,
+                          color: isDept ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#6ee7b7' : '#047857'),
                         }}
                       >
-                        {item.kind}
+                        {checkedCount}/{deptPermissions.length}
                       </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Per-Dept Permission Cards ── */}
-        <div className="overflow-y-auto flex-1 px-6 py-3 space-y-3">
-          {selectedDepts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-2">
-              <Building2 className="w-5 h-5" style={{ color: t.emptyText }} />
-              <span className="text-xs text-center" style={{ color: t.emptyText }}>
-                Add a department or section above to configure permissions.
-              </span>
-            </div>
-          ) : (
-            selectedDepts.map((dept) => {
-              const key = deptKey(dept);
-              const isDept = dept.kind === 'Department';
-              const isCollapsed = collapsedDepts[key] ?? false;
-              const checkedCount = deptCheckedCount(key);
-              const allOn = deptAllChecked(key);
-              const someOn = deptSomeChecked(key);
-              const permMap = deptPerms[key] ?? {};
-              const isProposalOn = proposalPermId !== undefined && !!permMap[proposalPermId];
-              const permError = errors[`dept_${key}_permissions`];
-              const fromError = errors[`dept_${key}_proposal_from`];
-              const toError = errors[`dept_${key}_proposal_to`];
-
-              return (
-                <div
-                  key={key}
-                  className="rounded-xl overflow-hidden"
-                  style={{
-                    border: `1px solid ${permError
-                      ? '#f87171'
-                      : isDept
-                        ? (isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.25)')
-                        : (isDark ? 'rgba(52,211,153,0.30)' : 'rgba(16,185,129,0.25)')}`,
-                  }}
-                >
-                  {/* Dept card header */}
-                  <div
-                    className="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer select-none"
-                    style={{
-                      background: isDept
-                        ? (isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.70)')
-                        : (isDark ? 'rgba(16,185,129,0.15)' : 'rgba(209,250,229,0.70)'),
-                      borderBottom: isCollapsed ? 'none' : `1px solid ${isDept
-                        ? (isDark ? 'rgba(99,155,255,0.20)' : 'rgba(37,99,235,0.15)')
-                        : (isDark ? 'rgba(52,211,153,0.20)' : 'rgba(16,185,129,0.15)')}`,
-                    }}
-                    onClick={() => setCollapsedDepts((prev) => ({ ...prev, [key]: !isCollapsed }))}
-                  >
-                    {isDept
-                      ? <Building2 className="w-3.5 h-3.5 shrink-0" style={{ color: isDark ? '#93c5fd' : '#1d4ed8' }} />
-                      : <Layers className="w-3.5 h-3.5 shrink-0" style={{ color: isDark ? '#6ee7b7' : '#047857' }} />
-                    }
-                    <span
-                      className="text-sm font-semibold flex-1 truncate"
-                      style={{ color: isDept ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#6ee7b7' : '#047857') }}
-                    >
-                      {dept.name}
-                    </span>
-                    <span
-                      className="text-xs font-semibold px-1.5 py-0.5 rounded-md shrink-0"
-                      style={{
-                        background: isDept
-                          ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(37,99,235,0.10)')
-                          : (isDark ? 'rgba(16,185,129,0.20)' : 'rgba(16,185,129,0.10)'),
-                        color: isDept ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#6ee7b7' : '#047857'),
-                      }}
-                    >
-                      {checkedCount}/{permissions.length}
-                    </span>
-                    {/* Remove dept */}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); removeDept(dept); }}
-                      className="ml-1 w-5 h-5 flex items-center justify-center rounded-full opacity-60 hover:opacity-100 transition-opacity"
-                      style={{ color: t.cellMuted }}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    {isCollapsed
-                      ? <ChevronDown className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
-                      : <ChevronUp className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
-                    }
-                  </div>
-
-                  {/* Per-dept permissions list */}
-                  {!isCollapsed && (
-                    <div style={{ background: t.permRowBg }}>
-                      {/* Select-all row */}
-                      <div
-                        className="flex items-center justify-between px-4 py-2"
-                        style={{ borderBottom: `1px solid ${t.permRowBorder}` }}
+                      {/* Remove dept */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeDept(dept); }}
+                        className="ml-1 w-5 h-5 flex items-center justify-center rounded-full opacity-60 hover:opacity-100 transition-opacity"
+                        style={{ color: t.cellMuted }}
                       >
-                        {permError && (
-                          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#f87171' }}>
-                            <AlertCircle className="w-3 h-3" />
-                            {permError}
-                          </span>
-                        )}
-                        {!permError && (
-                          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
-                            Permissions
-                          </span>
-                        )}
-                        <label className="flex items-center gap-2 cursor-pointer select-none ml-auto">
-                          <span className="text-xs font-medium" style={{ color: t.cellMuted }}>
-                            {allOn ? 'Deselect All' : 'Select All'}
-                          </span>
-                          <div className="relative flex items-center">
-                            <input type="checkbox" checked={allOn} onChange={() => toggleAllDeptPerms(key)} className="sr-only"
-                              ref={el => { if (el) el.indeterminate = someOn; }} />
-                            <div
-                              className="w-4 h-4 rounded flex items-center justify-center cursor-pointer transition-all duration-150"
-                              style={{
-                                background: allOn || someOn ? t.checkboxAccent : 'transparent',
-                                border: `2px solid ${allOn || someOn ? t.checkboxAccent : t.inputBorder}`,
-                              }}
-                            >
-                              {allOn && (
-                                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                                  <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              )}
-                              {someOn && (
-                                <svg width="8" height="2" viewBox="0 0 8 2" fill="none">
-                                  <path d="M1 1H7" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                              )}
-                            </div>
-                          </div>
-                        </label>
-                      </div>
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      {isCollapsed
+                        ? <ChevronDown className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
+                        : <ChevronUp className="w-4 h-4 shrink-0" style={{ color: t.cellMuted }} />
+                      }
+                    </div>
 
-                      {/* Permission rows */}
-                      <div className="px-4 py-2 space-y-1.5">
-                        {permissions.length === 0 ? (
-                          <div className="flex items-center justify-center py-6 gap-2">
-                            <ShieldCheck className="w-4 h-4" style={{ color: t.emptyText }} />
-                            <span className="text-xs" style={{ color: t.emptyText }}>No permissions available.</span>
-                          </div>
-                        ) : (
-                          permissions.map((permission) => {
-                            const isChecked = !!permMap[permission.id];
-                            const displayLabel = permission.label ?? permission.name;
-                            const isProposal = permission.name === 'allow-budget-proposal-entry';
-
-                            return (
-                              <div key={permission.id} className="flex flex-col gap-0">
-                                <label
-                                  className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-150"
-                                  style={{
-                                    background: isChecked
-                                      ? (isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(219, 234, 254, 0.60)')
-                                      : 'transparent',
-                                    border: `1px solid ${isChecked ? (isDark ? 'rgba(99,155,255,0.25)' : 'rgba(37,99,235,0.20)') : 'transparent'}`,
-                                    borderRadius: isProposal && isChecked ? '0.75rem 0.75rem 0 0' : '0.75rem',
-                                  }}
-                                  onMouseEnter={e =>
-                                    !isChecked && ((e.currentTarget as HTMLElement).style.background = t.permRowHover)
-                                  }
-                                  onMouseLeave={e =>
-                                    !isChecked && ((e.currentTarget as HTMLElement).style.background = 'transparent')
-                                  }
-                                >
-                                  <div className="relative shrink-0 flex items-center">
-                                    <input type="checkbox" checked={isChecked} onChange={() => toggleDeptPerm(key, permission.id)} className="sr-only" />
-                                    <div
-                                      className="w-4 h-4 rounded flex items-center justify-center transition-all duration-150"
-                                      style={{
-                                        background: isChecked ? t.checkboxAccent : 'transparent',
-                                        border: `2px solid ${isChecked ? t.checkboxAccent : t.inputBorder}`,
-                                      }}
-                                    >
-                                      {isChecked && (
-                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span className="text-sm flex-1 leading-snug" style={{ color: isChecked ? t.resultMetaText : t.resultNameText, fontWeight: isChecked ? 600 : 400 }}>
-                                    {displayLabel}
-                                  </span>
-                                  {isChecked && (
-                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: t.checkboxAccent }} />
-                                  )}
-                                </label>
-
-                                {/* Proposal date range per dept */}
-                                {isProposal && isChecked && (
-                                  <div
-                                    className="px-4 py-4 flex flex-col gap-3"
-                                    style={{
-                                      background: isDark ? 'rgba(37, 99, 235, 0.08)' : 'rgba(219, 234, 254, 0.40)',
-                                      border: `1px solid ${isDark ? 'rgba(99,155,255,0.25)' : 'rgba(37,99,235,0.20)'}`,
-                                      borderTop: 'none',
-                                      borderRadius: '0 0 0.75rem 0.75rem',
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
-                                      Proposal Entry Period
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-medium" style={{ color: t.cellMuted }}>From</label>
-                                        <input
-                                          type="date"
-                                          value={deptProposalFrom[key] ?? ''}
-                                          onChange={(e) => {
-                                            const v = e.target.value;
-                                            setDeptProposalFrom((prev) => ({ ...prev, [key]: v }));
-                                            setErrors((prev) => ({ ...prev, [`dept_${key}_proposal_from`]: undefined }));
-                                          }}
-                                          className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-all duration-150"
-                                          style={{
-                                            background: t.inputBg,
-                                            border: `1px solid ${fromError ? '#f87171' : t.inputBorder}`,
-                                            color: t.inputText,
-                                            colorScheme: isDark ? 'dark' : 'light',
-                                          }}
-                                          onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = fromError ? '#f87171' : t.inputBorderFocus)}
-                                          onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = fromError ? '#f87171' : t.inputBorder)}
-                                        />
-                                        {fromError && (
-                                          <p className="flex items-center gap-1 text-xs font-medium" style={{ color: '#f87171' }}>
-                                            <AlertCircle className="w-3 h-3 shrink-0" />{fromError}
-                                          </p>
-                                        )}
-                                      </div>
-                                      <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-medium" style={{ color: t.cellMuted }}>To</label>
-                                        <input
-                                          type="date"
-                                          value={deptProposalTo[key] ?? ''}
-                                          min={deptProposalFrom[key] || undefined}
-                                          onChange={(e) => {
-                                            const v = e.target.value;
-                                            setDeptProposalTo((prev) => ({ ...prev, [key]: v }));
-                                            setErrors((prev) => ({ ...prev, [`dept_${key}_proposal_to`]: undefined }));
-                                          }}
-                                          className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-all duration-150"
-                                          style={{
-                                            background: t.inputBg,
-                                            border: `1px solid ${toError ? '#f87171' : t.inputBorder}`,
-                                            color: t.inputText,
-                                            colorScheme: isDark ? 'dark' : 'light',
-                                          }}
-                                          onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = toError ? '#f87171' : t.inputBorderFocus)}
-                                          onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = toError ? '#f87171' : t.inputBorder)}
-                                        />
-                                        {toError && (
-                                          <p className="flex items-center gap-1 text-xs font-medium" style={{ color: '#f87171' }}>
-                                            <AlertCircle className="w-3 h-3 shrink-0" />{toError}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
+                    {/* Per-dept permissions list */}
+                    {!isCollapsed && (
+                      <div style={{ background: t.permRowBg }}>
+                        {/* Select-all row */}
+                        <div
+                          className="flex items-center justify-between px-4 py-2"
+                          style={{ borderBottom: `1px solid ${t.permRowBorder}` }}
+                        >
+                          {permError && (
+                            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#f87171' }}>
+                              <AlertCircle className="w-3 h-3" />
+                              {permError}
+                            </span>
+                          )}
+                          {!permError && (
+                            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
+                              Permissions
+                            </span>
+                          )}
+                          <label className="flex items-center gap-2 cursor-pointer select-none ml-auto">
+                            <span className="text-xs font-medium" style={{ color: t.cellMuted }}>
+                              {allOn ? 'Deselect All' : 'Select All'}
+                            </span>
+                            <div className="relative flex items-center">
+                              <input type="checkbox" checked={allOn} onChange={() => toggleAllDeptPerms(key)} className="sr-only"
+                                ref={el => { if (el) el.indeterminate = someOn; }} />
+                              <div
+                                className="w-4 h-4 rounded flex items-center justify-center cursor-pointer transition-all duration-150"
+                                style={{
+                                  background: allOn || someOn ? t.checkboxAccent : 'transparent',
+                                  border: `2px solid ${allOn || someOn ? t.checkboxAccent : t.inputBorder}`,
+                                }}
+                              >
+                                {allOn && (
+                                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                    <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}
+                                {someOn && (
+                                  <svg width="8" height="2" viewBox="0 0 8 2" fill="none">
+                                    <path d="M1 1H7" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+                                  </svg>
                                 )}
                               </div>
-                            );
-                          })
-                        )}
+                            </div>
+                          </label>
+                        </div>
+
+                        {/* Permission rows — only dept-level permissions shown here */}
+                        <div className="px-4 py-2 space-y-1.5">
+                          {deptPermissions.length === 0 ? (
+                            <div className="flex items-center justify-center py-6 gap-2">
+                              <ShieldCheck className="w-4 h-4" style={{ color: t.emptyText }} />
+                              <span className="text-xs" style={{ color: t.emptyText }}>No permissions available.</span>
+                            </div>
+                          ) : (
+                            deptPermissions.map((permission) => {
+                              const isChecked = !!permMap[permission.id];
+                              const displayLabel = permission.label ?? permission.name;
+                              const isProposal = permission.name === 'allow-budget-proposal-entry';
+
+                              return (
+                                <div key={permission.id} className="flex flex-col gap-0">
+                                  <label
+                                    className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-150"
+                                    style={{
+                                      background: isChecked
+                                        ? (isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(219, 234, 254, 0.60)')
+                                        : 'transparent',
+                                      border: `1px solid ${isChecked ? (isDark ? 'rgba(99,155,255,0.25)' : 'rgba(37,99,235,0.20)') : 'transparent'}`,
+                                      borderRadius: isProposal && isChecked ? '0.75rem 0.75rem 0 0' : '0.75rem',
+                                    }}
+                                    onMouseEnter={e =>
+                                      !isChecked && ((e.currentTarget as HTMLElement).style.background = t.permRowHover)
+                                    }
+                                    onMouseLeave={e =>
+                                      !isChecked && ((e.currentTarget as HTMLElement).style.background = 'transparent')
+                                    }
+                                  >
+                                    <div className="relative shrink-0 flex items-center">
+                                      <input type="checkbox" checked={isChecked} onChange={() => toggleDeptPerm(key, permission.id)} className="sr-only" />
+                                      <div
+                                        className="w-4 h-4 rounded flex items-center justify-center transition-all duration-150"
+                                        style={{
+                                          background: isChecked ? t.checkboxAccent : 'transparent',
+                                          border: `2px solid ${isChecked ? t.checkboxAccent : t.inputBorder}`,
+                                        }}
+                                      >
+                                        {isChecked && (
+                                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <span className="text-sm flex-1 leading-snug" style={{ color: isChecked ? t.resultMetaText : t.resultNameText, fontWeight: isChecked ? 600 : 400 }}>
+                                      {displayLabel}
+                                    </span>
+                                    {isChecked && (
+                                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: t.checkboxAccent }} />
+                                    )}
+                                  </label>
+
+                                  {/* Proposal date range per dept */}
+                                  {isProposal && isChecked && (
+                                    <div
+                                      className="px-4 py-4 flex flex-col gap-3"
+                                      style={{
+                                        background: isDark ? 'rgba(37, 99, 235, 0.08)' : 'rgba(219, 234, 254, 0.40)',
+                                        border: `1px solid ${isDark ? 'rgba(99,155,255,0.25)' : 'rgba(37,99,235,0.20)'}`,
+                                        borderTop: 'none',
+                                        borderRadius: '0 0 0.75rem 0.75rem',
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: t.tableHeadText }}>
+                                        Proposal Entry Period
+                                      </p>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-medium" style={{ color: t.cellMuted }}>From</label>
+                                          <input
+                                            type="date"
+                                            value={deptProposalFrom[key] ?? ''}
+                                            onChange={(e) => {
+                                              const v = e.target.value;
+                                              setDeptProposalFrom((prev) => ({ ...prev, [key]: v }));
+                                              setErrors((prev) => ({ ...prev, [`dept_${key}_proposal_from`]: undefined }));
+                                            }}
+                                            className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-all duration-150"
+                                            style={{
+                                              background: t.inputBg,
+                                              border: `1px solid ${fromError ? '#f87171' : t.inputBorder}`,
+                                              color: t.inputText,
+                                              colorScheme: isDark ? 'dark' : 'light',
+                                            }}
+                                            onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = fromError ? '#f87171' : t.inputBorderFocus)}
+                                            onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = fromError ? '#f87171' : t.inputBorder)}
+                                          />
+                                          {fromError && (
+                                            <p className="flex items-center gap-1 text-xs font-medium" style={{ color: '#f87171' }}>
+                                              <AlertCircle className="w-3 h-3 shrink-0" />{fromError}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-medium" style={{ color: t.cellMuted }}>To</label>
+                                          <input
+                                            type="date"
+                                            value={deptProposalTo[key] ?? ''}
+                                            min={deptProposalFrom[key] || undefined}
+                                            onChange={(e) => {
+                                              const v = e.target.value;
+                                              setDeptProposalTo((prev) => ({ ...prev, [key]: v }));
+                                              setErrors((prev) => ({ ...prev, [`dept_${key}_proposal_to`]: undefined }));
+                                            }}
+                                            className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-all duration-150"
+                                            style={{
+                                              background: t.inputBg,
+                                              border: `1px solid ${toError ? '#f87171' : t.inputBorder}`,
+                                              color: t.inputText,
+                                              colorScheme: isDark ? 'dark' : 'light',
+                                            }}
+                                            onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = toError ? '#f87171' : t.inputBorderFocus)}
+                                            onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = toError ? '#f87171' : t.inputBorder)}
+                                          />
+                                          {toError && (
+                                            <p className="flex items-center gap-1 text-xs font-medium" style={{ color: '#f87171' }}>
+                                              <AlertCircle className="w-3 h-3 shrink-0" />{toError}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
         </div>
+        {/* ── End Scrollable Body ── */}
 
         {/* ── Footer ── */}
         <div
@@ -1137,7 +1273,7 @@ function UserManagementModal({
           style={{ borderTop: `1px solid ${t.dividerColor}` }}
         >
           <div>
-            {existingAccess && existingAccess.length > 0 && (
+            {hasExistingAccess && (
               <button
                 onClick={handleRemoveAll}
                 disabled={isRemoving || isSaving}
@@ -1168,12 +1304,8 @@ function UserManagementModal({
                 color: t.backBtnText,
                 border: `1px solid ${t.backBtnBorder}`,
               }}
-              onMouseEnter={e =>
-                ((e.currentTarget as HTMLElement).style.background = t.backBtnHoverBg)
-              }
-              onMouseLeave={e =>
-                ((e.currentTarget as HTMLElement).style.background = t.backBtnBg)
-              }
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.backBtnHoverBg)}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = t.backBtnBg)}
             >
               Cancel
             </button>
@@ -1189,17 +1321,10 @@ function UserManagementModal({
                 opacity: isSaving ? 0.75 : 1,
                 cursor: isSaving ? 'not-allowed' : 'pointer',
               }}
-              onMouseEnter={e => {
-                if (!isSaving) (e.currentTarget as HTMLElement).style.background = t.saveBtnHoverBg;
-              }}
-              onMouseLeave={e => {
-                if (!isSaving) (e.currentTarget as HTMLElement).style.background = t.saveBtnBg;
-              }}
+              onMouseEnter={e => { if (!isSaving) (e.currentTarget as HTMLElement).style.background = t.saveBtnHoverBg; }}
+              onMouseLeave={e => { if (!isSaving) (e.currentTarget as HTMLElement).style.background = t.saveBtnBg; }}
             >
-              {isSaving
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Save className="w-3.5 h-3.5" />
-              }
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               {isSaving ? 'Saving…' : 'Save Access'}
             </button>
           </div>
@@ -1220,7 +1345,6 @@ function AddUserModal({
   deptData,
   onToast,
   onUserSaved,
-
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -1243,7 +1367,7 @@ function AddUserModal({
   const [isMgmtOpen, setIsMgmtOpen] = useState(false);
   const [isFetchingAccess, setIsFetchingAccess] = useState(false);
   const [existingAccess, setExistingAccess] = useState<ExistingAccessEntry[] | null>(null);
-
+  const [existingGeneralPermissions, setExistingGeneralPermissions] = useState<(string | number)[] | null>(null);
 
   // Focus input when modal opens
   useEffect(() => {
@@ -1282,9 +1406,7 @@ function AddUserModal({
       }
     }, 400);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
   const handleRowClick = async (teacher: Teacher) => {
@@ -1292,9 +1414,17 @@ function AddUserModal({
     setIsFetchingAccess(true);
     try {
       const { data } = await financeSvc.get(`/abms/access/users/${teacher.emp_no}`);
-      setExistingAccess(data.data ?? null);
+      const responseData = data.data;
+      if (responseData) {
+        setExistingAccess(responseData.departments ?? null);
+        setExistingGeneralPermissions(responseData.general_permissions ?? null);
+      } else {
+        setExistingAccess(null);
+        setExistingGeneralPermissions(null);
+      }
     } catch {
       setExistingAccess(null);
+      setExistingGeneralPermissions(null);
     } finally {
       setIsFetchingAccess(false);
       setIsMgmtOpen(true);
@@ -1328,6 +1458,7 @@ function AddUserModal({
         onToast={onToast}
         onUserSaved={onUserSaved}
         existingAccess={existingAccess}
+        existingGeneralPermissions={existingGeneralPermissions}
       />
 
       {/* ── Add User Search Modal ── */}
@@ -1351,26 +1482,16 @@ function AddUserModal({
           >
             <div className="flex items-center gap-2">
               <UserPlus className="w-4 h-4" style={{ color: t.resultMetaText }} />
-              <span
-                className="text-sm font-semibold tracking-wide"
-                style={{ color: t.resultNameText }}
-              >
+              <span className="text-sm font-semibold tracking-wide" style={{ color: t.resultNameText }}>
                 Add User Access
               </span>
             </div>
             <button
               onClick={onClose}
               className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150"
-              style={{
-                color: t.cellMuted,
-                background: 'transparent',
-              }}
-              onMouseEnter={e =>
-                ((e.currentTarget as HTMLElement).style.background = t.resultRowHover)
-              }
-              onMouseLeave={e =>
-                ((e.currentTarget as HTMLElement).style.background = 'transparent')
-              }
+              style={{ color: t.cellMuted, background: 'transparent' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.resultRowHover)}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -1398,12 +1519,8 @@ function AddUserModal({
                   border: `1px solid ${t.inputBorder}`,
                   color: t.inputText,
                 }}
-                onFocus={e =>
-                  ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorderFocus)
-                }
-                onBlur={e =>
-                  ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorder)
-                }
+                onFocus={e => ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorderFocus)}
+                onBlur={e => ((e.currentTarget as HTMLElement).style.borderColor = t.inputBorder)}
               />
               {isLoading && (
                 <Loader2
@@ -1418,9 +1535,7 @@ function AddUserModal({
           <div
             className="mx-6 mb-6 rounded-xl overflow-hidden"
             style={{
-              border: hasSearched || results.length > 0
-                ? `1px solid ${t.resultRowBorder}`
-                : 'none',
+              border: hasSearched || results.length > 0 ? `1px solid ${t.resultRowBorder}` : 'none',
               minHeight: hasSearched ? '120px' : 'auto',
               maxHeight: '280px',
               overflowY: 'auto',
@@ -1428,26 +1543,15 @@ function AddUserModal({
           >
             {/* Loading state */}
             {isLoading && (
-              <div
-                className="flex flex-col items-center justify-center py-10 gap-2"
-                style={{ background: t.resultRowBg }}
-              >
-                <Loader2
-                  className="w-5 h-5 animate-spin"
-                  style={{ color: t.resultMetaText }}
-                />
-                <span className="text-xs" style={{ color: t.emptyText }}>
-                  Searching...
-                </span>
+              <div className="flex flex-col items-center justify-center py-10 gap-2" style={{ background: t.resultRowBg }}>
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: t.resultMetaText }} />
+                <span className="text-xs" style={{ color: t.emptyText }}>Searching...</span>
               </div>
             )}
 
             {/* Empty state */}
             {!isLoading && hasSearched && results.length === 0 && (
-              <div
-                className="flex flex-col items-center justify-center py-10 gap-2"
-                style={{ background: t.resultRowBg }}
-              >
+              <div className="flex flex-col items-center justify-center py-10 gap-2" style={{ background: t.resultRowBg }}>
                 <Users className="w-5 h-5" style={{ color: t.emptyText }} />
                 <span className="text-xs" style={{ color: t.emptyText }}>
                   No users found for "{query}"
@@ -1463,20 +1567,12 @@ function AddUserModal({
                     key={teacher.emp_no}
                     className="flex items-center justify-between px-4 py-3 transition-all duration-150 cursor-pointer"
                     style={{
-                      borderBottom:
-                        idx < results.length - 1
-                          ? `1px solid ${t.resultRowBorder}`
-                          : 'none',
+                      borderBottom: idx < results.length - 1 ? `1px solid ${t.resultRowBorder}` : 'none',
                     }}
                     onClick={() => !isFetchingAccess && handleRowClick(teacher)}
-                    onMouseEnter={e =>
-                      ((e.currentTarget as HTMLElement).style.background = t.resultRowHover)
-                    }
-                    onMouseLeave={e =>
-                      ((e.currentTarget as HTMLElement).style.background = 'transparent')
-                    }
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.resultRowHover)}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                   >
-                    {/* Avatar */}
                     <img
                       src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${teacher.emp_no}_2`}
                       alt={teacher.full_name}
@@ -1487,34 +1583,15 @@ function AddUserModal({
                           `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name)}&background=2563eb&color=fff&size=64`;
                       }}
                     />
-
-                    {/* Info */}
                     <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                      <span
-                        className="text-sm font-medium"
-                        style={{ color: t.resultNameText }}
-                      >
-                        {teacher.full_name}
-                      </span>
-                      <span
-                        className="text-xs font-mono"
-                        style={{ color: t.resultMetaText }}
-                      >
-                        {teacher.emp_no}
-                      </span>
+                      <span className="text-sm font-medium" style={{ color: t.resultNameText }}>{teacher.full_name}</span>
+                      <span className="text-xs font-mono" style={{ color: t.resultMetaText }}>{teacher.emp_no}</span>
                       {teacher.department && (
-                        <span className="text-xs truncate" style={{ color: t.cellMuted }}>
-                          {teacher.department}
-                        </span>
+                        <span className="text-xs truncate" style={{ color: t.cellMuted }}>{teacher.department}</span>
                       )}
                     </div>
-
-                    {/* Manage button */}
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRowClick(teacher);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); handleRowClick(teacher); }}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-all duration-150"
                       style={{
                         background: t.selectBtnBg,
@@ -1524,12 +1601,8 @@ function AddUserModal({
                         cursor: isFetchingAccess ? 'not-allowed' : 'pointer',
                       }}
                       disabled={isFetchingAccess}
-                      onMouseEnter={e =>
-                        ((e.currentTarget as HTMLElement).style.background = t.selectBtnHoverBg)
-                      }
-                      onMouseLeave={e =>
-                        ((e.currentTarget as HTMLElement).style.background = t.selectBtnBg)
-                      }
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.selectBtnHoverBg)}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = t.selectBtnBg)}
                     >
                       {isFetchingAccess && selectedTeacher?.emp_no === teacher.emp_no
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: t.resultMetaText }} />
@@ -1543,9 +1616,7 @@ function AddUserModal({
             )}
 
             {/* Prompt state — not yet searched */}
-            {!isLoading && !hasSearched && (
-              <div />
-            )}
+            {!isLoading && !hasSearched && <div />}
           </div>
         </div>
       </div>
@@ -1563,15 +1634,24 @@ export default function UserAccess() {
   const [editingUser, setEditingUser] = useState<UserAccessRecord | null>(null);
   const [isFetchingRowAccess, setIsFetchingRowAccess] = useState(false);
   const [rowExistingAccess, setRowExistingAccess] = useState<ExistingAccessEntry[] | null>(null);
+  const [rowExistingGeneralPermissions, setRowExistingGeneralPermissions] = useState<(string | number)[] | null>(null);
 
   const handleRowEdit = async (user: UserAccessRecord) => {
     setEditingUser(user);
     setIsFetchingRowAccess(true);
     try {
       const { data } = await financeSvc.get(`/abms/access/users/${user.emp_no}`);
-      setRowExistingAccess(data.data ?? null);
+      const responseData = data.data;
+      if (responseData) {
+        setRowExistingAccess(responseData.departments ?? null);
+        setRowExistingGeneralPermissions(responseData.general_permissions ?? null);
+      } else {
+        setRowExistingAccess(null);
+        setRowExistingGeneralPermissions(null);
+      }
     } catch {
       setRowExistingAccess(null);
+      setRowExistingGeneralPermissions(null);
     } finally {
       setIsFetchingRowAccess(false);
       setIsEditModalOpen(true);
@@ -1588,7 +1668,7 @@ export default function UserAccess() {
 
   const showToast = (type: 'success' | 'error', message: string) => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, type, message }]);
+    setToasts((prev) => [...prev, { id, type, message } as ToastData]);
   };
 
   const dismissToast = (id: number) => {
@@ -1602,8 +1682,7 @@ export default function UserAccess() {
       const { data } = await financeSvc.get(`/abms/access/users?cursor=${nextCursor}`);
       setUsers((prev) => [...prev, ...(data.data ?? [])]);
       setNextCursor(data.next_cursor ?? null);
-    } catch (err) {
-      console.error('Failed to load more users:', err);
+    } catch {
       showToast('error', 'Failed to load more users.');
     } finally {
       setIsLoadingMore(false);
@@ -1615,8 +1694,8 @@ export default function UserAccess() {
       const { data } = await financeSvc.get('/abms/access');
       setUsers(data.data ?? []);
       setNextCursor(data.next_cursor ?? null);
-    } catch (err) {
-      console.error('Failed to refetch users:', err);
+    } catch {
+      // silent
     }
   };
 
@@ -1658,15 +1737,13 @@ export default function UserAccess() {
               onToast={showToast}
               onUserSaved={refetchUsers}
               existingAccess={rowExistingAccess}
+              existingGeneralPermissions={rowExistingGeneralPermissions}
             />
 
             {/* ── Page header ─────────────────────────────────── */}
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1
-                  className="text-2xl font-bold tracking-tight"
-                  style={{ color: t.titleColor }}
-                >
+                <h1 className="text-2xl font-bold tracking-tight" style={{ color: t.titleColor }}>
                   User Department Access
                 </h1>
                 <p className="text-sm mt-0.5" style={{ color: t.subColor }}>
@@ -1674,7 +1751,6 @@ export default function UserAccess() {
                 </p>
               </div>
 
-              {/* ── Add User button ──────────────────────────── */}
               <button
                 className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg shrink-0 transition-all duration-150"
                 style={{
@@ -1683,12 +1759,8 @@ export default function UserAccess() {
                   border: `1px solid ${t.addBtnBorder}`,
                   boxShadow: t.addBtnShadow,
                 }}
-                onMouseEnter={e =>
-                  ((e.currentTarget as HTMLButtonElement).style.background = t.addBtnHoverBg)
-                }
-                onMouseLeave={e =>
-                  ((e.currentTarget as HTMLButtonElement).style.background = t.addBtnBg)
-                }
+                onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = t.addBtnHoverBg)}
+                onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = t.addBtnBg)}
                 onClick={() => setIsModalOpen(true)}
               >
                 <UserPlus className="w-4 h-4" />
@@ -1718,11 +1790,7 @@ export default function UserAccess() {
                 </CardTitle>
                 <span
                   className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
-                  style={{
-                    background: t.pillBg,
-                    color: t.pillText,
-                    border: `1px solid ${t.pillBorder}`,
-                  }}
+                  style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
                 >
                   {users.length} record{users.length !== 1 ? 's' : ''}
                 </span>
@@ -1836,12 +1904,10 @@ export default function UserAccess() {
                     )}
                   </TableBody>
                 </Table>
+
                 {/* ── Load More ── */}
                 {nextCursor && (
-                  <div
-                    className="flex justify-center py-4"
-                    style={{ borderTop: `1px solid ${t.rowBorder}` }}
-                  >
+                  <div className="flex justify-center py-4" style={{ borderTop: `1px solid ${t.rowBorder}` }}>
                     <button
                       onClick={loadMore}
                       disabled={isLoadingMore}
@@ -1856,14 +1922,8 @@ export default function UserAccess() {
                         cursor: isLoadingMore ? 'not-allowed' : 'pointer',
                         opacity: isLoadingMore ? 0.75 : 1,
                       }}
-                      onMouseEnter={e => {
-                        if (!isLoadingMore)
-                          (e.currentTarget as HTMLElement).style.background = t.addBtnHoverBg;
-                      }}
-                      onMouseLeave={e => {
-                        if (!isLoadingMore)
-                          (e.currentTarget as HTMLElement).style.background = t.addBtnBg;
-                      }}
+                      onMouseEnter={e => { if (!isLoadingMore) (e.currentTarget as HTMLElement).style.background = t.addBtnHoverBg; }}
+                      onMouseLeave={e => { if (!isLoadingMore) (e.currentTarget as HTMLElement).style.background = t.addBtnBg; }}
                     >
                       {isLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                       {isLoadingMore ? 'Loading…' : 'Load More'}
