@@ -1,3 +1,4 @@
+import { Button } from '@repo/ui/components/button';
 import { Card, CardContent } from '@repo/ui/components/card';
 import {
   Sheet,
@@ -5,6 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@repo/ui/components/sheet';
+import { Link } from '@tanstack/react-router';
 import { JSX, useState } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
 import { AssessmentSheet } from './-assessment-sheet.tsx';
@@ -50,6 +52,11 @@ export function MaintenanceHome({ access }: { access: MaintenanceLoaderAccess })
               <span className="rounded-full border bg-background px-3 py-1">
                 Opens in a side panel
               </span>
+            </div>
+            <div className="mt-3">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/staff/queue">Open staff queue</Link>
+              </Button>
             </div>
           </header>
 

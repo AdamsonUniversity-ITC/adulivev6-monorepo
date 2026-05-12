@@ -63,6 +63,7 @@ import type {
   CatalogGroup,
   CatalogPackage,
 } from './-lib/types.ts';
+import { LoadingIndicator } from '../-loading-indicator.tsx';
 
 export const Route = createFileRoute('/apply/')({
   beforeLoad: async () => {
@@ -631,8 +632,8 @@ function ApplyDocumentsPage() {
         </Card>
 
         {isLoading ? (
-          <div className="border-border bg-card/40 text-muted-foreground flex h-48 items-center justify-center rounded-2xl border text-sm">
-            Loading catalog…
+          <div className="border-border bg-card/40 flex h-48 items-center justify-center rounded-2xl border">
+            <LoadingIndicator label="Loading catalog…" size="md" />
           </div>
         ) : isError ? (
           <div className="border-destructive/30 bg-destructive/5 text-destructive flex h-48 items-center justify-center rounded-2xl border px-4 text-center text-sm">

@@ -40,9 +40,9 @@ export const AddUserDialog = ({ departmentId }: Props) => {
   });
 
   const attachMutation = useMutation({
-    mutationFn: (empNo: string) =>
+    mutationFn: (userId: number) =>
       attachClearanceDepartmentUser(departmentId, {
-        emp_no: empNo,
+        user_id: userId,
         role: role.trim() ? role.trim() : undefined,
       }),
     onSuccess: () => {
@@ -121,8 +121,10 @@ export const AddUserDialog = ({ departmentId }: Props) => {
                   key={hit.emp_no}
                   type="button"
                   className="hover:bg-accent flex w-full flex-col rounded-md px-2 py-2 text-left text-sm"
-                  onClick={() => attachMutation.mutate(hit.emp_no)}
-                  disabled={attachMutation.isPending}
+                  onClick={() =>
+                    hit.user_id ? attachMutation.mutate(Number(hit.user_id)) : null
+                  }
+                  disabled={attachMutation.isPending || !hit.user_id}
                 >
                   <span className="font-medium">
                     {hit.name || 'Unnamed'}{' '}
@@ -138,6 +140,15 @@ export const AddUserDialog = ({ departmentId }: Props) => {
               ))
             )}
           </div>
+          {!isFetching &&
+          trimmedSearch.length >= MIN_QUERY_LENGTH &&
+          hits.length > 0 &&
+          hits.some((hit) => !hit.user_id) ? (
+            <p className="text-muted-foreground text-xs">
+              Some results cannot be assigned because they have no linked
+              <span className="font-medium"> user_id</span>.
+            </p>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

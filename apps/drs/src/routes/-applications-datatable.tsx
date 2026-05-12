@@ -1,6 +1,8 @@
+import { Badge } from '@repo/ui/components/badge';
 import { DataTable } from '@repo/ui/custom/datatable/datatable';
 import { DataTableColumnHeader } from '@repo/ui/custom/datatable/datatable-column-header';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import type {
   ColumnDef,
   PaginationState,
@@ -9,17 +11,18 @@ import type {
 import * as React from 'react';
 
 import { fetchApplications } from './-lib/api/fetchApplications.ts';
-import type {
-  DRSApplicationClearanceRow,
-  DRSApplicationLineRow,
-  DRSApplicationRow as ApplicationRow,
-} from './-lib/types/applications.ts';
+import type { DRSApplicationRow as ApplicationRow } from './-lib/types/applications.ts';
 
-function formatDate(iso: string | null): string {
+const submittedAtFormatter = new Intl.DateTimeFormat('en-PH', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+function formatSubmittedAt(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString();
+  return submittedAtFormatter.format(d);
 }
 
 function formatReceiveMode(mode: ApplicationRow['receive_mode']): string {
@@ -28,22 +31,28 @@ function formatReceiveMode(mode: ApplicationRow['receive_mode']): string {
   return 'Email';
 }
 
-function formatLinesSummary(lines: DRSApplicationLineRow[] | undefined): string {
-  if (!lines?.length) return '—';
-  const units = lines.reduce((s, l) => s + l.quantity, 0);
-  const first = lines[0];
-  if (lines.length === 1 && first) {
-    return `${first.request_name} × ${first.quantity}`;
-  }
-  return `${lines.length} items · ${units} copies`;
-}
+/** Turn workflow slug / snake_case status into readable label. */
+function formatApplicationStatus(raw: string | null | undefined): {
+  label: string;
+  empty: boolean;
+} {
+  const s = String(raw ?? '').trim();
+  if (!s) return { label: '—', empty: true };
 
-function formatClearanceProgress(
-  clearances: DRSApplicationClearanceRow[] | undefined,
-): string {
-  if (!clearances?.length) return '—';
-  const cleared = clearances.filter((c) => c.status === 'cleared').length;
-  return `${cleared}/${clearances.length} cleared`;
+  const label = s
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((word) => {
+      if (!word.length) return '';
+      const lower = word.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .filter(Boolean)
+    .join(' ');
+
+  return { label: label || s, empty: false };
 }
 
 const columns: ColumnDef<ApplicationRow>[] = [
@@ -55,7 +64,25 @@ const columns: ColumnDef<ApplicationRow>[] = [
     meta: { label: 'Student no.' },
     cell: ({ getValue }) => {
       const v = getValue() as string;
-      return v.trim() ? v : '—';
+      return (
+        <span className="text-sm tabular-nums">{v.trim() ? v : '—'}</span>
+      );
+    },
+  },
+  {
+    accessorKey: 'student_name',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Name" />
+    ),
+    meta: { label: 'Name' },
+    cell: ({ getValue }) => {
+      const v = (getValue() as string | undefined) ?? '';
+      const t = typeof v === 'string' ? v.trim() : '';
+      return (
+        <span className="max-w-56 truncate text-sm" title={t}>
+          {t ? t : '—'}
+        </span>
+      );
     },
   },
   {
@@ -67,27 +94,11 @@ const columns: ColumnDef<ApplicationRow>[] = [
     cell: ({ getValue }) => {
       const v = getValue() as string;
       return (
-        <span className="max-w-48 truncate" title={v}>
+        <span className="max-w-48 truncate text-sm" title={v}>
           {v}
         </span>
       );
     },
-  },
-  {
-    id: 'lines',
-    accessorFn: (row) => formatLinesSummary(row.lines),
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Request" />
-    ),
-    meta: { label: 'Request' },
-  },
-  {
-    id: 'clearances',
-    accessorFn: (row) => formatClearanceProgress(row.clearances),
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Clearances" />
-    ),
-    meta: { label: 'Clearances' },
   },
   {
     accessorKey: 'school_year',
@@ -117,8 +128,14 @@ const columns: ColumnDef<ApplicationRow>[] = [
       <DataTableColumnHeader column={column} title="Receive" />
     ),
     meta: { label: 'Receive' },
-    cell: ({ getValue }) =>
-      formatReceiveMode(getValue() as ApplicationRow['receive_mode']),
+    cell: ({ getValue }) => {
+      const mode = getValue() as ApplicationRow['receive_mode'];
+      return (
+        <Badge variant="secondary" className="font-normal capitalize">
+          {formatReceiveMode(mode)}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: 'is_paid',
@@ -126,7 +143,14 @@ const columns: ColumnDef<ApplicationRow>[] = [
       <DataTableColumnHeader column={column} title="Paid" />
     ),
     meta: { label: 'Paid' },
-    cell: ({ getValue }) => ((getValue() as boolean) ? 'Yes' : 'No'),
+    cell: ({ getValue }) =>
+      (getValue() as boolean) ? (
+        <Badge className="font-normal">Paid</Badge>
+      ) : (
+        <Badge variant="outline" className="font-normal">
+          Unpaid
+        </Badge>
+      ),
   },
   {
     accessorKey: 'status',
@@ -134,6 +158,25 @@ const columns: ColumnDef<ApplicationRow>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     meta: { label: 'Status' },
+    cell: ({ getValue }) => {
+      const { label, empty } = formatApplicationStatus(
+        getValue() as string | null | undefined,
+      );
+      if (empty) {
+        return (
+          <span className="text-muted-foreground text-sm">{label}</span>
+        );
+      }
+      return (
+        <Badge
+          variant="secondary"
+          className="max-w-48 whitespace-normal py-1 text-left font-normal leading-snug wrap-break-word"
+          title={label}
+        >
+          {label}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: 'created_at',
@@ -141,11 +184,16 @@ const columns: ColumnDef<ApplicationRow>[] = [
       <DataTableColumnHeader column={column} title="Submitted" />
     ),
     meta: { label: 'Submitted' },
-    cell: ({ getValue }) => formatDate(getValue() as string | null),
+    cell: ({ getValue }) => (
+      <span className="text-muted-foreground text-sm">
+        {formatSubmittedAt(getValue() as string | null)}
+      </span>
+    ),
   },
 ];
 
 export function ApplicationsDataTable() {
+  const navigate = useNavigate();
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -184,6 +232,12 @@ export function ApplicationsDataTable() {
       columns={columns}
       data={rows}
       getRowId={(row) => row.id}
+      onRowClick={(row) =>
+        void navigate({
+          to: '/applications/$applicationId',
+          params: { applicationId: row.original.id },
+        })
+      }
       server={{
         pagination: {
           rowCount: total,

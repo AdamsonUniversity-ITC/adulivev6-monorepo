@@ -1,9 +1,26 @@
 export type DepartmentUser = {
-  emp_no: string;
-  email?: string | null;
-  name?: string | null;
-  position?: string | null;
-  department?: string | null;
+  user_id: number;
+  user?: {
+    id: number;
+    name?: string | null;
+    email?: string | null;
+  } | null;
+  teacher?: {
+    emp_no?: string | number | null;
+    full_name?: string | null;
+    fname?: string | null;
+    mname?: string | null;
+    lname?: string | null;
+    email?: string | null;
+    position?: string | null;
+  } | null;
+  employee?: {
+    emp_no?: string | null;
+    name?: string | null;
+    email?: string | null;
+    position?: string | null;
+    department?: string | null;
+  } | null;
   role?: string | null;
 };
 

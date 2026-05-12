@@ -31,8 +31,6 @@ export const Route = createFileRoute('/')({
     const hasMaint =
       maintPerm !== null && checkPermission(permissions, maintPerm);
 
-    console.log(hasCollege, hasMaint);
-
     let access: MaintenanceLoaderAccess = [];
     if (!hasCollege && hasMaint) {
       const m = await loadMaintenanceAccess();
@@ -63,7 +61,10 @@ function Index() {
           <Card>
             <CardHeader>
               <CardTitle>DRS</CardTitle>
-              <CardDescription>Your applications</CardDescription>
+              <CardDescription>
+                Your applications — click a row to open details, messages, and
+                edits (when allowed).
+              </CardDescription>
             </CardHeader>
             <CardContent className="">
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -103,10 +104,18 @@ function Index() {
             <CardTitle>DRS</CardTitle>
             <CardDescription>No access</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
               You do not have permission to use this DRS tenant. If you believe
               this is an error, contact your administrator.
+            </p>
+            <p className="text-muted-foreground text-sm">
+              If you complete workflow tasks for students (for example clearance
+              sign-off), try the{' '}
+              <Link className="text-primary underline" to="/staff/queue">
+                staff queue
+              </Link>
+              .
             </p>
           </CardContent>
         </Card>

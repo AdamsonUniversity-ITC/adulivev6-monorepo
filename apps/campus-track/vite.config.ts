@@ -1,7 +1,7 @@
-import { tanstackRouter } from '@tanstack/router-plugin/vite';
-import react from '@vitejs/plugin-react-swc';
-import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import react from '@vitejs/plugin-react-swc'
+import { defineConfig } from 'vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
   resolve: {
@@ -22,4 +22,4 @@ export default defineConfig({
       allow: ['..'],
     },
   },
-});
+})
