@@ -14,7 +14,7 @@ import { FormCheckbox } from '@repo/ui/form-components/form-checkbox';
 import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -28,6 +28,7 @@ import {
 } from '../-lib/api/fetchPackage.ts';
 import { editDocument } from '../-lib/api/editDocument.ts';
 import { editPackage } from '../-lib/api/editPackage.ts';
+import { LoadingIndicator } from '../../-loading-indicator.tsx';
 import {
   type CatalogKind,
   EMPTY_CATALOG_RULES,
@@ -145,9 +146,8 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
   if (detailQuery.isFetching && !detailQuery.data) {
     return (
       <Card>
-        <CardContent className="flex h-60 flex-col items-center justify-center gap-2">
-          <Loader className="text-muted-foreground h-5 w-5 animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading…</p>
+        <CardContent className="flex h-60 items-center justify-center">
+          <LoadingIndicator label="Loading details…" size="md" />
         </CardContent>
       </Card>
     );

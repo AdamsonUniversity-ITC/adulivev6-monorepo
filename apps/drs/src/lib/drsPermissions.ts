@@ -1,3 +1,5 @@
+import { checkPermission } from '@repo/hooks';
+
 /** Aligns with registrar DRSStudentAccessMiddleware + AccessService. */
 export const DRS_STUDENT_APPLY_PERMISSION = 'college-access' as const;
 
@@ -24,4 +26,23 @@ export function getDrMaintenancePermissionForHost(
 ): string | null {
   const sub = getDrSubdomain(hostname);
   return SUBDOMAIN_TO_MAINTENANCE[sub] ?? null;
+}
+
+/**
+ * True when the user only has the student DRS portal permission for this host
+ * (college-access) and not registrar maintenance. Staff queue is not part of
+ * student access and should be hidden / blocked for this case.
+ */
+export function isStudentOnlyDrsPortalUser(
+  permissions: string[],
+  hostname: string = typeof window !== 'undefined'
+    ? window.location.hostname
+    : '',
+): boolean {
+  const hasCollege = checkPermission(permissions, DRS_STUDENT_APPLY_PERMISSION);
+  const maintPerm = getDrMaintenancePermissionForHost(hostname);
+  const hasMaint =
+    maintPerm !== null && checkPermission(permissions, maintPerm);
+
+  return hasCollege && !hasMaint;
 }

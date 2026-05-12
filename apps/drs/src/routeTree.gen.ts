@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance/index'
 import { Route as ApplyIndexRouteImport } from './routes/apply/index'
+import { Route as StaffQueueRouteImport } from './routes/staff.queue'
+import { Route as ApplicationsApplicationIdRouteImport } from './routes/applications.$applicationId'
+import { Route as StaffApplicationsApplicationIdRouteImport } from './routes/staff.applications.$applicationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +31,83 @@ const ApplyIndexRoute = ApplyIndexRouteImport.update({
   path: '/apply/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StaffQueueRoute = StaffQueueRouteImport.update({
+  id: '/staff/queue',
+  path: '/staff/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsApplicationIdRoute =
+  ApplicationsApplicationIdRouteImport.update({
+    id: '/applications/$applicationId',
+    path: '/applications/$applicationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const StaffApplicationsApplicationIdRoute =
+  StaffApplicationsApplicationIdRouteImport.update({
+    id: '/staff/applications/$applicationId',
+    path: '/staff/applications/$applicationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/applications/$applicationId': typeof ApplicationsApplicationIdRoute
+  '/staff/queue': typeof StaffQueueRoute
   '/apply/': typeof ApplyIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/staff/applications/$applicationId': typeof StaffApplicationsApplicationIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/applications/$applicationId': typeof ApplicationsApplicationIdRoute
+  '/staff/queue': typeof StaffQueueRoute
   '/apply': typeof ApplyIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
+  '/staff/applications/$applicationId': typeof StaffApplicationsApplicationIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/applications/$applicationId': typeof ApplicationsApplicationIdRoute
+  '/staff/queue': typeof StaffQueueRoute
   '/apply/': typeof ApplyIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/staff/applications/$applicationId': typeof StaffApplicationsApplicationIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/apply/' | '/maintenance/'
+  fullPaths:
+    | '/'
+    | '/applications/$applicationId'
+    | '/staff/queue'
+    | '/apply/'
+    | '/maintenance/'
+    | '/staff/applications/$applicationId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/apply' | '/maintenance'
-  id: '__root__' | '/' | '/apply/' | '/maintenance/'
+  to:
+    | '/'
+    | '/applications/$applicationId'
+    | '/staff/queue'
+    | '/apply'
+    | '/maintenance'
+    | '/staff/applications/$applicationId'
+  id:
+    | '__root__'
+    | '/'
+    | '/applications/$applicationId'
+    | '/staff/queue'
+    | '/apply/'
+    | '/maintenance/'
+    | '/staff/applications/$applicationId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApplicationsApplicationIdRoute: typeof ApplicationsApplicationIdRoute
+  StaffQueueRoute: typeof StaffQueueRoute
   ApplyIndexRoute: typeof ApplyIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
+  StaffApplicationsApplicationIdRoute: typeof StaffApplicationsApplicationIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +133,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/staff/queue': {
+      id: '/staff/queue'
+      path: '/staff/queue'
+      fullPath: '/staff/queue'
+      preLoaderRoute: typeof StaffQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications/$applicationId': {
+      id: '/applications/$applicationId'
+      path: '/applications/$applicationId'
+      fullPath: '/applications/$applicationId'
+      preLoaderRoute: typeof ApplicationsApplicationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff/applications/$applicationId': {
+      id: '/staff/applications/$applicationId'
+      path: '/staff/applications/$applicationId'
+      fullPath: '/staff/applications/$applicationId'
+      preLoaderRoute: typeof StaffApplicationsApplicationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApplicationsApplicationIdRoute: ApplicationsApplicationIdRoute,
+  StaffQueueRoute: StaffQueueRoute,
   ApplyIndexRoute: ApplyIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
+  StaffApplicationsApplicationIdRoute: StaffApplicationsApplicationIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

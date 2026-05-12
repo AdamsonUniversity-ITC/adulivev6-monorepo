@@ -32,8 +32,8 @@ export const DepartmentDetail = ({ department }: Props) => {
   );
 
   const detachMutation = useMutation({
-    mutationFn: (empNo: string) =>
-      detachClearanceDepartmentUser(department.id, empNo),
+    mutationFn: (userId: number) =>
+      detachClearanceDepartmentUser(department.id, userId),
     onSuccess: () => {
       toast.success('Employee removed from department.');
       setPendingDetach(null);
@@ -85,19 +85,28 @@ export const DepartmentDetail = ({ department }: Props) => {
             <div className="space-y-2">
               {users.map((user) => (
                 <div
-                  key={user.emp_no}
+                  key={user.user_id}
                   className="bg-accent border-border flex items-center justify-between gap-2 rounded-lg border p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {user.name || 'Unnamed employee'}{' '}
+                      {user.teacher?.full_name ||
+                        user.employee?.name ||
+                        user.user?.name ||
+                        'Unnamed user'}{' '}
                       <span className="text-muted-foreground text-xs font-normal">
-                        ({user.emp_no})
+                        ({user.teacher?.emp_no})
                       </span>
                     </p>
                     <p className="text-muted-foreground truncate text-xs">
-                      {[user.position, user.email].filter(Boolean).join(' · ') ||
-                        'No contact info'}
+                      {[
+                        user.teacher?.position || user.employee?.position,
+                        user.user?.email ||
+                          user.teacher?.email ||
+                          user.employee?.email,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || 'No contact info'}
                     </p>
                     {user.role ? (
                       <span className="bg-primary/10 text-primary mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium">
@@ -134,18 +143,26 @@ export const DepartmentDetail = ({ department }: Props) => {
             <>
               Remove{' '}
               <span className="font-medium">
-                {pendingDetach.name ||
-                  pendingDetach.email ||
-                  pendingDetach.emp_no}
+                {pendingDetach.teacher?.full_name ||
+                  pendingDetach.employee?.name ||
+                  pendingDetach.user?.name ||
+                  pendingDetach.user?.email ||
+                  pendingDetach.teacher?.emp_no ||
+                  pendingDetach.employee?.emp_no ||
+                  pendingDetach.user_id}
               </span>{' '}
-              from <span className="font-medium">{getDepartmentName(department)}</span>?
+              from{' '}
+              <span className="font-medium">
+                {getDepartmentName(department)}
+              </span>
+              ?
             </>
           ) : null
         }
         confirmLabel="Remove employee"
         pending={detachMutation.isPending}
         onConfirm={() =>
-          pendingDetach && detachMutation.mutate(pendingDetach.emp_no)
+          pendingDetach && detachMutation.mutate(pendingDetach.user_id)
         }
       />
     </div>

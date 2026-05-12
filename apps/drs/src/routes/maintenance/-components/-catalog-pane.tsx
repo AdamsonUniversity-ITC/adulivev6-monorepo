@@ -16,6 +16,7 @@ import {
   type PackageListItem,
   fetchPackages,
 } from '../-lib/api/fetchPackages.ts';
+import { LoadingIndicator } from '../../-loading-indicator.tsx';
 import { AddCatalogDialog } from './-add-catalog-dialog.tsx';
 import { CatalogDetail } from './-catalog-detail.tsx';
 import type { CatalogItem, CatalogKind } from './-types.ts';
@@ -110,7 +111,10 @@ export const CatalogPane = ({ kind, selectedGroup }: Props) => {
         </CardHeader>
         <CardContent className="space-y-1">
           {listQuery.isLoading ? (
-            <p className="text-muted-foreground py-4 text-sm">Loading…</p>
+            <LoadingIndicator
+              label={`Loading ${kind === 'document' ? 'documents' : 'packages'}…`}
+              variant="block"
+            />
           ) : listQuery.isError ? (
             <p className="text-destructive py-4 text-sm">
               Failed to load {kind === 'document' ? 'documents' : 'packages'}.

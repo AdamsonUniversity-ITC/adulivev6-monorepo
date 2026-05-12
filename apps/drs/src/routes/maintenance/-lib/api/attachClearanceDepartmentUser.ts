@@ -1,7 +1,7 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
 type AttachPayload = {
-  emp_no: string;
+  user_id: number;
   role?: string;
 };
 
