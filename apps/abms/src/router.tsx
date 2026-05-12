@@ -13,6 +13,9 @@ import Department from './pages/administration/Department.tsx';
 import UserAccess from './pages/administration/UserAccess.tsx';
 import { authSvc } from '@repo/axios-config/auth-service';
 import BudgetProposalEntry from './pages/transactions/BudgetProposalEntry.tsx';
+import BudgetReview from './pages/administration/BudgetReview.tsx';
+import BudgetReviewDetails from './pages/administration/BudgetReviewDetails.tsx';
+import BudgetTransferAccount from './pages/administration/BudgetTransferAccount.tsx';
 
 
 const rootRoute = new RootRoute({
@@ -28,11 +31,11 @@ const protectedRoute = new Route({
         } catch (error: any) {
             if (error.response?.status === 401) {
                 window.location.href = 'http://localhost.test:8081/login';
-                await new Promise(() => {});
+                await new Promise(() => { });
             }
             if (error.response?.status === 503) {
                 window.location.href = '/maintenance';
-                await new Promise(() => {});
+                await new Promise(() => { });
             }
         }
 
@@ -83,9 +86,42 @@ export const departmentRoute = new Route({
     path: '/admin/department',
     loader: async () => {
         const response = await financeSvc.get('/abms/department');
-        return { data: response.data };  
+        return { data: response.data };
     },
     component: Department,
+});
+
+export const budgetreviewRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/admin/budget-review',
+    loader: async () => {
+        const response = await financeSvc.get('/abms/budget-review');
+        const { 
+            proposal_school_year,
+            current_school_year,
+            departments,
+            sections,
+            mainaccounts,
+        } = response.data;
+
+        return {
+            proposal_school_year,
+            current_school_year,
+            departments,
+            sections,
+            mainaccounts,
+        };
+    },
+    component: BudgetReview,
+});
+
+export const budgetreviewdetailsRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/admin/budget-review/details',
+    // Navigation state (mainAccountId, mainAccountName, unitId, unitName, unitKind,
+    // current_school_year, proposal_school_year) is passed via router navigate({ state })
+    // from BudgetReview.tsx and read inside BudgetReviewDetails via useRouter().state.location.state
+    component: BudgetReviewDetails,
 });
 
 export const userdepartmentRoute = new Route({
@@ -94,17 +130,28 @@ export const userdepartmentRoute = new Route({
     loader: async () => {
         const [permissionsRes, departmentsRes, usersRes] = await Promise.all([
             authSvc.get('/abms-permissions'),
-            financeSvc.get('/abms/department'), 
+            financeSvc.get('/abms/department'),
             financeSvc.get('/abms/access'),
         ]);
 
         return {
             data: permissionsRes.data,
             departments: departmentsRes.data,
-            users:       usersRes.data,
+            users: usersRes.data,
         };
     },
     component: UserAccess,
+});
+
+export const budgettransferaccountRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/admin/budget-transfer-account',
+    loader: async () => {
+        const response = await financeSvc.get('/abms/budget-transfer-account');
+        const { units, school_years } = response.data;
+        return { units, school_years };
+    },
+    component: BudgetTransferAccount,
 });
 
 export const officeSuppliesRoute = new Route({
@@ -148,7 +195,7 @@ export const budgetproposalentryRoute = new Route({
 
         // 1. Fetch permissions first
         const permissionsRes = await authSvc.get('/abms-permissions');
-        const permissions = permissionsRes.data.permissions; 
+        const permissions = permissionsRes.data.permissions;
 
         // 2. Pass it along to the finance service
         const response = await financeSvc.get('/abms/budget-proposal-entry', {
@@ -185,7 +232,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);

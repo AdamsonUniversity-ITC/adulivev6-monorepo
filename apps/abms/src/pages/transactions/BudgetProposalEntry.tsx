@@ -228,7 +228,7 @@ const saveSchema = z.object({
     main_account_id: z.number().int().positive('Main account is required'),
     sub_account_id: z.number().int().positive('Sub account is required'),
     existing_ids: z.array(z.number().int()),
-    rows: z.array(rowSchema).min(1, 'At least one row is required'),
+    rows: z.array(rowSchema),   // empty array is valid — means "delete all items"
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -364,72 +364,142 @@ function StyledSelect({
 // value is the option's id string; onChange also returns the kind so the
 // parent knows whether it picked a Department or a Section.
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// DeptSelect — custom dropdown with Dept/Sec badges, sorted alphabetically
+// mirrors BudgetReview design exactly
+// ─────────────────────────────────────────────────────────────────────────────
 function DeptSelect({
     value,
     onChange,
     departments,
     sections,
     t,
+    isDark,
 }: {
     value: string;
     onChange: (id: string, kind: 'Department' | 'Section') => void;
     departments: DeptOption[];
     sections: DeptOption[];
     t: typeof T.dark;
+    isDark: boolean;
 }) {
-    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const id = e.target.value;
-        const isDept = departments.some(d => d.id === id);
-        onChange(id, isDept ? 'Department' : 'Section');
+    const [open, setOpen] = useState(false);
+
+    const mergedList: DeptOption[] = [
+        ...departments.map(d => ({ ...d, kind: 'Department' as const })),
+        ...sections.map(s => ({ ...s, kind: 'Section' as const })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
+    const selected = mergedList.find(o => o.id === value) ?? null;
+
+    const handleSelect = (item: DeptOption) => {
+        onChange(item.id, item.kind);
+        setOpen(false);
     };
 
     return (
         <div className="relative">
-            <select
-                value={value}
-                onChange={handleChange}
-                className="w-full appearance-none rounded-md text-sm px-3 py-2 pr-8 outline-none transition-all duration-150"
+            <button
+                type="button"
+                onClick={() => setOpen(prev => !prev)}
+                className="w-full flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-md text-sm font-semibold transition-all duration-150"
                 style={{
                     background: t.inputBg,
-                    border: `1px solid ${t.inputBorder}`,
-                    color: value ? t.inputText : t.inputPlaceholder,
+                    border: `1px solid ${open ? (isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)') : t.inputBorder}`,
+                    color: selected ? t.inputText : t.inputPlaceholder,
                     backdropFilter: 'blur(6px)',
                 }}
             >
-                <option value="">Select department / section…</option>
-
-                {departments.length > 0 && (
-                    <optgroup label="── Departments">
-                        {departments.map(d => (
-                            <option
-                                key={`dept-${d.id}`}
-                                value={d.id}
-                                style={{ background: '#0f172a', color: '#e2e8f0' }}
-                            >
-                                {d.name}
-                            </option>
-                        ))}
-                    </optgroup>
+                <span className="flex-1 text-left truncate">
+                    {selected?.name ?? 'Select department / section…'}
+                </span>
+                {/* Show kind badge inline on the button when something is selected */}
+                {selected && (
+                    <span
+                        className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
+                        style={{
+                            background: selected.kind === 'Department'
+                                ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
+                                : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
+                            color: selected.kind === 'Department'
+                                ? (isDark ? '#93c5fd' : '#1d4ed8')
+                                : (isDark ? '#6ee7b7' : '#047857'),
+                        }}
+                    >
+                        {selected.kind === 'Department' ? 'Dept' : 'Sec'}
+                    </span>
                 )}
+                <ChevronDown
+                    className="w-3.5 h-3.5 shrink-0 transition-transform duration-150"
+                    style={{
+                        color: isDark ? '#94a3b8' : '#64748b',
+                        transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}
+                />
+            </button>
 
-                {sections.length > 0 && (
-                    <optgroup label="── Sections">
-                        {sections.map(s => (
-                            <option
-                                key={`sec-${s.id}`}
-                                value={s.id}
-                                style={{ background: '#0f172a', color: '#e2e8f0' }}
+            {open && (
+                <div
+                    className="absolute top-full left-0 mt-1 z-50 rounded-xl overflow-hidden w-full min-w-[220px]"
+                    style={{
+                        background: isDark ? 'rgba(10, 18, 38, 0.98)' : 'rgba(255,255,255,0.99)',
+                        border: `1px solid ${isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.20)'}`,
+                        boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.50)' : '0 8px 32px rgba(0,48,135,0.15)',
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                    }}
+                >
+                    {mergedList.map((item, idx) => {
+                        const isSelected = item.id === value;
+                        return (
+                            <button
+                                key={`${item.kind}-${item.id}`}
+                                type="button"
+                                className="w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-center justify-between gap-3"
+                                style={{
+                                    color: isSelected
+                                        ? (isDark ? '#93c5fd' : '#1d4ed8')
+                                        : (isDark ? '#e2e8f0' : '#0f172a'),
+                                    background: isSelected
+                                        ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)')
+                                        : 'transparent',
+                                    fontWeight: isSelected ? 600 : 400,
+                                    borderBottom: idx < mergedList.length - 1
+                                        ? `1px solid ${isDark ? 'rgba(99,155,255,0.10)' : 'rgba(37,99,235,0.08)'}`
+                                        : 'none',
+                                }}
+                                onClick={() => handleSelect(item)}
+                                onMouseEnter={e => {
+                                    if (!isSelected)
+                                        (e.currentTarget as HTMLElement).style.background = isDark
+                                            ? 'rgba(59,130,246,0.12)'
+                                            : 'rgba(219,234,254,0.50)';
+                                }}
+                                onMouseLeave={e => {
+                                    if (!isSelected)
+                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                }}
                             >
-                                {s.name}
-                            </option>
-                        ))}
-                    </optgroup>
-                )}
-            </select>
-            <ChevronDown
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
-                style={{ color: t.tableHeadText }}
-            />
+                                <span className="truncate">{item.name}</span>
+                                {/* Kind badge */}
+                                <span
+                                    className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
+                                    style={{
+                                        background: item.kind === 'Department'
+                                            ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
+                                            : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
+                                        color: item.kind === 'Department'
+                                            ? (isDark ? '#93c5fd' : '#1d4ed8')
+                                            : (isDark ? '#6ee7b7' : '#047857'),
+                                    }}
+                                >
+                                    {item.kind === 'Department' ? 'Dept' : 'Sec'}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
@@ -578,7 +648,7 @@ export default function BudgetProposalEntry() {
             const mapped: LineItem[] = items.map((item: any) => ({
                 id: item.id,
                 isNew: false,
-                description: item.item_name ?? '',
+                description: item.description ?? '',   // DB column is `description`
                 unitCost: String(item.unit_cost ?? ''),
                 quantity: String(item.quantity ?? ''),
                 uom: item.unit_measurement ?? '',
@@ -709,7 +779,7 @@ export default function BudgetProposalEntry() {
             const copied: LineItem[] = items.map((item) => ({
                 id: Date.now() + Math.random(),   // temp key, safe for React
                 isNew: true,
-                description: item.item_name ?? '',
+                description: item.description ?? '',   // DB column is `description`
                 unitCost: String(item.unit_cost ?? ''),
                 quantity: String(item.quantity ?? ''),
                 uom: item.unit_measurement ?? '',
@@ -842,6 +912,7 @@ export default function BudgetProposalEntry() {
                                                     departments={departments}
                                                     sections={sections}
                                                     t={t}
+                                                    isDark={isDark} 
                                                 />
                                             </div>
 

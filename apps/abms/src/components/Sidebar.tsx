@@ -140,6 +140,8 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Budget Settings', href: '/admin/budget-settings' },
       { label: 'Budget Status', href: '/admin/budget-status' },
+      { label: 'Budget Review', href: '/admin/budget-review' },
+      { label: 'Budget Transfer Account', href: '/admin/budget-transfer-account' },
       { label: 'Departments and Sections', href: '/admin/department' },
       { label: 'User Department Access', href: '/admin/user-department-access' },
       { label: 'Chart of Accounts', href: '/admin/chart-of-accounts' },
