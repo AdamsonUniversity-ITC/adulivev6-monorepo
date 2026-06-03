@@ -1,11 +1,10 @@
-import { authSvc } from "@repo/axios-config"
+import { authSvc } from '@repo/axios-config';
 export const useAuth = () => {
+  const check = async () => {
+    return await authSvc.get('user');
+  };
 
-    const check = () => {
-       return authSvc.get('user').then(() => true).catch(() => false)
-    }
-
-    return {
-        check
-    }
-}
+  return {
+    check,
+  };
+};

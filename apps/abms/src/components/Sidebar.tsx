@@ -1,0 +1,552 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard, Settings, Menu, LogOut, LucideIcon, Receipt
+} from 'lucide-react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@repo/ui/components/accordion";
+import { useNavigate, useRouterState } from '@tanstack/react-router';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface NavSubItem {
+  label: string;
+  href?: string;
+  active?: boolean;
+}
+
+export interface NavItem {
+  icon: LucideIcon;
+  label: string;
+  active?: boolean;
+  href?: string;
+  children?: NavSubItem[];
+}
+
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+  isDark: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Design tokens — Sidebar (Modern Adamson Futuristic)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const T = {
+  dark: {
+    // Layout
+    sidebar: 'linear-gradient(180deg, #070c1a 0%, #040812 100%)',
+    border: 'rgba(56, 189, 248, 0.08)',
+    borderVivid: 'rgba(56, 189, 248, 0.25)',
+    // Brand
+    brandBg: 'transparent',
+    brandBorder: 'rgba(56, 189, 248, 0.15)',
+    brandGlow: '0 4px 20px rgba(0, 0, 0, 0.6)',
+    logoA: '#38bdf8', // Neon Cyan for dark mode contrast
+    logoB: '#2563eb', // Royal Blue
+    subTitle: '#475569',
+    // Nav section label
+    sectionLabel: '#475569',
+    // Nav items
+    textMuted: '#8b9cb6',
+    textHover: '#e2e8f0',
+    activeBg: 'rgba(37, 99, 235, 0.08)',
+    activeBorder: 'rgba(56, 189, 248, 0.2)',
+    activeShadow: 'inset 0 0 20px rgba(56, 189, 248, 0.03)',
+    activeBar: '#38bdf8',
+    activeBarGlow: '0 0 16px rgba(56, 189, 248, 0.6)',
+    activeIcon: '#38bdf8',
+    activeText: '#f8fafc',
+    hoverBg: 'rgba(255, 255, 255, 0.02)',
+    hoverBorder: 'rgba(56, 189, 248, 0.1)',
+    shimmer: 'rgba(56, 189, 248, 0.05)',
+    // Sub-items
+    subBorder: 'rgba(56, 189, 248, 0.1)',
+    subText: '#64748b',
+    subHoverText: '#e2e8f0',
+    subHoverBg: 'rgba(37, 99, 235, 0.05)',
+    // Footer
+    footerBorder: 'rgba(255, 255, 255, 0.03)',
+    logoutColor: '#475569',
+    logoutHover: 'rgba(239, 68, 68, 0.1)',
+    // Collapsed expand pill
+    toggleBg: '#0a1224',
+    toggleBorder: 'rgba(56, 189, 248, 0.3)',
+    toggleGlow: '0 0 15px rgba(56, 189, 248, 0.15)',
+  },
+  light: {
+    // Layout
+    sidebar: 'linear-gradient(180deg, #f0f5ff 0%, #d8e6ff 100%)',
+    border: 'rgba(0, 48, 135, 0.14)',
+    borderVivid: 'rgba(0, 48, 135, 0.32)',
+    // Brand
+    brandBg: 'transparent',
+    brandBorder: 'rgba(0, 48, 135, 0.18)',
+    brandGlow: '0 2px 16px rgba(0, 48, 135, 0.12)',
+    logoA: '#001e6e',
+    logoB: '#0040c0',
+    subTitle: '#2C4A72',
+    // Nav section label
+    sectionLabel: '#5272A0',
+    // Nav items
+    textMuted: '#2C4272',
+    textHover: '#00082E',
+    activeBg: 'rgba(0, 70, 199, 0.13)',
+    activeBorder: 'rgba(0, 70, 199, 0.32)',
+    activeShadow: 'inset 0 0 18px rgba(0, 48, 135, 0.10)',
+    activeBar: '#0040c0',
+    activeBarGlow: '0 0 14px rgba(0, 70, 199, 0.60)',
+    activeIcon: '#0040c0',
+    activeText: '#00082E',
+    hoverBg: 'rgba(0, 48, 135, 0.08)',
+    hoverBorder: 'rgba(0, 48, 135, 0.20)',
+    shimmer: 'rgba(0, 48, 135, 0.09)',
+    // Sub-items
+    subBorder: 'rgba(0, 48, 135, 0.16)',
+    subText: '#2C4A72',
+    subHoverText: '#0040c0',
+    subHoverBg: 'rgba(0, 48, 135, 0.09)',
+    // Footer
+    footerBorder: 'rgba(0, 48, 135, 0.14)',
+    logoutColor: '#2C4A72',
+    logoutHover: 'rgba(239, 68, 68, 0.09)',
+    // Collapsed expand pill
+    toggleBg: '#dde8ff',
+    toggleBorder: 'rgba(0, 48, 135, 0.35)',
+    toggleGlow: '0 0 16px rgba(0, 48, 135, 0.18)',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nav items — self-contained
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    icon: LayoutDashboard,
+    label: 'Dashboard',
+    href: '/',
+  },
+  {
+    icon: Settings,
+    label: 'Administration',
+    children: [
+      { label: 'Budget Settings', href: '/admin/budget-settings' },
+      { label: 'Budget Status', href: '/admin/budget-status' },
+      { label: 'Budget Review', href: '/admin/budget-review' },
+      { label: 'Budget Transfer Account', href: '/admin/budget-transfer-account' },
+      { label: 'Departments and Sections', href: '/admin/department' },
+      { label: 'User Department Access', href: '/admin/user-department-access' },
+      { label: 'Chart of Accounts', href: '/admin/chart-of-accounts' },
+      { label: 'Office Supplies', href: '/admin/office-supplies' },
+    ],
+  },
+  {
+    icon: Receipt,
+    label: 'Transactions',
+    children: [
+      { label: 'Budget Proposal Entry', href: '/transactions/budget-proposal-entry' },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shimmer sweep
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ShimmerSweep: React.FC<{ color: string }> = ({ color }) => (
+  <motion.div className="absolute inset-0 rounded-md pointer-events-none overflow-hidden">
+    <motion.div
+      className="absolute inset-0"
+      style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }}
+      animate={{ x: ['-100%', '200%'] }}
+      transition={{ duration: 3, repeat: Infinity, repeatDelay: 5, ease: 'easeInOut' }}
+    />
+  </motion.div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Adamson logo
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AdamsonLogo({ size = 28 }: { size?: number }) {
+  return (
+    <img
+      src="/logos/adulogo.png"
+      alt="Adamson University"
+      width={size}
+      height={size}
+      style={{ objectFit: 'contain', display: 'block' }}
+      draggable={false}
+    />
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NavButton — standalone active/inactive button
+// ─────────────────────────────────────────────────────────────────────────────
+
+function NavButton({
+  item,
+  isOpen,
+  t,
+  isActive,
+}: {
+  item: NavItem;
+  isOpen: boolean;
+  t: typeof T.dark;
+  isActive: boolean;
+}) {
+  const Icon = item.icon;
+  const navigate = useNavigate();
+  return (
+    <button
+      className={`relative w-full h-11 rounded-lg overflow-hidden flex items-center transition-all duration-200 border
+        ${isOpen ? 'gap-3 px-3' : 'justify-center px-0'}
+      `}
+      style={
+        isActive
+          ? {
+            background: t.activeBg,
+            border: `1px solid ${t.activeBorder}`,
+            boxShadow: t.activeShadow,
+          }
+          : { background: 'transparent', border: '1px solid transparent' }
+      }
+      onClick={() => item.href && navigate({ to: item.href })}
+      onMouseEnter={e => {
+        if (!isActive) {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.background = t.hoverBg;
+          el.style.borderColor = t.hoverBorder;
+        }
+      }}
+      onMouseLeave={e => {
+        if (!isActive) {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.background = 'transparent';
+          el.style.borderColor = 'transparent';
+        }
+      }}
+    >
+      {isActive && (
+        <>
+          <div
+            className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+            style={{ background: t.activeBar, boxShadow: t.activeBarGlow }}
+          />
+          <ShimmerSweep color={t.shimmer} />
+        </>
+      )}
+      <Icon
+        className="w-[18px] h-[18px] shrink-0 transition-colors"
+        style={{ color: isActive ? t.activeIcon : t.textMuted }}
+      />
+      <AnimatePresence>
+        {isOpen && (
+          <motion.span
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: 'auto' }}
+            exit={{ opacity: 0, width: 0 }}
+            className="text-sm font-medium tracking-wide whitespace-nowrap overflow-hidden"
+            style={{ color: isActive ? t.activeText : t.textMuted }}
+          >
+            {item.label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sidebar
+// ─────────────────────────────────────────────────────────────────────────────
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
+  const t = isDark ? T.dark : T.light;
+  const themeKey = isDark ? 'dark' : 'light';
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Compute which accordion groups should be open by default (when a child matches)
+  const defaultOpenAccordions = NAV_ITEMS
+    .map((item, index) =>
+      item.children?.some((child) => child.href === pathname) ? `nav-${index}` : null
+    )
+    .filter(Boolean) as string[];
+
+  return (
+    <motion.aside
+      animate={{ width: isOpen ? 256 : 72 }}
+      transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+      className="relative z-20 flex flex-col h-screen shrink-0 overflow-hidden"
+      style={{
+        background: t.sidebar,
+        borderRight: `1px solid ${t.border}`,
+        boxShadow: isDark
+          ? '4px 0 40px rgba(0,0,0,0.65)'
+          : '4px 0 24px rgba(0,48,135,0.06)',
+      }}
+    >
+      {/* Right-edge gradient rule */}
+      <div
+        className="absolute right-0 top-0 bottom-0 w-px pointer-events-none"
+        style={{
+          background: `linear-gradient(180deg, transparent, ${t.borderVivid} 35%, ${t.border} 100%)`,
+        }}
+      />
+
+      {/* ── Brand ─────────────────────────────────────────────────── */}
+      <div
+        className="h-[80px] flex items-center justify-between px-3 shrink-0" // Increased height slightly for larger text
+        style={{ borderBottom: `1px solid ${t.border}` }}
+      >
+        <AnimatePresence mode="wait">
+          {isOpen ? (
+            <motion.div
+              key={`brand-open-${themeKey}`}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-3 min-w-0"
+            >
+              <div className="flex-shrink-0 flex items-center justify-center w-12 h-12">
+                <AdamsonLogo size={48} /> {/* Slightly larger logo */}
+              </div>
+              <div className="flex flex-col justify-center">
+                <h1
+                  className="text-xl font-black tracking-[0.2em] uppercase leading-none" // Enlarged text and weight
+                  style={{
+                    background: `linear-gradient(135deg, ${t.logoA}, ${t.logoB})`,
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    color: 'transparent',
+                    display: 'inline-block',
+                  }}
+                >
+                  ABMS
+                </h1>
+                {/* <p
+                  className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1 opacity-80"
+                  style={{ color: t.subTitle }}
+                >
+                  SYSTEM
+                </p> */}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`brand-closed-${themeKey}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center w-full"
+            >
+              <div className="flex items-center justify-center w-12 h-12">
+                <AdamsonLogo size={44} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isOpen && (
+          <button
+            onClick={onToggle}
+            className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: t.subTitle }}
+          // ... hover logic
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* ── Section label ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="px-5 pt-5 pb-1.5 text-[9px] font-bold tracking-[0.26em] uppercase"
+            style={{ color: t.sectionLabel }}
+          >
+            Navigation
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      <nav className="flex-1 py-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+        <Accordion type="multiple" defaultValue={defaultOpenAccordions} className="w-full border-none space-y-0.5">
+          {NAV_ITEMS.map((item, index) => {
+            const Icon = item.icon;
+            const hasChildren = item.children && item.children.length > 0;
+            const isActive = !hasChildren && item.href === pathname;
+
+            if (!hasChildren) {
+              return (
+                <motion.div
+                  key={index}
+                  whileHover={{ x: isOpen ? 2 : 0 }}
+                  transition={{ duration: 0.14 }}
+                >
+                  <NavButton item={item} isOpen={isOpen} t={t} isActive={isActive} />
+                </motion.div>
+              );
+            }
+
+            return (
+              <AccordionItem key={index} value={`nav-${index}`} className="border-none">
+                <AccordionTrigger
+                  className={`relative flex items-center h-11 w-full rounded-lg hover:no-underline transition-all duration-200 border border-transparent
+                    ${isOpen ? 'gap-3 px-3' : 'justify-center px-0'}
+                  `}
+                  style={{ color: t.textMuted }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.background = t.hoverBg;
+                    el.style.borderColor = t.hoverBorder;
+                    el.style.color = t.textHover;
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.background = 'transparent';
+                    el.style.borderColor = 'transparent';
+                    el.style.color = t.textMuted;
+                  }}
+                >
+                  <Icon className="w-[18px] h-[18px] shrink-0" />
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="text-sm font-medium tracking-wide flex-1 text-left"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </AccordionTrigger>
+
+                {isOpen && (
+                  <AccordionContent className="pb-1.5 pt-0.5 overflow-hidden">
+                    <div
+                      className="ml-[23px] pl-3 space-y-0.5"
+                      style={{ borderLeft: `1px solid ${t.subBorder}` }}
+                    >
+                      {item.children?.map((child, ci) => {
+                        const isChildActive = child.href === pathname;
+                        return (
+                          <motion.button
+                            key={ci}
+                            onClick={() => child.href && navigate({ to: child.href })}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: ci * 0.05, duration: 0.18 }}
+                            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-xs font-medium tracking-wide transition-all duration-150 border border-transparent"
+                            style={{ color: isChildActive ? t.activeIcon : t.subText }}
+                            onMouseEnter={e => {
+                              const el = e.currentTarget as HTMLElement;
+                              el.style.background = t.subHoverBg;
+                              el.style.borderColor = t.hoverBorder;
+                              el.style.color = t.subHoverText;
+                            }}
+                            onMouseLeave={e => {
+                              const el = e.currentTarget as HTMLElement;
+                              el.style.background = 'transparent';
+                              el.style.borderColor = 'transparent';
+                              el.style.color = isChildActive ? t.activeIcon : t.subText;
+                            }}
+                          >
+                            <span
+                              className="w-1 h-1 rounded-full shrink-0 opacity-70"
+                              style={{ background: isChildActive ? t.activeBar : t.subText }}
+                            />
+                            {child.label}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                )}
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      </nav>
+      {/* 
+      ── Footer ────────────────────────────────────────────────── */}
+      <div className="shrink-0 p-2" style={{ borderTop: `1px solid ${t.footerBorder}` }}>
+        {/* <button
+          className={`w-full h-10 flex items-center gap-3 rounded-lg transition-all duration-200 border border-transparent text-sm
+            ${!isOpen ? 'justify-center px-0' : 'px-3'}`}
+          style={{ color: t.logoutColor }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.background = t.logoutHover;
+            el.style.color = '#f87171';
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.background = 'transparent';
+            el.style.color = t.logoutColor;
+          }}
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          <AnimatePresence>
+            {isOpen && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                Sign Out
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button> */}
+      </div>
+
+      {/* Collapsed expand pill */}
+      {!isOpen && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.7 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.7 }}
+          onClick={onToggle}
+          className="absolute top-[26px] -right-[13px] w-[26px] h-[26px] rounded-full flex items-center justify-center z-30"
+          style={{
+            background: t.toggleBg,
+            border: `1px solid ${t.toggleBorder}`,
+            boxShadow: t.toggleGlow,
+          }}
+        >
+          <svg width="8" height="10" viewBox="0 0 8 10" fill="none">
+            <path
+              d="M2 2L6 5L2 8"
+              stroke={t.logoA}
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </motion.button>
+      )}
+    </motion.aside>
+  );
+};
+
+export default Sidebar;

@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import './globals.css';
 // Import the generated route tree
+import { Toaster } from '@repo/ui/exports';
 import './axios.ts';
 import { routeTree } from './routeTree.gen';
 
@@ -23,6 +24,7 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <RouterProvider router={router} />
+      <Toaster />
     </StrictMode>,
   );
 }

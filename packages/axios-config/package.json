@@ -6,7 +6,8 @@
     ".": "./index.ts",
     "./auth-service": "./auth-service.ts",
     "./registrar-service": "./registrar-service.ts",
-    "./hrmdo-service": "./hrmdo-service.ts"
+    "./hrmdo-service": "./hrmdo-service.ts",
+    "./finance-service": "./finance-service.ts"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

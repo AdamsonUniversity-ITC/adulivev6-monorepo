@@ -5,7 +5,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   resolve: {
-    dedupe: ['react', 'react-dom']
+    dedupe: ['react', 'react-dom'],
   },
   plugins: [
     tanstackRouter({
@@ -17,7 +17,7 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    allowedHosts: ['drs.localhost.test'],
+    allowedHosts: ['college-drs.localhost.test'],
     fs: {
       allow: ['..'],
     },
