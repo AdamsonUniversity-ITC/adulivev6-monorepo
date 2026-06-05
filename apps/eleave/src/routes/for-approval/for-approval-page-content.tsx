@@ -175,15 +175,10 @@ export function ForApprovalPageContent() {
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
             For Approval
           </h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base">
+          <p className="text-muted-foreground mt-2 max-w-3xl text-sm sm:text-base">
             Review leave applications, filter by year and status, then update
             decisions directly from the details panel.
           </p>
-        </div>
-
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm">
-          {filteredRequests.length} matching request
-          {filteredRequests.length === 1 ? "" : "s"}
         </div>
       </div>
 

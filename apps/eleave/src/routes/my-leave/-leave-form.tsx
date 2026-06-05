@@ -1,8 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Link } from "@tanstack/react-router"
+import { isValid, parseISO } from "date-fns"
 import { ChevronLeft } from "lucide-react"
 import { useForm } from "react-hook-form"
-
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -20,7 +20,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -30,6 +29,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 
+import { DatePicker } from "@/components/shared/date-picker"
 import {
   leaveFormDefaults,
   leaveFormSchema,
@@ -50,6 +50,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     defaultValues: leaveFormDefaults,
   })
 
+  const dateFrom = form.watch("date_from")
   const onSubmit = (values: LeaveFormValues) => {
     // Wire to API when leave create/update endpoints are available.
     console.log(isEdit ? "update leave" : "create leave", {
@@ -114,11 +115,13 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
                   control={form.control}
                   name="date_from"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Date From</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select start date"
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -128,11 +131,18 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
                   control={form.control}
                   name="date_to"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Date To</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select end date"
+                        disabledDate={(date) => {
+                          if (!dateFrom) return false
+                          const from = parseISO(dateFrom)
+                          return isValid(from) && date < from
+                        }}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

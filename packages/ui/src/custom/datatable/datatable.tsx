@@ -160,7 +160,11 @@ export function DataTable<TData, TValue = unknown>({
         enableHiding: false,
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div
+            className="flex justify-end"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
             <DataTableRowActions
               row={row}
               actions={rowActions.actions}
@@ -233,6 +237,16 @@ export function DataTable<TData, TValue = unknown>({
 
   const toolbarSlot = toolbar?.slot;
 
+  const isInteractiveRowClick = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+
+    return Boolean(
+      target.closest(
+        'button, a, input, select, textarea, label, [role="checkbox"], [role="menuitem"], [role="combobox"], [data-radix-popper-content-wrapper]',
+      ),
+    );
+  };
+
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {showToolbar ? (
@@ -299,7 +313,14 @@ export function DataTable<TData, TValue = unknown>({
                   key={row.id}
                   data-state={row.getIsSelected() ? 'selected' : undefined}
                   className={cn(onRowClick && 'cursor-pointer')}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onClick={
+                    onRowClick
+                      ? (event) => {
+                          if (isInteractiveRowClick(event.target)) return;
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
