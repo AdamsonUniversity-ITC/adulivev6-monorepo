@@ -97,7 +97,7 @@ function GuidelinesPage() {
                 <li className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-900">
-                      2
+                      1
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
@@ -136,7 +136,7 @@ function GuidelinesPage() {
                 <li className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-900">
-                      3
+                      2
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
@@ -185,7 +185,7 @@ function GuidelinesPage() {
                 <li className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-900">
-                      4
+                      3
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
@@ -238,7 +238,7 @@ function GuidelinesPage() {
                 <li className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-900">
-                      5
+                      4
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
@@ -270,7 +270,7 @@ function GuidelinesPage() {
                 <li className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-900">
-                      6
+                      5
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
