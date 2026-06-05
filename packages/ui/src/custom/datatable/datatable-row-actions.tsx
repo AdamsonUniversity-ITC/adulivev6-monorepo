@@ -37,6 +37,8 @@ export function DataTableRowActions<TData>({
           variant="ghost"
           size="icon-sm"
           className="data-[state=open]:bg-muted"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
         >
           <span className="sr-only">Open row actions</span>
           <MoreHorizontal />

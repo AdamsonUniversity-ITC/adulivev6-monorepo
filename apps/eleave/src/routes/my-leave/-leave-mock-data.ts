@@ -1,8 +1,9 @@
 export type LeaveRequestStatus =
-  | "draft"
   | "pending"
   | "approved"
-  | "rejected"
+  | "partially_approved"
+  | "disapproved"
+  | "cancelled"
 
 export type LeaveRequestRow = {
   id: string
@@ -53,7 +54,7 @@ export const MOCK_LEAVE_REQUESTS: LeaveRequestRow[] = [
     date_to: "2026-04-02",
     reason: "Personal errands and documentation.",
     address: "Manila, Philippines",
-    status: "draft",
+    status: "cancelled",
     filed_at: "2026-02-25T11:20:00Z",
   },
   {
@@ -63,7 +64,7 @@ export const MOCK_LEAVE_REQUESTS: LeaveRequestRow[] = [
     date_to: "2026-01-24",
     reason: "Year-end break with family.",
     address: "Baguio City, Philippines",
-    status: "rejected",
+    status: "disapproved",
     filed_at: "2026-01-10T16:45:00Z",
   },
   {
@@ -73,7 +74,7 @@ export const MOCK_LEAVE_REQUESTS: LeaveRequestRow[] = [
     date_to: "2026-03-04",
     reason: "Medical check-up and recovery.",
     address: "Home — Pasig City",
-    status: "pending",
+    status: "partially_approved",
     filed_at: "2026-03-02T07:50:00Z",
   },
   {
@@ -93,7 +94,7 @@ export const MOCK_LEAVE_REQUESTS: LeaveRequestRow[] = [
     date_to: "2026-06-20",
     reason: "Summer trip with children.",
     address: "Palawan, Philippines",
-    status: "draft",
+    status: "cancelled",
     filed_at: "2026-03-01T13:30:00Z",
   },
   {
@@ -137,3 +138,33 @@ export const MOCK_LEAVE_REQUESTS: LeaveRequestRow[] = [
     filed_at: "2025-12-01T09:30:00Z",
   },
 ]
+
+export const LEAVE_STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "partially_approved", label: "Partially Approved" },
+  { value: "disapproved", label: "Disapproved" },
+  { value: "cancelled", label: "Cancelled" },
+] as const
+
+export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  partially_approved: "Partially Approved",
+  disapproved: "Disapproved",
+  cancelled: "Cancelled",
+}
+
+export function getLeaveFiledYears(rows: LeaveRequestRow[]): number[] {
+  const years = new Set<number>()
+
+  for (const row of rows) {
+    const year = new Date(row.filed_at).getFullYear()
+    if (!Number.isNaN(year)) {
+      years.add(year)
+    }
+  }
+
+  return [...years].sort((a, b) => b - a)
+}

@@ -1,14 +1,23 @@
 import { Badge } from "@repo/ui/components/badge"
-import { Button } from "@repo/ui/components/button"
 import { DataTable } from "@repo/ui/custom/datatable/datatable"
 import { DataTableColumnHeader } from "@repo/ui/custom/datatable/datatable-column-header"
-import { Link, useNavigate } from "@tanstack/react-router"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select"
+import { useNavigate } from "@tanstack/react-router"
 import type { ColumnDef, PaginationState, SortingState } from "@tanstack/react-table"
 import { format, parseISO } from "date-fns"
-import { Eye, Pencil, Plus } from "lucide-react"
+import { Eye, Pencil } from "lucide-react"
 import * as React from "react"
 
 import {
+  getLeaveFiledYears,
+  LEAVE_STATUS_LABELS,
+  LEAVE_STATUS_OPTIONS,
   MOCK_LEAVE_REQUESTS,
   type LeaveRequestRow,
   type LeaveRequestStatus,
@@ -34,20 +43,26 @@ function formatFiledAt(iso: string): string {
 }
 
 function statusLabel(status: LeaveRequestStatus): string {
-  return status.charAt(0).toUpperCase() + status.slice(1)
+  return LEAVE_STATUS_LABELS[status]
 }
 
 function StatusBadge({ status }: { status: LeaveRequestStatus }) {
   switch (status) {
     case "approved":
       return <Badge className="font-normal">{statusLabel(status)}</Badge>
-    case "rejected":
+    case "partially_approved":
+      return (
+        <Badge variant="secondary" className="font-normal">
+          {statusLabel(status)}
+        </Badge>
+      )
+    case "disapproved":
       return (
         <Badge variant="destructive" className="font-normal">
           {statusLabel(status)}
         </Badge>
       )
-    case "draft":
+    case "cancelled":
       return (
         <Badge variant="outline" className="font-normal">
           {statusLabel(status)}
@@ -76,39 +91,20 @@ const columns: ColumnDef<LeaveRequestRow>[] = [
   {
     accessorKey: "date_from",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Date From" />
+      <DataTableColumnHeader column={column} title="Leave Details" />
     ),
-    meta: { label: "Date From" },
-    cell: ({ getValue }) => (
-      <span className="text-sm tabular-nums">
-        {formatDate(getValue() as string)}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "date_to",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Date To" />
-    ),
-    meta: { label: "Date To" },
-    cell: ({ getValue }) => (
-      <span className="text-sm tabular-nums">
-        {formatDate(getValue() as string)}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "reason",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Reason" />
-    ),
-    meta: { label: "Reason" },
-    cell: ({ getValue }) => {
-      const value = getValue() as string
+    meta: { label: "Leave Details" },
+    cell: ({ row }) => {
+      const { date_from, date_to, reason } = row.original
       return (
-        <span className="max-w-56 truncate text-sm" title={value}>
-          {value}
-        </span>
+        <div className="max-w-md space-y-1">
+          <p className="text-sm tabular-nums">
+            {formatDate(date_from)} – {formatDate(date_to)}
+          </p>
+          <p className="text-muted-foreground line-clamp-2 text-sm" title={reason}>
+            {reason}
+          </p>
+        </div>
       )
     },
   },
@@ -140,6 +136,8 @@ function filterAndSortRows(
   rows: LeaveRequestRow[],
   search: string,
   sorting: SortingState,
+  year: string,
+  status: string,
 ): LeaveRequestRow[] {
   let result = [...rows]
 
@@ -149,9 +147,22 @@ function filterAndSortRows(
       (row) =>
         row.leave_type.toLowerCase().includes(query) ||
         row.status.toLowerCase().includes(query) ||
+        LEAVE_STATUS_LABELS[row.status].toLowerCase().includes(query) ||
         row.reason.toLowerCase().includes(query) ||
         row.address.toLowerCase().includes(query),
     )
+  }
+
+  if (year !== "all") {
+    const selectedYear = Number(year)
+    result = result.filter((row) => {
+      const filedYear = new Date(row.filed_at).getFullYear()
+      return filedYear === selectedYear
+    })
+  }
+
+  if (status !== "all") {
+    result = result.filter((row) => row.status === status)
   }
 
   const sort = sorting[0]
@@ -173,6 +184,8 @@ function filterAndSortRows(
   return result
 }
 
+const YEAR_OPTIONS = getLeaveFiledYears(MOCK_LEAVE_REQUESTS)
+
 export function MyLeaveDataTable() {
   const navigate = useNavigate()
   const [pagination, setPagination] = React.useState<PaginationState>({
@@ -183,6 +196,8 @@ export function MyLeaveDataTable() {
     { id: "filed_at", desc: true },
   ])
   const [search, setSearch] = React.useState("")
+  const [yearFilter, setYearFilter] = React.useState("all")
+  const [statusFilter, setStatusFilter] = React.useState("all")
 
   const sort = sorting[0]
   const sortId = sort?.id ?? "filed_at"
@@ -190,11 +205,18 @@ export function MyLeaveDataTable() {
 
   React.useEffect(() => {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }, [sortId, order, search])
+  }, [sortId, order, search, yearFilter, statusFilter])
 
   const filteredRows = React.useMemo(
-    () => filterAndSortRows(MOCK_LEAVE_REQUESTS, search, sorting),
-    [search, sorting],
+    () =>
+      filterAndSortRows(
+        MOCK_LEAVE_REQUESTS,
+        search,
+        sorting,
+        yearFilter,
+        statusFilter,
+      ),
+    [search, sorting, yearFilter, statusFilter],
   )
 
   const pagedRows = React.useMemo(() => {
@@ -228,12 +250,38 @@ export function MyLeaveDataTable() {
       toolbar={{
         searchPlaceholder: "Search leave type, status, reason…",
         slot: (
-          <Button size="sm" asChild>
-            <Link to="/my-leave/leave-form/{-$leaveId}">
-              <Plus className="size-4" />
-              Apply for Leave
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={yearFilter} onValueChange={setYearFilter}>
+              <SelectTrigger size="sm" className="w-[7.5rem]" aria-label="Filter by year">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All years</SelectItem>
+                {YEAR_OPTIONS.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger
+                size="sm"
+                className="w-[11.5rem]"
+                aria-label="Filter by status"
+              >
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {LEAVE_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ),
       }}
       rowActions={{
