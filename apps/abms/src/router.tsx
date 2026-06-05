@@ -16,6 +16,8 @@ import BudgetProposalEntry from './pages/transactions/BudgetProposalEntry.tsx';
 import BudgetReview from './pages/administration/BudgetReview.tsx';
 import BudgetReviewDetails from './pages/administration/BudgetReviewDetails.tsx';
 import BudgetTransferAccount from './pages/administration/BudgetTransferAccount.tsx';
+import BudgetAdjustmentEntry from './pages/administration/BudgetAdjustmentEntry.tsx';
+import BudgetRequestEntry from './pages/transactions/BudgetRequestEntry.tsx';
 
 
 const rootRoute = new RootRoute({
@@ -96,7 +98,7 @@ export const budgetreviewRoute = new Route({
     path: '/admin/budget-review',
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-review');
-        const { 
+        const {
             proposal_school_year,
             current_school_year,
             departments,
@@ -154,6 +156,19 @@ export const budgettransferaccountRoute = new Route({
     component: BudgetTransferAccount,
 });
 
+export const budgetadjustmententryRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/admin/budget-adjustment-entry',
+    loader: async () => {
+        const response = await financeSvc.get('/abms/budget-adjustment-entry');
+        const { proposal_school_year, current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries } = response.data;
+        return { proposal_school_year, current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries };
+    },
+    component: BudgetAdjustmentEntry,
+});
+
+
+
 export const officeSuppliesRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/office-supplies',
@@ -209,6 +224,40 @@ export const budgetproposalentryRoute = new Route({
     },
     component: BudgetProposalEntry,
 });
+
+export const budgetrequestentryRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/transactions/budget-request-entry',
+    loader: async ({ context }) => {
+        const username = context.user?.username;
+        const budgetrequestpermission = await authSvc.get('/abms-permissions/');
+        const permission = budgetrequestpermission.data.permissions.find(
+            (p: any) => p.name === 'allow-budget-request-entry'
+        );
+        const permissionId = permission?.id;
+        const admin = budgetrequestpermission.data.permissions.find(
+            (p: any) => p.name === 'admin-access'
+        );
+        const adminPermissionId = admin?.id;
+
+        const budget = budgetrequestpermission.data.permissions.find(
+            (p: any) => p.name === 'budget-access'
+        );
+
+        const budgetPermissionId = budget?.id;
+
+        const response = await financeSvc.get(
+            '/abms/budget-request-entry',
+            {
+                params: { username, permissionId, adminPermissionId, budgetPermissionId }
+            }
+        );
+
+        const { departments, sections, current_school_year } = response.data;
+        return { departments, sections, current_school_year };
+    },
+    component: BudgetRequestEntry,
+});
 export const testRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/test',
@@ -232,7 +281,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);

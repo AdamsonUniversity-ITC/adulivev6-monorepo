@@ -142,6 +142,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Budget Status', href: '/admin/budget-status' },
       { label: 'Budget Review', href: '/admin/budget-review' },
       { label: 'Budget Transfer Account', href: '/admin/budget-transfer-account' },
+      { label: 'Budget Adjustment Entry', href: '/admin/budget-adjustment-entry' },
       { label: 'Departments and Sections', href: '/admin/department' },
       { label: 'User Department Access', href: '/admin/user-department-access' },
       { label: 'Chart of Accounts', href: '/admin/chart-of-accounts' },
@@ -153,6 +154,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Transactions',
     children: [
       { label: 'Budget Proposal Entry', href: '/transactions/budget-proposal-entry' },
+      { label: 'Budget Request Entry', href: '/transactions/budget-request-entry' },
     ],
   },
 ];
