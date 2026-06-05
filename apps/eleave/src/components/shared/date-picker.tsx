@@ -8,7 +8,7 @@ import { format, isValid, parseISO } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { FormControl } from "@/components/ui/form"
+import { FormControl } from "@repo/ui/components/form"
 import { cn } from "@/lib/utils"
 
 type DatePickerProps = {

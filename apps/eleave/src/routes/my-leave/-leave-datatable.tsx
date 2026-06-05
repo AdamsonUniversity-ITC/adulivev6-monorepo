@@ -79,14 +79,22 @@ function StatusBadge({ status }: { status: LeaveRequestStatus }) {
 
 const columns: ColumnDef<LeaveRequestRow>[] = [
   {
-    accessorKey: "leave_type",
+    accessorKey: "filed_at",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Leave Type" />
     ),
     meta: { label: "Leave Type" },
-    cell: ({ getValue }) => (
-      <span className="text-sm font-medium">{getValue() as string}</span>
-    ),
+    cell: ({ row }) => {
+      const { leave_type, filed_at } = row.original
+      return (
+        <div className="space-y-1">
+          <span className="text-sm font-medium">{leave_type}</span>
+          <p className="text-muted-foreground text-xs tabular-nums">
+            Filed {formatFiledAt(filed_at)}
+          </p>
+        </div>
+      )
+    },
   },
   {
     accessorKey: "date_from",
@@ -116,18 +124,6 @@ const columns: ColumnDef<LeaveRequestRow>[] = [
     meta: { label: "Status" },
     cell: ({ getValue }) => (
       <StatusBadge status={getValue() as LeaveRequestStatus} />
-    ),
-  },
-  {
-    accessorKey: "filed_at",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Filed" />
-    ),
-    meta: { label: "Filed" },
-    cell: ({ getValue }) => (
-      <span className="text-muted-foreground text-sm">
-        {formatFiledAt(getValue() as string)}
-      </span>
     ),
   },
 ]
