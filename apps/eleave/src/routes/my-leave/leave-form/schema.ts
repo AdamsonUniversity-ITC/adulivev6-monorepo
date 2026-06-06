@@ -13,7 +13,11 @@ export type DayPortion = z.infer<typeof dayPortionSchema>
 
 export const leaveDaySchema = z.object({
   date: z.string().min(1),
-  day_portion: dayPortionSchema,
+  day_portion: z
+    .union([dayPortionSchema, z.literal("")])
+    .refine((value): value is DayPortion => value !== "", {
+      message: "Select a day portion.",
+    }),
 })
 
 export type LeaveDay = z.infer<typeof leaveDaySchema>
@@ -35,6 +39,8 @@ export const leaveFormStep1Schema = z
   .object({
     date_from: z.string().min(1, "Start date is required"),
     date_to: z.string().min(1, "End date is required"),
+    exclude_sundays: z.boolean(),
+    exclude_saturdays: z.boolean(),
   })
   .superRefine(validateDateRange)
 
@@ -62,6 +68,8 @@ export const leaveFormSchema = z
   .object({
     date_from: z.string().min(1, "Start date is required"),
     date_to: z.string().min(1, "End date is required"),
+    exclude_sundays: z.boolean(),
+    exclude_saturdays: z.boolean(),
     leave_type_id: z.string().min(1, "Leave type is required"),
     leave_days: z
       .array(leaveDaySchema)
@@ -84,6 +92,8 @@ export type LeaveFormValues = z.infer<typeof leaveFormSchema>
 export const leaveFormDefaults: LeaveFormValues = {
   date_from: "",
   date_to: "",
+  exclude_sundays: true,
+  exclude_saturdays: false,
   leave_type_id: "",
   leave_days: [],
   reason: "",

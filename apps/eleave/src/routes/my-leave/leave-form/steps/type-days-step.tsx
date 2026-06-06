@@ -14,7 +14,8 @@ import {
 } from "@repo/ui/components/select"
 import type { UseFormReturn } from "react-hook-form"
 
-import { LEAVE_TYPE_OPTIONS } from "../../-leave-types"
+import { useLeaveTypes } from "@/hooks/use-leave-types"
+
 import { DAY_PORTION_OPTIONS, type LeaveFormValues } from "../schema"
 import { formatLeaveDay } from "../utils"
 
@@ -24,6 +25,7 @@ type TypeDaysStepProps = {
 
 export function TypeDaysStep({ form }: TypeDaysStepProps) {
   const leaveDays = form.watch("leave_days")
+  const { data: leaveTypes = [], isLoading, isError } = useLeaveTypes()
 
   return (
     <div className="space-y-6">
@@ -31,22 +33,39 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
         control={form.control}
         name="leave_type_id"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="w-full">
             <FormLabel>Leave Type</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select
+              onValueChange={field.onChange}
+              value={field.value}
+              disabled={isLoading || isError}
+            >
               <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select leave type" />
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      isLoading
+                        ? "Loading leave types..."
+                        : isError
+                          ? "Unable to load leave types"
+                          : "Select leave type"
+                    }
+                  />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {LEAVE_TYPE_OPTIONS.map((type) => (
+                {leaveTypes.map((type) => (
                   <SelectItem key={type.id} value={String(type.id)}>
-                    {type.name}
+                    {type.leave_name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {isError ? (
+              <p className="text-destructive text-sm">
+                Leave types could not be loaded. Please refresh and try again.
+              </p>
+            ) : null}
             <FormMessage />
           </FormItem>
         )}
@@ -77,11 +96,11 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
                       <span className="text-sm">{formatLeaveDay(day.date)}</span>
                       <Select
                         onValueChange={field.onChange}
-                        value={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger className="w-full sm:w-40">
-                            <SelectValue placeholder="Portion" />
+                            <SelectValue placeholder="Select portion" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>

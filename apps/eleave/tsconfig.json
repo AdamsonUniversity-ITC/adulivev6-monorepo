@@ -5,6 +5,7 @@
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "module": "ESNext",
+    "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./src/*"]
     }

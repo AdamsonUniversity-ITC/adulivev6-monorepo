@@ -1,0 +1,692 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import * as React from "react"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import {
+  getDayPortionLabel,
+  isWholeDayPortion,
+  SPLIT_DAY_PORTION_OPTIONS,
+} from "@/lib/day-portion"
+import { mapSlugToApiHrStatus, type HrApprovalStatus } from "@/lib/hr-approval-status"
+import {
+  fetchHrApprovalLeaveApplications,
+  getValidationErrorMessage,
+  submitHrApproval,
+  type HrApprovalPayload,
+} from "@/lib/leave-applications-api"
+import {
+  getEmployeeAvatarUrl,
+  getEmployeeInitials,
+} from "@/lib/employee-teacher-display"
+import type { LeaveTypeRecord } from "@/lib/leave-types-api"
+import {
+  mapHrApprovalDayDecisionToPayloadItem,
+  mapLeaveApplicationsToHrApprovalRows,
+  type HrApprovalDayDecision,
+  type HrApprovalRow,
+} from "@/lib/map-hr-approval-row"
+import {
+  flattenHrStatusesFromDayDecision,
+  resolveOverallStatusFromHrDayStatuses,
+} from "@/lib/resolve-hr-overall-status"
+import type { DayPortion } from "@/routes/my-leave/leave-form/schema"
+import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
+
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../../components/ui/sheet.js"
+
+const selectClassName =
+  "h-9 w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+
+function summarizeLeaveType(decisions: HrApprovalDayDecision[]): string {
+  const labels = decisions.flatMap((entry) => {
+    const types = [entry.leaveType1]
+    if (entry.isSplit) {
+      types.push(entry.leaveType2)
+    }
+    return types
+  })
+
+  if (labels.length === 0) return "-"
+
+  const unique = [...new Set(labels)]
+  return unique.length === 1 ? unique[0]! : "Multiple Leave Types"
+}
+
+function resolveDraftStatuses(dailyDraft: HrApprovalDayDecision[]): string[] {
+  return dailyDraft.flatMap((entry) =>
+    flattenHrStatusesFromDayDecision(entry, (status) =>
+      mapSlugToApiHrStatus(status as HrApprovalStatus),
+    ),
+  )
+}
+
+type ViewHrApprovalSheetProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  activeRequest: HrApprovalRow | null
+  onActiveRequestChange: (row: HrApprovalRow | null) => void
+  leaveTypeNames: Map<number, string>
+  leaveTypes: LeaveTypeRecord[]
+}
+
+function ApprovalStatusSelect({
+  value,
+  onChange,
+}: {
+  value: HrApprovalStatus
+  onChange: (value: HrApprovalStatus) => void
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+        onChange(event.target.value as HrApprovalStatus)
+      }
+      className={selectClassName}
+    >
+      <option value="pending">Pending</option>
+      <option value="approved_with_pay">Approved With Pay</option>
+      <option value="approved_without_pay">Approved Without Pay</option>
+      <option value="disapproved">Disapproved</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+  )
+}
+
+function LeaveTypeSelect({
+  value,
+  leaveTypes,
+  onChange,
+}: {
+  value: number | null
+  leaveTypes: LeaveTypeRecord[]
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+        const nextValue = event.target.value
+        onChange(nextValue ? Number(nextValue) : null)
+      }}
+      className={selectClassName}
+    >
+      {leaveTypes.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.leave_name}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+export const ViewHrApprovalSheet = ({
+  open,
+  onOpenChange,
+  activeRequest,
+  onActiveRequestChange,
+  leaveTypeNames,
+  leaveTypes,
+}: ViewHrApprovalSheetProps) => {
+  const queryClient = useQueryClient()
+  const [isApplyConfirmOpen, setIsApplyConfirmOpen] = React.useState(false)
+  const [dailyDraft, setDailyDraft] = React.useState<HrApprovalDayDecision[]>([])
+  const [actionError, setActionError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!open) {
+      setIsApplyConfirmOpen(false)
+      setDailyDraft([])
+      setActionError(null)
+    }
+  }, [open])
+
+  React.useEffect(() => {
+    if (activeRequest) {
+      setDailyDraft(activeRequest.dailyDecisions.map((entry) => ({ ...entry })))
+      setIsApplyConfirmOpen(false)
+      setActionError(null)
+    }
+  }, [activeRequest])
+
+  const hrApprovalMutation = useMutation({
+    mutationFn: async (payload: HrApprovalPayload) => submitHrApproval(payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["hr-approval-leave-applications"],
+      })
+
+      const refreshed = await queryClient.fetchQuery({
+        queryKey: ["hr-approval-leave-applications", 100],
+        queryFn: () =>
+          fetchHrApprovalLeaveApplications({ per_page: 100, page: 1 }),
+      })
+      const refreshedRows = mapLeaveApplicationsToHrApprovalRows(
+        refreshed.data ?? [],
+        leaveTypeNames,
+      )
+      const updatedRow =
+        refreshedRows.find((row) => row.id === activeRequest?.id) ?? null
+
+      onActiveRequestChange(updatedRow)
+      setIsApplyConfirmOpen(false)
+      setActionError(null)
+    },
+    onError: (error) => {
+      setActionError(
+        getValidationErrorMessage(error) ??
+          "Unable to apply HR approval changes. Please try again.",
+      )
+      setIsApplyConfirmOpen(false)
+    },
+  })
+
+  const updateEntry = (
+    dayNumber: number,
+    updater: (entry: HrApprovalDayDecision) => HrApprovalDayDecision,
+  ) => {
+    setDailyDraft((current) =>
+      current.map((entry) =>
+        entry.dayNumber === dayNumber ? updater(entry) : entry,
+      ),
+    )
+  }
+
+  const toggleSplit = (dayNumber: number, checked: boolean) => {
+    updateEntry(dayNumber, (entry) => {
+      if (!isWholeDayPortion(entry.requestedPortion)) {
+        return entry
+      }
+
+      if (!checked) {
+        return {
+          ...entry,
+          isSplit: false,
+          approvedDayPortion1: entry.requestedPortion,
+          approvedDayPortion2: null,
+          leaveTypeId2: null,
+          leaveType2: entry.leaveType1,
+          status2: null,
+        }
+      }
+
+      const defaultPortion2 =
+        entry.approvedDayPortion2 ??
+        (SPLIT_DAY_PORTION_OPTIONS.find(
+          (option) => option.value !== entry.approvedDayPortion1,
+        )?.value as DayPortion | undefined) ??
+        "pm"
+
+      return {
+        ...entry,
+        isSplit: true,
+        approvedDayPortion1: entry.approvedDayPortion1 === "wholeday" ? "am" : entry.approvedDayPortion1,
+        approvedDayPortion2: defaultPortion2,
+        leaveTypeId2: entry.leaveTypeId2 ?? entry.leaveTypeId1,
+        leaveType2:
+          entry.leaveTypeId2 != null
+            ? (leaveTypeNames.get(entry.leaveTypeId2) ?? entry.leaveType1)
+            : entry.leaveType1,
+        status2: entry.status2 ?? "pending",
+      }
+    })
+  }
+
+  const buildPayload = (): HrApprovalPayload | null => {
+    const items = dailyDraft
+      .map((entry) => mapHrApprovalDayDecisionToPayloadItem(entry))
+      .filter((item): item is NonNullable<typeof item> => item != null)
+
+    if (items.length === 0) {
+      return null
+    }
+
+    return { items }
+  }
+
+  const validateDraft = (): string | null => {
+    const hasDecision = dailyDraft.some((entry) => {
+      if (entry.isSplit) {
+        return entry.status1 !== "pending" || entry.status2 !== "pending"
+      }
+
+      return entry.status1 !== "pending"
+    })
+
+    if (!hasDecision) {
+      return "Set an approval status for at least one day before applying changes."
+    }
+
+    for (const entry of dailyDraft) {
+      if (!entry.isSplit) {
+        continue
+      }
+
+      const isSubmittingSplit =
+        entry.status1 !== "pending" || entry.status2 !== "pending"
+
+      if (!isSubmittingSplit) {
+        continue
+      }
+
+      if (
+        !entry.approvedDayPortion2 ||
+        entry.approvedDayPortion1 === entry.approvedDayPortion2
+      ) {
+        return `Split portions for ${entry.actualDate} must be different.`
+      }
+
+      if (entry.status1 === "pending" || entry.status2 === "pending") {
+        return `Set approval status for both split portions on ${entry.actualDate}.`
+      }
+
+      if (!entry.leaveTypeId1 || !entry.leaveTypeId2) {
+        return `Select leave types for both split portions on ${entry.actualDate}.`
+      }
+    }
+
+    return null
+  }
+
+  const applyDailyChanges = () => {
+    const validationError = validateDraft()
+    if (validationError) {
+      setActionError(validationError)
+      setIsApplyConfirmOpen(false)
+      return
+    }
+
+    const payload = buildPayload()
+    if (!payload) {
+      setActionError(
+        "Set an approval status for at least one day before applying changes.",
+      )
+      setIsApplyConfirmOpen(false)
+      return
+    }
+
+    hrApprovalMutation.mutate(payload)
+  }
+
+  const requestApplyDailyChanges = () => {
+    if (!activeRequest) return
+    setActionError(null)
+    setIsApplyConfirmOpen(true)
+  }
+
+  const draftStatus = resolveOverallStatusFromHrDayStatuses(resolveDraftStatuses(dailyDraft))
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="sm:max-w-4xl lg:max-w-7xl">
+        <SheetHeader className="border-b bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] pb-4">
+          <SheetTitle className="text-lg">View HR Approval</SheetTitle>
+          <SheetDescription>
+            Review request details and update HR approval status.
+          </SheetDescription>
+        </SheetHeader>
+
+        {activeRequest ? (
+          <div className="space-y-5 px-4 py-4 pb-6">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <Avatar className="size-10">
+                {getEmployeeAvatarUrl(activeRequest.record.employee_teacher) ? (
+                  <AvatarImage
+                    src={
+                      getEmployeeAvatarUrl(activeRequest.record.employee_teacher) ??
+                      undefined
+                    }
+                    alt={activeRequest.employee}
+                  />
+                ) : null}
+                <AvatarFallback className="bg-slate-100 text-xs font-semibold text-slate-700">
+                  {getEmployeeInitials(activeRequest.record.employee_teacher)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-semibold">{activeRequest.employee}</p>
+                <p className="text-muted-foreground text-xs">
+                  Request #{activeRequest.id}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Department
+                  </p>
+                  <p className="font-medium">{activeRequest.department}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Leave Type
+                  </p>
+                  <p className="font-medium">
+                    {summarizeLeaveType(dailyDraft) || activeRequest.leaveType}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Number of Days
+                  </p>
+                  <p className="font-medium">{activeRequest.days}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Covered Dates
+                  </p>
+                  <p className="font-medium">{activeRequest.dates}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Overall Status
+                </p>
+                <div className="pt-1">
+                  <OverallStatusBadge status={draftStatus} />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                  Daily Decisions
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={requestApplyDailyChanges}
+                  disabled={hrApprovalMutation.isPending}
+                >
+                  Apply Daily Changes
+                </Button>
+              </div>
+
+              {actionError ? (
+                <p className="text-destructive mb-3 text-sm">{actionError}</p>
+              ) : null}
+
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-[1180px] w-full border-separate border-spacing-0">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Date
+                      </th>
+                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Split
+                      </th>
+                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Day Portion
+                      </th>
+                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Leave Type
+                      </th>
+                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Approval Status
+                      </th>
+                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        HR Remarks
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailyDraft.map((entry) => {
+                      const canSplit = isWholeDayPortion(entry.requestedPortion)
+                      const rowSpan = entry.isSplit ? 2 : 1
+
+                      const renderPortionControls = (
+                        portionField: "approvedDayPortion1" | "approvedDayPortion2",
+                        portionLabel: string,
+                      ) => {
+                        if (entry.isSplit) {
+                          const value = entry[portionField] as DayPortion
+                          return (
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                                {portionLabel}
+                              </p>
+                              <select
+                                value={value}
+                                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+                                  const nextPortion = event.target.value as DayPortion
+                                  updateEntry(entry.dayNumber, (current) => ({
+                                    ...current,
+                                    [portionField]: nextPortion,
+                                  }))
+                                }}
+                                className={selectClassName}
+                              >
+                                {SPLIT_DAY_PORTION_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <p className="text-sm font-medium text-slate-700">
+                            {getDayPortionLabel(entry.requestedPortion)}
+                          </p>
+                        )
+                      }
+
+                      const renderLeaveTypeControls = (
+                        portion: 1 | 2,
+                        portionLabel: string,
+                      ) => {
+                        const leaveTypeId =
+                          portion === 1 ? entry.leaveTypeId1 : entry.leaveTypeId2
+
+                        return (
+                          <div className="space-y-1">
+                            {entry.isSplit ? (
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                                {portionLabel}
+                              </p>
+                            ) : null}
+                            <LeaveTypeSelect
+                              value={leaveTypeId}
+                              leaveTypes={leaveTypes}
+                              onChange={(nextValue) => {
+                                updateEntry(entry.dayNumber, (current) => {
+                                  if (portion === 1) {
+                                    return {
+                                      ...current,
+                                      leaveTypeId1: nextValue,
+                                      leaveType1:
+                                        nextValue != null
+                                          ? (leaveTypeNames.get(nextValue) ??
+                                            current.leaveType1)
+                                          : current.leaveType1,
+                                    }
+                                  }
+
+                                  return {
+                                    ...current,
+                                    leaveTypeId2: nextValue,
+                                    leaveType2:
+                                      nextValue != null
+                                        ? (leaveTypeNames.get(nextValue) ??
+                                          current.leaveType2)
+                                        : current.leaveType2,
+                                  }
+                                })
+                              }}
+                            />
+                          </div>
+                        )
+                      }
+
+                      const renderStatusControls = (
+                        portion: 1 | 2,
+                        portionLabel: string,
+                      ) => {
+                        const status = portion === 1 ? entry.status1 : entry.status2
+
+                        return (
+                          <div className="space-y-1">
+                            {entry.isSplit ? (
+                              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                                {portionLabel}
+                              </p>
+                            ) : null}
+                            <ApprovalStatusSelect
+                              value={status ?? "pending"}
+                              onChange={(nextStatus) => {
+                                updateEntry(entry.dayNumber, (current) =>
+                                  portion === 1
+                                    ? { ...current, status1: nextStatus }
+                                    : { ...current, status2: nextStatus },
+                                )
+                              }}
+                            />
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <React.Fragment key={entry.dayNumber}>
+                          <tr className="align-top">
+                            <td
+                              rowSpan={rowSpan}
+                              className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
+                            >
+                              {entry.actualDate}
+                            </td>
+                            <td
+                              rowSpan={rowSpan}
+                              className="border-b border-slate-200 px-3 py-3"
+                            >
+                              {canSplit ? (
+                                <label className="inline-flex items-center gap-2 text-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={entry.isSplit}
+                                    onChange={(event) =>
+                                      toggleSplit(entry.dayNumber, event.target.checked)
+                                    }
+                                    className="size-4 rounded border-slate-300"
+                                  />
+                                  Split day
+                                </label>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="border-b border-slate-200 px-3 py-3">
+                              {renderPortionControls("approvedDayPortion1", "Portion 1")}
+                            </td>
+                            <td className="border-b border-slate-200 px-3 py-3">
+                              {renderLeaveTypeControls(1, "Portion 1")}
+                            </td>
+                            <td className="border-b border-slate-200 px-3 py-3">
+                              {renderStatusControls(1, "Portion 1")}
+                            </td>
+                            <td
+                              rowSpan={rowSpan}
+                              className="border-b border-slate-200 px-3 py-3"
+                            >
+                              <textarea
+                                value={entry.hrRemarks}
+                                onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+                                  updateEntry(entry.dayNumber, (current) => ({
+                                    ...current,
+                                    hrRemarks: event.target.value,
+                                  }))
+                                }
+                                placeholder="Add HR remarks for this day"
+                                rows={entry.isSplit ? 4 : 1}
+                                className="min-h-9 w-full resize-none rounded-lg border border-slate-300 bg-background px-2.5 py-2 text-sm shadow-sm transition-colors focus:border-primary"
+                              />
+                            </td>
+                          </tr>
+
+                          {entry.isSplit ? (
+                            <tr className="align-top">
+                              <td className="border-b border-slate-200 px-3 py-3">
+                                {renderPortionControls("approvedDayPortion2", "Portion 2")}
+                              </td>
+                              <td className="border-b border-slate-200 px-3 py-3">
+                                {renderLeaveTypeControls(2, "Portion 2")}
+                              </td>
+                              <td className="border-b border-slate-200 px-3 py-3">
+                                {renderStatusControls(2, "Portion 2")}
+                              </td>
+                            </tr>
+                          ) : null}
+                        </React.Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsApplyConfirmOpen(false)
+                  onOpenChange(false)
+                }}
+              >
+                Close
+              </Button>
+            </div>
+
+            {isApplyConfirmOpen ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+                <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Confirm Apply Changes
+                  </h3>
+                  <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                    Apply all per-day leave type and approval status updates for
+                    this request?
+                  </p>
+
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsApplyConfirmOpen(false)}
+                      disabled={hrApprovalMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={applyDailyChanges}
+                      disabled={hrApprovalMutation.isPending}
+                    >
+                      {hrApprovalMutation.isPending ? "Applying..." : "Confirm"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  )
+}
