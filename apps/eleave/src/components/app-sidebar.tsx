@@ -88,11 +88,14 @@ export function AppSidebar() {
                   <CalendarDays className="size-4 transition-all group-data-[state=expanded]:size-6" />
                 </div>
                 <div className="ml-2 grid flex-1 text-left leading-tight transition-all group-data-[collapsible=icon]:hidden">
-                  <span className="text-base font-bold tracking-tight text-sidebar-foreground">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-primary/70 mb-0.5">
+                    Adamson University
+                  </span>
+                  <span className="text-base font-extrabold tracking-tight text-sidebar-foreground leading-none">
                     E-Leave
                   </span>
-                  <span className="text-xs font-medium text-sidebar-foreground/50">
-                    Employee Portal
+                  <span className="mt-0.5 text-[11px] font-medium text-sidebar-foreground/60">
+                    HRMDO Portal
                   </span>
                 </div>
               </Link>
