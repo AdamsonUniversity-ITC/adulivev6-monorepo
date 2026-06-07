@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
   getEmployeeAvatarUrl,
+  getEmployeeDepartment,
   getEmployeeInitials,
 } from "@/lib/employee-teacher-display"
 import {
@@ -18,6 +19,7 @@ import {
   type ForApprovalRow,
 } from "@/lib/map-for-approval-row"
 import { resolveViewerApprovalStatus } from "@/lib/resolve-viewer-approval-status"
+import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
 
 import {
@@ -155,7 +157,10 @@ export const ViewForApprovalSheet = ({
                       {activeRequest.employeeName}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      Request #{activeRequest.id}
+                     {activeRequest.record.employee_no}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {getEmployeeDepartment(activeRequest.record.employee_teacher)}
                     </p>
                   </div>
                 </div>
@@ -182,15 +187,29 @@ export const ViewForApprovalSheet = ({
                       </p>
                     </div>
                   </div>
-                  <div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
                     <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Reason
+                      Reason for Leave
                     </p>
                     <p className="font-medium whitespace-pre-wrap">
-                      {activeRequest.record.reason}
+                      {activeRequest.record.reason?.trim() || "—"}
                     </p>
                   </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Address while on leave
+                    </p>
+                    <p className="font-medium whitespace-pre-wrap">
+                      {activeRequest.record.address?.trim() || "—"}
+                    </p>
+                  </div>
+                  </div>
                 </div>
+
+                <SupportingDocumentsSection
+                  documents={activeRequest.record.supporting_documents}
+                />
 
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <ForApprovalWorkflowTable record={activeRequest.record} />

@@ -1,21 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useHrApprovalLeaveApplications } from "@/hooks/use-hr-approval-leave-applications"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
 import {
-  getEmployeeAvatarUrl,
-  getEmployeeInitials,
-} from "@/lib/employee-teacher-display"
+  collectLeavePeriodYears,
+  matchesLeaveYearFilter,
+} from "@/lib/leave-date-year"
 import {
   mapLeaveApplicationsToHrApprovalRows,
   type HrApprovalRow,
 } from "@/lib/map-hr-approval-row"
+import { HrApprovalDataTable } from "@/routes/hr-approval/-hr-approval-datatable"
 import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
-import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
 import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-sheet"
 
 export const Route = createFileRoute("/hr-approval/")({
@@ -43,7 +41,13 @@ function HrApprovalPage() {
   )
 
   const years = React.useMemo(
-    () => Array.from(new Set(rows.map((row) => row.year))).sort((a, b) => b - a),
+    () =>
+      collectLeavePeriodYears(
+        rows.map((row) => ({
+          date_from: row.record.date_from,
+          date_to: row.record.date_to,
+        })),
+      ),
     [rows],
   )
 
@@ -57,8 +61,11 @@ function HrApprovalPage() {
   const filteredRequests = React.useMemo(
     () =>
       rows.filter((row) => {
-        const yearMatches =
-          selectedYear === "all" || String(row.year) === selectedYear
+        const yearMatches = matchesLeaveYearFilter(
+          row.record.date_from,
+          row.record.date_to,
+          selectedYear,
+        )
         const statusMatches =
           selectedStatus === "all" || row.status === selectedStatus
 
@@ -144,12 +151,8 @@ function HrApprovalPage() {
           </p>
         </div>
 
-        <div className="space-y-3 p-3 sm:p-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-24 w-full rounded-xl" />
-            ))
-          ) : isError ? (
+        <div className="p-3 sm:p-4">
+          {isError ? (
             <div className="space-y-3 rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
               <p className="text-destructive text-sm">
                 Unable to load HR approval requests.
@@ -159,50 +162,14 @@ function HrApprovalPage() {
               </Button>
             </div>
           ) : (
-            filteredRequests.map((row) => {
-              const avatarUrl = getEmployeeAvatarUrl(row.record.employee_teacher)
-
-              return (
-                <div
-                  key={row.id}
-                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 transition-colors hover:bg-slate-50 sm:px-5 lg:flex-row lg:items-center lg:justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-10">
-                      {avatarUrl ? (
-                        <AvatarImage src={avatarUrl} alt={row.employee} />
-                      ) : null}
-                      <AvatarFallback className="bg-slate-100 text-xs font-semibold text-slate-700">
-                        {getEmployeeInitials(row.record.employee_teacher)}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold">{row.employee}</p>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
-                        {row.department} • {row.leaveType} • {row.dates} •{" "}
-                        {row.days}
-                        day{row.days > 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <OverallStatusBadge status={row.status} />
-                    <Button type="button" size="sm" onClick={() => openDetails(row)}>
-                      View Details
-                    </Button>
-                  </div>
-                </div>
-              )
-            })
+            <HrApprovalDataTable
+              rows={filteredRequests}
+              isLoading={isLoading}
+              onViewDetails={openDetails}
+              selectedYear={selectedYear}
+              selectedStatus={selectedStatus}
+            />
           )}
-
-          {!isLoading && !isError && filteredRequests.length === 0 ? (
-            <div className="text-muted-foreground rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm">
-              No HR requests match the selected filters.
-            </div>
-          ) : null}
         </div>
       </section>
 

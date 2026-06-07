@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -355,6 +356,11 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
                 {application.address ?? "—"}
               </p>
             </DetailCard>
+
+            <SupportingDocumentsSection
+              documents={application.supporting_documents}
+              className="overflow-hidden rounded-xl border bg-card shadow-sm"
+            />
           </div>
         </div>
 

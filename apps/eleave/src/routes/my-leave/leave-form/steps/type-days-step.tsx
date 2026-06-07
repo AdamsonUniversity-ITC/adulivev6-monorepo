@@ -12,12 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select"
+import { CalendarDays, ClipboardList } from "lucide-react"
 import type { UseFormReturn } from "react-hook-form"
 
 import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { cn } from "@/lib/utils"
 
 import { DAY_PORTION_OPTIONS, type LeaveFormValues } from "../schema"
 import { formatLeaveDay } from "../utils"
+import { StepSection, stepFieldClassName } from "./-step-section"
 
 type TypeDaysStepProps = {
   form: UseFormReturn<LeaveFormValues>
@@ -28,63 +31,75 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
   const { data: leaveTypes = [], isLoading, isError } = useLeaveTypes()
 
   return (
-    <div className="space-y-6">
-      <FormField
-        control={form.control}
-        name="leave_type_id"
-        render={({ field }) => (
-          <FormItem className="w-full">
-            <FormLabel>Leave Type</FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              value={field.value}
-              disabled={isLoading || isError}
-            >
-              <FormControl>
-                <SelectTrigger className="w-full">
-                  <SelectValue
-                    placeholder={
-                      isLoading
-                        ? "Loading leave types..."
-                        : isError
-                          ? "Unable to load leave types"
-                          : "Select leave type"
-                    }
-                  />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {leaveTypes.map((type) => (
-                  <SelectItem key={type.id} value={String(type.id)}>
-                    {type.leave_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isError ? (
-              <p className="text-destructive text-sm">
-                Leave types could not be loaded. Please refresh and try again.
-              </p>
-            ) : null}
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+    <div className="space-y-4">
+      <StepSection
+        icon={ClipboardList}
+        title="Leave type"
+        description="Choose the type of leave you are filing."
+      >
+        <FormField
+          control={form.control}
+          name="leave_type_id"
+          render={({ field }) => (
+            <FormItem className="w-full">
+              <FormLabel className="sr-only">Leave Type</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={isLoading || isError}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn("h-11 w-full", stepFieldClassName)}>
+                    <SelectValue
+                      placeholder={
+                        isLoading
+                          ? "Loading leave types..."
+                          : isError
+                            ? "Unable to load leave types"
+                            : "Select leave type"
+                      }
+                    />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {leaveTypes.map((type) => (
+                    <SelectItem key={type.id} value={String(type.id)}>
+                      {type.leave_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {isError ? (
+                <p className="text-destructive text-sm">
+                  Leave types could not be loaded. Please refresh and try again.
+                </p>
+              ) : null}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </StepSection>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <FormLabel>Leave days</FormLabel>
-          <span className="text-muted-foreground text-xs">
+      <StepSection
+        icon={CalendarDays}
+        title="Leave days"
+        description="Set the day portion for each date in your range."
+      >
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2">
+          <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Total days
+          </span>
+          <span className="text-sm font-semibold tabular-nums">
             {leaveDays.length} day{leaveDays.length === 1 ? "" : "s"}
           </span>
         </div>
 
         {leaveDays.length === 0 ? (
-          <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
+          <div className="text-muted-foreground rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm">
             Select a valid date range in Step 1 to configure leave days.
-          </p>
+          </div>
         ) : (
-          <div className="max-h-80 space-y-2 overflow-y-auto rounded-lg border p-3">
+          <div className="space-y-2 pr-1">
             {leaveDays.map((day, index) => (
               <FormField
                 key={day.date}
@@ -92,14 +107,24 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
                 name={`leave_days.${index}.day_portion`}
                 render={({ field }) => (
                   <FormItem>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-sm">{formatLeaveDay(day.date)}</span>
+                    <div
+                      className={cn(
+                        "flex flex-col gap-3 rounded-xl border px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between",
+                        index % 2 === 0 ? "border-slate-200 bg-white" : "border-slate-200/80 bg-slate-50/60",
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold tabular-nums">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm font-medium">{formatLeaveDay(day.date)}</span>
+                      </div>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value || undefined}
                       >
                         <FormControl>
-                          <SelectTrigger className="w-full sm:w-40">
+                          <SelectTrigger className={cn("h-10 w-full sm:w-44", stepFieldClassName)}>
                             <SelectValue placeholder="Select portion" />
                           </SelectTrigger>
                         </FormControl>
@@ -121,11 +146,11 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
         )}
 
         {form.formState.errors.leave_days?.message ? (
-          <p className="text-destructive text-sm">
+          <p className="text-destructive mt-3 text-sm">
             {form.formState.errors.leave_days.message}
           </p>
         ) : null}
-      </div>
+      </StepSection>
     </div>
   )
 }

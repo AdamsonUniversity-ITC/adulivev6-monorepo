@@ -13,6 +13,10 @@ import {
   getEmployeeInitials,
 } from "@/lib/employee-teacher-display"
 import {
+  collectLeavePeriodYears,
+  matchesLeaveYearFilter,
+} from "@/lib/leave-date-year"
+import {
   mapLeaveApplicationsToForApprovalRows,
   type ForApprovalRow,
 } from "@/lib/map-for-approval-row"
@@ -62,7 +66,13 @@ function ForApprovalPage() {
   )
 
   const years = React.useMemo(
-    () => Array.from(new Set(rows.map((row) => row.year))).sort((a, b) => b - a),
+    () =>
+      collectLeavePeriodYears(
+        rows.map((row) => ({
+          date_from: row.record.date_from,
+          date_to: row.record.date_to,
+        })),
+      ),
     [rows],
   )
 
@@ -81,8 +91,11 @@ function ForApprovalPage() {
   const filteredRequests = React.useMemo(
     () =>
       rows.filter((row) => {
-        const yearMatches =
-          selectedYear === "all" || String(row.year) === selectedYear
+        const yearMatches = matchesLeaveYearFilter(
+          row.record.date_from,
+          row.record.date_to,
+          selectedYear,
+        )
 
         return yearMatches && matchesStatusFilter(row, selectedStatus, viewerEmpNo)
       }),

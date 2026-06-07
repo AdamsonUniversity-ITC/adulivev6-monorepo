@@ -1,4 +1,3 @@
-import { Checkbox } from "@repo/ui/components/checkbox"
 import {
   FormControl,
   FormField,
@@ -7,6 +6,7 @@ import {
   FormMessage,
 } from "@repo/ui/components/form"
 import { isValid, parseISO } from "date-fns"
+import { CalendarRange, Sun } from "lucide-react"
 import type { UseFormReturn } from "react-hook-form"
 
 import { DatePicker } from "@/components/shared/date-picker"
@@ -16,6 +16,7 @@ import {
   getLeaveDayExclusionsFromForm,
   isWeekendExcludedDate,
 } from "../utils"
+import { StepSection, StepToggleCard } from "./-step-section"
 
 type DatesStepProps = {
   form: UseFormReturn<LeaveFormValues>
@@ -47,57 +48,71 @@ export function DatesStep({ form }: DatesStepProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          control={form.control}
-          name="date_from"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Date From</FormLabel>
-              <DatePicker
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="Select start date"
-                disabledDate={(date) => isDateDisabled(date)}
-              />
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <StepSection
+        icon={CalendarRange}
+        title="Leave period"
+        description="Pick when your leave starts and ends."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="date_from"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-2">
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Start date
+                </FormLabel>
+                <DatePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Select start date"
+                  disabledDate={(date) => isDateDisabled(date)}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="date_to"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Date To</FormLabel>
-              <DatePicker
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="Select end date"
-                disabledDate={(date) => isDateDisabled(date, { minDate: dateFrom })}
-              />
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
+          <FormField
+            control={form.control}
+            name="date_to"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-2">
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  End date
+                </FormLabel>
+                <DatePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Select end date"
+                  disabledDate={(date) => isDateDisabled(date, { minDate: dateFrom })}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      </StepSection>
 
-      <div className="space-y-3 rounded-lg border p-4">
-        <p className="text-sm font-medium">Weekend exclusions</p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
+      <StepSection
+        icon={Sun}
+        title="Weekend exclusions"
+        description="Optional — skip Saturdays or Sundays when counting leave days."
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="exclude_saturdays"
             render={({ field }) => (
-              <FormItem className="flex items-center gap-2 space-y-0">
+              <FormItem className="space-y-0">
                 <FormControl>
-                  <Checkbox
+                  <StepToggleCard
+                    label="Exclude Saturdays"
+                    description="Saturday dates won't be included in your leave days."
                     checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    onCheckedChange={field.onChange}
                   />
                 </FormControl>
-                <FormLabel className="font-normal">Exclude Saturdays</FormLabel>
               </FormItem>
             )}
           />
@@ -106,19 +121,20 @@ export function DatesStep({ form }: DatesStepProps) {
             control={form.control}
             name="exclude_sundays"
             render={({ field }) => (
-              <FormItem className="flex items-center gap-2 space-y-0">
+              <FormItem className="space-y-0">
                 <FormControl>
-                  <Checkbox
+                  <StepToggleCard
+                    label="Exclude Sundays"
+                    description="Sunday dates won't be included in your leave days."
                     checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    onCheckedChange={field.onChange}
                   />
                 </FormControl>
-                <FormLabel className="font-normal">Exclude Sundays</FormLabel>
               </FormItem>
             )}
           />
         </div>
-      </div>
+      </StepSection>
     </div>
   )
 }

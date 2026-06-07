@@ -2,13 +2,22 @@ import type { AxiosError } from "axios"
 
 import { hrmdoSvc } from "@/lib/api"
 import type { EmployeeTeacherRecord } from "@/lib/employee-teacher-display"
-import type { ApplyLeaveApplicationPayload } from "@/lib/map-leave-form-to-apply-payload"
 
 export type { EmployeeTeacherRecord }
 
 type ValidationErrorResponse = {
   message?: string
   errors?: Record<string, string[]>
+}
+
+export type LeaveApplicationMediaRecord = {
+  id: number
+  uuid: string
+  name: string
+  file_name: string
+  mime_type: string | null
+  size: number
+  url: string
 }
 
 export type LeaveApplicationRecord = {
@@ -20,6 +29,7 @@ export type LeaveApplicationRecord = {
   date_filed: string
   reason: string
   address: string | null
+  supporting_documents?: LeaveApplicationMediaRecord[]
   overall_status: string | null
   cancel_status: string | null
   cancelled_at: string | null
@@ -76,10 +86,13 @@ export async function fetchMyLeaveApplications(params?: {
   return response.data
 }
 
-export async function applyLeaveApplication(payload: ApplyLeaveApplicationPayload) {
+export async function applyLeaveApplication(formData: FormData) {
   const response = await hrmdoSvc.post<{ data: LeaveApplicationRecord }>(
     "v1/leave-applications/apply",
-    payload,
+    formData,
+    {
+      timeout: 120_000,
+    },
   )
 
   return response.data

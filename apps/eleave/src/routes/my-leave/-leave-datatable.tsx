@@ -13,7 +13,8 @@ import { format, parseISO } from "date-fns"
 import { Eye, Pencil } from "lucide-react"
 import * as React from "react"
 
-import { getLeaveFiledYears, type LeaveRequestRow } from "@/lib/leave-request-row"
+import { getLeavePeriodYearsFromRows, type LeaveRequestRow } from "@/lib/leave-request-row"
+import { matchesLeaveYearFilter } from "@/lib/leave-date-year"
 import {
   formatCancelStatusLabel,
   formatOverallStatusLabel,
@@ -126,11 +127,9 @@ function filterAndSortRows(
   }
 
   if (year !== "all") {
-    const selectedYear = Number(year)
-    result = result.filter((row) => {
-      const filedYear = new Date(row.filed_at).getFullYear()
-      return filedYear === selectedYear
-    })
+    result = result.filter((row) =>
+      matchesLeaveYearFilter(row.date_from, row.date_to, year),
+    )
   }
 
   if (status !== "all") {
@@ -179,7 +178,7 @@ export function MyLeaveDataTable({
   const [yearFilter, setYearFilter] = React.useState("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
 
-  const yearOptions = React.useMemo(() => getLeaveFiledYears(rows), [rows])
+  const yearOptions = React.useMemo(() => getLeavePeriodYearsFromRows(rows), [rows])
 
   const sort = sorting[0]
   const sortId = sort?.id ?? "filed_at"

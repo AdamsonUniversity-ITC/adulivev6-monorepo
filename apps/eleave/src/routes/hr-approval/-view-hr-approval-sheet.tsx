@@ -21,6 +21,7 @@ import {
 } from "@/lib/employee-teacher-display"
 import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import {
+  canSplitLeaveDayDecision,
   mapHrApprovalDayDecisionToPayloadItem,
   mapLeaveApplicationsToHrApprovalRows,
   type HrApprovalDayDecision,
@@ -32,6 +33,10 @@ import {
 } from "@/lib/resolve-hr-overall-status"
 import type { DayPortion } from "@/routes/my-leave/leave-form/schema"
 import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
+import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
+import { OtherInformationSection } from "@/components/shared/other-information-section"
+import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
+import { useLeaveBalances } from "@/hooks/use-leave-balances"
 
 import {
   Sheet,
@@ -79,18 +84,30 @@ type ViewHrApprovalSheetProps = {
 function ApprovalStatusSelect({
   value,
   onChange,
+  allowEmpty = false,
 }: {
-  value: HrApprovalStatus
-  onChange: (value: HrApprovalStatus) => void
+  value: HrApprovalStatus | null
+  onChange: (value: HrApprovalStatus | null) => void
+  allowEmpty?: boolean
 }) {
   return (
     <select
-      value={value}
-      onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-        onChange(event.target.value as HrApprovalStatus)
-      }
+      value={value ?? (allowEmpty ? "" : "pending")}
+      onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+        const nextValue = event.target.value
+        onChange(
+          nextValue === ""
+            ? null
+            : (nextValue as HrApprovalStatus),
+        )
+      }}
       className={selectClassName}
     >
+      {allowEmpty ? (
+        <option value="" disabled>
+          Select status
+        </option>
+      ) : null}
       <option value="pending">Pending</option>
       <option value="approved_with_pay">Approved With Pay</option>
       <option value="approved_without_pay">Approved Without Pay</option>
@@ -104,10 +121,12 @@ function LeaveTypeSelect({
   value,
   leaveTypes,
   onChange,
+  allowEmpty = false,
 }: {
   value: number | null
   leaveTypes: LeaveTypeRecord[]
   onChange: (value: number | null) => void
+  allowEmpty?: boolean
 }) {
   return (
     <select
@@ -118,6 +137,11 @@ function LeaveTypeSelect({
       }}
       className={selectClassName}
     >
+      {allowEmpty ? (
+        <option value="" disabled>
+          Select leave type
+        </option>
+      ) : null}
       {leaveTypes.map((option) => (
         <option key={option.id} value={option.id}>
           {option.leave_name}
@@ -139,6 +163,21 @@ export const ViewHrApprovalSheet = ({
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = React.useState(false)
   const [dailyDraft, setDailyDraft] = React.useState<HrApprovalDayDecision[]>([])
   const [actionError, setActionError] = React.useState<string | null>(null)
+  const {
+    data: leaveBalances = [],
+    isLoading: isLeaveBalancesLoading,
+    isError: isLeaveBalancesError,
+  } = useLeaveBalances(activeRequest?.record.employee_no ?? null)
+
+  const leaveBalanceRows = React.useMemo(
+    () =>
+      leaveBalances.map((balance) => ({
+        leave_type: balance.leave_type,
+        credits: balance.credits,
+        pending_filed_leave: balance.pending_filed_leave,
+      })),
+    [leaveBalances],
+  )
 
   React.useEffect(() => {
     if (!open) {
@@ -217,24 +256,16 @@ export const ViewHrApprovalSheet = ({
         }
       }
 
-      const defaultPortion2 =
-        entry.approvedDayPortion2 ??
-        (SPLIT_DAY_PORTION_OPTIONS.find(
-          (option) => option.value !== entry.approvedDayPortion1,
-        )?.value as DayPortion | undefined) ??
-        "pm"
-
       return {
         ...entry,
         isSplit: true,
-        approvedDayPortion1: entry.approvedDayPortion1 === "wholeday" ? "am" : entry.approvedDayPortion1,
-        approvedDayPortion2: defaultPortion2,
-        leaveTypeId2: entry.leaveTypeId2 ?? entry.leaveTypeId1,
-        leaveType2:
-          entry.leaveTypeId2 != null
-            ? (leaveTypeNames.get(entry.leaveTypeId2) ?? entry.leaveType1)
-            : entry.leaveType1,
-        status2: entry.status2 ?? "pending",
+        approvedDayPortion1: isWholeDayPortion(entry.approvedDayPortion1 ?? entry.requestedPortion)
+          ? null
+          : entry.approvedDayPortion1,
+        approvedDayPortion2: null,
+        leaveTypeId2: null,
+        leaveType2: "",
+        status2: null,
       }
     })
   }
@@ -251,39 +282,44 @@ export const ViewHrApprovalSheet = ({
     return { items }
   }
 
-  const validateDraft = (): string | null => {
-    const hasDecision = dailyDraft.some((entry) => {
-      if (entry.isSplit) {
-        return entry.status1 !== "pending" || entry.status2 !== "pending"
-      }
+  const hasSubmittingDecision = (entry: HrApprovalDayDecision): boolean => {
+    if (entry.isSplit) {
+      return (
+        entry.status1 !== "pending" ||
+        (entry.status2 != null && entry.status2 !== "pending")
+      )
+    }
 
-      return entry.status1 !== "pending"
-    })
+    return entry.status1 !== "pending"
+  }
+
+  const validateDraft = (): string | null => {
+    const hasDecision = dailyDraft.some(hasSubmittingDecision)
 
     if (!hasDecision) {
       return "Set an approval status for at least one day before applying changes."
     }
 
     for (const entry of dailyDraft) {
-      if (!entry.isSplit) {
-        continue
-      }
-
-      const isSubmittingSplit =
-        entry.status1 !== "pending" || entry.status2 !== "pending"
-
-      if (!isSubmittingSplit) {
+      if (!entry.isSplit || !hasSubmittingDecision(entry)) {
         continue
       }
 
       if (
+        !entry.approvedDayPortion1 ||
         !entry.approvedDayPortion2 ||
-        entry.approvedDayPortion1 === entry.approvedDayPortion2
+        entry.approvedDayPortion1 === entry.approvedDayPortion2 ||
+        isWholeDayPortion(entry.approvedDayPortion1) ||
+        isWholeDayPortion(entry.approvedDayPortion2)
       ) {
-        return `Split portions for ${entry.actualDate} must be different.`
+        return `Select different half-day portions for ${entry.actualDate}.`
       }
 
-      if (entry.status1 === "pending" || entry.status2 === "pending") {
+      if (
+        entry.status1 === "pending" ||
+        entry.status2 == null ||
+        entry.status2 === "pending"
+      ) {
         return `Set approval status for both split portions on ${entry.actualDate}.`
       }
 
@@ -325,8 +361,11 @@ export const ViewHrApprovalSheet = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-4xl lg:max-w-7xl">
-        <SheetHeader className="border-b bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] pb-4">
+      <SheetContent
+        side="right"
+        className="flex h-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-7xl"
+      >
+        <SheetHeader className="shrink-0 border-b bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] pb-4">
           <SheetTitle className="text-lg">View HR Approval</SheetTitle>
           <SheetDescription>
             Review request details and update HR approval status.
@@ -334,7 +373,9 @@ export const ViewHrApprovalSheet = ({
         </SheetHeader>
 
         {activeRequest ? (
-          <div className="space-y-5 px-4 py-4 pb-6">
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="space-y-5 px-4 py-4 pb-6">
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
               <Avatar className="size-10">
                 {getEmployeeAvatarUrl(activeRequest.record.employee_teacher) ? (
@@ -353,18 +394,20 @@ export const ViewHrApprovalSheet = ({
               <div>
                 <p className="text-sm font-semibold">{activeRequest.employee}</p>
                 <p className="text-muted-foreground text-xs">
-                  Request #{activeRequest.id}
+                  {/* Request #{activeRequest.id} */}
+                  {activeRequest.record.employee_no}
                 </p>
+              <p className="text-muted-foreground text-xs">{activeRequest.department}</p>
               </div>
             </div>
 
             <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-3 gap-3">
+              <div>
                   <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Department
+                    Covered Dates
                   </p>
-                  <p className="font-medium">{activeRequest.department}</p>
+                  <p className="font-medium">{activeRequest.dates}<span className="text-muted-foreground text-xs"> • {activeRequest.days} day{activeRequest.days === 1 ? "" : "s"}</span></p>
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs uppercase tracking-wide">
@@ -374,24 +417,7 @@ export const ViewHrApprovalSheet = ({
                     {summarizeLeaveType(dailyDraft) || activeRequest.leaveType}
                   </p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Number of Days
-                  </p>
-                  <p className="font-medium">{activeRequest.days}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Covered Dates
-                  </p>
-                  <p className="font-medium">{activeRequest.dates}</p>
-                </div>
-              </div>
-
-              <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">
                   Overall Status
                 </p>
@@ -399,6 +425,34 @@ export const ViewHrApprovalSheet = ({
                   <OverallStatusBadge status={draftStatus} />
                 </div>
               </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Reason for Leave
+                  </p>
+                  <p className="font-medium whitespace-pre-wrap">
+                    {activeRequest.record.reason?.trim() || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Address while on leave
+                  </p>
+                  <p className="font-medium whitespace-pre-wrap">
+                    {activeRequest.record.address?.trim() || "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <SupportingDocumentsSection
+              documents={activeRequest.record.supporting_documents}
+            />
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <ForApprovalWorkflowTable record={activeRequest.record} />
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -446,7 +500,7 @@ export const ViewHrApprovalSheet = ({
                   </thead>
                   <tbody>
                     {dailyDraft.map((entry) => {
-                      const canSplit = isWholeDayPortion(entry.requestedPortion)
+                      const canSplit = canSplitLeaveDayDecision(entry)
                       const rowSpan = entry.isSplit ? 2 : 1
 
                       const renderPortionControls = (
@@ -454,23 +508,29 @@ export const ViewHrApprovalSheet = ({
                         portionLabel: string,
                       ) => {
                         if (entry.isSplit) {
-                          const value = entry[portionField] as DayPortion
+                          const value = entry[portionField] as DayPortion | null
                           return (
                             <div className="space-y-1">
                               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                                 {portionLabel}
                               </p>
                               <select
-                                value={value}
+                                value={value ?? ""}
                                 onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-                                  const nextPortion = event.target.value as DayPortion
+                                  const nextPortion = event.target.value
                                   updateEntry(entry.dayNumber, (current) => ({
                                     ...current,
-                                    [portionField]: nextPortion,
+                                    [portionField]:
+                                      nextPortion === ""
+                                        ? null
+                                        : (nextPortion as DayPortion),
                                   }))
                                 }}
                                 className={selectClassName}
                               >
+                                <option value="" disabled>
+                                  Select portion
+                                </option>
                                 {SPLIT_DAY_PORTION_OPTIONS.map((option) => (
                                   <option key={option.value} value={option.value}>
                                     {option.label}
@@ -505,6 +565,7 @@ export const ViewHrApprovalSheet = ({
                             <LeaveTypeSelect
                               value={leaveTypeId}
                               leaveTypes={leaveTypes}
+                              allowEmpty={entry.isSplit && portion === 2}
                               onChange={(nextValue) => {
                                 updateEntry(entry.dayNumber, (current) => {
                                   if (portion === 1) {
@@ -549,11 +610,15 @@ export const ViewHrApprovalSheet = ({
                               </p>
                             ) : null}
                             <ApprovalStatusSelect
-                              value={status ?? "pending"}
+                              value={status}
+                              allowEmpty={entry.isSplit && portion === 2}
                               onChange={(nextStatus) => {
                                 updateEntry(entry.dayNumber, (current) =>
                                   portion === 1
-                                    ? { ...current, status1: nextStatus }
+                                    ? {
+                                        ...current,
+                                        status1: nextStatus ?? "pending",
+                                      }
                                     : { ...current, status2: nextStatus },
                                 )
                               }}
@@ -640,17 +705,29 @@ export const ViewHrApprovalSheet = ({
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsApplyConfirmOpen(false)
-                  onOpenChange(false)
-                }}
-              >
-                Close
-              </Button>
+            <OtherInformationSection
+              employeeNo={activeRequest.record.employee_no}
+              leaveBalanceRows={leaveBalanceRows}
+              isLeaveBalancesLoading={isLeaveBalancesLoading}
+              isLeaveBalancesError={isLeaveBalancesError}
+            />
+
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)]">
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsApplyConfirmOpen(false)
+                    onOpenChange(false)
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
             </div>
 
             {isApplyConfirmOpen ? (
@@ -684,7 +761,7 @@ export const ViewHrApprovalSheet = ({
                 </div>
               </div>
             ) : null}
-          </div>
+          </>
         ) : null}
       </SheetContent>
     </Sheet>

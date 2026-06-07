@@ -1,5 +1,8 @@
-import { formatEmployeeName } from "@/lib/employee-teacher-display"
-import { mapApiDayPortion, mapDayPortionToApiLabel } from "@/lib/day-portion"
+import {
+  formatEmployeeName,
+  getEmployeeDepartment,
+} from "@/lib/employee-teacher-display"
+import { mapApiDayPortion, mapDayPortionToApiLabel, isWholeDayPortion } from "@/lib/day-portion"
 import { mapApiHrStatusToSlug, mapSlugToApiHrStatus, type HrApprovalStatus } from "@/lib/hr-approval-status"
 import type { HrApprovalItemPayload, LeaveApplicationRecord } from "@/lib/leave-applications-api"
 import { resolveHrOverallStatus } from "@/lib/resolve-hr-overall-status"
@@ -13,7 +16,7 @@ export type HrApprovalDayDecision = {
   actualDate: string
   requestedPortion: DayPortion
   isSplit: boolean
-  approvedDayPortion1: DayPortion
+  approvedDayPortion1: DayPortion | null
   approvedDayPortion2: DayPortion | null
   leaveTypeId1: number | null
   leaveTypeId2: number | null
@@ -64,6 +67,35 @@ function resolveLeaveTypeName(
   return leaveTypeNames.get(leaveTypeId) ?? fallback
 }
 
+function resolveIsSplitDay(applicationDate: {
+  approved_day_portion_2: string | null
+}): boolean {
+  const portionTwo = applicationDate.approved_day_portion_2
+
+  return portionTwo != null && portionTwo.trim() !== ""
+}
+
+function resolveRequestedPortion(
+  applicationDate: {
+    approved_day_portion_1: string
+    approved_day_portion_2: string | null
+  },
+  isSplit: boolean,
+): DayPortion {
+  if (isSplit) {
+    return "wholeday"
+  }
+
+  return mapApiDayPortion(applicationDate.approved_day_portion_1)
+}
+
+export function canSplitLeaveDayDecision(entry: Pick<
+  HrApprovalDayDecision,
+  "isSplit" | "requestedPortion"
+>): boolean {
+  return entry.isSplit || isWholeDayPortion(entry.requestedPortion)
+}
+
 export function mapLeaveApplicationToHrApprovalRow(
   record: LeaveApplicationRecord,
   leaveTypeNames: Map<number, string>,
@@ -76,8 +108,8 @@ export function mapLeaveApplicationToHrApprovalRow(
 
   const dailyDecisions: HrApprovalDayDecision[] = applicationDates.map(
     (applicationDate, index) => {
-      const requestedPortion = mapApiDayPortion(applicationDate.approved_day_portion_1)
-      const isSplit = applicationDate.approved_day_portion_2 != null
+      const isSplit = resolveIsSplitDay(applicationDate)
+      const requestedPortion = resolveRequestedPortion(applicationDate, isSplit)
       const leaveTypeId1 =
         applicationDate.approved_leave_type_id_1 ?? record.leave_type_id ?? null
       const leaveTypeId2 = applicationDate.approved_leave_type_id_2 ?? null
@@ -124,7 +156,7 @@ export function mapLeaveApplicationToHrApprovalRow(
       record.employee_teacher,
       record.employee_no || "Unknown employee",
     ),
-    department: record.employee_teacher?.designation?.trim() || "—",
+    department: getEmployeeDepartment(record.employee_teacher),
     leaveType: summarizeLeaveType(dailyDecisions),
     dates: formatDateRange(record.date_from, record.date_to),
     days: dailyDecisions.length,
@@ -150,14 +182,19 @@ export function mapHrApprovalDayDecisionToPayloadItem(
     return null
   }
 
-  const hrStatus1 = mapSlugToApiHrStatus(entry.status1)
-  if (!hrStatus1) {
-    return null
-  }
-
   if (entry.isSplit) {
+    const hrStatus1 = mapSlugToApiHrStatus(entry.status1)
     const hrStatus2 = entry.status2 ? mapSlugToApiHrStatus(entry.status2) : null
-    if (!hrStatus2 || !entry.approvedDayPortion2) {
+
+    if (!hrStatus1 || !hrStatus2 || !entry.approvedDayPortion1 || !entry.approvedDayPortion2) {
+      return null
+    }
+
+    if (
+      entry.approvedDayPortion1 === entry.approvedDayPortion2 ||
+      isWholeDayPortion(entry.approvedDayPortion1) ||
+      isWholeDayPortion(entry.approvedDayPortion2)
+    ) {
       return null
     }
 
@@ -173,9 +210,18 @@ export function mapHrApprovalDayDecisionToPayloadItem(
     }
   }
 
+  const hrStatus1 = mapSlugToApiHrStatus(entry.status1)
+  if (!hrStatus1) {
+    return null
+  }
+
   return {
     leave_application_date_id: entry.leaveApplicationDateId,
-    approved_day_portion_1: mapDayPortionToApiLabel(entry.approvedDayPortion1),
+    approved_day_portion_1: mapDayPortionToApiLabel(
+      isWholeDayPortion(entry.requestedPortion)
+        ? entry.requestedPortion
+        : (entry.approvedDayPortion1 ?? entry.requestedPortion),
+    ),
     approved_day_portion_2: null,
     approved_leave_type_id_1: entry.leaveTypeId1,
     approved_leave_type_id_2: null,

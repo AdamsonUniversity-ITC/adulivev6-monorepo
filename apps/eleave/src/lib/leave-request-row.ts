@@ -2,6 +2,7 @@ import type {
   LeaveCancelStatus,
   LeaveOverallStatus,
 } from "@/routes/my-leave/-leave-status"
+import { collectLeavePeriodYears } from "@/lib/leave-date-year"
 
 export type LeaveRequestRow = {
   id: string
@@ -15,15 +16,8 @@ export type LeaveRequestRow = {
   filed_at: string
 }
 
-export function getLeaveFiledYears(rows: LeaveRequestRow[]): number[] {
-  const years = new Set<number>()
-
-  for (const row of rows) {
-    const year = new Date(row.filed_at).getFullYear()
-    if (!Number.isNaN(year)) {
-      years.add(year)
-    }
-  }
-
-  return [...years].sort((a, b) => b - a)
+export function getLeavePeriodYearsFromRows(
+  rows: Pick<LeaveRequestRow, "date_from" | "date_to">[],
+): number[] {
+  return collectLeavePeriodYears(rows)
 }

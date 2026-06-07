@@ -1,5 +1,10 @@
 const TEACHER_AVATAR_TYPE = 2
 
+export type EmployeeSectionRecord = {
+  id: number
+  sec_name: string | null
+}
+
 export type EmployeeTeacherRecord = {
   id: number
   emp_no: string
@@ -8,6 +13,7 @@ export type EmployeeTeacherRecord = {
   middle_name: string | null
   last_name: string
   designation: string | null
+  section?: EmployeeSectionRecord | null
   email: string | null
   is_active?: boolean | number | null
   hr_active?: boolean | number | null
@@ -25,6 +31,53 @@ export function getEmployeeAvatarUrl(
   }
 
   return `https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${empNo}_${TEACHER_AVATAR_TYPE}`
+}
+
+export function getAvatarUrlFromEmpNo(
+  empNo: string | null | undefined,
+): string | null {
+  const trimmed = empNo?.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  return `https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${trimmed}_${TEACHER_AVATAR_TYPE}`
+}
+
+export function getInitialsFromDisplayName(
+  name: string | null | undefined,
+  empNo: string | null | undefined,
+  fallback = "?",
+): string {
+  const trimmedName = name?.trim()
+
+  if (trimmedName) {
+    const parts = trimmedName.split(/\s+/).filter(Boolean)
+
+    if (parts.length >= 2) {
+      return `${parts[0]!.charAt(0)}${parts[parts.length - 1]!.charAt(0)}`.toUpperCase()
+    }
+
+    if (parts.length === 1) {
+      const single = parts[0]!
+      return single.length >= 2
+        ? single.slice(0, 2).toUpperCase()
+        : single.charAt(0).toUpperCase()
+    }
+  }
+
+  const trimmedEmpNo = empNo?.trim() ?? ""
+  return trimmedEmpNo.slice(0, 2).toUpperCase() || fallback
+}
+
+export function getEmployeeDepartment(
+  teacher: EmployeeTeacherRecord | null | undefined,
+  fallback = "—",
+): string {
+  const department = teacher?.section?.sec_name?.trim()
+
+  return department || fallback
 }
 
 export function formatEmployeeName(

@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   FolderOpen,
   UserCheck,
+  Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -41,6 +42,10 @@ const mainNavItems = [
   { title: "HR Approval", url: "/hr-approval", icon: UserCheck },
 ] as const;
 
+const adminNavItems = [
+  { title: "Beginning Balances", url: "/beginning-balances", icon: Wallet },
+] as const;
+
 const reportNavItems = [
   { title: "Filed Leave", url: "/reports/filed-leave", icon: FolderOpen },
 ] as const;
@@ -49,7 +54,8 @@ function isNavItemActive(pathname: string, url: string) {
   if (
     url === "/my-leave" ||
     url === "/for-approval" ||
-    url === "/hr-approval"
+    url === "/hr-approval" ||
+    url === "/beginning-balances"
   ) {
     return pathname === url || pathname.startsWith(`${url}/`);
   }
@@ -112,6 +118,24 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
               {mainNavItems.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isNavItemActive(pathname, item.url)}
+                    tooltip={item.title}
+                    className="relative h-11 rounded-full px-4 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
+                  >
+                    <Link to={item.url}>
+                      <item.icon className="mr-2 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
+                      <span className="group-data-[collapsible=icon]:hidden">
+                        {item.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {adminNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild

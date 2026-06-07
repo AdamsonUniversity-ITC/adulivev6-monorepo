@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card"
 import { fetchAuthUser, resolveEmployeeNo } from "@/lib/fetch-auth-user"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useMyEmployeeHrProfile } from "@/hooks/use-employee-hr-profile"
 import { useMyLeaveApplications } from "@/hooks/use-my-leave-applications"
 import {
   applyLeaveApplication,
@@ -25,7 +26,7 @@ import {
   getValidationFieldErrors,
 } from "@/lib/leave-applications-api"
 import { mapLeaveApplicationToRow } from "@/lib/map-leave-application-to-row"
-import { mapLeaveFormToApplyPayload } from "@/lib/map-leave-form-to-apply-payload"
+import { buildLeaveApplyFormData } from "@/lib/map-leave-form-to-apply-payload"
 import {
   leaveFormDefaults,
   leaveFormSchema,
@@ -35,7 +36,7 @@ import {
   TOTAL_LEAVE_FORM_STEPS,
   type LeaveFormValues,
 } from "./schema"
-import { LeaveFormStepper } from "./stepper"
+import { LeaveFormStepper } from "./-stepper"
 import { DatesStep } from "./steps/dates-step"
 import { DetailsStep } from "./steps/details-step"
 import { ReviewStep } from "./steps/review-step"
@@ -76,6 +77,8 @@ function applyApiFieldErrors(
       field === "leave_type_id" ||
       field === "reason" ||
       field === "address" ||
+      field === "supporting_documents" ||
+      field.startsWith("supporting_documents.") ||
       field.startsWith("leave_days")
     ) {
       setError(field as FieldPath<LeaveFormValues>, { message })
@@ -91,6 +94,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   const [submitError, setSubmitError] = React.useState<string | null>(null)
   const { data: leaveTypes = [] } = useLeaveTypes()
   const { data: leaveApplicationsResponse } = useMyLeaveApplications()
+  const { data: myHrProfile } = useMyEmployeeHrProfile(!isEdit)
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -101,6 +105,18 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     resolver: zodResolver(leaveFormSchema),
     defaultValues: leaveFormDefaults,
   })
+
+  React.useEffect(() => {
+    if (isEdit) return
+
+    const hrAddress = myHrProfile?.address?.trim()
+    if (!hrAddress) return
+
+    const currentAddress = form.getValues("address").trim()
+    if (currentAddress !== "") return
+
+    form.setValue("address", hrAddress, { shouldDirty: false })
+  }, [form, isEdit, myHrProfile?.address])
 
   React.useEffect(() => {
     if (!isEdit || !leaveId) return
@@ -180,6 +196,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     if (step === 3) {
       const result = leaveFormStep3Schema.safeParse({
         reason: values.reason,
+        supporting_documents: values.supporting_documents,
         address: values.address,
       })
       if (!result.success) {
@@ -238,7 +255,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
         return
       }
 
-      await applyLeaveApplication(mapLeaveFormToApplyPayload(values, employeeNo))
+      await applyLeaveApplication(buildLeaveApplyFormData(values, employeeNo))
 
       await queryClient.invalidateQueries({ queryKey: ["my-leave-applications"] })
       await navigate({ to: "/my-leave" })
@@ -287,14 +304,18 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
               event.preventDefault()
             }}
           >
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <LeaveFormStepper currentStep={currentStep} />
-              <p className="text-muted-foreground text-sm">
-                {stepDescription[currentStep]}
-              </p>
+              <div className="rounded-xl border border-amber-200/60 bg-amber-50/40 px-4 py-3">
+                <p className="text-sm leading-relaxed text-amber-950/90">
+                  {stepDescription[currentStep]}
+                </p>
+              </div>
 
               {submitError ? (
-                <p className="text-destructive text-sm">{submitError}</p>
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+                  <p className="text-destructive text-sm">{submitError}</p>
+                </div>
               ) : null}
 
               {currentStep === 1 ? <DatesStep form={form} /> : null}

@@ -10,12 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { useLeaveBalances } from "@/hooks/use-leave-balances"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
 import { useMyLeaveApplications } from "@/hooks/use-my-leave-applications"
+import { LeaveBalanceTable } from "@/components/shared/leave-balance-table"
 import { mapLeaveApplicationsToRows } from "@/lib/map-leave-application-to-row"
 
 import { MyLeaveDataTable } from "./-leave-datatable"
-import { LeaveBalanceTable } from "./-leave-balance"
 
 export const Route = createFileRoute("/my-leave/")({
   component: MyLeavePage,
@@ -28,6 +29,21 @@ function MyLeavePage() {
     isError,
   } = useMyLeaveApplications()
   const { data: leaveTypes = [] } = useLeaveTypes()
+  const {
+    data: leaveBalances = [],
+    isLoading: isLeaveBalancesLoading,
+    isError: isLeaveBalancesError,
+  } = useLeaveBalances()
+
+  const leaveBalanceRows = React.useMemo(
+    () =>
+      leaveBalances.map((balance) => ({
+        leave_type: balance.leave_type,
+        credits: balance.credits,
+        pending_filed_leave: balance.pending_filed_leave,
+      })),
+    [leaveBalances],
+  )
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -128,7 +144,12 @@ function MyLeavePage() {
         </Card>
 
         <aside className="flex min-h-0 flex-col">
-          <LeaveBalanceTable className="h-full" />
+          <LeaveBalanceTable
+            className="h-full"
+            rows={leaveBalanceRows}
+            isLoading={isLeaveBalancesLoading}
+            isError={isLeaveBalancesError}
+          />
         </aside>
       </div>
     </div>

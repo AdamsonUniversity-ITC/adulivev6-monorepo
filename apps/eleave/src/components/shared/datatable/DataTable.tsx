@@ -12,7 +12,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@repo/ui/components/dropdown-menu";
 import {
   Table as DTable,
   TableBody,
@@ -20,8 +20,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table.tsx";
-import { cn } from "@/lib/utils/cn";
+} from "@repo/ui/components/table";
+import { cn } from "@/lib/utils";
 import { type ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type VisibilityState, type SortingState } from "@tanstack/react-table";
 import React, { type ReactNode } from "react";
 

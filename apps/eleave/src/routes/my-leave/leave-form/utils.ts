@@ -125,6 +125,7 @@ export function mapLeaveRowToFormValues(
       excludeSaturdays: false,
     }),
     reason: row.reason,
+    supporting_documents: [],
     address: row.address,
   }
 }

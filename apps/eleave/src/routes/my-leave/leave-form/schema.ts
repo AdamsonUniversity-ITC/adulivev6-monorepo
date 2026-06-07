@@ -51,12 +51,17 @@ export const leaveFormStep2Schema = z.object({
     .min(1, "At least one leave day is required"),
 })
 
+const supportingDocumentsSchema = z
+  .array(z.instanceof(File))
+  .max(10, "You can upload up to 10 supporting documents")
+
 export const leaveFormStep3Schema = z.object({
   reason: z
     .string()
     .trim()
     .min(1, "Reason is required")
     .max(2000, "Reason must be 2000 characters or less"),
+  supporting_documents: supportingDocumentsSchema.default([]),
   address: z
     .string()
     .trim()
@@ -79,6 +84,7 @@ export const leaveFormSchema = z
       .trim()
       .min(1, "Reason is required")
       .max(2000, "Reason must be 2000 characters or less"),
+    supporting_documents: supportingDocumentsSchema.default([]),
     address: z
       .string()
       .trim()
@@ -97,6 +103,7 @@ export const leaveFormDefaults: LeaveFormValues = {
   leave_type_id: "",
   leave_days: [],
   reason: "",
+  supporting_documents: [],
   address: "",
 }
 
