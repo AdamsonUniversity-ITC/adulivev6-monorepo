@@ -1,7 +1,7 @@
 import { eachDayOfInterval, format, isValid, parseISO } from "date-fns"
 
-import { LEAVE_TYPE_OPTIONS } from "../-leave-types"
-import type { LeaveRequestRow } from "../-leave-mock-data"
+import type { LeaveTypeOption } from "../-leave-types"
+import type { LeaveRequestRow } from "@/lib/leave-request-row"
 import {
   DAY_PORTION_OPTIONS,
   type DayPortion,
@@ -9,7 +9,16 @@ import {
   type LeaveFormValues,
 } from "./schema"
 
-export function getDaysInRange(dateFrom: string, dateTo: string): string[] {
+export type LeaveDayExclusions = {
+  excludeSundays?: boolean
+  excludeSaturdays?: boolean
+}
+
+export function getDaysInRange(
+  dateFrom: string,
+  dateTo: string,
+  exclusions: LeaveDayExclusions = {},
+): string[] {
   const from = parseISO(dateFrom)
   const to = parseISO(dateTo)
 
@@ -17,9 +26,36 @@ export function getDaysInRange(dateFrom: string, dateTo: string): string[] {
     return []
   }
 
-  return eachDayOfInterval({ start: from, end: to }).map((date) =>
-    format(date, "yyyy-MM-dd"),
-  )
+  return eachDayOfInterval({ start: from, end: to })
+    .filter((date) => !isWeekendExcludedDate(date, exclusions))
+    .map((date) => format(date, "yyyy-MM-dd"))
+}
+
+export function getLeaveDayExclusionsFromForm(values: {
+  exclude_sundays: boolean
+  exclude_saturdays: boolean
+}): LeaveDayExclusions {
+  return {
+    excludeSundays: values.exclude_sundays,
+    excludeSaturdays: values.exclude_saturdays,
+  }
+}
+
+export function isWeekendExcludedDate(
+  date: Date,
+  exclusions: LeaveDayExclusions = {},
+): boolean {
+  const dayOfWeek = date.getDay()
+
+  if (exclusions.excludeSundays && dayOfWeek === 0) {
+    return true
+  }
+
+  if (exclusions.excludeSaturdays && dayOfWeek === 6) {
+    return true
+  }
+
+  return false
 }
 
 export function formatLeaveDay(date: string): string {
@@ -46,13 +82,14 @@ export function syncLeaveDays(
   dateFrom: string,
   dateTo: string,
   existing: LeaveDay[],
+  exclusions: LeaveDayExclusions = {},
 ): LeaveDay[] {
-  const dates = getDaysInRange(dateFrom, dateTo)
+  const dates = getDaysInRange(dateFrom, dateTo, exclusions)
   const portionByDate = new Map(existing.map((day) => [day.date, day.day_portion]))
 
   return dates.map((date) => ({
     date,
-    day_portion: portionByDate.get(date) ?? "wholeday",
+    day_portion: portionByDate.get(date) ?? "",
   }))
 }
 
@@ -63,20 +100,32 @@ export function getDayPortionLabel(portion: DayPortion): string {
   )
 }
 
-export function getLeaveTypeLabel(leaveTypeId: string): string {
+export function getLeaveTypeLabel(
+  leaveTypeId: string,
+  leaveTypes: LeaveTypeOption[] = [],
+): string {
   const id = Number(leaveTypeId)
-  return LEAVE_TYPE_OPTIONS.find((type) => type.id === id)?.name ?? "—"
+  return leaveTypes.find((type) => type.id === id)?.leave_name ?? "—"
 }
 
-export function mapMockRowToFormValues(row: LeaveRequestRow): LeaveFormValues {
-  const leaveType = LEAVE_TYPE_OPTIONS.find((type) => type.name === row.leave_type)
+export function mapLeaveRowToFormValues(
+  row: LeaveRequestRow,
+  leaveTypes: LeaveTypeOption[] = [],
+): LeaveFormValues {
+  const leaveType = leaveTypes.find((type) => type.leave_name === row.leave_type)
 
   return {
     date_from: row.date_from,
     date_to: row.date_to,
+    exclude_sundays: true,
+    exclude_saturdays: false,
     leave_type_id: leaveType ? String(leaveType.id) : "",
-    leave_days: syncLeaveDays(row.date_from, row.date_to, []),
+    leave_days: syncLeaveDays(row.date_from, row.date_to, [], {
+      excludeSundays: true,
+      excludeSaturdays: false,
+    }),
     reason: row.reason,
+    supporting_documents: [],
     address: row.address,
   }
 }

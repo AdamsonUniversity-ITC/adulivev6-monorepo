@@ -4,7 +4,7 @@ import {
   PaginationContent,
   PaginationItem,
   PaginationLink,
-} from "@/components/ui/pagination";
+} from "@repo/ui/components/pagination";
 import {
   Select,
   SelectContent,
@@ -12,9 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { areEqual } from "@/lib/utils/areEqual.ts";
-import { cn } from "@/lib/utils/cn";
-import { buildUrl } from "@/lib/utils/resolveUrl";
+import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
   ChevronRight,
@@ -31,31 +29,16 @@ export type DataTableServerPaginationProps = {
 const DataTableServerPagination = React.memo(
   ({ tanstack, data }: DataTableServerPaginationProps) => {
     const { hook } = tanstack;
-    const currentURL = new URLSearchParams(window.location.search);
-    const keyword = hook.keyword;
     const { setPage, rows, setRows } = hook;
-
-    const constructPageUrl = (pageNum: number | null) => {
-      const rowsTemp = hook.rows;
-      const params: Record<string, string | number> = { rowsTemp, keyword };
-      if (pageNum) params.page = pageNum;
-      currentURL.forEach((value, key) => {
-        if (!["rows", "keyword", "page"].includes(key)) {
-          params[key] = value;
-        }
-      });
-      return buildUrl(data?.path ?? "", params);
-    };
 
     const pages = useMemo(() => {
       if (!data?.data) return [];
       let currentPage = data?.current_page ?? 1;
       const lastPage = data?.last_page ?? 1;
-      const pageArr: { link: string; label: number; value: number }[] = [];
+      const pageArr: { label: number; value: number }[] = [];
       let pageCount = 1;
       while (currentPage <= lastPage && pageCount <= 3) {
         pageArr.push({
-          link: constructPageUrl(currentPage),
           label: currentPage,
           value: currentPage,
         });
@@ -63,7 +46,7 @@ const DataTableServerPagination = React.memo(
         pageCount++;
       }
       return pageArr;
-    }, [data?.current_page, data?.last_page, data?.path, data?.data, rows, keyword]);
+    }, [data?.current_page, data?.last_page, data?.data]);
 
     if (!data?.data) {
       return null;
@@ -175,7 +158,6 @@ const DataTableServerPagination = React.memo(
       </div>
     );
   },
-  areEqual
 );
 
 DataTableServerPagination.displayName = "DataTableServerPagination";

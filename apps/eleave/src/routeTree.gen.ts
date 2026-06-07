@@ -19,12 +19,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MyLeaveIndexRouteImport } from './routes/my-leave/index'
 import { Route as HrApprovalIndexRouteImport } from './routes/hr-approval/index'
 import { Route as ForApprovalIndexRouteImport } from './routes/for-approval/index'
+import { Route as BeginningBalancesIndexRouteImport } from './routes/beginning-balances/index'
 import { Route as ReportsFiledLeaveRouteImport } from './routes/reports/filed-leave'
-import { Route as MyLeaveViewLeaveRouteImport } from './routes/my-leave/view-leave'
-import { Route as HrApprovalViewHrApprovalFormRouteImport } from './routes/hr-approval/view-hr-approval-form'
-import { Route as HrApprovalHrApprovalFormRouteImport } from './routes/hr-approval/hr-approval-form'
-import { Route as ForApprovalViewForApprovalRouteImport } from './routes/for-approval/view-for-approval'
+import { Route as HrApprovalViewHrApprovalSheetRouteImport } from './routes/hr-approval/view-hr-approval-sheet'
+import { Route as MyLeaveViewLeaveLeaveIdRouteImport } from './routes/my-leave/view-leave.$leaveId'
 import { Route as MyLeaveLeaveFormChar123LeaveIdChar125RouteImport } from './routes/my-leave/leave-form.{-$leaveId}'
+import { Route as BeginningBalancesViewEmployeeNoRouteImport } from './routes/beginning-balances/view.$employeeNo'
 
 const TestRoute = TestRouteImport.update({
   id: '/test',
@@ -76,39 +76,38 @@ const ForApprovalIndexRoute = ForApprovalIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ForApprovalRouteRoute,
 } as any)
+const BeginningBalancesIndexRoute = BeginningBalancesIndexRouteImport.update({
+  id: '/beginning-balances/',
+  path: '/beginning-balances/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsFiledLeaveRoute = ReportsFiledLeaveRouteImport.update({
   id: '/reports/filed-leave',
   path: '/reports/filed-leave',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MyLeaveViewLeaveRoute = MyLeaveViewLeaveRouteImport.update({
-  id: '/view-leave',
-  path: '/view-leave',
+const HrApprovalViewHrApprovalSheetRoute =
+  HrApprovalViewHrApprovalSheetRouteImport.update({
+    id: '/view-hr-approval-sheet',
+    path: '/view-hr-approval-sheet',
+    getParentRoute: () => HrApprovalRouteRoute,
+  } as any)
+const MyLeaveViewLeaveLeaveIdRoute = MyLeaveViewLeaveLeaveIdRouteImport.update({
+  id: '/view-leave/$leaveId',
+  path: '/view-leave/$leaveId',
   getParentRoute: () => MyLeaveRouteRoute,
 } as any)
-const HrApprovalViewHrApprovalFormRoute =
-  HrApprovalViewHrApprovalFormRouteImport.update({
-    id: '/view-hr-approval-form',
-    path: '/view-hr-approval-form',
-    getParentRoute: () => HrApprovalRouteRoute,
-  } as any)
-const HrApprovalHrApprovalFormRoute =
-  HrApprovalHrApprovalFormRouteImport.update({
-    id: '/hr-approval-form',
-    path: '/hr-approval-form',
-    getParentRoute: () => HrApprovalRouteRoute,
-  } as any)
-const ForApprovalViewForApprovalRoute =
-  ForApprovalViewForApprovalRouteImport.update({
-    id: '/view-for-approval',
-    path: '/view-for-approval',
-    getParentRoute: () => ForApprovalRouteRoute,
-  } as any)
 const MyLeaveLeaveFormChar123LeaveIdChar125Route =
   MyLeaveLeaveFormChar123LeaveIdChar125RouteImport.update({
     id: '/leave-form/{-$leaveId}',
     path: '/leave-form/{-$leaveId}',
     getParentRoute: () => MyLeaveRouteRoute,
+  } as any)
+const BeginningBalancesViewEmployeeNoRoute =
+  BeginningBalancesViewEmployeeNoRouteImport.update({
+    id: '/beginning-balances/view/$employeeNo',
+    path: '/beginning-balances/view/$employeeNo',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -119,30 +118,30 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/guidelines': typeof GuidelinesRoute
   '/test': typeof TestRoute
-  '/for-approval/view-for-approval': typeof ForApprovalViewForApprovalRoute
-  '/hr-approval/hr-approval-form': typeof HrApprovalHrApprovalFormRoute
-  '/hr-approval/view-hr-approval-form': typeof HrApprovalViewHrApprovalFormRoute
-  '/my-leave/view-leave': typeof MyLeaveViewLeaveRoute
+  '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
+  '/beginning-balances/': typeof BeginningBalancesIndexRoute
   '/for-approval/': typeof ForApprovalIndexRoute
   '/hr-approval/': typeof HrApprovalIndexRoute
   '/my-leave/': typeof MyLeaveIndexRoute
+  '/beginning-balances/view/$employeeNo': typeof BeginningBalancesViewEmployeeNoRoute
   '/my-leave/leave-form/{-$leaveId}': typeof MyLeaveLeaveFormChar123LeaveIdChar125Route
+  '/my-leave/view-leave/$leaveId': typeof MyLeaveViewLeaveLeaveIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/guidelines': typeof GuidelinesRoute
   '/test': typeof TestRoute
-  '/for-approval/view-for-approval': typeof ForApprovalViewForApprovalRoute
-  '/hr-approval/hr-approval-form': typeof HrApprovalHrApprovalFormRoute
-  '/hr-approval/view-hr-approval-form': typeof HrApprovalViewHrApprovalFormRoute
-  '/my-leave/view-leave': typeof MyLeaveViewLeaveRoute
+  '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
+  '/beginning-balances': typeof BeginningBalancesIndexRoute
   '/for-approval': typeof ForApprovalIndexRoute
   '/hr-approval': typeof HrApprovalIndexRoute
   '/my-leave': typeof MyLeaveIndexRoute
+  '/beginning-balances/view/$employeeNo': typeof BeginningBalancesViewEmployeeNoRoute
   '/my-leave/leave-form/{-$leaveId}': typeof MyLeaveLeaveFormChar123LeaveIdChar125Route
+  '/my-leave/view-leave/$leaveId': typeof MyLeaveViewLeaveLeaveIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,15 +152,15 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/guidelines': typeof GuidelinesRoute
   '/test': typeof TestRoute
-  '/for-approval/view-for-approval': typeof ForApprovalViewForApprovalRoute
-  '/hr-approval/hr-approval-form': typeof HrApprovalHrApprovalFormRoute
-  '/hr-approval/view-hr-approval-form': typeof HrApprovalViewHrApprovalFormRoute
-  '/my-leave/view-leave': typeof MyLeaveViewLeaveRoute
+  '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
+  '/beginning-balances/': typeof BeginningBalancesIndexRoute
   '/for-approval/': typeof ForApprovalIndexRoute
   '/hr-approval/': typeof HrApprovalIndexRoute
   '/my-leave/': typeof MyLeaveIndexRoute
+  '/beginning-balances/view/$employeeNo': typeof BeginningBalancesViewEmployeeNoRoute
   '/my-leave/leave-form/{-$leaveId}': typeof MyLeaveLeaveFormChar123LeaveIdChar125Route
+  '/my-leave/view-leave/$leaveId': typeof MyLeaveViewLeaveLeaveIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -173,30 +172,30 @@ export interface FileRouteTypes {
     | '/about'
     | '/guidelines'
     | '/test'
-    | '/for-approval/view-for-approval'
-    | '/hr-approval/hr-approval-form'
-    | '/hr-approval/view-hr-approval-form'
-    | '/my-leave/view-leave'
+    | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
+    | '/beginning-balances/'
     | '/for-approval/'
     | '/hr-approval/'
     | '/my-leave/'
+    | '/beginning-balances/view/$employeeNo'
     | '/my-leave/leave-form/{-$leaveId}'
+    | '/my-leave/view-leave/$leaveId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/guidelines'
     | '/test'
-    | '/for-approval/view-for-approval'
-    | '/hr-approval/hr-approval-form'
-    | '/hr-approval/view-hr-approval-form'
-    | '/my-leave/view-leave'
+    | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
+    | '/beginning-balances'
     | '/for-approval'
     | '/hr-approval'
     | '/my-leave'
+    | '/beginning-balances/view/$employeeNo'
     | '/my-leave/leave-form/{-$leaveId}'
+    | '/my-leave/view-leave/$leaveId'
   id:
     | '__root__'
     | '/'
@@ -206,15 +205,15 @@ export interface FileRouteTypes {
     | '/about'
     | '/guidelines'
     | '/test'
-    | '/for-approval/view-for-approval'
-    | '/hr-approval/hr-approval-form'
-    | '/hr-approval/view-hr-approval-form'
-    | '/my-leave/view-leave'
+    | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
+    | '/beginning-balances/'
     | '/for-approval/'
     | '/hr-approval/'
     | '/my-leave/'
+    | '/beginning-balances/view/$employeeNo'
     | '/my-leave/leave-form/{-$leaveId}'
+    | '/my-leave/view-leave/$leaveId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -226,6 +225,8 @@ export interface RootRouteChildren {
   GuidelinesRoute: typeof GuidelinesRoute
   TestRoute: typeof TestRoute
   ReportsFiledLeaveRoute: typeof ReportsFiledLeaveRoute
+  BeginningBalancesIndexRoute: typeof BeginningBalancesIndexRoute
+  BeginningBalancesViewEmployeeNoRoute: typeof BeginningBalancesViewEmployeeNoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -300,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForApprovalIndexRouteImport
       parentRoute: typeof ForApprovalRouteRoute
     }
+    '/beginning-balances/': {
+      id: '/beginning-balances/'
+      path: '/beginning-balances'
+      fullPath: '/beginning-balances/'
+      preLoaderRoute: typeof BeginningBalancesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports/filed-leave': {
       id: '/reports/filed-leave'
       path: '/reports/filed-leave'
@@ -307,33 +315,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsFiledLeaveRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/my-leave/view-leave': {
-      id: '/my-leave/view-leave'
-      path: '/view-leave'
-      fullPath: '/my-leave/view-leave'
-      preLoaderRoute: typeof MyLeaveViewLeaveRouteImport
+    '/hr-approval/view-hr-approval-sheet': {
+      id: '/hr-approval/view-hr-approval-sheet'
+      path: '/view-hr-approval-sheet'
+      fullPath: '/hr-approval/view-hr-approval-sheet'
+      preLoaderRoute: typeof HrApprovalViewHrApprovalSheetRouteImport
+      parentRoute: typeof HrApprovalRouteRoute
+    }
+    '/my-leave/view-leave/$leaveId': {
+      id: '/my-leave/view-leave/$leaveId'
+      path: '/view-leave/$leaveId'
+      fullPath: '/my-leave/view-leave/$leaveId'
+      preLoaderRoute: typeof MyLeaveViewLeaveLeaveIdRouteImport
       parentRoute: typeof MyLeaveRouteRoute
-    }
-    '/hr-approval/view-hr-approval-form': {
-      id: '/hr-approval/view-hr-approval-form'
-      path: '/view-hr-approval-form'
-      fullPath: '/hr-approval/view-hr-approval-form'
-      preLoaderRoute: typeof HrApprovalViewHrApprovalFormRouteImport
-      parentRoute: typeof HrApprovalRouteRoute
-    }
-    '/hr-approval/hr-approval-form': {
-      id: '/hr-approval/hr-approval-form'
-      path: '/hr-approval-form'
-      fullPath: '/hr-approval/hr-approval-form'
-      preLoaderRoute: typeof HrApprovalHrApprovalFormRouteImport
-      parentRoute: typeof HrApprovalRouteRoute
-    }
-    '/for-approval/view-for-approval': {
-      id: '/for-approval/view-for-approval'
-      path: '/view-for-approval'
-      fullPath: '/for-approval/view-for-approval'
-      preLoaderRoute: typeof ForApprovalViewForApprovalRouteImport
-      parentRoute: typeof ForApprovalRouteRoute
     }
     '/my-leave/leave-form/{-$leaveId}': {
       id: '/my-leave/leave-form/{-$leaveId}'
@@ -342,16 +336,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyLeaveLeaveFormChar123LeaveIdChar125RouteImport
       parentRoute: typeof MyLeaveRouteRoute
     }
+    '/beginning-balances/view/$employeeNo': {
+      id: '/beginning-balances/view/$employeeNo'
+      path: '/beginning-balances/view/$employeeNo'
+      fullPath: '/beginning-balances/view/$employeeNo'
+      preLoaderRoute: typeof BeginningBalancesViewEmployeeNoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface ForApprovalRouteRouteChildren {
-  ForApprovalViewForApprovalRoute: typeof ForApprovalViewForApprovalRoute
   ForApprovalIndexRoute: typeof ForApprovalIndexRoute
 }
 
 const ForApprovalRouteRouteChildren: ForApprovalRouteRouteChildren = {
-  ForApprovalViewForApprovalRoute: ForApprovalViewForApprovalRoute,
   ForApprovalIndexRoute: ForApprovalIndexRoute,
 }
 
@@ -359,14 +358,12 @@ const ForApprovalRouteRouteWithChildren =
   ForApprovalRouteRoute._addFileChildren(ForApprovalRouteRouteChildren)
 
 interface HrApprovalRouteRouteChildren {
-  HrApprovalHrApprovalFormRoute: typeof HrApprovalHrApprovalFormRoute
-  HrApprovalViewHrApprovalFormRoute: typeof HrApprovalViewHrApprovalFormRoute
+  HrApprovalViewHrApprovalSheetRoute: typeof HrApprovalViewHrApprovalSheetRoute
   HrApprovalIndexRoute: typeof HrApprovalIndexRoute
 }
 
 const HrApprovalRouteRouteChildren: HrApprovalRouteRouteChildren = {
-  HrApprovalHrApprovalFormRoute: HrApprovalHrApprovalFormRoute,
-  HrApprovalViewHrApprovalFormRoute: HrApprovalViewHrApprovalFormRoute,
+  HrApprovalViewHrApprovalSheetRoute: HrApprovalViewHrApprovalSheetRoute,
   HrApprovalIndexRoute: HrApprovalIndexRoute,
 }
 
@@ -375,16 +372,16 @@ const HrApprovalRouteRouteWithChildren = HrApprovalRouteRoute._addFileChildren(
 )
 
 interface MyLeaveRouteRouteChildren {
-  MyLeaveViewLeaveRoute: typeof MyLeaveViewLeaveRoute
   MyLeaveIndexRoute: typeof MyLeaveIndexRoute
   MyLeaveLeaveFormChar123LeaveIdChar125Route: typeof MyLeaveLeaveFormChar123LeaveIdChar125Route
+  MyLeaveViewLeaveLeaveIdRoute: typeof MyLeaveViewLeaveLeaveIdRoute
 }
 
 const MyLeaveRouteRouteChildren: MyLeaveRouteRouteChildren = {
-  MyLeaveViewLeaveRoute: MyLeaveViewLeaveRoute,
   MyLeaveIndexRoute: MyLeaveIndexRoute,
   MyLeaveLeaveFormChar123LeaveIdChar125Route:
     MyLeaveLeaveFormChar123LeaveIdChar125Route,
+  MyLeaveViewLeaveLeaveIdRoute: MyLeaveViewLeaveLeaveIdRoute,
 }
 
 const MyLeaveRouteRouteWithChildren = MyLeaveRouteRoute._addFileChildren(
@@ -400,6 +397,8 @@ const rootRouteChildren: RootRouteChildren = {
   GuidelinesRoute: GuidelinesRoute,
   TestRoute: TestRoute,
   ReportsFiledLeaveRoute: ReportsFiledLeaveRoute,
+  BeginningBalancesIndexRoute: BeginningBalancesIndexRoute,
+  BeginningBalancesViewEmployeeNoRoute: BeginningBalancesViewEmployeeNoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

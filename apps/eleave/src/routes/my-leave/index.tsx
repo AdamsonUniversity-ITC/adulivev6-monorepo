@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { CalendarDays, Clock3, FileText, Plus } from "lucide-react"
+import * as React from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -9,38 +10,78 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { useLeaveBalances } from "@/hooks/use-leave-balances"
+import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useMyLeaveApplications } from "@/hooks/use-my-leave-applications"
+import { LeaveBalanceTable } from "@/components/shared/leave-balance-table"
+import { mapLeaveApplicationsToRows } from "@/lib/map-leave-application-to-row"
 
 import { MyLeaveDataTable } from "./-leave-datatable"
-import { LeaveBalanceTable } from "./-leave-balance"
-import { MOCK_LEAVE_REQUESTS } from "./-leave-mock-data"
 
 export const Route = createFileRoute("/my-leave/")({
   component: MyLeavePage,
 })
 
-const pendingCount = MOCK_LEAVE_REQUESTS.filter(
-  (row) => row.status === "pending",
-).length
-
-const stats = [
-  {
-    label: "Total requests",
-    value: MOCK_LEAVE_REQUESTS.length,
-    icon: FileText,
-  },
-  {
-    label: "Pending approval",
-    value: pendingCount,
-    icon: Clock3,
-  },
-  {
-    label: "Approved",
-    value: MOCK_LEAVE_REQUESTS.filter((row) => row.status === "approved").length,
-    icon: CalendarDays,
-  },
-] as const
-
 function MyLeavePage() {
+  const {
+    data: leaveApplicationsResponse,
+    isLoading,
+    isError,
+  } = useMyLeaveApplications()
+  const { data: leaveTypes = [] } = useLeaveTypes()
+  const {
+    data: leaveBalances = [],
+    isLoading: isLeaveBalancesLoading,
+    isError: isLeaveBalancesError,
+  } = useLeaveBalances()
+
+  const leaveBalanceRows = React.useMemo(
+    () =>
+      leaveBalances.map((balance) => ({
+        leave_type: balance.leave_type,
+        credits: balance.credits,
+        pending_filed_leave: balance.pending_filed_leave,
+      })),
+    [leaveBalances],
+  )
+
+  const leaveTypeNames = React.useMemo(
+    () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
+    [leaveTypes],
+  )
+
+  const rows = React.useMemo(
+    () =>
+      mapLeaveApplicationsToRows(
+        leaveApplicationsResponse?.data ?? [],
+        leaveTypeNames,
+      ),
+    [leaveApplicationsResponse?.data, leaveTypeNames],
+  )
+
+  const stats = React.useMemo(() => {
+    const pendingCount = rows.filter((row) => row.overall_status === "pending").length
+    const approvedCount = rows.filter((row) => row.overall_status === "approved").length
+
+    return [
+      {
+        label: "Total requests",
+        value: leaveApplicationsResponse?.meta.total ?? rows.length,
+        icon: FileText,
+      },
+      {
+        label: "Pending approval",
+        value: pendingCount,
+        icon: Clock3,
+      },
+      {
+        label: "Approved",
+        value: approvedCount,
+        icon: CalendarDays,
+      },
+    ] as const
+  }, [leaveApplicationsResponse?.meta.total, rows])
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-3 rounded-2xl border border-amber-200/80 bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.14),_transparent_55%),linear-gradient(90deg,_#fef3c7_0%,_#fffbeb_52%,_#ffffff_100%)] p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
@@ -94,12 +135,21 @@ function MyLeavePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 py-5">
-            <MyLeaveDataTable />
+            <MyLeaveDataTable
+              rows={rows}
+              isLoading={isLoading}
+              isError={isError}
+            />
           </CardContent>
         </Card>
 
         <aside className="flex min-h-0 flex-col">
-          <LeaveBalanceTable className="h-full" />
+          <LeaveBalanceTable
+            className="h-full"
+            rows={leaveBalanceRows}
+            isLoading={isLeaveBalancesLoading}
+            isError={isLeaveBalancesError}
+          />
         </aside>
       </div>
     </div>

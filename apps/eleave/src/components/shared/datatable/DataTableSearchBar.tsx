@@ -1,6 +1,6 @@
 import type { TanstackType } from "@/components/shared/datatable/types";
 import { Input } from "@/components/ui/input.tsx";
-import { cn } from "@/lib/utils/cn";
+import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
 import React, { type NamedExoticComponent, type ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";

@@ -1,4 +1,3 @@
-import { Badge } from "@repo/ui/components/badge"
 import { DataTable } from "@repo/ui/custom/datatable/datatable"
 import { DataTableColumnHeader } from "@repo/ui/custom/datatable/datatable-column-header"
 import {
@@ -14,14 +13,14 @@ import { format, parseISO } from "date-fns"
 import { Eye, Pencil } from "lucide-react"
 import * as React from "react"
 
+import { getLeavePeriodYearsFromRows, type LeaveRequestRow } from "@/lib/leave-request-row"
+import { matchesLeaveYearFilter } from "@/lib/leave-date-year"
 import {
-  getLeaveFiledYears,
-  LEAVE_STATUS_LABELS,
-  LEAVE_STATUS_OPTIONS,
-  MOCK_LEAVE_REQUESTS,
-  type LeaveRequestRow,
-  type LeaveRequestStatus,
-} from "./-leave-mock-data"
+  formatCancelStatusLabel,
+  formatOverallStatusLabel,
+  LEAVE_STATUS_FILTER_OPTIONS,
+} from "./-leave-status"
+import { OverallStatusBadge } from "./-leave-status-badge"
 
 const dateFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
@@ -40,41 +39,6 @@ function formatFiledAt(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return "—"
   return dateFormatter.format(d)
-}
-
-function statusLabel(status: LeaveRequestStatus): string {
-  return LEAVE_STATUS_LABELS[status]
-}
-
-function StatusBadge({ status }: { status: LeaveRequestStatus }) {
-  switch (status) {
-    case "approved":
-      return <Badge className="font-normal">{statusLabel(status)}</Badge>
-    case "partially_approved":
-      return (
-        <Badge variant="secondary" className="font-normal">
-          {statusLabel(status)}
-        </Badge>
-      )
-    case "disapproved":
-      return (
-        <Badge variant="destructive" className="font-normal">
-          {statusLabel(status)}
-        </Badge>
-      )
-    case "cancelled":
-      return (
-        <Badge variant="outline" className="font-normal">
-          {statusLabel(status)}
-        </Badge>
-      )
-    default:
-      return (
-        <Badge variant="secondary" className="font-normal">
-          {statusLabel(status)}
-        </Badge>
-      )
-  }
 }
 
 const columns: ColumnDef<LeaveRequestRow>[] = [
@@ -117,14 +81,25 @@ const columns: ColumnDef<LeaveRequestRow>[] = [
     },
   },
   {
-    accessorKey: "status",
+    accessorKey: "overall_status",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
     ),
     meta: { label: "Status" },
-    cell: ({ getValue }) => (
-      <StatusBadge status={getValue() as LeaveRequestStatus} />
-    ),
+    cell: ({ row }) => {
+      const { overall_status, cancel_status } = row.original
+
+      return (
+        <div className="space-y-1">
+          <OverallStatusBadge status={overall_status} />
+          {cancel_status !== "none" ? (
+            <p className="text-muted-foreground text-xs">
+              Cancel: {formatCancelStatusLabel(cancel_status)}
+            </p>
+          ) : null}
+        </div>
+      )
+    },
   },
 ]
 
@@ -142,23 +117,23 @@ function filterAndSortRows(
     result = result.filter(
       (row) =>
         row.leave_type.toLowerCase().includes(query) ||
-        row.status.toLowerCase().includes(query) ||
-        LEAVE_STATUS_LABELS[row.status].toLowerCase().includes(query) ||
+        row.overall_status.toLowerCase().includes(query) ||
+        formatOverallStatusLabel(row.overall_status).toLowerCase().includes(query) ||
+        row.cancel_status.toLowerCase().includes(query) ||
+        formatCancelStatusLabel(row.cancel_status).toLowerCase().includes(query) ||
         row.reason.toLowerCase().includes(query) ||
         row.address.toLowerCase().includes(query),
     )
   }
 
   if (year !== "all") {
-    const selectedYear = Number(year)
-    result = result.filter((row) => {
-      const filedYear = new Date(row.filed_at).getFullYear()
-      return filedYear === selectedYear
-    })
+    result = result.filter((row) =>
+      matchesLeaveYearFilter(row.date_from, row.date_to, year),
+    )
   }
 
   if (status !== "all") {
-    result = result.filter((row) => row.status === status)
+    result = result.filter((row) => row.overall_status === status)
   }
 
   const sort = sorting[0]
@@ -180,9 +155,17 @@ function filterAndSortRows(
   return result
 }
 
-const YEAR_OPTIONS = getLeaveFiledYears(MOCK_LEAVE_REQUESTS)
+type MyLeaveDataTableProps = {
+  rows: LeaveRequestRow[]
+  isLoading?: boolean
+  isError?: boolean
+}
 
-export function MyLeaveDataTable() {
+export function MyLeaveDataTable({
+  rows,
+  isLoading = false,
+  isError = false,
+}: MyLeaveDataTableProps) {
   const navigate = useNavigate()
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -195,6 +178,8 @@ export function MyLeaveDataTable() {
   const [yearFilter, setYearFilter] = React.useState("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
 
+  const yearOptions = React.useMemo(() => getLeavePeriodYearsFromRows(rows), [rows])
+
   const sort = sorting[0]
   const sortId = sort?.id ?? "filed_at"
   const order = sort?.desc ? "desc" : "asc"
@@ -206,13 +191,13 @@ export function MyLeaveDataTable() {
   const filteredRows = React.useMemo(
     () =>
       filterAndSortRows(
-        MOCK_LEAVE_REQUESTS,
+        rows,
         search,
         sorting,
         yearFilter,
         statusFilter,
       ),
-    [search, sorting, yearFilter, statusFilter],
+    [rows, search, sorting, yearFilter, statusFilter],
   )
 
   const pagedRows = React.useMemo(() => {
@@ -227,7 +212,8 @@ export function MyLeaveDataTable() {
       getRowId={(row) => row.id}
       onRowClick={(row) =>
         void navigate({
-          to: "/my-leave/view-leave",
+          to: "/my-leave/view-leave/$leaveId",
+          params: { leaveId: row.id },
         })
       }
       server={{
@@ -253,7 +239,7 @@ export function MyLeaveDataTable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All years</SelectItem>
-                {YEAR_OPTIONS.map((year) => (
+                {yearOptions.map((year) => (
                   <SelectItem key={year} value={String(year)}>
                     {year}
                   </SelectItem>
@@ -270,7 +256,7 @@ export function MyLeaveDataTable() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                {LEAVE_STATUS_OPTIONS.map((option) => (
+                {LEAVE_STATUS_FILTER_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -290,8 +276,11 @@ export function MyLeaveDataTable() {
                 View
               </>
             ),
-            onSelect: () => {
-              void navigate({ to: "/my-leave/view-leave" })
+            onSelect: (row) => {
+              void navigate({
+                to: "/my-leave/view-leave/$leaveId",
+                params: { leaveId: row.original.id },
+              })
             },
           },
           {
@@ -307,11 +296,14 @@ export function MyLeaveDataTable() {
                 params: { leaveId: row.original.id },
               })
             },
-            hidden: (row) => row.original.status === "approved",
+            hidden: (row) => row.original.overall_status === "approved",
           },
         ],
       }}
       status={{
+        loading: isLoading,
+        error: isError,
+        errorMessage: "Unable to load your leave requests. Please try again.",
         emptyMessage: "No leave requests yet. Apply for leave to get started.",
       }}
     />
