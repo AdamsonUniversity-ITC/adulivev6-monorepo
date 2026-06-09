@@ -155,6 +155,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Budget Proposal Entry', href: '/transactions/budget-proposal-entry' },
       { label: 'Budget Request Entry', href: '/transactions/budget-request-entry' },
+      { label: 'Requisition Process', href: '/transactions/requisition-process' },
     ],
   },
 ];

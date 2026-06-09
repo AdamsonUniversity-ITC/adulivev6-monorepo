@@ -18,6 +18,7 @@ import BudgetReviewDetails from './pages/administration/BudgetReviewDetails.tsx'
 import BudgetTransferAccount from './pages/administration/BudgetTransferAccount.tsx';
 import BudgetAdjustmentEntry from './pages/administration/BudgetAdjustmentEntry.tsx';
 import BudgetRequestEntry from './pages/transactions/BudgetRequestEntry.tsx';
+import RequisitionProcess from './pages/transactions/requisition-process/index.tsx';
 
 
 const rootRoute = new RootRoute({
@@ -258,6 +259,29 @@ export const budgetrequestentryRoute = new Route({
     },
     component: BudgetRequestEntry,
 });
+
+
+export const requesitionprocessRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/transactions/requisition-process',
+    loader: async () => {
+        const permissions = await authSvc.get('/abms-permissions/');
+        const response = await financeSvc.get('/abms/requisition-process', {
+            params: {
+                permissions: permissions.data.permissions,
+            },
+        });
+
+        const userpermissions: string[] = response.data;
+
+        if (!userpermissions || userpermissions.length === 0) {
+            throw redirect({ to: '/unauthorized' });
+        }
+
+        return { userpermissions };
+    },
+    component: RequisitionProcess,
+});
 export const testRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/test',
@@ -281,7 +305,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);

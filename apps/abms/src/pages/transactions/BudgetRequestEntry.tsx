@@ -3417,6 +3417,7 @@ interface RSViewHeader {
     total_amount: number;
     created_at: string;
     note: string | null;
+    location: string | null;
 }
 
 function RSViewModal({
@@ -3440,7 +3441,7 @@ function RSViewModal({
     const [payeeDetail, setPayeeDetail] = useState<PayeeDetailRecord | null>(null);
     const [showPayeeView, setShowPayeeView] = useState(false);
 
-    const canEdit = header?.status === 'for review';
+    const canEdit = header?.status === 'for review' && header?.location === 'department';
 
     useEffect(() => {
         if (!open || !recordId) return;
