@@ -19,8 +19,10 @@ import type { DayPortion, LeaveFormValues } from "../schema"
 import {
   formatDateRange,
   formatLeaveDay,
+  formatLeaveDayCount,
   getDayPortionLabel,
   getLeaveTypeLabel,
+  sumLeaveDayCredits,
 } from "../utils"
 import { StepSection } from "./-step-section"
 
@@ -71,9 +73,15 @@ export function ReviewStep({ form, isEdit }: ReviewStepProps) {
   const values = form.watch()
   const { data: leaveTypes = [] } = useLeaveTypes()
 
-  const dayCount = values.leave_days.length
+  const totalDays = sumLeaveDayCredits(values.leave_days)
+  const wholeDayCount = values.leave_days.filter(
+    (day) => day.day_portion === "wholeday",
+  ).length
   const partialCount = values.leave_days.filter(
-    (day) => day.day_portion !== "wholeday",
+    (day) =>
+      day.day_portion === "am" ||
+      day.day_portion === "pm" ||
+      day.day_portion === "evening",
   ).length
 
   return (
@@ -97,8 +105,12 @@ export function ReviewStep({ form, isEdit }: ReviewStepProps) {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <StatPill icon={CalendarDays} label="Days" value={dayCount} />
-            <StatPill icon={Sun} label="Whole day" value={dayCount - partialCount} />
+            <StatPill
+              icon={CalendarDays}
+              label="Days"
+              value={formatLeaveDayCount(totalDays)}
+            />
+            <StatPill icon={Sun} label="Whole day" value={wholeDayCount} />
             {partialCount > 0 ? (
               <StatPill icon={Clock} label="Partial" value={partialCount} />
             ) : null}
@@ -109,7 +121,7 @@ export function ReviewStep({ form, isEdit }: ReviewStepProps) {
       <StepSection
         icon={CalendarDays}
         title="Leave days"
-        description={`${dayCount} day${dayCount === 1 ? "" : "s"} in your schedule`}
+        description={`${formatLeaveDayCount(totalDays)} in your schedule`}
       >
         <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
           {values.leave_days.map((day, index) => (

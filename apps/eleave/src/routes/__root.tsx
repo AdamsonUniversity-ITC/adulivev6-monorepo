@@ -27,7 +27,7 @@ function RootComponent() {
             <Outlet />
           </div>
         </SidebarInset>
-        <TanStackRouterDevtools position="bottom-right" />
+        {/* <TanStackRouterDevtools position="bottom-right" /> */}
       </SidebarProvider>
     </TooltipProvider>
   )

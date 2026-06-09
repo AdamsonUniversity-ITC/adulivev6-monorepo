@@ -10,8 +10,15 @@ import { FileText, MapPin, Paperclip } from "lucide-react"
 import type { UseFormReturn } from "react-hook-form"
 
 import { FileDropzone } from "@/components/shared/file-dropzone"
+import { useElDependentCareUsage } from "@/hooks/use-el-dependent-care-usage"
+import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { cn } from "@/lib/utils"
 
 import type { LeaveFormValues } from "../schema"
+import {
+  isEmergencyLeaveType,
+  reasonContainsDependentCare,
+} from "../utils"
 import { StepSection, stepTextareaClassName } from "./-step-section"
 
 type DetailsStepProps = {
@@ -21,6 +28,15 @@ type DetailsStepProps = {
 export function DetailsStep({ form }: DetailsStepProps) {
   const reason = form.watch("reason")
   const address = form.watch("address")
+  const leaveTypeId = form.watch("leave_type_id")
+  const { data: leaveTypes = [] } = useLeaveTypes()
+
+  const isEmergencyLeave = isEmergencyLeaveType(leaveTypeId, leaveTypes)
+  const showsDependentCareUsage =
+    isEmergencyLeave && reasonContainsDependentCare(reason)
+
+  const { data: dependentCareUsage, isLoading: isDependentCareUsageLoading } =
+    useElDependentCareUsage(isEmergencyLeave)
 
   return (
     <div className="space-y-4">
@@ -49,6 +65,24 @@ export function DetailsStep({ form }: DetailsStepProps) {
                   {reason.length}/2000
                 </span>
               </div>
+              {showsDependentCareUsage ? (
+                <p
+                  className={cn(
+                    "text-sm",
+                    dependentCareUsage?.remaining === 0
+                      ? "text-destructive"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {isDependentCareUsageLoading
+                    ? "Checking Dependent care usage for this year…"
+                    : dependentCareUsage
+                      ? dependentCareUsage.remaining === 0
+                        ? `Dependent care: ${dependentCareUsage.used} of ${dependentCareUsage.limit} uses this year. You cannot file another Emergency Leave with this reason.`
+                        : `Dependent care: ${dependentCareUsage.used} of ${dependentCareUsage.limit} uses this year (${dependentCareUsage.remaining} remaining).`
+                      : null}
+                </p>
+              ) : null}
             </FormItem>
           )}
         />
