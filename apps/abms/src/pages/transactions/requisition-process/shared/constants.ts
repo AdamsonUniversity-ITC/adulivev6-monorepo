@@ -13,12 +13,12 @@ export const ROLES = [
 export type PermissionKey = typeof ROLES[number]['key'];
 
 export const ROLE_COLUMNS: Record<PermissionKey, string[]> = {
-    'budget-access':     ['RS No.', 'Payee',        'Department',   'Amount',   'Status', 'Date'],
-    'admin-access':      ['RS No.', 'Requested By', 'Department',   'Amount',   'Status', 'Date'],
-    'logistics-access':  ['RS No.', 'Description',  'Department',   'Quantity', 'Status', 'Date'],
-    'accounting-access': ['RS No.', 'Payee',        'Account',      'Amount',   'Status', 'Date'],
-    'stockroom-access':  ['RS No.', 'Item',         'Department',   'Qty',      'Unit',   'Date'],
-    'cashier-access':    ['RS No.', 'Payee',        'Payment Form', 'Amount',   'Status', 'Date'],
+    'budget-access':     ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'admin-access':      ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'logistics-access':  ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'accounting-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'stockroom-access':  ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'cashier-access':    ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
 };
 
 export const ALL_DEPARTMENTS = [
@@ -33,42 +33,78 @@ export const ALL_DEPARTMENTS = [
     'Psychology', 'Social Work', 'Sociology', 'Tourism',
 ];
 
-export const ROLE_FILTER_CONFIGS: Partial<Record<PermissionKey, FilterPanelConfig>> = {
-    'budget-access': {
-        status: {
-            options: [
-                { label: 'All' },
-                { label: 'For Review' },
-                { label: 'For Certification' },
-                { label: 'Certified RS' },
-                { label: 'Unserved RS' },
-                { label: 'Served' },
-            ],
-        },
-        department: {
-            items: ALL_DEPARTMENTS,
-            placeholder: 'Search department…',
-            allLabel: 'All Departments',
-        },
-        searchField: {
-            checkboxLabel: 'Search by Requisition No.',
-            placeholder: 'e.g. RS-2024-00123',
-        },
-        sortColumns: ROLE_COLUMNS['budget-access'],
-        actions: [
-            { label: 'Requery', icon: RefreshCw, variant: 'secondary' },
-            { label: 'View RS',  icon: Eye,       variant: 'primary'   },
-        ],
-    },
+// Shared status options used by all roles
+const COMMON_STATUS_OPTIONS = [
+    { label: 'All' },
+    { label: 'For Review' },
+    { label: 'For Certification' },
+    { label: 'Certified RS' },
+    { label: 'Unserved RS' },
+    { label: 'Served' },
+];
 
-    // 'admin-access': {
-    //     status: { options: [{ label: 'All' }, { label: 'Pending' }, { label: 'Approved' }] },
-    //     department: { items: ALL_DEPARTMENTS },
-    //     sortColumns: ROLE_COLUMNS['admin-access'],
-    //     actions: [{ label: 'Requery', icon: RefreshCw }],
-    // },
-    // 'logistics-access': { ... },
-    // 'accounting-access': { ... },
-    // 'stockroom-access': { ... },
-    // 'cashier-access': { ... },
+// Shared department filter config (deptOptions injected at runtime from loader data)
+const COMMON_DEPT_CONFIG = {
+    placeholder: 'Select department / section…',
+    allLabel: 'All Departments',
+};
+
+// Shared search field config
+const COMMON_SEARCH_CONFIG = {
+    checkboxLabel: 'Search by Requisition No.',
+    placeholder: 'e.g. 2026100000',
+};
+
+// Shared sort columns
+const COMMON_SORT_COLUMNS = ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status'];
+
+// Shared action buttons (onClick wired at runtime in each view)
+const COMMON_ACTIONS = [
+    { label: 'Requery', icon: RefreshCw, variant: 'secondary' as const },
+    { label: 'View RS',  icon: Eye,       variant: 'primary'   as const },
+];
+
+export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
+    'budget-access': {
+        status:      { options: COMMON_STATUS_OPTIONS },
+        department:  COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions:     COMMON_ACTIONS,
+    },
+    'admin-access': {
+        status:      { options: COMMON_STATUS_OPTIONS },
+        department:  COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions:     COMMON_ACTIONS,
+    },
+    'logistics-access': {
+        status:      { options: COMMON_STATUS_OPTIONS },
+        department:  COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions:     COMMON_ACTIONS,
+    },
+    'accounting-access': {
+        status:      { options: COMMON_STATUS_OPTIONS },
+        department:  COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions:     COMMON_ACTIONS,
+    },
+    'stockroom-access': {
+        status:      { options: COMMON_STATUS_OPTIONS },
+        department:  COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions:     COMMON_ACTIONS,
+    },
+    'cashier-access': {
+        status:      { options: COMMON_STATUS_OPTIONS },
+        department:  COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions:     COMMON_ACTIONS,
+    },
 };

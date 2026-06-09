@@ -1,97 +1,227 @@
 import React, { useState } from 'react';
-import { Search } from 'lucide-react';
-import { Theme, FilterPanelConfig } from '../types';
+import { Search, ChevronDown } from 'lucide-react';
+import { Theme, FilterPanelConfig, FilterState, DeptOption } from '../types';
 import { FilterCheckbox } from './FilterCheckbox';
-import { FilterCombobox } from './FilterCombobox';
 import { FilterSortDropdown, FilterActionButton } from './FilterControls';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// InlineDeptSelect — badge-style dept+section dropdown used when deptOptions
+// is provided on the config. Mirrors DeptSelect from BudgetProposalEntry.
+// ─────────────────────────────────────────────────────────────────────────────
+function InlineDeptSelect({
+    options,
+    value,
+    onChange,
+    placeholder,
+    t,
+    isDark,
+}: {
+    options: DeptOption[];
+    value: string | null;
+    onChange: (item: DeptOption) => void;
+    placeholder?: string;
+    t: Theme;
+    isDark: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+
+    const sorted = [...options].sort((a, b) => a.name.localeCompare(b.name));
+    const selected = sorted.find(o => o.id === value) ?? null;
+
+    const handleSelect = (item: DeptOption) => {
+        onChange(item);
+        setOpen(false);
+    };
+
+    const kindBadgeStyle = (kind: 'Department' | 'Section', forSelected = false) => ({
+        background: kind === 'Department'
+            ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
+            : (isDark ? 'rgba(5,150,105,0.25)'  : 'rgba(209,250,229,0.90)'),
+        color: kind === 'Department'
+            ? (isDark ? '#93c5fd' : '#1d4ed8')
+            : (isDark ? '#6ee7b7' : '#047857'),
+        fontSize: 9, fontWeight: 700 as const,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.09em',
+        padding: '2px 6px',
+        borderRadius: 5,
+        flexShrink: 0 as const,
+    });
+
+    return (
+        <div style={{ position: 'relative', width: '100%' }}>
+            <button
+                type="button"
+                onClick={() => setOpen(prev => !prev)}
+                style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 10px',
+                    borderRadius: 7,
+                    fontSize: 11,
+                    fontWeight: selected ? 600 : 400,
+                    background: t.inputBg,
+                    border: `1px solid ${open
+                        ? (isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)')
+                        : t.inputBorder}`,
+                    color: selected ? t.inputText : t.cellMuted,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'border-color .15s ease',
+                }}
+            >
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selected?.name ?? placeholder ?? 'Select department / section…'}
+                </span>
+                {selected && (
+                    <span style={kindBadgeStyle(selected.kind, true)}>
+                        {selected.kind === 'Department' ? 'Dept' : 'Sec'}
+                    </span>
+                )}
+                <ChevronDown style={{
+                    width: 12, height: 12, color: t.cellMuted, flexShrink: 0,
+                    transform: `rotate(${open ? 180 : 0}deg)`,
+                    transition: 'transform .15s ease',
+                    pointerEvents: 'none',
+                }} />
+            </button>
+
+            {open && (
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    right: 0,
+                    background: isDark ? 'rgba(10,18,38,0.98)' : 'rgba(255,255,255,0.99)',
+                    border: `1px solid ${isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.20)'}`,
+                    borderRadius: 8,
+                    boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.50)' : '0 8px 32px rgba(0,48,135,0.15)',
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                    zIndex: 50,
+                }}>
+                    {sorted.map((item, idx) => {
+                        const isSel = item.id === value;
+                        return (
+                            <button
+                                key={`${item.kind}-${item.id}`}
+                                type="button"
+                                onMouseDown={() => handleSelect(item)}
+                                style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 10,
+                                    padding: '7px 12px',
+                                    fontSize: 11,
+                                    fontWeight: isSel ? 600 : 400,
+                                    textAlign: 'left',
+                                    background: isSel
+                                        ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)')
+                                        : 'transparent',
+                                    color: isSel
+                                        ? (isDark ? '#93c5fd' : '#1d4ed8')
+                                        : (isDark ? '#e2e8f0' : '#0f172a'),
+                                    borderBottom: idx < sorted.length - 1
+                                        ? `1px solid ${isDark ? 'rgba(99,155,255,0.10)' : 'rgba(37,99,235,0.08)'}`
+                                        : 'none',
+                                    cursor: 'pointer',
+                                    transition: 'background .1s',
+                                }}
+                                onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(59,130,246,0.12)' : 'rgba(219,234,254,0.50)'; }}
+                                onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {item.name}
+                                </span>
+                                <span style={kindBadgeStyle(item.kind)}>
+                                    {item.kind === 'Department' ? 'Dept' : 'Sec'}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
 
 interface FilterPanelProps {
     config: FilterPanelConfig;
     t: Theme;
     isDark: boolean;
+    // Controlled state + updater from parent
+    state: FilterState;
+    onChange: (patch: Partial<FilterState>) => void;
 }
 
-export function FilterPanel({ config, t, isDark }: FilterPanelProps) {
-    // ── Status state ─────────────────────────────────────────────────────────
-    const statusOptions = config.status?.options ?? [];
-    const allSentinel = statusOptions[0]?.label ?? 'All';
-    const [activeStatuses, setActiveStatuses] = useState<string[]>([allSentinel]);
+export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelProps) {
+    const [deptOpen, setDeptOpen]       = useState(false);
+    const [sortOpen, setSortOpen]       = useState(false);
+    const [searchFocused, setSearchFocused] = useState(false);
 
+    const statusOptions = config.status?.options ?? [];
+    const allSentinel   = statusOptions[0]?.label ?? 'All';
+    const deptItems     = config.department?.items ?? [];
+    const deptOptions   = config.department?.deptOptions; 
+    const sortColumns   = config.sortColumns ?? [];
+
+    const filteredDepts = deptItems.filter(d =>
+        d.toLowerCase().includes(state.deptQuery.toLowerCase())
+    );
+
+    // ── Handlers ─────────────────────────────────────────────────────────────
     const toggleStatus = (label: string) => {
-        if (label === allSentinel) { setActiveStatuses([allSentinel]); return; }
-        setActiveStatuses(prev => {
-            const without = prev.filter(s => s !== allSentinel);
-            if (without.includes(label)) {
-                const next = without.filter(s => s !== label);
-                return next.length === 0 ? [allSentinel] : next;
-            }
-            return [...without, label];
+        if (label === allSentinel) { onChange({ activeStatuses: [allSentinel] }); return; }
+        const without = state.activeStatuses.filter(s => s !== allSentinel);
+        if (without.includes(label)) {
+            const next = without.filter(s => s !== label);
+            onChange({ activeStatuses: next.length === 0 ? [allSentinel] : next });
+        } else {
+            onChange({ activeStatuses: [...without, label] });
+        }
+    };
+
+    // Legacy plain-string dept select (FilterCombobox mode)
+    const handleDeptSelect = (dept: string) => {
+        onChange({ selectedDept: dept, deptQuery: dept, allDepts: false });
+        setDeptOpen(false);
+    };
+
+    // Rich DeptOption select
+    const handleDeptOptionSelect = (item: DeptOption) => {
+        onChange({
+            selectedDept: item.name,
+            selectedDeptId: item.id,
+            selectedDeptKind: item.kind,
+            allDepts: false,
         });
     };
 
-    // ── Department state ─────────────────────────────────────────────────────
-    const deptItems = config.department?.items ?? [];
-    const [deptQuery, setDeptQuery] = useState('');
-    const [deptOpen, setDeptOpen] = useState(false);
-    const [selectedDept, setSelectedDept] = useState<string | null>(null);
-    const [allDepts, setAllDepts] = useState(false);
-
-    const filteredDepts = deptItems.filter(d =>
-        d.toLowerCase().includes(deptQuery.toLowerCase())
-    );
-
-    const handleDeptSelect = (dept: string) => {
-        setSelectedDept(dept);
-        setDeptQuery(dept);
-        setDeptOpen(false);
-        setAllDepts(false);
-    };
-
     const handleAllDepts = (checked: boolean) => {
-        setAllDepts(checked);
-        if (checked) { setSelectedDept(null); setDeptQuery(''); }
+        onChange({
+            allDepts: checked,
+            ...(checked ? { selectedDept: null, selectedDeptId: null, selectedDeptKind: null, deptQuery: '' } : {}),
+        });
     };
 
-    // ── Search field state ───────────────────────────────────────────────────
-    const [searchEnabled, setSearchEnabled] = useState(false);
-    const [searchValue, setSearchValue] = useState('');
-    const [searchFocused, setSearchFocused] = useState(false);
-
-    // ── Sort state ───────────────────────────────────────────────────────────
-    const sortColumns = config.sortColumns ?? [];
-    const [sortBy, setSortBy] = useState(sortColumns[0] ?? '');
-    const [sortOpen, setSortOpen] = useState(false);
-    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
-    // ── Shared style helpers ─────────────────────────────────────────────────
+    // ── Style helpers ─────────────────────────────────────────────────────────
     const sectionLabel: React.CSSProperties = {
-        fontSize: 9,
-        fontWeight: 700,
-        letterSpacing: '0.10em',
-        textTransform: 'uppercase',
-        color: t.labelColor,
-        whiteSpace: 'nowrap',
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
+        textTransform: 'uppercase', color: t.labelColor, whiteSpace: 'nowrap',
     };
+    const colStack: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 };
+    const vDivider: React.CSSProperties = { width: 1, background: t.dividerColor, alignSelf: 'stretch', flexShrink: 0 };
 
-    const colStack: React.CSSProperties = {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-    };
-
-    const vDivider: React.CSSProperties = {
-        width: 1,
-        background: t.dividerColor,
-        alignSelf: 'stretch',
-        flexShrink: 0,
-    };
-
-    const hasDept    = !!config.department;
-    const hasSearch  = !!config.searchField;
-    const hasSort    = sortColumns.length > 0;
-    const hasActions = (config.actions?.length ?? 0) > 0;
+    const hasDept        = !!config.department;
+    const hasSearch      = !!config.searchField;
+    const hasSort        = sortColumns.length > 0;
+    const hasActions     = (config.actions?.length ?? 0) > 0;
     const hasLeftCluster = hasDept || hasSort || hasActions;
-    const hasRow2    = hasLeftCluster || hasSearch;
+    const hasRow2        = hasLeftCluster || hasSearch;
 
     const rsAccent = isDark ? '#60a5fa' : '#1d4ed8';
     const rsGlow   = isDark
@@ -100,66 +230,126 @@ export function FilterPanel({ config, t, isDark }: FilterPanelProps) {
 
     return (
         <>
-            {/* ── Row 1: Status checkboxes ──────────────────────────── */}
+            {/* ── Row 1: Status pills ───────────────────────────────── */}
             {config.status && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '14px 20px' }}>
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    flexWrap: 'wrap', padding: '18px 24px',
+                    background: isDark ? 'rgba(10,20,48,0.40)' : 'rgba(232,242,255,0.45)',
+                }}>
                     <span style={sectionLabel}>{config.status.sectionLabel ?? 'Status'}</span>
-                    <div style={{ width: 1, height: 14, background: t.dividerInlineColor, flexShrink: 0 }} />
-                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                        {statusOptions.map(opt => (
-                            <FilterCheckbox
-                                key={opt.label}
-                                id={`status-${opt.label}`}
-                                checked={activeStatuses.includes(opt.label)}
-                                onChange={() => toggleStatus(opt.label)}
-                                label={opt.label}
-                                t={t}
-                            />
-                        ))}
+                    <div style={{ width: 1, height: 18, background: t.dividerInlineColor, flexShrink: 0 }} />
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {statusOptions.map(opt => {
+                            const isActive = state.activeStatuses.includes(opt.label);
+                            return (
+                                <button
+                                    key={opt.label}
+                                    onClick={() => toggleStatus(opt.label)}
+                                    style={{
+                                        padding: '7px 16px', borderRadius: 8,
+                                        fontSize: 13, fontWeight: isActive ? 700 : 500,
+                                        border: `1.5px solid ${isActive ? t.accentColor : t.cardBorder}`,
+                                        background: isActive ? t.dropdownSelected : 'transparent',
+                                        color: isActive ? t.accentColor : t.cellText,
+                                        cursor: 'pointer', transition: 'all .14s ease', whiteSpace: 'nowrap',
+                                    }}
+                                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = t.dropdownHover; }}
+                                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
             {config.status && hasRow2 && (
-                <div style={{ height: 1, background: t.sectionDividerColor, marginLeft: 20, marginRight: 20 }} />
+                <div style={{ height: 1, background: t.sectionDividerColor }} />
             )}
 
             {/* ── Row 2: Left cluster  ║  RS No. hero field ─────────── */}
             {hasRow2 && (
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, padding: '14px 20px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', padding: '20px 24px', gap: 0, flexWrap: 'wrap' }}>
 
                     {hasLeftCluster && (
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', flex: '1 1 0', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', flex: '1 1 0', minWidth: 0 }}>
 
                             {hasDept && (
                                 <>
-                                    <div style={{ ...colStack, minWidth: 180, maxWidth: 240, flex: '1 1 180px' }}>
+                                    <div style={{ ...colStack, minWidth: 200, maxWidth: 280, flex: '1 1 200px' }}>
                                         <span style={sectionLabel}>{config.department!.sectionLabel ?? 'Department'}</span>
-                                        <FilterCombobox
-                                            items={filteredDepts}
-                                            value={deptQuery}
-                                            selected={selectedDept}
-                                            open={deptOpen}
-                                            placeholder={config.department!.placeholder ?? 'Search department…'}
-                                            onInputChange={v => { setDeptQuery(v); setDeptOpen(true); setAllDepts(false); }}
-                                            onFocus={() => setDeptOpen(true)}
-                                            onBlur={() => setTimeout(() => setDeptOpen(false), 150)}
-                                            onSelect={handleDeptSelect}
-                                            t={t}
-                                            minWidth={160}
-                                            maxWidth={240}
-                                        />
-                                        <div style={{ marginTop: -2 }}>
-                                            <FilterCheckbox
-                                                id="all-depts"
-                                                checked={allDepts}
-                                                onChange={handleAllDepts}
-                                                label={config.department!.allLabel ?? 'All Departments'}
+
+                                        {/* Rich mode: DeptOption[] with Dept/Sec badges */}
+                                        {deptOptions ? (
+                                            <InlineDeptSelect
+                                                options={deptOptions}
+                                                value={state.selectedDeptId ?? null}
+                                                onChange={handleDeptOptionSelect}
+                                                placeholder={config.department!.placeholder}
                                                 t={t}
+                                                isDark={isDark}
                                             />
-                                        </div>
+                                        ) : (
+                                            /* Legacy mode: plain string list with text search */
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    style={{
+                                                        background: t.inputBg,
+                                                        border: `1px solid ${t.inputBorder}`,
+                                                        borderRadius: 7,
+                                                        padding: '6px 30px 6px 10px',
+                                                        fontSize: 11,
+                                                        color: t.inputText,
+                                                        outline: 'none',
+                                                        width: '100%',
+                                                        cursor: 'text',
+                                                        boxSizing: 'border-box',
+                                                    }}
+                                                    placeholder={config.department!.placeholder ?? 'Search department…'}
+                                                    value={state.deptQuery}
+                                                    onChange={e => { onChange({ deptQuery: e.target.value, allDepts: false }); setDeptOpen(true); }}
+                                                    onFocus={() => setDeptOpen(true)}
+                                                    onBlur={() => setTimeout(() => setDeptOpen(false), 150)}
+                                                />
+                                                {deptOpen && filteredDepts.length > 0 && (
+                                                    <div style={{
+                                                        position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                                                        background: t.dropdownBg, border: `1px solid ${t.cardBorder}`,
+                                                        borderRadius: 8, zIndex: 50, maxHeight: 180, overflowY: 'auto',
+                                                        boxShadow: t.cardShadow,
+                                                    }}>
+                                                        {filteredDepts.map(item => (
+                                                            <div
+                                                                key={item}
+                                                                onMouseDown={() => handleDeptSelect(item)}
+                                                                style={{
+                                                                    padding: '7px 12px', fontSize: 11,
+                                                                    color: state.selectedDept === item ? t.accentColor : t.cellText,
+                                                                    background: state.selectedDept === item ? t.dropdownSelected : 'transparent',
+                                                                    cursor: 'pointer', transition: 'background .1s',
+                                                                }}
+                                                                onMouseEnter={e => (e.currentTarget.style.background = t.dropdownHover)}
+                                                                onMouseLeave={e => (e.currentTarget.style.background = state.selectedDept === item ? t.dropdownSelected : 'transparent')}
+                                                            >
+                                                                {item}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <FilterCheckbox
+                                            id="all-depts"
+                                            checked={state.allDepts}
+                                            onChange={handleAllDepts}
+                                            label={config.department!.allLabel ?? 'All Departments'}
+                                            t={t}
+                                        />
                                     </div>
-                                    {(hasSort || hasActions) && <div style={vDivider} />}
+                                    {(hasSort || hasActions) && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
@@ -167,39 +357,25 @@ export function FilterPanel({ config, t, isDark }: FilterPanelProps) {
                                 <>
                                     <div style={colStack}>
                                         <span style={sectionLabel}>Sort Options</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                            <FilterSortDropdown
-                                                columns={sortColumns}
-                                                value={sortBy}
-                                                open={sortOpen}
-                                                onToggle={() => setSortOpen(p => !p)}
-                                                onSelect={col => { setSortBy(col); setSortOpen(false); }}
-                                                t={t}
-                                            />
-                                            <div style={{ display: 'flex', gap: 10 }}>
-                                                <FilterCheckbox
-                                                    id="sort-asc"
-                                                    checked={sortDir === 'asc'}
-                                                    onChange={() => setSortDir('asc')}
-                                                    label="Ascending"
-                                                    t={t}
-                                                />
-                                                <FilterCheckbox
-                                                    id="sort-desc"
-                                                    checked={sortDir === 'desc'}
-                                                    onChange={() => setSortDir('desc')}
-                                                    label="Descending"
-                                                    t={t}
-                                                />
-                                            </div>
+                                        <FilterSortDropdown
+                                            columns={sortColumns}
+                                            value={state.sortBy}
+                                            open={sortOpen}
+                                            onToggle={() => setSortOpen(p => !p)}
+                                            onSelect={col => { onChange({ sortBy: col }); setSortOpen(false); }}
+                                            t={t}
+                                        />
+                                        <div style={{ display: 'flex', gap: 16 }}>
+                                            <FilterCheckbox id="sort-asc" checked={state.sortDir === 'asc'} onChange={() => onChange({ sortDir: 'asc' })} label="Ascending" t={t} />
+                                            <FilterCheckbox id="sort-desc" checked={state.sortDir === 'desc'} onChange={() => onChange({ sortDir: 'desc' })} label="Descending" t={t} />
                                         </div>
                                     </div>
-                                    {hasActions && <div style={vDivider} />}
+                                    {hasActions && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
                             {hasActions && (
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
                                     {config.actions!.map(action => (
                                         <FilterActionButton
                                             key={action.label}
@@ -216,43 +392,30 @@ export function FilterPanel({ config, t, isDark }: FilterPanelProps) {
                     )}
 
                     {hasSearch && hasLeftCluster && (
-                        <div style={{
-                            width: 1,
-                            background: t.dividerColor,
-                            margin: '0 20px',
-                            flexShrink: 0,
-                            alignSelf: 'stretch',
-                        }} />
+                        <div style={{ width: 1, background: t.dividerColor, margin: '0 24px', flexShrink: 0, alignSelf: 'stretch' }} />
                     )}
 
                     {hasSearch && (
-                        <div style={{
-                            ...colStack,
-                            flexShrink: 0,
-                            width: 260,
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ ...colStack, flexShrink: 0, width: 300 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                                 <FilterCheckbox
                                     id="search-toggle"
-                                    checked={searchEnabled}
-                                    onChange={setSearchEnabled}
+                                    checked={state.searchEnabled}
+                                    onChange={v => onChange({ searchEnabled: v })}
                                     label={config.searchField!.checkboxLabel ?? 'Search by Requisition No.'}
                                     t={t}
                                 />
                                 <span style={{
-                                    fontSize: 8,
-                                    fontWeight: 700,
-                                    letterSpacing: '0.10em',
+                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.10em',
                                     textTransform: 'uppercase',
-                                    color: searchEnabled ? rsAccent : t.labelColor,
-                                    background: searchEnabled
+                                    color: state.searchEnabled ? rsAccent : t.labelColor,
+                                    background: state.searchEnabled
                                         ? (isDark ? 'rgba(96,165,250,0.12)' : 'rgba(29,78,216,0.08)')
                                         : (isDark ? 'rgba(100,160,255,0.06)' : 'rgba(37,99,235,0.05)'),
-                                    border: `1px solid ${searchEnabled ? (isDark ? 'rgba(96,165,250,0.35)' : 'rgba(29,78,216,0.25)') : t.dividerColor}`,
-                                    borderRadius: 4,
-                                    padding: '2px 6px',
-                                    flexShrink: 0,
-                                    transition: 'all .2s ease',
+                                    border: `1px solid ${state.searchEnabled
+                                        ? (isDark ? 'rgba(96,165,250,0.35)' : 'rgba(29,78,216,0.25)')
+                                        : t.dividerColor}`,
+                                    borderRadius: 5, padding: '3px 8px', flexShrink: 0, transition: 'all .2s ease',
                                 }}>
                                     Primary Key
                                 </span>
@@ -261,48 +424,39 @@ export function FilterPanel({ config, t, isDark }: FilterPanelProps) {
                             <div style={{ position: 'relative' }}>
                                 <input
                                     style={{
-                                        background: searchEnabled
+                                        background: state.searchEnabled
                                             ? (isDark ? 'rgba(13,26,58,0.95)' : 'rgba(224,236,255,0.95)')
                                             : t.inputBg,
-                                        border: `1.5px solid ${
-                                            searchFocused && searchEnabled
-                                                ? rsAccent
-                                                : searchEnabled
-                                                    ? (isDark ? 'rgba(96,165,250,0.55)' : 'rgba(29,78,216,0.45)')
-                                                    : t.inputBorder
+                                        border: `2px solid ${
+                                            searchFocused && state.searchEnabled ? rsAccent
+                                            : state.searchEnabled
+                                                ? (isDark ? 'rgba(96,165,250,0.55)' : 'rgba(29,78,216,0.45)')
+                                                : t.inputBorder
                                         }`,
-                                        borderRadius: 9,
-                                        padding: '10px 14px 10px 38px',
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        letterSpacing: '0.04em',
-                                        color: t.inputText,
-                                        outline: 'none',
-                                        width: '100%',
-                                        opacity: searchEnabled ? 1 : 0.4,
-                                        cursor: searchEnabled ? 'text' : 'not-allowed',
-                                        pointerEvents: searchEnabled ? 'auto' : 'none',
-                                        transition: 'all .2s ease',
-                                        boxSizing: 'border-box',
-                                        boxShadow: searchFocused && searchEnabled ? rsGlow : 'none',
+                                        borderRadius: 10, padding: '12px 16px 12px 44px',
+                                        fontSize: 16, fontWeight: 700, letterSpacing: '0.08em',
+                                        color: t.inputText, outline: 'none', width: '100%',
+                                        opacity: state.searchEnabled ? 1 : 0.4,
+                                        cursor: state.searchEnabled ? 'text' : 'not-allowed',
+                                        pointerEvents: state.searchEnabled ? 'auto' : 'none',
+                                        transition: 'all .2s ease', boxSizing: 'border-box',
+                                        boxShadow: searchFocused && state.searchEnabled ? rsGlow : 'none',
                                     }}
-                                    placeholder={config.searchField!.placeholder ?? 'e.g. RS-2024-00123'}
-                                    value={searchValue}
-                                    onChange={e => setSearchValue(e.target.value)}
+                                    placeholder={config.searchField!.placeholder ?? 'e.g. 2026100000'}
+                                    value={state.searchValue}
+                                    onChange={e => onChange({ searchValue: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                    inputMode="numeric"
+                                    maxLength={10}
                                     onFocus={() => setSearchFocused(true)}
                                     onBlur={() => setSearchFocused(false)}
-                                    disabled={!searchEnabled}
+                                    disabled={!state.searchEnabled}
                                 />
-                                <Search
-                                    style={{
-                                        position: 'absolute', left: 12, top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        width: 14, height: 14,
-                                        color: searchEnabled ? rsAccent : t.cellMuted,
-                                        pointerEvents: 'none',
-                                        transition: 'color .2s ease',
-                                    }}
-                                />
+                                <Search style={{
+                                    position: 'absolute', left: 14, top: '50%',
+                                    transform: 'translateY(-50%)', width: 17, height: 17,
+                                    color: state.searchEnabled ? rsAccent : t.cellMuted,
+                                    pointerEvents: 'none', transition: 'color .2s ease',
+                                }} />
                             </div>
                         </div>
                     )}
