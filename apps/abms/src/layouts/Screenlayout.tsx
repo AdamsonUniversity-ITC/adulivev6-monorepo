@@ -3,10 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar';
 import Sidebar from '../components/Sidebar';
-import { authSvc } from '@repo/axios-config/auth-service';
-import { financeSvc } from '@repo/axios-config';
 import { useTheme } from '../context/ThemeContext';
-import { useRouterState, useRouteContext } from '@tanstack/react-router';  
+import { useRouterState, useRouteContext } from '@tanstack/react-router';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -113,6 +111,7 @@ const L = {
     noise: 'transparent',
   },
 };
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Grid background
 // ─────────────────────────────────────────────────────────────────────────────
@@ -188,11 +187,28 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
   const { isDark, toggleTheme } = useTheme();
   const t = isDark ? L.dark : L.light;
 
-  // ← The pathname is the transition key. When it changes, AnimatePresence
-  //   exits the old page and enters the new one. The sidebar, header, and
-  //   status bar are outside AnimatePresence so they stay mounted/untouched.
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  console.log(user);
+  // ── Stable animation key fix ───────────────────────────────────────────────
+  // useRouterState fires on every router status change (pending → loading →
+  // idle), which makes AnimatePresence animate multiple times per navigation.
+  // We track a separate `animKey` that only updates once the router is fully
+  // idle (i.e. the loader has finished), so the page transition fires exactly
+  // once — smoothly into the fully-loaded target page.
+  const { pathname, isLoading } = useRouterState({
+    select: (s) => ({
+      pathname: s.location.pathname,
+      isLoading: s.status !== 'idle',
+    }),
+  });
+
+  const [animKey, setAnimKey] = useState(pathname);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setAnimKey(pathname);
+    }
+  }, [pathname, isLoading]);
+  // ──────────────────────────────────────────────────────────────────────────
+
   return (
     <motion.div
       className="min-h-screen flex overflow-hidden"
@@ -319,10 +335,12 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         {/* ── Content area ──────────────────────────────────────── */}
         {/*
           AnimatePresence mode="wait" exits the old page fully before the new
-          one enters. The key is the current pathname so Framer Motion treats
-          every route change as a distinct element swap.
-          The sidebar, header, and status bar are outside this wrapper so they
-          remain mounted and do not flicker or re-animate on navigation.
+          one enters. The key is `animKey` — a stable value that only updates
+          once the router reaches idle status (loader finished). This prevents
+          the double-animation caused by intermediate router state changes
+          (pending → loading → idle) all firing with the new pathname.
+          The sidebar, header, and status bar are outside AnimatePresence so
+          they remain mounted and do not flicker or re-animate on navigation.
         */}
         <div
           className="flex-1 overflow-y-auto p-8"
@@ -333,7 +351,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={pathname}
+              key={animKey}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
