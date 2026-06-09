@@ -74,6 +74,21 @@ export type PaginatedLeaveApplicationsResponse = {
   }
 }
 
+export type ElDependentCareUsage = {
+  used: number
+  limit: number
+  remaining: number
+  year: number
+}
+
+export async function fetchElDependentCareUsage(): Promise<ElDependentCareUsage> {
+  const response = await hrmdoSvc.get<{ data: ElDependentCareUsage }>(
+    "v1/leave-applications/me/el-dependent-care-usage",
+  )
+
+  return response.data.data
+}
+
 export async function fetchMyLeaveApplications(params?: {
   page?: number
   per_page?: number

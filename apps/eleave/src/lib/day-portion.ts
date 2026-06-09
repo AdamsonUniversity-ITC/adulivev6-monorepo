@@ -49,3 +49,15 @@ export function getDayPortionLabel(portion: DayPortion): string {
     portion
   )
 }
+
+export function getDayPortionWeight(portion: DayPortion | ""): number {
+  if (portion === "wholeday") {
+    return 1
+  }
+
+  if (portion === "am" || portion === "pm" || portion === "evening") {
+    return 0.5
+  }
+
+  return 0
+}

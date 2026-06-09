@@ -12,6 +12,7 @@ import { mapSlugToApiHrStatus, type HrApprovalStatus } from "@/lib/hr-approval-s
 import {
   fetchHrApprovalLeaveApplications,
   getValidationErrorMessage,
+  getValidationFieldErrors,
   submitHrApproval,
   type HrApprovalPayload,
 } from "@/lib/leave-applications-api"
@@ -22,7 +23,8 @@ import {
 import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import {
   canSplitLeaveDayDecision,
-  mapHrApprovalDayDecisionToPayloadItem,
+  hasHrApprovalDayDecisionChanged,
+  mapChangedHrApprovalDayDecisionToPayloadItem,
   mapLeaveApplicationsToHrApprovalRows,
   type HrApprovalDayDecision,
   type HrApprovalRow,
@@ -219,8 +221,16 @@ export const ViewHrApprovalSheet = ({
       setActionError(null)
     },
     onError: (error) => {
+      const fieldErrors = getValidationFieldErrors(error)
+      const itemError = fieldErrors
+        ? Object.entries(fieldErrors).find(([field]) =>
+            field.startsWith("items."),
+          )?.[1]
+        : null
+
       setActionError(
-        getValidationErrorMessage(error) ??
+        itemError ??
+          getValidationErrorMessage(error) ??
           "Unable to apply HR approval changes. Please try again.",
       )
       setIsApplyConfirmOpen(false)
@@ -271,8 +281,23 @@ export const ViewHrApprovalSheet = ({
   }
 
   const buildPayload = (): HrApprovalPayload | null => {
+    const applicationDatesById = new Map(
+      (activeRequest?.record.leave_application_dates ?? []).map((applicationDate) => [
+        applicationDate.id,
+        applicationDate,
+      ]),
+    )
+
     const items = dailyDraft
-      .map((entry) => mapHrApprovalDayDecisionToPayloadItem(entry))
+      .map((entry) => {
+        const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
+
+        if (!applicationDate) {
+          return null
+        }
+
+        return mapChangedHrApprovalDayDecisionToPayloadItem(entry, applicationDate)
+      })
       .filter((item): item is NonNullable<typeof item> => item != null)
 
     if (items.length === 0) {
@@ -294,10 +319,29 @@ export const ViewHrApprovalSheet = ({
   }
 
   const validateDraft = (): string | null => {
+    const applicationDatesById = new Map(
+      (activeRequest?.record.leave_application_dates ?? []).map((applicationDate) => [
+        applicationDate.id,
+        applicationDate,
+      ]),
+    )
     const hasDecision = dailyDraft.some(hasSubmittingDecision)
 
     if (!hasDecision) {
       return "Set an approval status for at least one day before applying changes."
+    }
+
+    const hasChangedDecision = dailyDraft.some((entry) => {
+      const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
+
+      return (
+        applicationDate != null &&
+        hasHrApprovalDayDecisionChanged(entry, applicationDate)
+      )
+    })
+
+    if (!hasChangedDecision) {
+      return "No changes to apply. Update at least one day before saving."
     }
 
     for (const entry of dailyDraft) {
@@ -341,9 +385,7 @@ export const ViewHrApprovalSheet = ({
 
     const payload = buildPayload()
     if (!payload) {
-      setActionError(
-        "Set an approval status for at least one day before applying changes.",
-      )
+      setActionError("No changes to apply. Update at least one day before saving.")
       setIsApplyConfirmOpen(false)
       return
     }

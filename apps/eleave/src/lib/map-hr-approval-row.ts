@@ -175,6 +175,85 @@ export function mapLeaveApplicationsToHrApprovalRows(
   )
 }
 
+type LeaveApplicationDateRecord = NonNullable<
+  LeaveApplicationRecord["leave_application_dates"]
+>[number]
+
+function normalizeOptionalString(value: string | null | undefined): string | null {
+  if (value == null) {
+    return null
+  }
+
+  const trimmed = value.trim()
+
+  return trimmed === "" ? null : trimmed
+}
+
+export function hasHrApprovalDayDecisionChanged(
+  entry: HrApprovalDayDecision,
+  applicationDate: LeaveApplicationDateRecord,
+): boolean {
+  const item = mapHrApprovalDayDecisionToPayloadItem(entry)
+
+  if (!item) {
+    return false
+  }
+
+  const dbStatus1 = applicationDate.hr_status_1 ?? "Pending"
+  const dbStatus2 = applicationDate.hr_status_2 ?? null
+  const dbRemarks = normalizeOptionalString(applicationDate.hr_remarks) ?? ""
+
+  if (item.hr_status_1 !== dbStatus1) {
+    return true
+  }
+
+  if ((item.hr_status_2 ?? null) !== dbStatus2) {
+    return true
+  }
+
+  if (item.approved_day_portion_1 !== applicationDate.approved_day_portion_1) {
+    return true
+  }
+
+  if (
+    normalizeOptionalString(item.approved_day_portion_2) !==
+    normalizeOptionalString(applicationDate.approved_day_portion_2)
+  ) {
+    return true
+  }
+
+  if (
+    (item.approved_leave_type_id_1 ?? null) !==
+    (applicationDate.approved_leave_type_id_1 ?? null)
+  ) {
+    return true
+  }
+
+  if (
+    (item.approved_leave_type_id_2 ?? null) !==
+    (applicationDate.approved_leave_type_id_2 ?? null)
+  ) {
+    return true
+  }
+
+  if ((item.hr_remarks ?? "") !== dbRemarks) {
+    return true
+  }
+
+  return false
+}
+
+export function mapChangedHrApprovalDayDecisionToPayloadItem(
+  entry: HrApprovalDayDecision,
+  applicationDate: LeaveApplicationDateRecord,
+): HrApprovalItemPayload | null {
+  if (!hasHrApprovalDayDecisionChanged(entry, applicationDate)) {
+    return null
+  }
+
+  return mapHrApprovalDayDecisionToPayloadItem(entry)
+}
+
 export function mapHrApprovalDayDecisionToPayloadItem(
   entry: HrApprovalDayDecision,
 ): HrApprovalItemPayload | null {

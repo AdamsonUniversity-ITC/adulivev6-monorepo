@@ -194,6 +194,7 @@ export function BeginningBalanceFormDialog({
       }
 
       queryClient.invalidateQueries({ queryKey: ["beginning-balances"] })
+      queryClient.invalidateQueries({ queryKey: ["leave-balances"] })
       onOpenChange(false)
     },
     onError: (error) => {
