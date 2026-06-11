@@ -76,7 +76,9 @@ function ForApprovalPage() {
     [rows],
   )
 
-  const [selectedYear, setSelectedYear] = React.useState<string>("all")
+  const [selectedYear, setSelectedYear] = React.useState<string>(
+    String(new Date().getFullYear()),
+  )
   const [selectedStatus, setSelectedStatus] = React.useState<string>("pending")
   const [isViewSheetOpen, setIsViewSheetOpen] = React.useState(false)
   const [activeRequest, setActiveRequest] = React.useState<ForApprovalRow | null>(

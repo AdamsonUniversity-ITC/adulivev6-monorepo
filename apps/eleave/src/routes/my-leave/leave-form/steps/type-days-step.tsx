@@ -13,9 +13,11 @@ import {
   SelectValue,
 } from "@repo/ui/components/select"
 import { CalendarDays, ClipboardList } from "lucide-react"
+import * as React from "react"
 import type { UseFormReturn } from "react-hook-form"
 
 import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import { cn } from "@/lib/utils"
 
 import { DAY_PORTION_OPTIONS, type LeaveFormValues } from "../schema"
@@ -28,8 +30,41 @@ type TypeDaysStepProps = {
 
 export function TypeDaysStep({ form }: TypeDaysStepProps) {
   const leaveDays = form.watch("leave_days")
+  const dateFrom = form.watch("date_from")
+  const dateTo = form.watch("date_to")
+  const leaveTypeId = form.watch("leave_type_id")
   const totalDays = sumLeaveDayCredits(leaveDays)
   const { data: leaveTypes = [], isLoading, isError } = useLeaveTypes()
+
+  const syncLeaveTypeTimingError = React.useCallback(
+    (nextLeaveTypeId: string) => {
+      if (!nextLeaveTypeId || !dateFrom || !dateTo) {
+        form.clearErrors("leave_type_id")
+        return
+      }
+
+      const leaveType = leaveTypes.find((type) => String(type.id) === nextLeaveTypeId)
+      if (!leaveType) {
+        form.clearErrors("leave_type_id")
+        return
+      }
+
+      const message = validateLeaveFilingTiming(leaveType, dateFrom, dateTo)
+      if (message) {
+        form.setError("leave_type_id", { message })
+        return
+      }
+
+      form.clearErrors("leave_type_id")
+    },
+    [dateFrom, dateTo, form, leaveTypes],
+  )
+
+  React.useEffect(() => {
+    if (leaveTypeId) {
+      syncLeaveTypeTimingError(leaveTypeId)
+    }
+  }, [leaveTypeId, syncLeaveTypeTimingError])
 
   return (
     <div className="space-y-4">
@@ -45,7 +80,10 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
             <FormItem className="w-full">
               <FormLabel className="sr-only">Leave Type</FormLabel>
               <Select
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value)
+                  syncLeaveTypeTimingError(value)
+                }}
                 value={field.value}
                 disabled={isLoading || isError}
               >

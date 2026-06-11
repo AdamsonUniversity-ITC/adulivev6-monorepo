@@ -38,6 +38,7 @@ function MyLeavePage() {
   const leaveBalanceRows = React.useMemo(
     () =>
       leaveBalances.map((balance) => ({
+        leave_code: balance.leave_code,
         leave_type: balance.leave_type,
         credits: balance.credits,
         pending_filed_leave: balance.pending_filed_leave,

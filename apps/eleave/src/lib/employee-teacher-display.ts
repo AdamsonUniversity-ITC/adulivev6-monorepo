@@ -17,6 +17,7 @@ export type EmployeeTeacherRecord = {
   email: string | null
   is_active?: boolean | number | null
   hr_active?: boolean | number | null
+  is_admin?: boolean | number | null
   supervisor?: EmployeeTeacherRecord | null
   manager?: EmployeeTeacherRecord | null
 }
