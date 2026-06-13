@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -34,6 +34,13 @@ import {
   SidebarSeparator,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useAuthUser } from "@/hooks/use-auth-user";
+import { useMyEmployeeHrProfile } from "@/hooks/use-employee-hr-profile";
+import {
+  getAvatarUrlFromEmpNo,
+  getInitialsFromDisplayName,
+} from "@/lib/employee-teacher-display";
+import { resolveDisplayName, resolveEmployeeNo } from "@/lib/fetch-auth-user";
 
 const mainNavItems = [
   { title: "Guidelines", url: "/guidelines", icon: BookOpen },
@@ -68,6 +75,51 @@ export function AppSidebar() {
     pathname.startsWith("/reports"),
   );
   const isReportsActive = pathname.startsWith("/reports");
+
+  const { data: authUser } = useAuthUser();
+  const { data: hrProfile } = useMyEmployeeHrProfile();
+  const empNo =
+    hrProfile?.emp_no?.trim() ||
+    (authUser ? resolveEmployeeNo(authUser) : null);
+  const displayName =
+    hrProfile?.full_name?.trim() ||
+    (authUser ? resolveDisplayName(authUser) : "Loading...");
+  const email = hrProfile?.email?.trim() || authUser?.email || "";
+  const avatarUrl = getAvatarUrlFromEmpNo(empNo);
+  const initials = getInitialsFromDisplayName(displayName, empNo, "EL");
+
+  const permissions = authUser?.permissions ?? [];
+  const canAccessHrApproval =
+    permissions.includes("eleave-admin-approval-access") ||
+    permissions.includes("eleave-rank-and-file-approval-access") || 
+    permissions.includes("eleave-dev-access");
+  const canAccessForApproval = Boolean(
+    hrProfile?.is_supervisor || hrProfile?.is_manager,
+  );
+  const visibleMainNavItems = mainNavItems.filter((item) => {
+    if (item.url === "/hr-approval") {
+      return canAccessHrApproval;
+    }
+
+    if (item.url === "/for-approval") {
+      return canAccessForApproval;
+    }
+
+    return true;
+  });
+  const canAccessBeginningBalances =
+    permissions.includes("eleave-rank-and-file-approval-access") ||
+    permissions.includes("eleave-dev-access");
+  const visibleAdminNavItems = adminNavItems.filter(
+    (item) => item.url !== "/beginning-balances" || canAccessBeginningBalances,
+  );
+  const canAccessReports =
+    permissions.includes("eleave-rank-and-file-approval-access") ||
+    permissions.includes("eleave-dev-access");
+
+  useEffect(() => {
+    console.log("Auth user permissions:", authUser?.permissions);
+  }, [authUser?.permissions]);
 
   useEffect(() => {
     if (pathname.startsWith("/reports")) {
@@ -117,7 +169,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
-              {mainNavItems.map((item) => (
+              {visibleMainNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild
@@ -135,7 +187,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {adminNavItems.map((item) => (
+              {visibleAdminNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild
@@ -153,6 +205,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
+              {canAccessReports ? (
               <Collapsible
                 asChild
                 open={reportsOpen}
@@ -193,12 +246,13 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+              ) : null}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 pb-6 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pb-4">
+      {/* <SidebarFooter className="p-4 pb-6 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pb-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -206,22 +260,33 @@ export function AppSidebar() {
               className="h-auto rounded-full border border-sidebar-border/30 bg-background/50 p-2 shadow-sm backdrop-blur-md transition-all duration-300 hover:bg-background hover:shadow-md group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:p-0"
             >
               <Avatar className="size-10 rounded-full ring-2 ring-background transition-all group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:ring-0">
+                {avatarUrl ? (
+                  <AvatarImage src={avatarUrl} alt={displayName} />
+                ) : null}
                 <AvatarFallback className="bg-primary/10 font-medium text-primary group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:text-xs">
-                  EL
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="ml-1 grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-                  Employee
+                <span
+                  title={displayName}
+                  className="truncate text-[13px] font-semibold tracking-tight text-sidebar-foreground"
+                >
+                  {displayName}
                 </span>
-                <span className="truncate text-[11px] font-medium text-sidebar-foreground/50">
-                  employee@adu.edu.ph
-                </span>
+                {email ? (
+                  <span
+                    title={email}
+                    className="truncate text-[11px] font-medium text-sidebar-foreground/50"
+                  >
+                    {email}
+                  </span>
+                ) : null}
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarFooter>
+      </SidebarFooter> */}
 
       <SidebarRail />
     </Sidebar>

@@ -1,5 +1,6 @@
 import { eachDayOfInterval, format, isValid, parseISO } from "date-fns"
 
+import { getDayPortionWeight } from "@/lib/day-portion"
 import type { LeaveTypeOption } from "../-leave-types"
 import type { LeaveRequestRow } from "@/lib/leave-request-row"
 import {
@@ -98,6 +99,44 @@ export function getDayPortionLabel(portion: DayPortion): string {
     DAY_PORTION_OPTIONS.find((option) => option.value === portion)?.label ??
     portion
   )
+}
+
+export function sumLeaveDayCredits(leaveDays: LeaveDay[]): number {
+  return leaveDays.reduce(
+    (total, day) => total + getDayPortionWeight(day.day_portion),
+    0,
+  )
+}
+
+export function formatLeaveDayCount(totalDays: number): string {
+  const display = Number.isInteger(totalDays)
+    ? String(totalDays)
+    : totalDays.toFixed(1)
+
+  return `${display} day${totalDays === 1 ? "" : "s"}`
+}
+
+export const EMERGENCY_LEAVE_CODE = "el"
+
+export const DEPENDENT_CARE_PHRASE = "dependent care"
+
+export function isEmergencyLeaveType(
+  leaveTypeId: string,
+  leaveTypes: LeaveTypeOption[] = [],
+): boolean {
+  const id = Number(leaveTypeId)
+
+  if (!Number.isFinite(id)) {
+    return false
+  }
+
+  return (
+    leaveTypes.find((type) => type.id === id)?.leave_code === EMERGENCY_LEAVE_CODE
+  )
+}
+
+export function reasonContainsDependentCare(reason: string): boolean {
+  return reason.toLowerCase().includes(DEPENDENT_CARE_PHRASE)
 }
 
 export function getLeaveTypeLabel(

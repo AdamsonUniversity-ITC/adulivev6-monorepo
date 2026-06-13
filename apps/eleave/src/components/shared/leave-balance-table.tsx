@@ -1,3 +1,5 @@
+import * as React from "react"
+
 import {
   Accordion,
   AccordionContent,
@@ -16,16 +18,20 @@ import { Badge } from "@repo/ui/components/badge"
 import { Wallet } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  groupLeaveBalanceRowsByCode,
+  type LeaveBalanceRow,
+} from "@/lib/group-leave-balance-rows"
 import { cn } from "@/lib/utils"
 
-export type LeaveBalanceRow = {
-  leave_type: string
-  credits: number
-  pending_filed_leave: number
-}
+export type { LeaveBalanceRow }
 
 function formatCredits(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+  if (!Number.isFinite(value)) {
+    return "0"
+  }
+
+  return String(value)
 }
 
 type LeaveBalancePanelProps = {
@@ -41,8 +47,12 @@ export function LeaveBalancePanel({
   isLoading = false,
   isError = false,
 }: LeaveBalancePanelProps) {
-  const availableTypes = rows.filter((row) => row.credits > 0)
-  const totalCredits = rows.reduce((sum, row) => sum + row.credits, 0)
+  const groupedRows = React.useMemo(
+    () => groupLeaveBalanceRowsByCode(rows),
+    [rows],
+  )
+  const availableTypes = groupedRows.filter((row) => row.credits > 0)
+  const totalCredits = groupedRows.reduce((sum, row) => sum + row.credits, 0)
 
   return (
     <div
@@ -97,13 +107,13 @@ export function LeaveBalancePanel({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => {
+              {groupedRows.map((row) => {
                 const hasCredits = row.credits > 0
                 const hasPending = row.pending_filed_leave > 0
 
                 return (
                   <TableRow
-                    key={row.leave_type}
+                    key={row.leave_code}
                     className={cn(
                       "border-border/60",
                       hasCredits && "bg-primary/5 hover:bg-primary/10",

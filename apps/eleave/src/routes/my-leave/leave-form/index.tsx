@@ -27,6 +27,7 @@ import {
 } from "@/lib/leave-applications-api"
 import { mapLeaveApplicationToRow } from "@/lib/map-leave-application-to-row"
 import { buildLeaveApplyFormData } from "@/lib/map-leave-form-to-apply-payload"
+import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import {
   leaveFormDefaults,
   leaveFormSchema,
@@ -190,6 +191,22 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
         applyZodIssues(result.error.issues, form.setError)
         return false
       }
+
+      const leaveType = leaveTypes.find(
+        (type) => String(type.id) === values.leave_type_id,
+      )
+      if (leaveType) {
+        const timingError = validateLeaveFilingTiming(
+          leaveType,
+          values.date_from,
+          values.date_to,
+        )
+        if (timingError) {
+          form.setError("leave_type_id", { message: timingError })
+          return false
+        }
+      }
+
       return true
     }
 
@@ -258,6 +275,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
       await applyLeaveApplication(buildLeaveApplyFormData(values, employeeNo))
 
       await queryClient.invalidateQueries({ queryKey: ["my-leave-applications"] })
+      await queryClient.invalidateQueries({ queryKey: ["el-dependent-care-usage"] })
       await navigate({ to: "/my-leave" })
     } catch (error) {
       const fieldErrors = getValidationFieldErrors(error)

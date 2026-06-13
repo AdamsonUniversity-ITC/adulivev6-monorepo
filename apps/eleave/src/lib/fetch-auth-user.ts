@@ -42,3 +42,20 @@ export function resolveEmployeeNo(user: AuthUser): string | null {
 
   return null
 }
+
+export function resolveDisplayName(user: AuthUser): string {
+  const username = typeof user.username === "string" ? user.username.trim() : ""
+  if (username !== "") {
+    return username
+  }
+
+  const email = typeof user.email === "string" ? user.email.trim() : ""
+  if (email !== "") {
+    const localPart = email.split("@")[0]?.trim()
+    if (localPart) {
+      return localPart
+    }
+  }
+
+  return resolveEmployeeNo(user) ?? "Employee"
+}

@@ -38,9 +38,7 @@ import { EmployeeSearchPicker } from "./-employee-search-picker"
 
 const balanceRowSchema = z.object({
   leave_type_id: z.coerce.number().min(1, "Leave type is required."),
-  beginning_balance: z.coerce
-    .number()
-    .min(0, "Balance must be zero or greater."),
+  beginning_balance: z.coerce.number(),
 })
 
 const formSchema = z
@@ -194,6 +192,7 @@ export function BeginningBalanceFormDialog({
       }
 
       queryClient.invalidateQueries({ queryKey: ["beginning-balances"] })
+      queryClient.invalidateQueries({ queryKey: ["leave-balances"] })
       onOpenChange(false)
     },
     onError: (error) => {
@@ -383,7 +382,6 @@ export function BeginningBalanceFormDialog({
                           <Input
                             type="number"
                             step="0.01"
-                            min="0"
                             aria-label={`Beginning balance row ${index + 1}`}
                             {...form.register(`balances.${index}.beginning_balance`, {
                               valueAsNumber: true,

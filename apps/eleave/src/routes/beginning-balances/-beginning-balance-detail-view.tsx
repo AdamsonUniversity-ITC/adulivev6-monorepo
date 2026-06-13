@@ -109,6 +109,7 @@ export function BeginningBalanceDetailView({
     onSuccess: () => {
       toast.success("Beginning balance deleted.")
       queryClient.invalidateQueries({ queryKey: ["beginning-balances"] })
+      queryClient.invalidateQueries({ queryKey: ["leave-balances"] })
       setDeletingRecord(null)
     },
     onError: () => {

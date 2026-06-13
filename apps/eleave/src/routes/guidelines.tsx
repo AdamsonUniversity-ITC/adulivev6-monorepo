@@ -196,8 +196,7 @@ function GuidelinesPage() {
                         <li className="flex gap-3">
                           <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                           <span>
-                            Application for VL, SPL and BL shall be filed in
-                            advance or at least{" "}
+                            Application for VL, SPL and BL shall be filed at least{" "}
                             <span className="font-semibold text-slate-950">
                               three (3) days before
                             </span>{" "}

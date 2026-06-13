@@ -13,13 +13,15 @@ import {
   SelectValue,
 } from "@repo/ui/components/select"
 import { CalendarDays, ClipboardList } from "lucide-react"
+import * as React from "react"
 import type { UseFormReturn } from "react-hook-form"
 
 import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import { cn } from "@/lib/utils"
 
 import { DAY_PORTION_OPTIONS, type LeaveFormValues } from "../schema"
-import { formatLeaveDay } from "../utils"
+import { formatLeaveDay, formatLeaveDayCount, sumLeaveDayCredits } from "../utils"
 import { StepSection, stepFieldClassName } from "./-step-section"
 
 type TypeDaysStepProps = {
@@ -28,7 +30,41 @@ type TypeDaysStepProps = {
 
 export function TypeDaysStep({ form }: TypeDaysStepProps) {
   const leaveDays = form.watch("leave_days")
+  const dateFrom = form.watch("date_from")
+  const dateTo = form.watch("date_to")
+  const leaveTypeId = form.watch("leave_type_id")
+  const totalDays = sumLeaveDayCredits(leaveDays)
   const { data: leaveTypes = [], isLoading, isError } = useLeaveTypes()
+
+  const syncLeaveTypeTimingError = React.useCallback(
+    (nextLeaveTypeId: string) => {
+      if (!nextLeaveTypeId || !dateFrom || !dateTo) {
+        form.clearErrors("leave_type_id")
+        return
+      }
+
+      const leaveType = leaveTypes.find((type) => String(type.id) === nextLeaveTypeId)
+      if (!leaveType) {
+        form.clearErrors("leave_type_id")
+        return
+      }
+
+      const message = validateLeaveFilingTiming(leaveType, dateFrom, dateTo)
+      if (message) {
+        form.setError("leave_type_id", { message })
+        return
+      }
+
+      form.clearErrors("leave_type_id")
+    },
+    [dateFrom, dateTo, form, leaveTypes],
+  )
+
+  React.useEffect(() => {
+    if (leaveTypeId) {
+      syncLeaveTypeTimingError(leaveTypeId)
+    }
+  }, [leaveTypeId, syncLeaveTypeTimingError])
 
   return (
     <div className="space-y-4">
@@ -44,7 +80,10 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
             <FormItem className="w-full">
               <FormLabel className="sr-only">Leave Type</FormLabel>
               <Select
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value)
+                  syncLeaveTypeTimingError(value)
+                }}
                 value={field.value}
                 disabled={isLoading || isError}
               >
@@ -85,14 +124,16 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
         title="Leave days"
         description="Set the day portion for each date in your range."
       >
-        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2">
-          <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Total days
-          </span>
-          <span className="text-sm font-semibold tabular-nums">
-            {leaveDays.length} day{leaveDays.length === 1 ? "" : "s"}
-          </span>
-        </div>
+        {totalDays > 0 ? (
+          <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2">
+            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              Total days
+            </span>
+            <span className="text-sm font-semibold tabular-nums">
+              {formatLeaveDayCount(totalDays)}
+            </span>
+          </div>
+        ) : null}
 
         {leaveDays.length === 0 ? (
           <div className="text-muted-foreground rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm">

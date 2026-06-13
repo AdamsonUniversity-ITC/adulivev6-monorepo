@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
+import { useAuthUser } from "@/hooks/use-auth-user"
 import { useHrApprovalLeaveApplications } from "@/hooks/use-hr-approval-leave-applications"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
 import {
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/hr-approval/")({
 })
 
 function HrApprovalPage() {
+  const { data: authUser } = useAuthUser()
   const { data: leaveTypes = [] } = useLeaveTypes()
   const {
     data: response,
@@ -28,6 +30,27 @@ function HrApprovalPage() {
     isError,
     refetch,
   } = useHrApprovalLeaveApplications()
+
+  const permissions = authUser?.permissions ?? []
+  const canViewDev = permissions.includes("eleave-dev-access")
+  const canViewAdmin =
+    permissions.includes("eleave-admin-approval-access") || canViewDev
+  const canViewRankAndFile =
+    permissions.includes("eleave-rank-and-file-approval-access") || canViewDev
+
+  const classificationOptions = React.useMemo(() => {
+    const options: { value: string; label: string }[] = []
+
+    if (canViewAdmin) {
+      options.push({ value: "admin", label: "Admin" })
+    }
+
+    if (canViewRankAndFile) {
+      options.push({ value: "rank_and_file", label: "Rank and File" })
+    }
+
+    return options
+  }, [canViewAdmin, canViewRankAndFile,])
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -51,12 +74,27 @@ function HrApprovalPage() {
     [rows],
   )
 
-  const [selectedYear, setSelectedYear] = React.useState<string>("all")
-  const [selectedStatus, setSelectedStatus] = React.useState<string>("partially_approved")
+  const [selectedYear, setSelectedYear] = React.useState<string>(
+    String(new Date().getFullYear()),
+  )
+  const [selectedStatus, setSelectedStatus] = React.useState<string>("pending")
+  const [selectedClassification, setSelectedClassification] =
+    React.useState<string>("")
   const [isViewModalOpen, setIsViewModalOpen] = React.useState(false)
   const [activeRequest, setActiveRequest] = React.useState<HrApprovalRow | null>(
     null,
   )
+
+  React.useEffect(() => {
+    if (
+      classificationOptions.length > 0 &&
+      !classificationOptions.some(
+        (option) => option.value === selectedClassification,
+      )
+    ) {
+      setSelectedClassification(classificationOptions[0]!.value)
+    }
+  }, [classificationOptions, selectedClassification])
 
   const filteredRequests = React.useMemo(
     () =>
@@ -69,9 +107,17 @@ function HrApprovalPage() {
         const statusMatches =
           selectedStatus === "all" || row.status === selectedStatus
 
-        return yearMatches && statusMatches
+        const isAdmin = Boolean(row.record.employee_teacher?.is_admin)
+        const classificationMatches =
+          selectedClassification === ""
+            ? true
+            : selectedClassification === "admin"
+              ? isAdmin
+              : !isAdmin
+
+        return yearMatches && statusMatches && classificationMatches
       }),
-    [rows, selectedStatus, selectedYear],
+    [rows, selectedStatus, selectedYear, selectedClassification],
   )
 
   function openDetails(row: HrApprovalRow) {
@@ -101,7 +147,28 @@ function HrApprovalPage() {
           Filters
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
+          {classificationOptions.length > 0 ? (
+            <label className="space-y-0.5">
+              <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+                Filter by Type
+              </span>
+              <select
+                value={selectedClassification}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                  setSelectedClassification(event.target.value)
+                }
+                className="h-9 w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+              >
+                {classificationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           <label className="space-y-0.5">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Filter by Year
