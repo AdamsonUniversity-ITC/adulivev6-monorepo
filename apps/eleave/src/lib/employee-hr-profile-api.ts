@@ -9,6 +9,7 @@ export type EmployeeHrProfile = {
   email: string | null
   is_supervisor: boolean
   is_manager: boolean
+  is_academic_contractual: boolean
   birthdate: string | null
   date_hired: string | null
   permanency_date: string | null
