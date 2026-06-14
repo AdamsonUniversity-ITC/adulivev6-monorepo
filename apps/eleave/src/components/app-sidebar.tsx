@@ -40,6 +40,11 @@ import {
   getAvatarUrlFromEmpNo,
   getInitialsFromDisplayName,
 } from "@/lib/employee-teacher-display";
+import {
+  canAccessAdminFeatures,
+  canAccessForApproval,
+  canAccessHrApproval,
+} from "@/lib/eleave-access";
 import { resolveDisplayName, resolveEmployeeNo } from "@/lib/fetch-auth-user";
 
 const mainNavItems = [
@@ -88,38 +93,24 @@ export function AppSidebar() {
   const avatarUrl = getAvatarUrlFromEmpNo(empNo);
   const initials = getInitialsFromDisplayName(displayName, empNo, "EL");
 
-  const permissions = authUser?.permissions ?? [];
-  const canAccessHrApproval =
-    permissions.includes("eleave-admin-approval-access") ||
-    permissions.includes("eleave-rank-and-file-approval-access") || 
-    permissions.includes("eleave-dev-access");
-  const canAccessForApproval = Boolean(
-    hrProfile?.is_supervisor || hrProfile?.is_manager,
-  );
+  const canViewHrApproval = canAccessHrApproval(authUser);
+  const canViewForApproval = canAccessForApproval(hrProfile);
   const visibleMainNavItems = mainNavItems.filter((item) => {
     if (item.url === "/hr-approval") {
-      return canAccessHrApproval;
+      return canViewHrApproval;
     }
 
     if (item.url === "/for-approval") {
-      return canAccessForApproval;
+      return canViewForApproval;
     }
 
     return true;
   });
-  const canAccessBeginningBalances =
-    permissions.includes("eleave-rank-and-file-approval-access") ||
-    permissions.includes("eleave-dev-access");
+  const canViewAdminFeatures = canAccessAdminFeatures(authUser);
   const visibleAdminNavItems = adminNavItems.filter(
-    (item) => item.url !== "/beginning-balances" || canAccessBeginningBalances,
+    (item) => item.url !== "/beginning-balances" || canViewAdminFeatures,
   );
-  const canAccessReports =
-    permissions.includes("eleave-rank-and-file-approval-access") ||
-    permissions.includes("eleave-dev-access");
-
-  useEffect(() => {
-    console.log("Auth user permissions:", authUser?.permissions);
-  }, [authUser?.permissions]);
+  const canViewReports = canAccessAdminFeatures(authUser);
 
   useEffect(() => {
     if (pathname.startsWith("/reports")) {
@@ -205,7 +196,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {canAccessReports ? (
+              {canViewReports ? (
               <Collapsible
                 asChild
                 open={reportsOpen}
