@@ -93,6 +93,8 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   const isEdit = mode === "edit"
   const [currentStep, setCurrentStep] = React.useState(1)
   const [submitError, setSubmitError] = React.useState<string | null>(null)
+  const formTopRef = React.useRef<HTMLDivElement>(null)
+  const isInitialStepRender = React.useRef(true)
   const { data: leaveTypes = [] } = useLeaveTypes()
   const { data: leaveApplicationsResponse } = useMyLeaveApplications()
   const { data: myHrProfile } = useMyEmployeeHrProfile(!isEdit)
@@ -141,6 +143,15 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     leaveTypeNames,
     leaveTypes,
   ])
+
+  React.useEffect(() => {
+    if (isInitialStepRender.current) {
+      isInitialStepRender.current = false
+      return
+    }
+
+    formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [currentStep])
 
   const validateStep = async (step: number): Promise<boolean> => {
     const values = form.getValues()
@@ -298,7 +309,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4">
+    <div ref={formTopRef} className="mx-auto w-full max-w-2xl space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2 gap-1" asChild>
         <Link to="/my-leave">
           <ChevronLeft className="size-4" />
