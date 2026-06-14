@@ -1,6 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/reports/filed-leave')({
+import { requireAdminFeaturesAccess } from "@/lib/eleave-route-guards"
+
+export const Route = createFileRoute("/reports/filed-leave")({
+  beforeLoad: () => requireAdminFeaturesAccess(),
   component: FiledLeavePage,
 })
 

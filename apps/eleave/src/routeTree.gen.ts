@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestRouteImport } from './routes/test'
 import { Route as GuidelinesRouteImport } from './routes/guidelines'
+import { Route as ForbiddenRouteImport } from './routes/forbidden'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as MyLeaveRouteRouteImport } from './routes/my-leave/route'
 import { Route as HrApprovalRouteRouteImport } from './routes/hr-approval/route'
 import { Route as ForApprovalRouteRouteImport } from './routes/for-approval/route'
+import { Route as BeginningBalancesRouteRouteImport } from './routes/beginning-balances/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MyLeaveIndexRouteImport } from './routes/my-leave/index'
 import { Route as HrApprovalIndexRouteImport } from './routes/hr-approval/index'
@@ -36,6 +38,11 @@ const GuidelinesRoute = GuidelinesRouteImport.update({
   path: '/guidelines',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForbiddenRoute = ForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -54,6 +61,11 @@ const HrApprovalRouteRoute = HrApprovalRouteRouteImport.update({
 const ForApprovalRouteRoute = ForApprovalRouteRouteImport.update({
   id: '/for-approval',
   path: '/for-approval',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BeginningBalancesRouteRoute = BeginningBalancesRouteRouteImport.update({
+  id: '/beginning-balances',
+  path: '/beginning-balances',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -77,9 +89,9 @@ const ForApprovalIndexRoute = ForApprovalIndexRouteImport.update({
   getParentRoute: () => ForApprovalRouteRoute,
 } as any)
 const BeginningBalancesIndexRoute = BeginningBalancesIndexRouteImport.update({
-  id: '/beginning-balances/',
-  path: '/beginning-balances/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => BeginningBalancesRouteRoute,
 } as any)
 const ReportsFiledLeaveRoute = ReportsFiledLeaveRouteImport.update({
   id: '/reports/filed-leave',
@@ -105,17 +117,19 @@ const MyLeaveLeaveFormChar123LeaveIdChar125Route =
   } as any)
 const BeginningBalancesViewEmployeeNoRoute =
   BeginningBalancesViewEmployeeNoRouteImport.update({
-    id: '/beginning-balances/view/$employeeNo',
-    path: '/beginning-balances/view/$employeeNo',
-    getParentRoute: () => rootRouteImport,
+    id: '/view/$employeeNo',
+    path: '/view/$employeeNo',
+    getParentRoute: () => BeginningBalancesRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/beginning-balances': typeof BeginningBalancesRouteRouteWithChildren
   '/for-approval': typeof ForApprovalRouteRouteWithChildren
   '/hr-approval': typeof HrApprovalRouteRouteWithChildren
   '/my-leave': typeof MyLeaveRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/forbidden': typeof ForbiddenRoute
   '/guidelines': typeof GuidelinesRoute
   '/test': typeof TestRoute
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
@@ -131,6 +145,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/forbidden': typeof ForbiddenRoute
   '/guidelines': typeof GuidelinesRoute
   '/test': typeof TestRoute
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
@@ -146,10 +161,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/beginning-balances': typeof BeginningBalancesRouteRouteWithChildren
   '/for-approval': typeof ForApprovalRouteRouteWithChildren
   '/hr-approval': typeof HrApprovalRouteRouteWithChildren
   '/my-leave': typeof MyLeaveRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/forbidden': typeof ForbiddenRoute
   '/guidelines': typeof GuidelinesRoute
   '/test': typeof TestRoute
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
@@ -166,10 +183,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/beginning-balances'
     | '/for-approval'
     | '/hr-approval'
     | '/my-leave'
     | '/about'
+    | '/forbidden'
     | '/guidelines'
     | '/test'
     | '/hr-approval/view-hr-approval-sheet'
@@ -185,6 +204,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/forbidden'
     | '/guidelines'
     | '/test'
     | '/hr-approval/view-hr-approval-sheet'
@@ -199,10 +219,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/beginning-balances'
     | '/for-approval'
     | '/hr-approval'
     | '/my-leave'
     | '/about'
+    | '/forbidden'
     | '/guidelines'
     | '/test'
     | '/hr-approval/view-hr-approval-sheet'
@@ -218,15 +240,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BeginningBalancesRouteRoute: typeof BeginningBalancesRouteRouteWithChildren
   ForApprovalRouteRoute: typeof ForApprovalRouteRouteWithChildren
   HrApprovalRouteRoute: typeof HrApprovalRouteRouteWithChildren
   MyLeaveRouteRoute: typeof MyLeaveRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
+  ForbiddenRoute: typeof ForbiddenRoute
   GuidelinesRoute: typeof GuidelinesRoute
   TestRoute: typeof TestRoute
   ReportsFiledLeaveRoute: typeof ReportsFiledLeaveRoute
-  BeginningBalancesIndexRoute: typeof BeginningBalancesIndexRoute
-  BeginningBalancesViewEmployeeNoRoute: typeof BeginningBalancesViewEmployeeNoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -243,6 +265,13 @@ declare module '@tanstack/react-router' {
       path: '/guidelines'
       fullPath: '/guidelines'
       preLoaderRoute: typeof GuidelinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forbidden': {
+      id: '/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof ForbiddenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -271,6 +300,13 @@ declare module '@tanstack/react-router' {
       path: '/for-approval'
       fullPath: '/for-approval'
       preLoaderRoute: typeof ForApprovalRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/beginning-balances': {
+      id: '/beginning-balances'
+      path: '/beginning-balances'
+      fullPath: '/beginning-balances'
+      preLoaderRoute: typeof BeginningBalancesRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -303,10 +339,10 @@ declare module '@tanstack/react-router' {
     }
     '/beginning-balances/': {
       id: '/beginning-balances/'
-      path: '/beginning-balances'
+      path: '/'
       fullPath: '/beginning-balances/'
       preLoaderRoute: typeof BeginningBalancesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof BeginningBalancesRouteRoute
     }
     '/reports/filed-leave': {
       id: '/reports/filed-leave'
@@ -338,13 +374,29 @@ declare module '@tanstack/react-router' {
     }
     '/beginning-balances/view/$employeeNo': {
       id: '/beginning-balances/view/$employeeNo'
-      path: '/beginning-balances/view/$employeeNo'
+      path: '/view/$employeeNo'
       fullPath: '/beginning-balances/view/$employeeNo'
       preLoaderRoute: typeof BeginningBalancesViewEmployeeNoRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof BeginningBalancesRouteRoute
     }
   }
 }
+
+interface BeginningBalancesRouteRouteChildren {
+  BeginningBalancesIndexRoute: typeof BeginningBalancesIndexRoute
+  BeginningBalancesViewEmployeeNoRoute: typeof BeginningBalancesViewEmployeeNoRoute
+}
+
+const BeginningBalancesRouteRouteChildren: BeginningBalancesRouteRouteChildren =
+  {
+    BeginningBalancesIndexRoute: BeginningBalancesIndexRoute,
+    BeginningBalancesViewEmployeeNoRoute: BeginningBalancesViewEmployeeNoRoute,
+  }
+
+const BeginningBalancesRouteRouteWithChildren =
+  BeginningBalancesRouteRoute._addFileChildren(
+    BeginningBalancesRouteRouteChildren,
+  )
 
 interface ForApprovalRouteRouteChildren {
   ForApprovalIndexRoute: typeof ForApprovalIndexRoute
@@ -390,15 +442,15 @@ const MyLeaveRouteRouteWithChildren = MyLeaveRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BeginningBalancesRouteRoute: BeginningBalancesRouteRouteWithChildren,
   ForApprovalRouteRoute: ForApprovalRouteRouteWithChildren,
   HrApprovalRouteRoute: HrApprovalRouteRouteWithChildren,
   MyLeaveRouteRoute: MyLeaveRouteRouteWithChildren,
   AboutRoute: AboutRoute,
+  ForbiddenRoute: ForbiddenRoute,
   GuidelinesRoute: GuidelinesRoute,
   TestRoute: TestRoute,
   ReportsFiledLeaveRoute: ReportsFiledLeaveRoute,
-  BeginningBalancesIndexRoute: BeginningBalancesIndexRoute,
-  BeginningBalancesViewEmployeeNoRoute: BeginningBalancesViewEmployeeNoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,9 @@
-import { Outlet, createFileRoute } from '@tanstack/react-router'
+import { Outlet, createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/hr-approval')({
+import { requireHrApprovalAccess } from "@/lib/eleave-route-guards"
+
+export const Route = createFileRoute("/hr-approval")({
+  beforeLoad: () => requireHrApprovalAccess(),
   component: HrApprovalLayout,
 })
 
