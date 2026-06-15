@@ -1,13 +1,10 @@
 import {
   AWOL_NOTICE,
-  GuidelinesBullet,
-  GuidelinesBulletList,
   GuidelinesFooterNote,
   GuidelinesInstructionsSection,
   GuidelinesNoticeCard,
   GuidelinesNumberedInstructionItem,
   GuidelinesPageShell,
-  GuidelinesPlainInstructionItem,
   GuidelinesSummaryCard,
   GuidelinesSummaryGrid,
 } from "./-guidelines-layout"
@@ -16,100 +13,65 @@ export function SilGuidelines() {
   return (
     <GuidelinesPageShell
       badge="Leave Guidelines"
-      title="Service Incentive Leave (SIL) Guidelines"
-      subtitle="Filing rules and reminders for academic contractual employees who file Service Incentive Leave through eLeave."
+      title="Application for Service Incentive Leave (SIL)"
+      subtitle="Official HRMDO filing rules for academic contractual faculty."
     >
-      {/* <GuidelinesNoticeCard notice={AWOL_NOTICE}>
+      <GuidelinesNoticeCard notice={AWOL_NOTICE}>
         <GuidelinesSummaryGrid>
           <GuidelinesSummaryCard
+            label="Eligibility"
+            text="After one (1) year of service, contractual faculty are entitled to five (5) days of SIL with pay per year, accrued from the date of hiring."
+          />
+          <GuidelinesSummaryCard
+            label="Usage"
+            text="SIL credits may be used for leave applications, converted to cash upon permanency, or credited to final pay after university clearance upon separation."
+          />
+          <GuidelinesSummaryCard
             label="Filing"
-            text="File SIL through eLeave as early as practicable before your intended absence."
-          />
-          <GuidelinesSummaryCard
-            label="Coverage"
-            text="Applies to academic contractual employees. Only SIL is available in eLeave for this employment status."
-          />
-          <GuidelinesSummaryCard
-            label="Support"
-            text="HRMDO may request supporting documents and official approval before leave is granted."
+            text="File at least three (3) days before the scheduled leave, or immediately upon return to work for sickness or emergency."
           />
         </GuidelinesSummaryGrid>
 
-        <GuidelinesInstructionsSection description="Review each item carefully before filing your SIL request.">
-          <GuidelinesPlainInstructionItem>
-            An employee who is absent without approved leave shall not be entitled
-            to receive his/her salary corresponding to the period of his/her
-            unauthorized leave of absence.
-          </GuidelinesPlainInstructionItem>
-
+        <GuidelinesInstructionsSection description="Service Incentive Leave (SIL)">
           <GuidelinesNumberedInstructionItem
             number={1}
-            title="Who this applies to"
+            title="Eligibility and benefit computation"
           >
-            <GuidelinesBulletList>
-              <GuidelinesBullet>
-                These guidelines apply to academic contractual employees with an
-                active HR record, academic employment type, non-admin status, and
-                employment status that is not permanent.
-              </GuidelinesBullet>
-              <GuidelinesBullet>
-                In eLeave, only Service Incentive Leave (SIL) can be filed. Other
-                leave types are not available for this employment status.
-              </GuidelinesBullet>
-            </GuidelinesBulletList>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              A faculty member with contractual employment who has rendered at
+              least one (1) year of service shall be entitled to a yearly service
+              incentive leave of five (5) days with pay. The benefit computation
+              of SIL is from the date of hiring and it is accumulated for a total
+              of 5 days per year.
+            </p>
           </GuidelinesNumberedInstructionItem>
 
           <GuidelinesNumberedInstructionItem
             number={2}
-            title="Filing Service Incentive Leave (SIL)"
+            title="Usage and conversion"
           >
-            <GuidelinesBulletList>
-              <GuidelinesBullet>
-                File your SIL application through eLeave before your intended
-                absence whenever practicable.
-              </GuidelinesBullet>
-              <GuidelinesBullet>
-                SIL may be filed anytime through the system; submit complete and
-                accurate details for HRMDO review.
-              </GuidelinesBullet>
-              <GuidelinesBullet>
-                Wait for official HRMDO approval before treating your absence as
-                authorized leave.
-              </GuidelinesBullet>
-            </GuidelinesBulletList>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              The available service incentive leave credits may be used for
+              employee&apos;s leave application, or they can be converted to cash
+              upon permanency or be credited to the employee&apos;s final pay after
+              processing the university clearance in case of separation.
+            </p>
           </GuidelinesNumberedInstructionItem>
 
-          <GuidelinesNumberedInstructionItem number={3} title="Leave credits and balances">
-            <GuidelinesBulletList>
-              <GuidelinesBullet>
-                SIL is not displayed as a standard leave credit balance in eLeave
-                the same way as vacation or sick leave credits.
-              </GuidelinesBullet>
-              <GuidelinesBullet>
-                HRMDO determines eligibility and approval based on your employment
-                record and applicable policies.
-              </GuidelinesBullet>
-            </GuidelinesBulletList>
-          </GuidelinesNumberedInstructionItem>
-
-          <GuidelinesNumberedInstructionItem number={4} title="Approval and unauthorized absence">
-            <GuidelinesBulletList>
-              <GuidelinesBullet>
-                All absences without official leave approval from HRMDO are
-                unauthorized and may be considered absence without official leave
-                (AWOL).
-              </GuidelinesBullet>
-              <GuidelinesBullet>
-                AWOL may be a sufficient cause for dismissal and may affect salary
-                for the unauthorized period of absence.
-              </GuidelinesBullet>
-            </GuidelinesBulletList>
+          <GuidelinesNumberedInstructionItem
+            number={3}
+            title="Filing requirements"
+          >
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              Service Incentive Leave (SIL) shall be filed at least 3 days before
+              the scheduled date of leave or immediately upon employee&apos;s return
+              to work in case of sickness or emergency reason.
+            </p>
           </GuidelinesNumberedInstructionItem>
         </GuidelinesInstructionsSection>
 
-      </GuidelinesNoticeCard> */}
         <GuidelinesFooterNote note="If without justifiable reason whatsoever I failed to report after the expiration of the period of my leave, it is clearly understood that I have resigned voluntarily." />
-
+      </GuidelinesNoticeCard>
     </GuidelinesPageShell>
   )
 }
