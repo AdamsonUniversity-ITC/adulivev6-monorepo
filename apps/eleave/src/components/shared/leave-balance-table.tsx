@@ -73,7 +73,7 @@ export function LeaveBalancePanel({
                 ? "Loading leave credits…"
                 : isError
                   ? "Unable to load leave balances."
-                  : `${availableTypes.length} active leave type${availableTypes.length === 1 ? "" : "s"} · ${formatCredits(totalCredits)} total credits`}
+                  : `${availableTypes.length} active leave type${availableTypes.length === 1 ? "" : "s"}`}
             </p>
           </div>
         </div>
