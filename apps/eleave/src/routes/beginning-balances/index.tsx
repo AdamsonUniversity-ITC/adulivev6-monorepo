@@ -12,7 +12,7 @@ import * as React from "react"
 
 import { useDataTable } from "@/components/shared/datatable"
 import { useBeginningBalances } from "@/hooks/use-beginning-balances"
-import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useAdminLeaveTypes } from "@/hooks/use-admin-leave-types"
 
 import { BeginningBalanceFormDialog } from "./-beginning-balance-form-dialog"
 import { BeginningBalancesDataTable } from "./-beginning-balances-datatable"
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/beginning-balances/")({
 })
 
 function BeginningBalancesPage() {
-  const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: leaveTypes = [] } = useAdminLeaveTypes()
   const tanstackHook = useDataTable()
   const [leaveYearFilter, setLeaveYearFilter] = React.useState("all")
   const [leaveTypeFilter, setLeaveTypeFilter] = React.useState("all")

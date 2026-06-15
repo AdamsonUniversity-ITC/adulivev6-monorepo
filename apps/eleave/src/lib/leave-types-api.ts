@@ -16,3 +16,11 @@ export async function fetchLeaveTypes(): Promise<LeaveTypeRecord[]> {
 
   return response.data.data
 }
+
+export async function fetchAdminLeaveTypes(): Promise<LeaveTypeRecord[]> {
+  const response = await hrmdoSvc.get<{ data: LeaveTypeRecord[] }>(
+    "v1/leave-types/admin",
+  )
+
+  return response.data.data
+}

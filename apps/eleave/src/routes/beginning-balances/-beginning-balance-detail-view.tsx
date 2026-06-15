@@ -41,7 +41,7 @@ import * as React from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useBeginningBalances } from "@/hooks/use-beginning-balances"
-import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useAdminLeaveTypes } from "@/hooks/use-admin-leave-types"
 import {
   deleteBeginningBalance,
   type BeginningBalanceRecord,
@@ -70,7 +70,7 @@ export function BeginningBalanceDetailView({
   employeeNo,
 }: BeginningBalanceDetailViewProps) {
   const queryClient = useQueryClient()
-  const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: leaveTypes = [] } = useAdminLeaveTypes()
   const [leaveYearFilter, setLeaveYearFilter] = React.useState("all")
   const [leaveTypeFilter, setLeaveTypeFilter] = React.useState("all")
   const [formOpen, setFormOpen] = React.useState(false)
