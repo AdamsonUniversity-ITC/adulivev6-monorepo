@@ -24,6 +24,7 @@ import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import {
   canSplitLeaveDayDecision,
   hasHrApprovalDayDecisionChanged,
+  hasPendingHrDayDecision,
   mapChangedHrApprovalDayDecisionToPayloadItem,
   mapLeaveApplicationsToHrApprovalRows,
   type HrApprovalDayDecision,
@@ -346,6 +347,11 @@ export const ViewHrApprovalSheet = ({
         applicationDate,
       ]),
     )
+
+    if (dailyDraft.some(hasPendingHrDayDecision)) {
+      return "Set approval status for all leave days before applying changes."
+    }
+
     const hasDecision = dailyDraft.some(hasSubmittingDecision)
 
     if (!hasDecision) {
@@ -417,9 +423,17 @@ export const ViewHrApprovalSheet = ({
   const requestApplyDailyChanges = () => {
     if (!activeRequest) return
     setActionError(null)
+
+    const validationError = validateDraft()
+    if (validationError) {
+      setActionError(validationError)
+      return
+    }
+
     setIsApplyConfirmOpen(true)
   }
 
+  const hasPendingDays = dailyDraft.some(hasPendingHrDayDecision)
   const draftStatus = resolveOverallStatusFromHrDayStatuses(resolveDraftStatuses(dailyDraft))
 
   return (
@@ -527,11 +541,17 @@ export const ViewHrApprovalSheet = ({
                   type="button"
                   size="sm"
                   onClick={requestApplyDailyChanges}
-                  disabled={hrApprovalMutation.isPending}
+                  disabled={hasPendingDays || hrApprovalMutation.isPending}
                 >
                   Apply Daily Changes
                 </Button>
               </div>
+
+              {hasPendingDays ? (
+                <p className="text-muted-foreground mb-3 text-sm">
+                  All days must have an approval status before applying.
+                </p>
+              ) : null}
 
               {actionError ? (
                 <p className="text-destructive mb-3 text-sm">{actionError}</p>
