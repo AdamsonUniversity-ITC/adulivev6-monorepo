@@ -40,9 +40,10 @@ import { OtherInformationSection } from "@/components/shared/other-information-s
 import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { useLeaveBalances } from "@/hooks/use-leave-balances"
 import {
-  canUseVlForLeaveDate,
-  vlCutoffMonthName,
-} from "@/lib/vl-cutoff"
+  canApproveVlWithPay,
+  getVlCredits,
+  requiredPortionWeight,
+} from "@/lib/hr-approval-vl-eligibility"
 
 import {
   Sheet,
@@ -91,7 +92,6 @@ type ViewHrApprovalSheetProps = {
   onActiveRequestChange: (row: HrApprovalRow | null) => void
   leaveTypeNames: Map<number, string>
   leaveTypes: LeaveTypeRecord[]
-  vlCutoffMonth: number
 }
 
 function ApprovalStatusSelect({
@@ -177,7 +177,6 @@ export const ViewHrApprovalSheet = ({
   onActiveRequestChange,
   leaveTypeNames,
   leaveTypes,
-  vlCutoffMonth,
 }: ViewHrApprovalSheetProps) => {
   const queryClient = useQueryClient()
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = React.useState(false)
@@ -199,6 +198,8 @@ export const ViewHrApprovalSheet = ({
       })),
     [leaveBalances],
   )
+
+  const vlCredits = React.useMemo(() => getVlCredits(leaveBalances), [leaveBalances])
 
   React.useEffect(() => {
     if (!open) {
@@ -563,13 +564,6 @@ export const ViewHrApprovalSheet = ({
                     {dailyDraft.map((entry) => {
                       const canSplit = canSplitLeaveDayDecision(entry)
                       const rowSpan = entry.isSplit ? 2 : 1
-                      const computationYear = activeRequest.year
-                      const vlUnavailableForDate = !canUseVlForLeaveDate(
-                        entry.actualDate,
-                        computationYear,
-                        vlCutoffMonth,
-                      )
-                      const vlCutoffLabel = vlCutoffMonthName(vlCutoffMonth)
 
                       const renderPortionControls = (
                         portionField: "approvedDayPortion1" | "approvedDayPortion2",
@@ -624,7 +618,11 @@ export const ViewHrApprovalSheet = ({
                           portion === 1 ? entry.leaveTypeId1 : entry.leaveTypeId2
                         const status = portion === 1 ? entry.status1 : entry.status2
                         const disableVl =
-                          status === "approved_with_pay" && vlUnavailableForDate
+                          status === "approved_with_pay" &&
+                          !canApproveVlWithPay(
+                            vlCredits,
+                            requiredPortionWeight(entry, portion),
+                          )
 
                         return (
                           <div className="space-y-1">
@@ -709,12 +707,19 @@ export const ViewHrApprovalSheet = ({
                               className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
                             >
                               {entry.actualDate}
-                              {vlUnavailableForDate &&
-                              (entry.status1 === "approved_with_pay" ||
-                                entry.status2 === "approved_with_pay") ? (
+                              {(entry.status1 === "approved_with_pay" &&
+                                !canApproveVlWithPay(
+                                  vlCredits,
+                                  requiredPortionWeight(entry, 1),
+                                )) ||
+                              (entry.status2 === "approved_with_pay" &&
+                                entry.isSplit &&
+                                !canApproveVlWithPay(
+                                  vlCredits,
+                                  requiredPortionWeight(entry, 2),
+                                )) ? (
                                 <p className="mt-1 text-xs font-normal text-amber-700">
-                                  VL with pay is only available from {vlCutoffLabel}{" "}
-                                  onward.
+                                  Insufficient VL credits.
                                 </p>
                               ) : null}
                             </td>
