@@ -1,6 +1,10 @@
 import { Badge } from "@repo/ui/components/badge"
 import type { ReactNode } from "react"
 
+import {
+  getHrApprovalStatusMeta,
+  mapApiHrStatusToSlug,
+} from "@/lib/hr-approval-status"
 import { cn } from "@/lib/utils"
 
 import {
@@ -78,4 +82,20 @@ export function CancelStatusBadge({ status }: { status: LeaveCancelStatus }) {
         </Badge>
       )
   }
+}
+
+export function HrApprovalStatusBadge({
+  status,
+  className,
+}: {
+  status: string | null | undefined
+  className?: string
+}) {
+  const meta = getHrApprovalStatusMeta(mapApiHrStatusToSlug(status))
+
+  return (
+    <span className={cn(meta.className, className)}>
+      {meta.label}
+    </span>
+  )
 }
