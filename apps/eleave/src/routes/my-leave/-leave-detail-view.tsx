@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useLeaveApplication } from "@/hooks/use-leave-application"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
 import { mapApiDayPortion, mapDayPortionToApiLabel } from "@/lib/day-portion"
+import type { LeaveApplicationRecord } from "@/lib/leave-applications-api"
 import { resolveHrApprovalSummary } from "@/lib/resolve-hr-approval-summary"
 import { resolveLeaveDaysFromRecord } from "@/lib/resolve-leave-days-from-record"
 import { cn } from "@/lib/utils"
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils"
 import { LeaveApprovalStep } from "./-leave-approval-step"
 import {
   CancelStatusBadge,
+  HrApprovalStatusBadge,
   OverallStatusBadge,
   PendingStatusBadge,
 } from "./-leave-status-badge"
@@ -93,6 +95,119 @@ function PortionBadge({ portion }: { portion: DayPortion }) {
     >
       {getDayPortionLabel(portion)}
     </span>
+  )
+}
+
+type ScheduleDateRow = NonNullable<
+  LeaveApplicationRecord["leave_application_dates"]
+>[number]
+
+function resolveLeaveTypeName(
+  leaveTypeId: number | null | undefined,
+  leaveTypeNames: Map<number, string>,
+  fallback: string,
+): string {
+  if (leaveTypeId == null) {
+    return fallback
+  }
+
+  return leaveTypeNames.get(leaveTypeId) ?? fallback
+}
+
+function LeaveTypeChip({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-medium text-foreground/90">
+      {name}
+    </span>
+  )
+}
+
+function SchedulePortionLine({
+  portionLabel,
+  portion,
+  leaveTypeName,
+  hrStatus,
+}: {
+  portionLabel?: string
+  portion: DayPortion
+  leaveTypeName: string
+  hrStatus: string | null
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {portionLabel ? (
+        <span className="text-muted-foreground w-16 shrink-0 text-xs font-medium">
+          {portionLabel}
+        </span>
+      ) : null}
+      <PortionBadge portion={portion} />
+      <LeaveTypeChip name={leaveTypeName} />
+      <HrApprovalStatusBadge status={hrStatus} />
+    </div>
+  )
+}
+
+function ScheduleDayRow({
+  day,
+  index,
+  leaveTypeNames,
+  fallbackLeaveTypeName,
+}: {
+  day: ScheduleDateRow
+  index: number
+  leaveTypeNames: Map<number, string>
+  fallbackLeaveTypeName: string
+}) {
+  const isSplit =
+    day.approved_day_portion_2 != null &&
+    day.approved_day_portion_2.trim() !== ""
+
+  return (
+    <div className="relative flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
+      <div className="absolute top-3 bottom-3 left-0 w-0.5 rounded-full bg-amber-400/80" />
+      <div className="flex items-center gap-3 pl-2">
+        <span className="bg-background text-muted-foreground flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium">
+          {index + 1}
+        </span>
+        <span className="text-sm font-medium">{formatLeaveDay(day.leave_date)}</span>
+      </div>
+      <div className="flex flex-col gap-1.5 pl-2 sm:items-end sm:pl-0">
+        {isSplit ? (
+          <>
+            <SchedulePortionLine
+              portionLabel="Portion 1"
+              portion={mapApiDayPortion(day.approved_day_portion_1)}
+              leaveTypeName={resolveLeaveTypeName(
+                day.approved_leave_type_id_1,
+                leaveTypeNames,
+                fallbackLeaveTypeName,
+              )}
+              hrStatus={day.hr_status_1}
+            />
+            <SchedulePortionLine
+              portionLabel="Portion 2"
+              portion={mapApiDayPortion(day.approved_day_portion_2!)}
+              leaveTypeName={resolveLeaveTypeName(
+                day.approved_leave_type_id_2,
+                leaveTypeNames,
+                fallbackLeaveTypeName,
+              )}
+              hrStatus={day.hr_status_2}
+            />
+          </>
+        ) : (
+          <SchedulePortionLine
+            portion={mapApiDayPortion(day.approved_day_portion_1)}
+            leaveTypeName={resolveLeaveTypeName(
+              day.approved_leave_type_id_1,
+              leaveTypeNames,
+              fallbackLeaveTypeName,
+            )}
+            hrStatus={day.hr_status_1}
+          />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -212,6 +327,9 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
   const leaveTypeName =
     leaveTypes.find((type) => type.id === application.leave_type_id)?.leave_name ??
     "Unknown leave type"
+  const leaveTypeNames = new Map(
+    leaveTypes.map((type) => [type.id, type.leave_name] as const),
+  )
   const overallStatus = coerceOverallStatus(application.overall_status)
   const cancelStatus = coerceCancelStatus(application.cancel_status)
   const leaveDays = resolveLeaveDaysFromRecord(application)
@@ -226,13 +344,21 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
           day.approved_day_portion_2 != null,
       ).length
     : leaveDays.filter((day) => day.day_portion !== "wholeday").length
-  const scheduleDates =
+  const scheduleDates: ScheduleDateRow[] =
     applicationDates.length > 0
       ? applicationDates
       : leaveDays.map((day) => ({
+          id: 0,
           leave_date: day.date,
           approved_day_portion_1: mapDayPortionToApiLabel(day.day_portion),
-          approved_day_portion_2: null as string | null,
+          approved_day_portion_2: null,
+          approved_leave_type_id_1: application.leave_type_id,
+          approved_leave_type_id_2: null,
+          hr_status_1: "Pending",
+          hr_status_2: null,
+          hr_remarks: null,
+          hr_approved_by: null,
+          hr_approved_date: null,
         }))
   // const canEdit = overallStatus !== "approved"
   const canEdit = false
@@ -319,28 +445,15 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
             icon={CalendarDays}
             title={`Leave schedule (${dayCount} day${dayCount === 1 ? "" : "s"})`}
           >
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            <div className="space-y-2 pr-1">
               {scheduleDates.map((day, index) => (
-                <div
+                <ScheduleDayRow
                   key={day.leave_date}
-                  className="relative flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="absolute top-3 bottom-3 left-0 w-0.5 rounded-full bg-amber-400/80" />
-                  <div className="flex items-center gap-3 pl-2">
-                    <span className="bg-background text-muted-foreground flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    <span className="text-sm font-medium">
-                      {formatLeaveDay(day.leave_date)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 pl-2 sm:pl-0">
-                    <PortionBadge portion={mapApiDayPortion(day.approved_day_portion_1)} />
-                    {day.approved_day_portion_2 ? (
-                      <PortionBadge portion={mapApiDayPortion(day.approved_day_portion_2)} />
-                    ) : null}
-                  </div>
-                </div>
+                  day={day}
+                  index={index}
+                  leaveTypeNames={leaveTypeNames}
+                  fallbackLeaveTypeName={leaveTypeName}
+                />
               ))}
             </div>
           </DetailCard>

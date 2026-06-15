@@ -43,6 +43,7 @@ import {
   canApproveVlWithPay,
   getVlCredits,
   requiredPortionWeight,
+  shouldWarnInsufficientVlCredits,
 } from "@/lib/hr-approval-vl-eligibility"
 
 import {
@@ -707,14 +708,18 @@ export const ViewHrApprovalSheet = ({
                               className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
                             >
                               {entry.actualDate}
-                              {(entry.status1 === "approved_with_pay" &&
-                                !canApproveVlWithPay(
-                                  vlCredits,
-                                  requiredPortionWeight(entry, 1),
-                                )) ||
-                              (entry.status2 === "approved_with_pay" &&
-                                entry.isSplit &&
-                                !canApproveVlWithPay(
+                              {shouldWarnInsufficientVlCredits(
+                                entry.status1,
+                                entry.leaveTypeId1,
+                                leaveTypes,
+                                vlCredits,
+                                requiredPortionWeight(entry, 1),
+                              ) ||
+                              (entry.isSplit &&
+                                shouldWarnInsufficientVlCredits(
+                                  entry.status2,
+                                  entry.leaveTypeId2,
+                                  leaveTypes,
                                   vlCredits,
                                   requiredPortionWeight(entry, 2),
                                 )) ? (
