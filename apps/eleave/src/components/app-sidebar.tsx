@@ -3,6 +3,7 @@ import {
   BarChart3,
   BookOpen,
   CalendarDays,
+  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   FolderOpen,
@@ -46,6 +47,7 @@ import {
   canAccessHrApproval,
 } from "@/lib/eleave-access";
 import { resolveDisplayName, resolveEmployeeNo } from "@/lib/fetch-auth-user";
+import { resolveHrmdoPortalUrl } from "@/lib/resolve-adu-live-url";
 
 const mainNavItems = [
   { title: "Guidelines", url: "/guidelines", icon: BookOpen },
@@ -111,6 +113,7 @@ export function AppSidebar() {
     (item) => item.url !== "/beginning-balances" || canViewAdminFeatures,
   );
   const canViewReports = canAccessAdminFeatures(authUser);
+  const hrmdoPortalUrl = resolveHrmdoPortalUrl();
 
   useEffect(() => {
     if (pathname.startsWith("/reports")) {
@@ -245,6 +248,25 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4 pb-6 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pb-4">
         <SidebarMenu>
+          {hrmdoPortalUrl ? (
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Back to AdU Live"
+                  className="h-10 rounded-full px-4 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
+                >
+                  <a href={hrmdoPortalUrl}>
+                    <ChevronLeft className="size-4 group-data-[collapsible=icon]:mr-0" />
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Back to HRMDO Portal
+                    </span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarSeparator className="my-2 group-data-[collapsible=icon]:hidden" />
+            </>
+          ) : null}
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
