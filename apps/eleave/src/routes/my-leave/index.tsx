@@ -130,7 +130,7 @@ function MyLeavePage() {
       <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_min(100%,20rem)]">
         <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
           <CardHeader className="border-b bg-muted/20 px-6 py-5">
-            <CardTitle className="text-lg">Your leave requests</CardTitle>
+            <CardTitle className="text-lg">Your Leave Requests</CardTitle>
             <CardDescription>
               Search, sort, and open a request to view or edit details.
             </CardDescription>
