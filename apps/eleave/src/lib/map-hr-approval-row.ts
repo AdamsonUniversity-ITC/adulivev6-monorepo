@@ -96,6 +96,18 @@ export function canSplitLeaveDayDecision(entry: Pick<
   return entry.isSplit || isWholeDayPortion(entry.requestedPortion)
 }
 
+export function hasPendingHrDayDecision(entry: HrApprovalDayDecision): boolean {
+  if (entry.status1 === "pending") {
+    return true
+  }
+
+  if (entry.isSplit) {
+    return entry.status2 == null || entry.status2 === "pending"
+  }
+
+  return false
+}
+
 export function mapLeaveApplicationToHrApprovalRow(
   record: LeaveApplicationRecord,
   leaveTypeNames: Map<number, string>,
