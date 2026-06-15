@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@repo/axios-config": "workspace:^",
+    "@repo/echo-config": "workspace:*",
     "@repo/tailwind-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-router": "^1.157.14",
