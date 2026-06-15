@@ -23,7 +23,7 @@ export const Route = createFileRoute("/hr-approval/")({
 
 function HrApprovalPage() {
   const { data: authUser } = useAuthUser()
-  const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: leaveTypes = [], vlCutoffMonth } = useLeaveTypes()
   const {
     data: response,
     isLoading,
@@ -247,6 +247,7 @@ function HrApprovalPage() {
         onActiveRequestChange={setActiveRequest}
         leaveTypeNames={leaveTypeNames}
         leaveTypes={leaveTypes}
+        vlCutoffMonth={vlCutoffMonth}
       />
     </>
   )

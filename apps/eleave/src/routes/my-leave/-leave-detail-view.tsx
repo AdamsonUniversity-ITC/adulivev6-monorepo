@@ -234,7 +234,8 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
           approved_day_portion_1: mapDayPortionToApiLabel(day.day_portion),
           approved_day_portion_2: null as string | null,
         }))
-  const canEdit = overallStatus !== "approved"
+  // const canEdit = overallStatus !== "approved"
+  const canEdit = false
   const hrApproval = resolveHrApprovalSummary(application)
   const supervisor = application.employee_teacher?.supervisor ?? null
   const manager = application.employee_teacher?.manager ?? null

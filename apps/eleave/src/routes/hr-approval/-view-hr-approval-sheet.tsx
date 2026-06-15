@@ -39,6 +39,10 @@ import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-wo
 import { OtherInformationSection } from "@/components/shared/other-information-section"
 import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { useLeaveBalances } from "@/hooks/use-leave-balances"
+import {
+  canUseVlForLeaveDate,
+  vlCutoffMonthName,
+} from "@/lib/vl-cutoff"
 
 import {
   Sheet,
@@ -48,8 +52,14 @@ import {
   SheetTitle,
 } from "../../components/ui/sheet.js"
 
-const selectClassName =
-  "h-9 w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+const leaveTypeSelectClassName =
+  "h-9 w-40 max-w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+
+const approvalStatusSelectClassName =
+  "h-9 w-44 max-w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+
+const dayPortionSelectClassName =
+  "h-9 w-28 max-w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
 
 function summarizeLeaveType(decisions: HrApprovalDayDecision[]): string {
   const labels = decisions.flatMap((entry) => {
@@ -81,6 +91,7 @@ type ViewHrApprovalSheetProps = {
   onActiveRequestChange: (row: HrApprovalRow | null) => void
   leaveTypeNames: Map<number, string>
   leaveTypes: LeaveTypeRecord[]
+  vlCutoffMonth: number
 }
 
 function ApprovalStatusSelect({
@@ -103,7 +114,7 @@ function ApprovalStatusSelect({
             : (nextValue as HrApprovalStatus),
         )
       }}
-      className={selectClassName}
+      className={approvalStatusSelectClassName}
     >
       {allowEmpty ? (
         <option value="" disabled>
@@ -124,11 +135,13 @@ function LeaveTypeSelect({
   leaveTypes,
   onChange,
   allowEmpty = false,
+  isLeaveTypeDisabled,
 }: {
   value: number | null
   leaveTypes: LeaveTypeRecord[]
   onChange: (value: number | null) => void
   allowEmpty?: boolean
+  isLeaveTypeDisabled?: (leaveType: LeaveTypeRecord) => boolean
 }) {
   return (
     <select
@@ -137,7 +150,7 @@ function LeaveTypeSelect({
         const nextValue = event.target.value
         onChange(nextValue ? Number(nextValue) : null)
       }}
-      className={selectClassName}
+      className={leaveTypeSelectClassName}
     >
       {allowEmpty ? (
         <option value="" disabled>
@@ -145,7 +158,11 @@ function LeaveTypeSelect({
         </option>
       ) : null}
       {leaveTypes.map((option) => (
-        <option key={option.id} value={option.id}>
+        <option
+          key={option.id}
+          value={option.id}
+          disabled={isLeaveTypeDisabled?.(option) ?? false}
+        >
           {option.leave_name}
         </option>
       ))}
@@ -160,6 +177,7 @@ export const ViewHrApprovalSheet = ({
   onActiveRequestChange,
   leaveTypeNames,
   leaveTypes,
+  vlCutoffMonth,
 }: ViewHrApprovalSheetProps) => {
   const queryClient = useQueryClient()
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = React.useState(false)
@@ -174,6 +192,7 @@ export const ViewHrApprovalSheet = ({
   const leaveBalanceRows = React.useMemo(
     () =>
       leaveBalances.map((balance) => ({
+        leave_code: balance.leave_code,
         leave_type: balance.leave_type,
         credits: balance.credits,
         pending_filed_leave: balance.pending_filed_leave,
@@ -526,13 +545,13 @@ export const ViewHrApprovalSheet = ({
                       <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Split
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="w-36 border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Day Portion
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="w-40 border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Leave Type
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="w-44 border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Approval Status
                       </th>
                       <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -544,6 +563,13 @@ export const ViewHrApprovalSheet = ({
                     {dailyDraft.map((entry) => {
                       const canSplit = canSplitLeaveDayDecision(entry)
                       const rowSpan = entry.isSplit ? 2 : 1
+                      const computationYear = activeRequest.year
+                      const vlUnavailableForDate = !canUseVlForLeaveDate(
+                        entry.actualDate,
+                        computationYear,
+                        vlCutoffMonth,
+                      )
+                      const vlCutoffLabel = vlCutoffMonthName(vlCutoffMonth)
 
                       const renderPortionControls = (
                         portionField: "approvedDayPortion1" | "approvedDayPortion2",
@@ -568,7 +594,7 @@ export const ViewHrApprovalSheet = ({
                                         : (nextPortion as DayPortion),
                                   }))
                                 }}
-                                className={selectClassName}
+                                className={dayPortionSelectClassName}
                               >
                                 <option value="" disabled>
                                   Select portion
@@ -596,6 +622,9 @@ export const ViewHrApprovalSheet = ({
                       ) => {
                         const leaveTypeId =
                           portion === 1 ? entry.leaveTypeId1 : entry.leaveTypeId2
+                        const status = portion === 1 ? entry.status1 : entry.status2
+                        const disableVl =
+                          status === "approved_with_pay" && vlUnavailableForDate
 
                         return (
                           <div className="space-y-1">
@@ -608,6 +637,9 @@ export const ViewHrApprovalSheet = ({
                               value={leaveTypeId}
                               leaveTypes={leaveTypes}
                               allowEmpty={entry.isSplit && portion === 2}
+                              isLeaveTypeDisabled={(leaveType) =>
+                                leaveType.leave_code === "vl" && disableVl
+                              }
                               onChange={(nextValue) => {
                                 updateEntry(entry.dayNumber, (current) => {
                                   if (portion === 1) {
@@ -677,6 +709,14 @@ export const ViewHrApprovalSheet = ({
                               className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
                             >
                               {entry.actualDate}
+                              {vlUnavailableForDate &&
+                              (entry.status1 === "approved_with_pay" ||
+                                entry.status2 === "approved_with_pay") ? (
+                                <p className="mt-1 text-xs font-normal text-amber-700">
+                                  VL with pay is only available from {vlCutoffLabel}{" "}
+                                  onward.
+                                </p>
+                              ) : null}
                             </td>
                             <td
                               rowSpan={rowSpan}
@@ -698,13 +738,13 @@ export const ViewHrApprovalSheet = ({
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}
                             </td>
-                            <td className="border-b border-slate-200 px-3 py-3">
+                            <td className="w-36 border-b border-slate-200 px-3 py-3">
                               {renderPortionControls("approvedDayPortion1", "Portion 1")}
                             </td>
-                            <td className="border-b border-slate-200 px-3 py-3">
+                            <td className="w-40 border-b border-slate-200 px-3 py-3">
                               {renderLeaveTypeControls(1, "Portion 1")}
                             </td>
-                            <td className="border-b border-slate-200 px-3 py-3">
+                            <td className="w-44 border-b border-slate-200 px-3 py-3">
                               {renderStatusControls(1, "Portion 1")}
                             </td>
                             <td
@@ -728,13 +768,13 @@ export const ViewHrApprovalSheet = ({
 
                           {entry.isSplit ? (
                             <tr className="align-top">
-                              <td className="border-b border-slate-200 px-3 py-3">
+                              <td className="w-36 border-b border-slate-200 px-3 py-3">
                                 {renderPortionControls("approvedDayPortion2", "Portion 2")}
                               </td>
-                              <td className="border-b border-slate-200 px-3 py-3">
+                              <td className="w-40 border-b border-slate-200 px-3 py-3">
                                 {renderLeaveTypeControls(2, "Portion 2")}
                               </td>
-                              <td className="border-b border-slate-200 px-3 py-3">
+                              <td className="w-44 border-b border-slate-200 px-3 py-3">
                                 {renderStatusControls(2, "Portion 2")}
                               </td>
                             </tr>
