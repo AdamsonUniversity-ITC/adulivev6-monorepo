@@ -1,0 +1,128 @@
+[     334ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:20102
+[     457ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://auth-api.localhost.test:8002/api/user:0
+[     503ms] [ERROR] %o
+
+%s
+
+%s
+ AxiosError: Request failed with status code 401
+    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1319:7)
+    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1682:7)
+    at Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2328:41)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781573583015:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[     503ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[     504ms] [WARNING] Warning: Request failed with status code 401 @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[   79425ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://auth-api.localhost.test:8002/api/user:0
+[   79461ms] [ERROR] %o
+
+%s
+
+%s
+ AxiosError: Request failed with status code 401
+    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1319:7)
+    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1682:7)
+    at Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2328:41)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781573753277:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[   79461ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[   79462ms] [WARNING] Warning: Request failed with status code 401 @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5549940ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://auth-api.localhost.test:8002/api/user:0
+[ 5549965ms] [ERROR] %o
+
+%s
+
+%s
+ ReferenceError: buildLoginUrl is not defined
+    at http://localhost:5173/@fs/home/gabriel/projects/adulivev6-monorepo/packages/axios-config/auth-service.ts?t=1781579222944:11:25
+    at async Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2324:14)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579222944:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5549972ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5549973ms] [WARNING] Warning: buildLoginUrl is not defined @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5552031ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://auth-api.localhost.test:8002/api/user:0
+[ 5552064ms] [ERROR] %o
+
+%s
+
+%s
+ ReferenceError: buildLoginUrl is not defined
+    at http://localhost:5173/@fs/home/gabriel/projects/adulivev6-monorepo/packages/axios-config/auth-service.ts?t=1781579222944:11:25
+    at async Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2324:14)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579225952:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5552065ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5552065ms] [WARNING] Warning: buildLoginUrl is not defined @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5552090ms] [ERROR] %o
+
+%s
+
+%s
+ ReferenceError: buildLoginUrl is not defined
+    at http://localhost:5173/@fs/home/gabriel/projects/adulivev6-monorepo/packages/axios-config/auth-service.ts?t=1781579222944:11:25
+    at async Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2324:14)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579225952:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5552091ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5552091ms] [WARNING] Warning: buildLoginUrl is not defined @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5563632ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://auth-api.localhost.test:8002/api/user:0
+[ 5563653ms] [ERROR] %o
+
+%s
+
+%s
+ ReferenceError: buildLoginUrl is not defined
+    at http://localhost:5173/@fs/home/gabriel/projects/adulivev6-monorepo/packages/axios-config/auth-service.ts?t=1781579222944:11:25
+    at async Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2324:14)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579237633:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5563654ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5563654ms] [WARNING] Warning: buildLoginUrl is not defined @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5563672ms] [ERROR] %o
+
+%s
+
+%s
+ ReferenceError: buildLoginUrl is not defined
+    at http://localhost:5173/@fs/home/gabriel/projects/adulivev6-monorepo/packages/axios-config/auth-service.ts?t=1781579222944:11:25
+    at async Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2324:14)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579237633:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5563673ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5563673ms] [WARNING] Warning: buildLoginUrl is not defined @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5567525ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://auth-api.localhost.test:8002/api/user:0
+[ 5567569ms] [ERROR] %o
+
+%s
+
+%s
+ AxiosError: Request failed with status code 401
+    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1319:7)
+    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1682:7)
+    at Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2328:41)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579241475:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5567569ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5567569ms] [WARNING] Warning: Request failed with status code 401 @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
+[ 5567589ms] [ERROR] %o
+
+%s
+
+%s
+ AxiosError: Request failed with status code 401
+    at settle (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1319:7)
+    at XMLHttpRequest.onloadend (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:1682:7)
+    at Axios.request (http://localhost:5173/node_modules/.vite/deps/axios.js?v=14ebac92:2328:41)
+    at async Object.beforeLoad (http://localhost:5173/src/routes/applications.$applicationId.tsx?t=1781579241475:13:26)
+    at async loadMatches (http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2310:34)
+    at async http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:2955:13 The above error occurred in the <MatchInnerImpl> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=14ebac92:7000
+[ 5567589ms] [WARNING] Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute! @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6073
+[ 5567590ms] [WARNING] Warning: Request failed with status code 401 @ http://localhost:5173/node_modules/.vite/deps/chunk-UIXEE26Q.js?v=14ebac92:6074
