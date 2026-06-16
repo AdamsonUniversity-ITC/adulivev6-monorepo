@@ -1,5 +1,4 @@
 import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
 import { AppSidebar } from '@/components/app-sidebar'
 import {
@@ -8,8 +7,10 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ensureAuthenticated } from '@/lib/ensure-authenticated'
 
 export const Route = createRootRoute({
+  beforeLoad: () => ensureAuthenticated(),
   component: RootComponent,
 })
 
