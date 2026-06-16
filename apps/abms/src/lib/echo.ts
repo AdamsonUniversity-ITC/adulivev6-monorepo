@@ -1,8 +1,6 @@
 import { createEcho } from '@repo/echo-config';
 import { financeSvc } from '@repo/axios-config/finance-service';
 
-
-console.log('financeSvc baseURL:', (financeSvc as any).defaults.baseURL);
 const echo = createEcho({
     key: import.meta.env.VITE_REVERB_APP_KEY as string,
     wsHost: import.meta.env.VITE_REVERB_HOST as string,

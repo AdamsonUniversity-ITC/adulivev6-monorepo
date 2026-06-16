@@ -2148,6 +2148,7 @@ function AddItemModal({
                 description: form.itemDescription,
                 unit_cost: parseFloat(form.unitCost),
                 quantity: parseInt(form.quantity, 10),
+                unit_of_measurement: form.unitOfMeasurement,
                 total_cost: totalAmount,
             });
 
@@ -2158,7 +2159,7 @@ function AddItemModal({
                 itemDescription: saved.description,
                 unitCost: String(saved.unit_cost),
                 quantity: String(saved.quantity),
-                unitOfMeasurement: form.unitOfMeasurement,
+                unitOfMeasurement: saved.unit_of_measurement ?? form.unitOfMeasurement,
                 totalCost: parseFloat(saved.total_cost),
             };
             onSave(newItem);
@@ -2905,10 +2906,10 @@ function RSFormModal({
                             'Chat / Message',
                             () => setShowChat(p => !p),
                             {
-                                bg: isDark ? 'rgba(251,191,36,0.12)' : 'rgba(253,230,138,0.35)',
-                                border: isDark ? 'rgba(251,191,36,0.38)' : 'rgba(202,138,4,0.35)',
-                                text: isDark ? t.cellAmber : '#92400e',
-                                hover: isDark ? 'rgba(251,191,36,0.22)' : 'rgba(253,230,138,0.60)',
+                                bg: isDark ? 'rgba(147,197,253,0.10)' : 'rgba(219,234,254,0.55)',
+                                border: isDark ? 'rgba(147,197,253,0.35)' : 'rgba(96,165,250,0.45)',
+                                text: isDark ? '#93c5fd' : '#2563eb',
+                                hover: isDark ? 'rgba(147,197,253,0.20)' : 'rgba(191,219,254,0.80)',
                             },
                         )}
                         <div style={{ flex: 1 }} />
@@ -2935,9 +2936,9 @@ function RSFormModal({
                                     { label: '#', w: '36px', align: 'center' },
                                     { label: 'Account No.', w: '120px', align: 'left' },
                                     { label: 'Item Description', w: 'auto', align: 'left' },
-                                    { label: 'Unit', w: '80px', align: 'left' },
-                                    { label: 'Unit Cost', w: '110px', align: 'right' },
+                                    { label: 'Unit Cost', w: '110px', align: 'left' },
                                     { label: 'Qty', w: '70px', align: 'right' },
+                                    { label: 'Unit', w: '80px', align: 'right' },
                                     { label: 'Total Cost', w: '120px', align: 'right' },
                                     { label: '', w: '38px', align: 'center' },
                                 ].map((col, i, arr) => (
@@ -3000,17 +3001,17 @@ function RSFormModal({
                                     <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
                                         {item.itemDescription || <span style={{ color: t.cellMuted, fontStyle: 'italic' }}>—</span>}
                                     </td>
-                                    {/* Unit of Measurement */}
-                                    <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap' }}>
-                                        {item.unitOfMeasurement || '—'}
-                                    </td>
                                     {/* Unit Cost */}
-                                    <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                                    <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                                         ₱ {fmtCurrency(parseFloat(item.unitCost) || 0)}
                                     </td>
                                     {/* Quantity */}
                                     <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace" }}>
                                         {item.quantity || '0'}
+                                    </td>
+                                    {/* Unit of Measurement */}
+                                    <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                        {item.unitOfMeasurement || '—'}
                                     </td>
                                     {/* Total Cost */}
                                     <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellGreen, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
@@ -3867,9 +3868,9 @@ function RSViewModal({
                                             { label: '#', w: '36px', align: 'center' },
                                             { label: 'Account No.', w: '120px', align: 'left' },
                                             { label: 'Item Description', w: 'auto', align: 'left' },
-                                            { label: 'Unit', w: '80px', align: 'left' },
-                                            { label: 'Unit Cost', w: '110px', align: 'right' },
+                                            { label: 'Unit Cost', w: '110px', align: 'left' },
                                             { label: 'Qty', w: '70px', align: 'right' },
+                                            { label: 'UOM', w: '80px', align: 'right' },
                                             { label: 'Total Cost', w: '120px', align: 'right' },
                                             ...(canEdit ? [{ label: '', w: '38px', align: 'center' }] : []),
                                         ].map((col, i, arr) => (
@@ -3929,14 +3930,14 @@ function RSViewModal({
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
                                                 {item.itemDescription || <span style={{ color: t.cellMuted, fontStyle: 'italic' }}>—</span>}
                                             </td>
-                                            <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap' }}>
-                                                {item.unitOfMeasurement || '—'}
-                                            </td>
-                                            <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                                            <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                                                 ₱ {fmtCurrency(parseFloat(item.unitCost) || 0)}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace" }}>
                                                 {item.quantity || '0'}
+                                            </td>
+                                            <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                {item.unitOfMeasurement || '—'}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellGreen, textAlign: 'right', borderRight: canEdit ? `1px solid ${t.rowBorder}` : 'none', fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                                                 ₱ {fmtCurrency(item.totalCost)}
@@ -4005,14 +4006,31 @@ function RSViewModal({
                             display: 'flex', gap: 10, alignItems: 'flex-start',
                         }}
                     >
-                        <StickyNote style={{ width: 13, height: 13, color: t.cellMuted, flexShrink: 0, marginTop: 2 }} />
+                        <StickyNote style={{ width: 13, height: 13, color: t.cellMuted, flexShrink: 0, marginTop: 10 }} />
                         <div style={{ flex: 1 }}>
-                            <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
-                                Note
-                            </span>
-                            <p style={{ fontSize: 11, color: t.cellText, margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                                {header.note}
-                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, whiteSpace: 'nowrap' }}>
+                                    Note
+                                </span>
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        background: t.inputBg ?? t.cellBg,
+                                        border: `1px solid ${t.cardHeaderBorder}`,
+                                        borderRadius: 4,
+                                        padding: '4px 8px',
+                                        fontSize: 11,
+                                        color: t.cellText,
+                                        lineHeight: 1.6,
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                        cursor: 'default',
+                                        userSelect: 'text',
+                                    }}
+                                >
+                                    {header.note}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -4248,7 +4266,7 @@ function RSChatPanel({
                 userId: currentUser.id,
                 lastChatId: incomingMessage.id,
             })
-            .catch(() => {});
+            .catch(() => { });
         onNewMessage?.();
     }, [incomingMessage]);
 
@@ -4706,51 +4724,66 @@ function RSChatBadge({
     t: typeof T.dark;
     isDark: boolean;
 }) {
+    // Pale-blue palette (shared between active and idle states)
+    const paleBlue = {
+        idleBg: isDark ? 'rgba(147,197,253,0.10)' : 'rgba(219,234,254,0.55)',
+        idleBorder: isDark ? 'rgba(147,197,253,0.30)' : 'rgba(96,165,250,0.40)',
+        idleText: isDark ? '#93c5fd' : '#2563eb',
+        hoverBg: isDark ? 'rgba(147,197,253,0.20)' : 'rgba(191,219,254,0.80)',
+        hoverBorder: isDark ? 'rgba(147,197,253,0.50)' : 'rgba(59,130,246,0.55)',
+        activeBg: isDark ? 'rgba(59,130,246,0.28)' : 'rgba(191,219,254,0.95)',
+        activeBorder: isDark ? 'rgba(96,165,250,0.65)' : 'rgba(37,99,235,0.55)',
+        activeText: isDark ? '#60a5fa' : '#1d4ed8',
+    };
+
     return (
         <div style={{ position: 'relative', display: 'inline-flex' }}>
             <button
                 onClick={onClick}
                 title={active ? 'Close chat' : 'Open chat'}
                 style={{
-                    width: 32,
                     height: 32,
-                    borderRadius: 8,
-                    border: `1px solid ${active
-                        ? (isDark ? 'rgba(96,165,250,0.60)' : 'rgba(37,99,235,0.50)')
-                        : t.cardBorder}`,
-                    background: active
-                        ? (isDark ? 'rgba(37,99,235,0.28)' : 'rgba(219,234,254,0.80)')
-                        : 'transparent',
-                    color: active
-                        ? (isDark ? '#60a5fa' : '#1d4ed8')
-                        : t.cellMuted,
-                    display: 'flex',
+                    paddingLeft: 10,
+                    paddingRight: 12,
+                    borderRadius: 20,          // pill shape
+                    border: `1px solid ${active ? paleBlue.activeBorder : paleBlue.idleBorder}`,
+                    background: active ? paleBlue.activeBg : paleBlue.idleBg,
+                    color: active ? paleBlue.activeText : paleBlue.idleText,
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    gap: 5,
                     cursor: 'pointer',
-                    transition: 'all .12s ease',
+                    transition: 'all .15s ease',
                     flexShrink: 0,
+                    boxShadow: active
+                        ? (isDark
+                            ? '0 0 0 3px rgba(59,130,246,0.18), 0 2px 8px rgba(59,130,246,0.22)'
+                            : '0 0 0 3px rgba(37,99,235,0.12), 0 2px 8px rgba(37,99,235,0.14)')
+                        : 'none',
                 }}
                 onMouseEnter={e => {
                     if (!active) {
-                        (e.currentTarget as HTMLElement).style.background = isDark
-                            ? 'rgba(37,99,235,0.16)'
-                            : 'rgba(219,234,254,0.55)';
-                        (e.currentTarget as HTMLElement).style.borderColor = isDark
-                            ? 'rgba(99,155,255,0.40)'
-                            : 'rgba(37,99,235,0.30)';
-                        (e.currentTarget as HTMLElement).style.color = isDark ? '#60a5fa' : '#1d4ed8';
+                        (e.currentTarget as HTMLElement).style.background = paleBlue.hoverBg;
+                        (e.currentTarget as HTMLElement).style.borderColor = paleBlue.hoverBorder;
                     }
                 }}
                 onMouseLeave={e => {
                     if (!active) {
-                        (e.currentTarget as HTMLElement).style.background = 'transparent';
-                        (e.currentTarget as HTMLElement).style.borderColor = t.cardBorder;
-                        (e.currentTarget as HTMLElement).style.color = t.cellMuted;
+                        (e.currentTarget as HTMLElement).style.background = paleBlue.idleBg;
+                        (e.currentTarget as HTMLElement).style.borderColor = paleBlue.idleBorder;
                     }
                 }}
             >
-                <MessageSquare style={{ width: 14, height: 14 }} />
+                <MessageSquare style={{ width: 13, height: 13, flexShrink: 0 }} />
+                <span style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.01em',
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                }}>
+                    Chat
+                </span>
             </button>
 
             {/* Unread badge */}
