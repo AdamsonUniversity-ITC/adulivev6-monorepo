@@ -305,7 +305,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     1: "Select the start and end dates for your leave.",
     2: "Choose a leave type and set the day portion for each date.",
     3: "Provide the reason and your address while on leave.",
-    4: "Confirm everything looks correct before submitting.",
+    4: "Please ensure that everything is correct before submitting.",
   }
 
   return (
@@ -336,7 +336,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
             <CardContent className="space-y-5">
               <LeaveFormStepper currentStep={currentStep} />
               <div className="rounded-xl border border-amber-200/60 bg-amber-50/40 px-4 py-3">
-                <p className="text-sm leading-relaxed text-amber-950/90">
+                <p className="text-sm leading-relaxed text-amber-950/90 font-bold">
                   {stepDescription[currentStep]}
                 </p>
               </div>
