@@ -6,7 +6,7 @@ import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import {
     RefreshCw, FilePlus, Copy, Eye, Pencil, Trash2,
     ChevronDown, Search, ClipboardList, MoreHorizontal,
-    CheckCircle2, AlertCircle, Info, X,
+    CheckCircle2, AlertCircle, AlertTriangle, Info, X,
     Save, Printer, MessageSquare, Plus, StickyNote,
     Check, ArrowRight, User, Send
 } from 'lucide-react';
@@ -3448,6 +3448,9 @@ function RSViewModal({
     const [items, setItems] = useState<RSFormItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Surfaces add/delete-item failures inline (e.g. "balance not refunded")
+    // without wiping the whole modal body the way the full-page `error` does.
+    const [itemActionError, setItemActionError] = useState<string | null>(null);
     const [hoveredRow, setHoveredRow] = useState<number | null>(null);
     const [showAddItem, setShowAddItem] = useState(false);
     const [isResaving, setIsResaving] = useState(false);
@@ -3499,6 +3502,7 @@ function RSViewModal({
         setHeader(null);
         setItems([]);
         setError(null);
+        setItemActionError(null);
         setDirty(false);
         setShowAddItem(false);
         setPayeeDetail(null);
@@ -3525,26 +3529,45 @@ function RSViewModal({
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
 
     function handleAddItem(item: RSFormItem) {
+        setItemActionError(null);
         setItems(prev => {
             const next = [...prev, item];
             const newTotal = next.reduce((s, i) => s + i.totalCost, 0);
-            // fire-and-forget: persist the updated total immediately
+            // Sync total_amount immediately so the balance/budget checks stay
+            // accurate, but finalize:false keeps status/location untouched —
+            // the RS stays editable ('department') until the user explicitly
+            // clicks "Save Changes".
             if (header) {
                 financeSvc.patch(`/abms/budget-request-entry/${header.id}/save`, {
                     total_amount: newTotal,
-                }).then(() => onUpdated()).catch(() => { });
+                    finalize: false,
+                }).then(() => onUpdated()).catch(() => {
+                    setItemActionError('Item was added, but the total amount failed to sync. Try Save Changes once you are done editing.');
+                });
             }
             return next;
         });
-        setDirty(false);
+        // There is now an uncommitted change (the item itself is already
+        // persisted, but the RS hasn't been finalized/resubmitted yet) —
+        // surface that to the user via the Save Changes button.
+        setDirty(true);
     }
 
     async function handleDeleteItem(itemId: number) {
         if (items.length <= 1) return; // must keep at least 1 item
+        setItemActionError(null);
         try {
             await financeSvc.delete(`/abms/budget-request-entry/items/${itemId}`);
-        } catch {
-            // balance restoration failed — still remove locally
+        } catch (err: any) {
+            // The backend now refuses to delete when it can't refund the
+            // balance (no matching account/sub-account). Do NOT remove the
+            // item locally in that case — doing so would desync the UI from
+            // the database and make the un-refunded item disappear silently.
+            const serverMessage = err?.response?.data?.message;
+            setItemActionError(
+                serverMessage ?? 'Failed to remove item: the balance could not be refunded. The item was left in place.'
+            );
+            return;
         }
         setItems(prev => {
             const next = prev.filter(i => i.id !== itemId);
@@ -3552,24 +3575,31 @@ function RSViewModal({
             if (header && next.length > 0) {
                 financeSvc.patch(`/abms/budget-request-entry/${header.id}/save`, {
                     total_amount: newTotal,
-                }).then(() => onUpdated()).catch(() => { });
+                    finalize: false,
+                }).then(() => onUpdated()).catch(() => {
+                    setItemActionError('Item was removed and refunded, but the total amount failed to sync. Try Save Changes once you are done editing.');
+                });
             }
             return next;
         });
-        setDirty(false);
+        setDirty(true);
     }
 
     async function handleResave(overrideTotal?: number) {
         if (!header || isResaving || items.length === 0) return;
         setIsResaving(true);
+        setItemActionError(null);
         try {
             await financeSvc.patch(`/abms/budget-request-entry/${header.id}/save`, {
                 total_amount: overrideTotal ?? grandTotal,
+                finalize: true,
             });
             setDirty(false);
             onUpdated();
-        } catch {
+        } catch (err: any) {
             // keep dirty so user can retry
+            const serverMessage = err?.response?.data?.message;
+            setItemActionError(serverMessage ?? 'Failed to save changes. Please try again.');
         } finally {
             setIsResaving(false);
         }
@@ -3730,7 +3760,7 @@ function RSViewModal({
                     {canEdit && header && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14 }}>
                             <button
-                                onClick={handleResave}
+                                onClick={() => handleResave()}
                                 disabled={isResaving || !dirty || items.length === 0}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
@@ -3797,6 +3827,27 @@ function RSViewModal({
                             >
                                 <X className="w-3.5 h-3.5" />
                                 Close
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Inline banner for add/delete item failures — e.g. refund couldn't be processed */}
+                    {itemActionError && (
+                        <div
+                            style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 8,
+                                marginTop: 10, padding: '8px 12px', borderRadius: 8,
+                                background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.70)',
+                                border: `1px solid ${isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.30)'}`,
+                            }}
+                        >
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: isDark ? t.cellRed : '#b91c1c' }} />
+                            <span style={{ fontSize: 11, color: isDark ? t.cellRed : '#b91c1c', flex: 1 }}>{itemActionError}</span>
+                            <button
+                                onClick={() => setItemActionError(null)}
+                                style={{ background: 'transparent', border: 'none', color: isDark ? t.cellRed : '#b91c1c', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                            >
+                                <X className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     )}
