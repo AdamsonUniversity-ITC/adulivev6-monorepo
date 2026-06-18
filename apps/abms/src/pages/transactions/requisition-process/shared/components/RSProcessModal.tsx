@@ -47,7 +47,7 @@ export interface RSProcessRow {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Chat types
+// Chat & Audit types
 // ─────────────────────────────────────────────────────────────────────────────
 interface ChatMessage {
     id: number;
@@ -55,6 +55,17 @@ interface ChatMessage {
     sender_name: string;
     message: string;
     created_at: string;
+}
+
+interface AuditRecord {
+    id: number;
+    event: string;
+    user_id: string;
+    username: string;
+    user_name: string;
+    created_at: string;
+    old_values: Record<string, any>;
+    new_values: Record<string, any>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,6 +80,8 @@ interface RoleAction {
     icon?: React.ElementType;
     /** Set to false to skip the confirmation modal (e.g. read-only actions). Defaults to true. */
     confirm?: boolean;
+    /** Restrict visibility to specific roles, even within COMMON_ACTIONS. Omit to allow all roles. */
+    restrictedTo?: PermissionKey[];
 }
 
 const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
@@ -110,7 +123,7 @@ const COMMON_ACTIONS: RoleAction[] = [
     { label: 'Chat / Messages',     icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false },
     { label: 'RS Process History',  icon: History,       variant: 'secondary', visibleOn: '*', confirm: false },
     { label: 'Reprocess RS',        icon: RefreshCw,     variant: 'secondary', visibleOn: '*' },
-    { label: 'Send RS to Director', icon: Send,          variant: 'primary',   visibleOn: '*' },
+    { label: 'Send RS to Staff',    icon: Send,          variant: 'primary',   visibleOn: '*', restrictedTo: ['admin-access'] },
     { label: 'Print RS',            icon: Printer,       variant: 'secondary', visibleOn: '*', confirm: false },
 ];
 
@@ -208,7 +221,7 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean } {
         'Prepare Items':        { verb: 'mark the items as being prepared' },
         'Process Payment':      { verb: 'process payment for this requisition slip' },
         'Return to Budget':     { verb: 'return this requisition slip to the budget office', danger: true },
-        'Send RS to Director':  { verb: 'send this requisition slip to the director' },
+        'Send RS to Staff':     { verb: 'send this requisition slip to staff' },
         'For Liquidation':      { verb: 'mark this requisition slip for liquidation' },
     };
     const entry = map[action] ?? { verb: `proceed with "${action}"` };
@@ -448,6 +461,7 @@ export function RSProcessModal({
     const [incomingMessage, setIncomingMessage] = useState<ChatMessage | null>(null);
     const showChatRef = useRef(showChat);
     useEffect(() => { showChatRef.current = showChat; }, [showChat]);
+    const [showHistory, setShowHistory] = useState(false);
 
     // Persistent realtime subscription — lives while modal is open
     const seenMessageIds = useRef<Set<number>>(new Set());
@@ -497,6 +511,10 @@ export function RSProcessModal({
             setUnreadCount(0);
             return;
         }
+        if (action.label === 'RS Process History') {
+            setShowHistory(true);
+            return;
+        }
         if (action.confirm === false) {
             onAction?.(action.label, row);
             return;
@@ -515,9 +533,12 @@ export function RSProcessModal({
     const matchesStatus = (a: RoleAction) =>
         a.visibleOn === '*' || a.visibleOn.some(s => s.toLowerCase() === statusLower);
 
+    const matchesRole = (a: RoleAction) =>
+        !a.restrictedTo || a.restrictedTo.includes(roleKey);
+
     // Toolbar (top): common actions, split left/right to match the reference layout
-    const leftToolbarActions  = COMMON_ACTIONS.slice(0, 3).filter(matchesStatus);
-    const rightToolbarActions = COMMON_ACTIONS.slice(3).filter(matchesStatus);
+    const leftToolbarActions  = COMMON_ACTIONS.slice(0, 3).filter(a => matchesStatus(a) && matchesRole(a));
+    const rightToolbarActions = COMMON_ACTIONS.slice(3).filter(a => matchesStatus(a) && matchesRole(a));
 
     // Footer (bottom): role-specific transition buttons only
     const roleActions = ROLE_ACTIONS[roleKey] ?? [];
@@ -1077,6 +1098,15 @@ export function RSProcessModal({
             isDark={isDark}
             incomingMessage={incomingMessage}
         />
+
+        {/* ── Audit history modal ───────────────────────────────────────── */}
+        <RSAuditHistoryModal
+            open={showHistory}
+            onClose={() => setShowHistory(false)}
+            entryId={row.id}
+            t={t}
+            isDark={isDark}
+        />
         </>
     );
 }
@@ -1568,5 +1598,210 @@ function RSChatPanel({
                 </button>
             </div>
         </div>
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// RSAuditHistoryModal — displays audit trail for the requisition entry
+// ─────────────────────────────────────────────────────────────────────────────
+function RSAuditHistoryModal({
+    open, onClose, entryId, t, isDark,
+}: {
+    open: boolean;
+    onClose: () => void;
+    entryId: number;
+    t: Theme;
+    isDark: boolean;
+}) {
+    const [audits, setAudits] = useState<AuditRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!open || !entryId) return;
+        setIsLoading(true);
+        setError(null);
+        financeSvc
+            .get(`/abms/budget-request-entry/${entryId}/audit-history`)
+            .then(res => {
+                console.log('=== AUDIT HISTORY DATA ===');
+                console.log('Full response:', res.data);
+                res.data.audits?.forEach((audit, idx) => {
+                    console.log(`\n--- Audit ${idx} ---`);
+                    console.log('Event:', audit.event);
+                    console.log('new_values:', audit.new_values);
+                    console.log('new_values type:', typeof audit.new_values);
+                    console.log('new_values keys:', audit.new_values ? Object.keys(audit.new_values) : 'null');
+                    console.log('old_values:', audit.old_values);
+                    console.log('old_values type:', typeof audit.old_values);
+                    console.log('old_values keys:', audit.old_values ? Object.keys(audit.old_values) : 'null');
+                });
+                setAudits(res.data.audits ?? []);
+            })
+            .catch(err => {
+                setError(err.response?.data?.message ?? 'Failed to load history');
+            })
+            .finally(() => setIsLoading(false));
+    }, [open, entryId]);
+
+    if (!open) return null;
+
+    const targetColumns = ['location', 'requisition_number', 'status', 'total_amount', 'from'];
+
+    return createPortal(
+        <>
+            <style>{`
+                @keyframes audit-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes audit-modal-in { from { opacity: 0; transform: translate(-50%,-48%) scale(0.96); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+            `}</style>
+            {/* Overlay */}
+            <div
+                style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(0,0,0,0.50)',
+                    zIndex: 999998,
+                    animation: 'audit-overlay-in .18s ease',
+                    backdropFilter: 'blur(2px)',
+                }}
+                onClick={onClose}
+            />
+            {/* Modal */}
+            <div
+                style={{
+                    position: 'fixed',
+                    top: '50%', left: '50%',
+                    transform: 'translate(-50%,-50%)',
+                    zIndex: 999999,
+                    background: t.cardBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    borderRadius: 14,
+                    boxShadow: t.cardShadow,
+                    width: '90%',
+                    maxWidth: 700,
+                    height: '85vh',
+                    maxHeight: 750,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    animation: 'audit-modal-in .22s cubic-bezier(.22,1,.36,1)',
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '14px 22px',
+                    background: t.cardHeaderBg,
+                    borderBottom: `1px solid ${t.cardHeaderBorder}`,
+                    borderRadius: '14px 14px 0 0',
+                    flexShrink: 0,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <History style={{ width: 16, height: 16, color: isDark ? '#60a5fa' : '#3b82f6' }} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: t.titleColor }}>Process History</span>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            width: 28, height: 28, borderRadius: 8, border: 'none',
+                            background: 'transparent', color: t.cellMuted,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <X style={{ width: 16, height: 16 }} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {isLoading ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                            <RefreshCw style={{ width: 18, height: 18, color: t.cellMuted, animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : error ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                            <span style={{ fontSize: 12, color: t.cellMuted }}>{error}</span>
+                        </div>
+                    ) : audits.length === 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                            <History style={{ width: 28, height: 28, color: t.cellMuted, opacity: 0.35 }} />
+                            <p style={{ fontSize: 11, color: t.cellMuted, margin: 0 }}>No history available</p>
+                        </div>
+                    ) : (
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+                            {audits.map((audit, idx) => (
+                                <div
+                                    key={audit.id ?? idx}
+                                    style={{
+                                        padding: '12px 18px',
+                                        borderBottom: idx < audits.length - 1 ? `1px solid ${t.rowBorder}` : 'none',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: t.tableHeadText }}>
+                                            {audit.event.charAt(0).toUpperCase() + audit.event.slice(1)}
+                                        </span>
+                                        <span style={{ marginLeft: 'auto', fontSize: 9, color: t.cellMuted }}>
+                                            {new Date(audit.created_at).toLocaleDateString('en-PH')} {new Date(audit.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: 10, color: t.cellText, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span>By</span>
+                                        <img
+                                            src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${audit.username}_2`}
+                                            alt={audit.user_name}
+                                            style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', border: `1px solid ${t.cardBorder}` }}
+                                            onError={e => (e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Cpath d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/%3E%3Ccircle cx="12" cy="7" r="4"/%3E%3C/svg%3E')}
+                                        />
+                                        <span style={{ fontWeight: 600, color: t.titleColor }}>{audit.user_name}</span>
+                                    </div>
+
+                                    {/* Changes */}
+                                    {audit.event.toLowerCase() === 'updated' && (
+                                        <div style={{ fontSize: 10, marginTop: 8, paddingLeft: 12, paddingTop: 8, borderLeft: `2px solid ${isDark ? 'rgba(96,165,250,0.40)' : 'rgba(59,130,246,0.30)'}`, borderTop: `1px solid ${isDark ? 'rgba(96,165,250,0.20)' : 'rgba(59,130,246,0.15)'}` }}>
+                                            <div style={{ fontWeight: 700, color: t.cellText, marginBottom: 8, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em' }}>Changes</div>
+                                            {(() => {
+                                                const newVals = audit.new_values ?? {};
+                                                const oldVals = audit.old_values ?? {};
+                                                const allKeys = Object.keys(newVals);
+                                                
+                                                console.log('Rendering changes for audit', audit.id, '- Keys:', allKeys);
+                                                
+                                                if (allKeys.length === 0) {
+                                                    return <span style={{ color: t.cellMuted, fontSize: 9 }}>No changes recorded</span>;
+                                                }
+                                                
+                                                return allKeys.map(key => {
+                                                    const oldVal = oldVals[key];
+                                                    const newVal = newVals[key];
+                                                    
+                                                    console.log(`Key: ${key}, Old: ${oldVal}, New: ${newVal}`);
+                                                    
+                                                    const displayKey = key.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                                    return (
+                                                        <div key={key} style={{ marginBottom: 8 }}>
+                                                            <div style={{ fontWeight: 600, color: t.tableHeadText, marginBottom: 3, fontSize: 9 }}>{displayKey}</div>
+                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                                                <span style={{ background: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(254,242,242,0.80)', padding: '4px 8px', borderRadius: 4, color: isDark ? '#fca5a5' : '#dc2626', fontSize: 9, fontFamily: 'monospace', flex: 1, wordBreak: 'break-word' }}>
+                                                                    {oldVal === null || oldVal === undefined ? '(empty)' : String(oldVal)}
+                                                                </span>
+                                                                <span style={{ color: t.cellMuted, fontWeight: 700, whiteSpace: 'nowrap' }}>→</span>
+                                                                <span style={{ background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(236,253,245,0.90)', padding: '4px 8px', borderRadius: 4, color: isDark ? '#86efac' : '#059669', fontSize: 9, fontFamily: 'monospace', flex: 1, wordBreak: 'break-word' }}>
+                                                                    {newVal === null || newVal === undefined ? '(empty)' : String(newVal)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </>,
+        document.body,
     );
 }
