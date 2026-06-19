@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance/index'
 import { Route as ApplyIndexRouteImport } from './routes/apply/index'
 import { Route as StaffQueueRouteImport } from './routes/staff.queue'
+import { Route as MaintenanceReportsRouteImport } from './routes/maintenance/reports'
+import { Route as MaintenanceAccessDebugRouteImport } from './routes/maintenance/access-debug'
 import { Route as ApplicationsApplicationIdRouteImport } from './routes/applications.$applicationId'
 import { Route as StaffApplicationsApplicationIdRouteImport } from './routes/staff.applications.$applicationId'
 import { Route as ApplicationsApplicationIdHistoryRouteImport } from './routes/applications.$applicationId.history'
@@ -36,6 +38,16 @@ const ApplyIndexRoute = ApplyIndexRouteImport.update({
 const StaffQueueRoute = StaffQueueRouteImport.update({
   id: '/staff/queue',
   path: '/staff/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceReportsRoute = MaintenanceReportsRouteImport.update({
+  id: '/maintenance/reports',
+  path: '/maintenance/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceAccessDebugRoute = MaintenanceAccessDebugRouteImport.update({
+  id: '/maintenance/access-debug',
+  path: '/maintenance/access-debug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplicationsApplicationIdRoute =
@@ -66,6 +78,8 @@ const StaffApplicationsApplicationIdHistoryRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/applications/$applicationId': typeof ApplicationsApplicationIdRouteWithChildren
+  '/maintenance/access-debug': typeof MaintenanceAccessDebugRoute
+  '/maintenance/reports': typeof MaintenanceReportsRoute
   '/staff/queue': typeof StaffQueueRoute
   '/apply/': typeof ApplyIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
@@ -76,6 +90,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/applications/$applicationId': typeof ApplicationsApplicationIdRouteWithChildren
+  '/maintenance/access-debug': typeof MaintenanceAccessDebugRoute
+  '/maintenance/reports': typeof MaintenanceReportsRoute
   '/staff/queue': typeof StaffQueueRoute
   '/apply': typeof ApplyIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
@@ -87,6 +103,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/applications/$applicationId': typeof ApplicationsApplicationIdRouteWithChildren
+  '/maintenance/access-debug': typeof MaintenanceAccessDebugRoute
+  '/maintenance/reports': typeof MaintenanceReportsRoute
   '/staff/queue': typeof StaffQueueRoute
   '/apply/': typeof ApplyIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
@@ -99,6 +117,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/applications/$applicationId'
+    | '/maintenance/access-debug'
+    | '/maintenance/reports'
     | '/staff/queue'
     | '/apply/'
     | '/maintenance/'
@@ -109,6 +129,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/applications/$applicationId'
+    | '/maintenance/access-debug'
+    | '/maintenance/reports'
     | '/staff/queue'
     | '/apply'
     | '/maintenance'
@@ -119,6 +141,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/applications/$applicationId'
+    | '/maintenance/access-debug'
+    | '/maintenance/reports'
     | '/staff/queue'
     | '/apply/'
     | '/maintenance/'
@@ -130,6 +154,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApplicationsApplicationIdRoute: typeof ApplicationsApplicationIdRouteWithChildren
+  MaintenanceAccessDebugRoute: typeof MaintenanceAccessDebugRoute
+  MaintenanceReportsRoute: typeof MaintenanceReportsRoute
   StaffQueueRoute: typeof StaffQueueRoute
   ApplyIndexRoute: typeof ApplyIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
@@ -164,6 +190,20 @@ declare module '@tanstack/react-router' {
       path: '/staff/queue'
       fullPath: '/staff/queue'
       preLoaderRoute: typeof StaffQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maintenance/reports': {
+      id: '/maintenance/reports'
+      path: '/maintenance/reports'
+      fullPath: '/maintenance/reports'
+      preLoaderRoute: typeof MaintenanceReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maintenance/access-debug': {
+      id: '/maintenance/access-debug'
+      path: '/maintenance/access-debug'
+      fullPath: '/maintenance/access-debug'
+      preLoaderRoute: typeof MaintenanceAccessDebugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/applications/$applicationId': {
@@ -230,6 +270,8 @@ const StaffApplicationsApplicationIdRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApplicationsApplicationIdRoute: ApplicationsApplicationIdRouteWithChildren,
+  MaintenanceAccessDebugRoute: MaintenanceAccessDebugRoute,
+  MaintenanceReportsRoute: MaintenanceReportsRoute,
   StaffQueueRoute: StaffQueueRoute,
   ApplyIndexRoute: ApplyIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,

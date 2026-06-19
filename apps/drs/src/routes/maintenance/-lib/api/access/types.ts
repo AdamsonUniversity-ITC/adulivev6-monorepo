@@ -1,24 +1,24 @@
 import type { Employee } from '../employees/types.ts';
 
-export type StageUserAccess = {
+export type TaskKindUserAccess = {
   id: string;
-  stage_id: string;
+  kind: string;
   emp_no: string;
   role_label: string | null;
   employee?: Employee | null;
   created_at?: string;
 };
 
-export type StageRoleAccess = {
+export type TaskKindRoleAccess = {
   id: string;
-  stage_id: string;
+  kind: string;
   role_name: string;
   created_at?: string;
 };
 
-export type StageAccessPayload = {
-  users: StageUserAccess[];
-  roles: StageRoleAccess[];
+export type TaskKindAccessPayload = {
+  users: TaskKindUserAccess[];
+  roles: TaskKindRoleAccess[];
 };
 
 export type RolePermission = {

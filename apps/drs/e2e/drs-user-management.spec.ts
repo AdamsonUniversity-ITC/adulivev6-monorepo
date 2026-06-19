@@ -29,7 +29,10 @@ async function mockUserManagementApis(page: Page) {
       json: {
         id: 7,
         name: 'DRS Admin',
-        permissions: ['drs_college_maintenance_access'],
+        permissions: [
+          'drs_college_maintenance_access',
+          'drs_user_management_manage',
+        ],
       },
     });
   });
@@ -120,6 +123,38 @@ async function mockUserManagementApis(page: Page) {
         contentType: 'application/json',
         headers: corsHeaders,
         json: { data: [] },
+      });
+    },
+  );
+
+  await page.route(
+    `${registrarApi}/v1/drs/user-management/users/EMP-1/permissions`,
+    async (route) => {
+      if (route.request().method() === 'OPTIONS') return fulfillOptions(route);
+
+      await route.fulfill({
+        contentType: 'application/json',
+        headers: corsHeaders,
+        json: {
+          data: {
+            employee: {
+              emp_no: 'EMP-1',
+              user_id: 101,
+              name: 'Ada Registrar',
+              email: 'ada@example.test',
+              department: 'Registrar',
+              position: 'Staff',
+            },
+            roles: ['Regular User'],
+            permissions: ['drs_regular_user_access', 'drs_cancel_applications'],
+            responsibility_summary: {
+              total: 0,
+              by_role: {},
+              by_target: {},
+            },
+            responsibilities: [],
+          },
+        },
       });
     },
   );
@@ -260,6 +295,7 @@ test('admin can open DRS user management and start an assignment', async ({
 
   await page.getByText('Ada Registrar').click();
   await expect(page.getByText('Regular User')).toBeVisible();
+  await expect(page.getByLabel('Can cancel applications')).toBeVisible();
 
   await page.getByRole('button', { name: /assign/i }).click();
   await expect(page.getByText('Clearance department')).toBeVisible();

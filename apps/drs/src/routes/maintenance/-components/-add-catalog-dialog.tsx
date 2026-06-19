@@ -20,6 +20,10 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { createDocument } from '../-lib/api/createDocument.ts';
 import { createPackage } from '../-lib/api/createPackage.ts';
+import {
+  SupportingRequirementsFields,
+  type SupportingRequirementFormValue,
+} from './-supporting-requirements-fields.tsx';
 import type { CatalogKind } from './-types.ts';
 
 const catalogFormSchema = z.object({
@@ -27,6 +31,18 @@ const catalogFormSchema = z.object({
   price: z.coerce.number().min(0).max(999999999),
   is_active: z.boolean(),
   allow_multiple_per_request: z.boolean(),
+  supporting_document_requirements: z.array(
+    z.object({
+      name: z.string().min(1, { message: 'Name is required.' }).max(255),
+      instructions: z.string().nullable().optional(),
+      is_required: z.boolean(),
+      is_active: z.boolean(),
+      sort_order: z.number().nullable().optional(),
+      allowed_mime_types: z.array(z.string()).optional(),
+      max_file_size_kb: z.number().nullable().optional(),
+      max_files: z.number().min(1).max(20).nullable().optional(),
+    }),
+  ),
 });
 
 type FormValues = z.infer<typeof catalogFormSchema>;
@@ -56,6 +72,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       price: 0,
       is_active: true,
       allow_multiple_per_request: true,
+      supporting_document_requirements: [],
     },
   });
 
@@ -68,6 +85,11 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             price: values.price,
             is_active: values.is_active,
             allow_multiple_per_request: values.allow_multiple_per_request,
+            supporting_document_requirements:
+              values.supporting_document_requirements.map((item, index) => ({
+                ...item,
+                sort_order: index,
+              })) as SupportingRequirementFormValue[],
           },
           selectedGroup,
         );
@@ -84,7 +106,9 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       );
     },
     onSuccess: () => {
-      toast.success(`${copy.label[0]?.toUpperCase()}${copy.label.slice(1)} added.`);
+      toast.success(
+        `${copy.label[0]?.toUpperCase()}${copy.label.slice(1)} added.`,
+      );
       form.reset();
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: [`${kind}s`, selectedGroup] });
@@ -137,6 +161,13 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             name="allow_multiple_per_request"
             label="Allow multiple in one request"
           />
+
+          {kind === 'document' ? (
+            <SupportingRequirementsFields
+              form={form}
+              disabled={mutation.isPending}
+            />
+          ) : null}
 
           <DialogFooter>
             <Button

@@ -3,6 +3,7 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 type CreateClearanceDepartmentPayload = {
   name: string;
   description: string;
+  restrict_assigned_users_to_course_programs?: boolean;
 };
 
 export const createClearanceDepartment = async (

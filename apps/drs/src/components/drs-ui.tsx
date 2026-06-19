@@ -21,6 +21,7 @@ import { Link } from '@tanstack/react-router';
 import {
   AlertCircle,
   ArrowLeft,
+  FileQuestion,
   FileSearch,
   LucideIcon,
   Search,
@@ -460,6 +461,28 @@ export function DrsErrorState({
       description={description}
       action={action}
       className={cx('border-destructive/30 bg-destructive/5', className)}
+    />
+  );
+}
+
+export function DrsNotFoundState({
+  title = 'Page not found',
+  description = 'The page or resource you are looking for does not exist or may have been moved.',
+  action,
+  className,
+}: {
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <DrsEmptyState
+      icon={FileQuestion}
+      title={title}
+      description={description}
+      action={action}
+      className={cx('border-muted bg-muted/10', className)}
     />
   );
 }

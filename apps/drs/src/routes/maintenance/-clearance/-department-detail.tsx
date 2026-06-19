@@ -6,16 +6,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/card';
+import { Checkbox } from '@repo/ui/components/checkbox';
+import { Label } from '@repo/ui/components/label';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserMinus, Users } from 'lucide-react';
-import { useState } from 'react';
-import { detachClearanceDepartmentUser } from '../-lib/api/detachClearanceDepartmentUser.ts';
-import { AddUserDialog } from './-add-user-dialog.tsx';
-import { ConfirmActionDialog } from './-confirm-action-dialog.tsx';
+import { Users } from 'lucide-react';
+import { updateClearanceDepartment } from '../-lib/api/updateClearanceDepartment.ts';
+import { useMaintenanceNavigation } from '../-maintenance-navigation-context.tsx';
 import {
   type Department,
-  type DepartmentUser,
   formatCreatedAt,
   getDepartmentName,
   getDepartmentUsers,
@@ -26,40 +25,73 @@ type Props = {
 };
 
 export const DepartmentDetail = ({ department }: Props) => {
+  const { openUserManagement } = useMaintenanceNavigation();
   const queryClient = useQueryClient();
-  const [pendingDetach, setPendingDetach] = useState<DepartmentUser | null>(
-    null,
-  );
 
-  const detachMutation = useMutation({
-    mutationFn: (userId: number) =>
-      detachClearanceDepartmentUser(department.id, userId),
+  const users = getDepartmentUsers(department);
+  const isCourseScoped = Boolean(
+    department.restrict_assigned_users_to_course_programs,
+  );
+  const departmentName = getDepartmentName(department);
+  const updateScopeMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      updateClearanceDepartment(department.id, {
+        name: departmentName,
+        restrict_assigned_users_to_course_programs: enabled,
+      }),
     onSuccess: () => {
-      toast.success('Employee removed from department.');
-      setPendingDetach(null);
+      toast.success('Department scope updated.');
       queryClient.invalidateQueries({ queryKey: ['clearance_departments'] });
     },
     onError: () => {
-      toast.error('Failed to remove employee.');
+      toast.error('Failed to update department scope.');
     },
   });
-
-  const users = getDepartmentUsers(department);
 
   return (
     <div className="space-y-4">
       <Card className="border-border border">
         <CardHeader>
-          <CardTitle className="text-base">
-            {getDepartmentName(department)}
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            {departmentName}
+            {isCourseScoped ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700">
+                course scoped
+              </span>
+            ) : null}
           </CardTitle>
           <CardDescription>
             {department.description || 'No description provided.'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-xs font-medium">Created</p>
-          <p className="text-sm">{formatCreatedAt(department.created_at)}</p>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-muted-foreground text-xs font-medium">Created</p>
+            <p className="text-sm">{formatCreatedAt(department.created_at)}</p>
+          </div>
+          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+            <Checkbox
+              id={`clearance-${department.id}-course-program-scope`}
+              checked={isCourseScoped}
+              disabled={updateScopeMutation.isPending}
+              onCheckedChange={(value) =>
+                updateScopeMutation.mutate(value === true)
+              }
+            />
+            <div className="space-y-1">
+              <Label
+                htmlFor={`clearance-${department.id}-course-program-scope`}
+                className="cursor-pointer font-normal"
+              >
+                Restrict assigned staff to their course programs
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                When enabled, this clearance department can only sign off
+                applications under the assigned staff member&apos;s Fenroll
+                course programs.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -74,7 +106,14 @@ export const DepartmentDetail = ({ department }: Props) => {
               {users.length} {users.length === 1 ? 'user' : 'users'} assigned
             </CardDescription>
           </div>
-          <AddUserDialog departmentId={department.id} />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={openUserManagement}
+          >
+            Manage in User Management
+          </Button>
         </CardHeader>
         <CardContent>
           {users.length === 0 ? (
@@ -114,57 +153,12 @@ export const DepartmentDetail = ({ department }: Props) => {
                       </span>
                     ) : null}
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={() => setPendingDetach(user)}
-                    disabled={detachMutation.isPending}
-                    aria-label="Remove employee from department"
-                  >
-                    <UserMinus className="h-4 w-4" />
-                  </Button>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
-
-      <ConfirmActionDialog
-        open={pendingDetach !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingDetach(null);
-        }}
-        title="Remove employee?"
-        description={
-          pendingDetach ? (
-            <>
-              Remove{' '}
-              <span className="font-medium">
-                {pendingDetach.teacher?.full_name ||
-                  pendingDetach.employee?.name ||
-                  pendingDetach.user?.name ||
-                  pendingDetach.user?.email ||
-                  pendingDetach.teacher?.emp_no ||
-                  pendingDetach.employee?.emp_no ||
-                  pendingDetach.user_id}
-              </span>{' '}
-              from{' '}
-              <span className="font-medium">
-                {getDepartmentName(department)}
-              </span>
-              ?
-            </>
-          ) : null
-        }
-        confirmLabel="Remove employee"
-        pending={detachMutation.isPending}
-        onConfirm={() =>
-          pendingDetach && detachMutation.mutate(pendingDetach.user_id)
-        }
-      />
     </div>
   );
 };

@@ -38,6 +38,11 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
   const [slug, setSlug] = useState('');
   const [isInitial, setIsInitial] = useState(false);
   const [isTerminal, setIsTerminal] = useState(false);
+  const [
+    restrictAssignedUsersToCoursePrograms,
+    setRestrictAssignedUsersToCoursePrograms,
+  ] = useState(false);
+  const [allowsOwnerCancellation, setAllowsOwnerCancellation] = useState(false);
   const [transitionRule, setTransitionRule] =
     useState<TransitionRule>('all_required_done');
 
@@ -47,6 +52,10 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
     setSlug(stage?.slug ?? '');
     setIsInitial(Boolean(stage?.is_initial));
     setIsTerminal(Boolean(stage?.is_terminal));
+    setRestrictAssignedUsersToCoursePrograms(
+      Boolean(stage?.restrict_assigned_users_to_course_programs),
+    );
+    setAllowsOwnerCancellation(Boolean(stage?.allows_owner_cancellation));
     setTransitionRule(stage?.transition_rule ?? 'all_required_done');
   }, [open, stage]);
 
@@ -79,6 +88,9 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
       is_initial: isInitial,
       is_terminal: isTerminal,
       transition_rule: transitionRule,
+      restrict_assigned_users_to_course_programs:
+        restrictAssignedUsersToCoursePrograms,
+      allows_owner_cancellation: allowsOwnerCancellation,
     };
 
     if (stage) {
@@ -178,6 +190,50 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
             >
               Terminal stage (application is finalised here)
             </Label>
+          </div>
+          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+            <Checkbox
+              id="stage-course-program-scope"
+              checked={restrictAssignedUsersToCoursePrograms}
+              onCheckedChange={(value) =>
+                setRestrictAssignedUsersToCoursePrograms(value === true)
+              }
+            />
+            <div className="space-y-1">
+              <Label
+                htmlFor="stage-course-program-scope"
+                className="cursor-pointer font-normal"
+              >
+                Restrict assigned staff to their course programs
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Users assigned to this workflow step can only view or act on
+                applications whose course is included in their assigned Fenroll
+                course programs.
+              </p>
+            </div>
+          </div>
+          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+            <Checkbox
+              id="stage-owner-cancel"
+              checked={allowsOwnerCancellation}
+              onCheckedChange={(value) =>
+                setAllowsOwnerCancellation(value === true)
+              }
+            />
+            <div className="space-y-1">
+              <Label
+                htmlFor="stage-owner-cancel"
+                className="cursor-pointer font-normal"
+              >
+                Application owner can cancel at this stage
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Students may cancel their own request while the application is
+                in this stage. Staff with cancel permission can cancel
+                regardless of this setting.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button

@@ -1,18 +1,18 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/avatar';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/dropdown-menu';
 import { NotificationBar } from '@/custom/notification-bar';
 import { HelpCircle, LogOut, Settings } from 'lucide-react';
 
 export const AuthLayout = () => (
-  <div className="sticky w-screen bg-white top-0 flex items-center justify-between p-2 border-b border-gray/20">
-    <div className="flex items-center gap-2 ps-4">
-      <span className="relative flex shrink-0 overflow-hidden rounded-full h-9 w-9 cursor-pointer">
+  <div className="bg-background/90 supports-backdrop-filter:bg-background/75 border-border sticky top-0 z-40 flex w-screen items-center justify-between border-b px-3 py-2 shadow-sm backdrop-blur">
+    <div className="flex items-center gap-3 ps-2 sm:ps-4">
+      <span className="ring-primary/10 relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2">
         <a href="">
           <img
             className="aspect-square h-full w-full"
@@ -21,20 +21,22 @@ export const AuthLayout = () => (
           />
         </a>
       </span>
-      <h1 className="">AdU Live</h1>
+      <div className="leading-tight">
+        <h1 className="text-sm font-semibold tracking-tight">AdU Live</h1>
+      </div>
     </div>
-    <div className="flex gap-6 items-center me-4">
+    <div className="me-2 flex items-center gap-3 sm:me-4">
       <NotificationBar />
       <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Avatar>
+        <DropdownMenuTrigger className="focus-visible:ring-ring rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
+          <Avatar className="ring-border ring-1">
             <AvatarImage src={`https://placehold.co/200`} alt="User image" />
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="mx-2 w-[350px]rounded-2xl border border-white/20">
+        <DropdownMenuContent className="mx-2 w-[min(350px,calc(100vw-1rem))] rounded-2xl border shadow-xl">
           <div className="p-4 text-center">
-            <div className="flex justify-center mb-2">
+            <div className="mb-2 flex justify-center">
               <Avatar>
                 <AvatarImage />
                 <AvatarFallback>CN</AvatarFallback>
@@ -49,7 +51,7 @@ export const AuthLayout = () => (
             <div className="mt-4">
               <a
                 href="/legacy/myaccount"
-                className="border border-white hover:bg-black/20! text-sm rounded-full px-4 py-1 transition-colors"
+                className="border-border hover:bg-muted inline-flex rounded-full border px-4 py-1.5 text-sm transition-colors"
               >
                 Manage your account
               </a>
@@ -77,11 +79,11 @@ export const AuthLayout = () => (
           <DropdownMenuSeparator />
 
           <div className="p-2">
-            <DropdownMenuItem className="border border-transparent hover:border-white/20 hover:bg-black/20! text-sm flex items-center gap-2 py-2 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl py-2 text-sm">
               <Settings size={18} />
               <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="border border-transparent hover:border-white/20 hover:bg-black/20! text-sm flex items-center gap-2 py-2 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl py-2 text-sm">
               <HelpCircle size={18} />
               <span>Help & Support</span>
             </DropdownMenuItem>
@@ -90,7 +92,7 @@ export const AuthLayout = () => (
           <DropdownMenuSeparator />
 
           <div className="p-2">
-            <DropdownMenuItem className="border border-transparent hover:border-white/20 hover:bg-black/20! flex items-center gap-2 py-2 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl py-2">
               <LogOut size={18} />
               <span>Logout</span>
             </DropdownMenuItem>

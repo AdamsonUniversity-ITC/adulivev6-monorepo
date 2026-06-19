@@ -8,6 +8,13 @@ export type ApplyRequestLine = {
   quantity: number;
 };
 
+export type ApplySupportingUpload = {
+  requestable_type: 'document';
+  requestable_id: number;
+  requirement_id: number;
+  temp_upload_ids: number[];
+};
+
 export type ApplyRequestPayload = {
   email: string;
   contact_number: string;
@@ -15,6 +22,7 @@ export type ApplyRequestPayload = {
   delivery_address: string | null;
   purpose: string | null;
   lines: ApplyRequestLine[];
+  supporting_uploads?: ApplySupportingUpload[];
 };
 
 function lineFromCatalogKey(
@@ -105,6 +113,7 @@ export function validateApplyLineQuantities(
 export function buildApplyRequestPayload(
   values: ApplyRequestFormValues,
   lines: ApplyRequestLine[],
+  supportingUploads: ApplySupportingUpload[] = [],
 ): ApplyRequestPayload {
   return {
     email: values.email.trim(),
@@ -113,6 +122,9 @@ export function buildApplyRequestPayload(
     delivery_address: values.deliveryAddress?.trim() || null,
     purpose: values.purpose?.trim() || null,
     lines,
+    ...(supportingUploads.length > 0
+      ? { supporting_uploads: supportingUploads }
+      : {}),
   };
 }
 

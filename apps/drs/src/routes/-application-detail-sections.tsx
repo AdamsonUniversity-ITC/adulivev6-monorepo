@@ -26,7 +26,7 @@ import {
 import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { FileUp, Plus, Search, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
 import {
@@ -35,6 +35,8 @@ import {
   toneForStatus,
 } from '@/components/drs-ui.tsx';
 import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
+import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
+import { formatExpiryTime } from '@/lib/formatExpiryTime.ts';
 import { formatFileSize, type TempUpload } from '@/lib/tempUploads.ts';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
 import { postApplicationSupportingRequirementUploads } from './-lib/api/postApplicationSupportingRequirementUploads.ts';
@@ -436,11 +438,35 @@ function SupportingRequirementRow({
             <li key={file.id} className="text-sm">
               <a
                 href={file.url}
-                target="_blank"
+                target={file.expires_at ? undefined : '_blank'}
                 rel="noreferrer"
-                className="text-primary underline-offset-2 hover:underline"
+                className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
+                onClick={(event) =>
+                  handlePrivateFileDownloadClick(
+                    event,
+                    file.url,
+                    file.file_name,
+                    file.expires_at,
+                    () => {
+                      toast.error(
+                        'Failed to download file. Please refresh and try again.',
+                      );
+                    },
+                  )
+                }
               >
-                {file.file_name}
+                {file.expires_at ? (
+                  <FileUp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                ) : null}
+                <span className="min-w-0">
+                  <span className="block wrap-anywhere">{file.file_name}</span>
+                  {file.expires_at ? (
+                    <span className="text-muted-foreground block text-xs">
+                      Private download - expires{' '}
+                      {formatExpiryTime(file.expires_at)}
+                    </span>
+                  ) : null}
+                </span>
               </a>{' '}
               <span className="text-muted-foreground text-xs">
                 {formatFileSize(file.size)}

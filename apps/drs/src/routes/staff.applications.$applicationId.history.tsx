@@ -2,6 +2,7 @@ import {
   DrsEmptyState,
   DrsErrorState,
   DrsLoadingState,
+  DrsNotFoundState,
   DrsPageHeader,
   DrsPageShell,
   DrsSectionCard,
@@ -9,11 +10,9 @@ import {
   formatStatusLabel,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
-import {
-  hasDrAdminAccessForHost,
-  isStudentOnlyDrsPortalUser,
-} from '@/lib/drsPermissions.ts';
+import { hasDrAdminAccessForHost } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
+import { isNotFoundError } from '@/lib/isNotFoundError.ts';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,12 +27,13 @@ import {
 import { Button } from '@repo/ui/components/button';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link, redirect } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 
 import { fetchApplicationHistory } from './-lib/api/fetchApplicationHistory.ts';
 import { postRestoreApplicationHistory } from './-lib/api/postRestoreApplicationHistory.ts';
+import { assertStaffPortalAccess } from './-lib/assertStaffPortalAccess.ts';
 import type {
   DRSApplicationHistoryRow,
   DRSApplicationHistorySummary,
@@ -42,16 +42,7 @@ import type {
 export const Route = createFileRoute(
   '/staff/applications/$applicationId/history',
 )({
-  beforeLoad: async () => {
-    const { data } = await fetchAuthUser();
-    const permissions = normalizePermissions(data);
-    if (
-      typeof window !== 'undefined' &&
-      isStudentOnlyDrsPortalUser(permissions, window.location.hostname)
-    ) {
-      throw redirect({ to: '/' });
-    }
-  },
+  beforeLoad: assertStaffPortalAccess,
   loader: async () => {
     const { data } = await fetchAuthUser();
     const permissions = normalizePermissions(data);
@@ -317,6 +308,23 @@ export function ApplicationHistoryContent({
 
       {query.isLoading ? (
         <DrsLoadingState label="Loading history…" />
+      ) : isNotFoundError(query.error) ? (
+        <DrsNotFoundState
+          title="Request not found"
+          description="This application ID may be incorrect, or the request may have been removed."
+          action={
+            <Button
+              variant="outline"
+              asChild
+              size="sm"
+              className="rounded-full"
+            >
+              <Link to={backTo === 'staff' ? '/staff/queue' : '/'}>
+                {backTo === 'staff' ? 'Back to queue' : 'Back to applications'}
+              </Link>
+            </Button>
+          }
+        />
       ) : query.isError ? (
         <DrsErrorState
           title="Could not load edit history"

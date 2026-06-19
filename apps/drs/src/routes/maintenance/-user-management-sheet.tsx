@@ -1,4 +1,6 @@
 import { DrsEmptyState, DrsSearchField } from '@/components/drs-ui.tsx';
+import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
+import { checkPermission } from '@repo/hooks';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import {
@@ -22,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/select';
+import { Switch } from '@repo/ui/components/switch';
 import {
   Table,
   TableBody,
@@ -34,6 +37,11 @@ import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
 import { type JSX, useMemo, useState } from 'react';
+import {
+  DRS_CANCEL_APPLICATIONS_PERMISSION,
+  DRS_USER_MANAGEMENT_MANAGE_PERMISSION,
+  formatRolePermissionName,
+} from './-lib/api/access/permissionLabels.ts';
 import { fetchAssessmentSettings } from './-lib/api/fetchAssessmentSettings.ts';
 import { fetchClearanceDepartments } from './-lib/api/fetchClearanceDepartments.ts';
 import { assignWorkflowUser } from './-lib/api/user-management/assignWorkflowUser.ts';
@@ -41,6 +49,7 @@ import { detachWorkflowUser } from './-lib/api/user-management/detachWorkflowUse
 import { fetchUserAssignmentHistory } from './-lib/api/user-management/fetchUserHistory.ts';
 import { fetchUserManagementProfile } from './-lib/api/user-management/fetchUserProfile.ts';
 import { fetchUserManagementUsers } from './-lib/api/user-management/fetchUsers.ts';
+import { patchUserManagementPermissions } from './-lib/api/user-management/patchUserManagementPermissions.ts';
 import type {
   AssignmentPayload,
   UserManagementProfile,
@@ -179,6 +188,18 @@ export function UserManagementSheet(): JSX.Element {
 
 function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   const queryClient = useQueryClient();
+  const authQuery = useQuery({
+    queryKey: ['drs', 'auth-user'],
+    queryFn: async () => {
+      const { data } = await fetchAuthUser();
+      return normalizePermissions(data);
+    },
+    refetchOnWindowFocus: false,
+  });
+  const canManagePermissions = checkPermission(
+    authQuery.data ?? [],
+    DRS_USER_MANAGEMENT_MANAGE_PERMISSION,
+  );
   const profileQuery = useQuery({
     queryKey: profileKey(empNo),
     queryFn: () => fetchUserManagementProfile(empNo),
@@ -198,6 +219,20 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
       queryClient.invalidateQueries({ queryKey: historyKey(empNo) });
     },
     onError: () => toast.error('Failed to remove assignment.'),
+  });
+
+  const permissionMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      patchUserManagementPermissions(empNo, {
+        permissions: {
+          [DRS_CANCEL_APPLICATIONS_PERMISSION]: enabled,
+        },
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(profileKey(empNo), updated);
+      toast.success('Permissions updated.');
+    },
+    onError: () => toast.error('Failed to update permissions.'),
   });
 
   if (profileQuery.isLoading) {
@@ -221,6 +256,12 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   }
 
   const profile = profileQuery.data;
+  const canCancelApplications = profile.permissions.includes(
+    DRS_CANCEL_APPLICATIONS_PERMISSION,
+  );
+  const otherPermissions = profile.permissions.filter(
+    (permission) => permission !== DRS_CANCEL_APPLICATIONS_PERMISSION,
+  );
 
   return (
     <Card className="drs-card">
@@ -246,9 +287,35 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Permissions</h3>
+          {canManagePermissions ? (
+            <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3">
+              <div>
+                <p className="text-sm font-medium">
+                  {formatRolePermissionName(DRS_CANCEL_APPLICATIONS_PERMISSION)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Allow this user to cancel applications from the staff queue.
+                </p>
+              </div>
+              <Switch
+                checked={canCancelApplications}
+                disabled={permissionMutation.isPending}
+                onCheckedChange={(checked) =>
+                  permissionMutation.mutate(checked === true)
+                }
+                aria-label="Can cancel applications"
+              />
+            </div>
+          ) : null}
           <ChipList
-            values={profile.permissions}
-            empty="No permissions assigned."
+            values={otherPermissions.map((permission) =>
+              formatRolePermissionName(permission),
+            )}
+            empty={
+              canManagePermissions
+                ? 'No other permissions assigned.'
+                : 'No permissions assigned.'
+            }
           />
         </section>
 

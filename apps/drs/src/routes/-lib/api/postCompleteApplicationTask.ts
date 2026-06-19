@@ -5,9 +5,15 @@ import type { DRSApplicationDetail } from '../types/applications.ts';
 export type CompleteApplicationTaskPayload = {
   remarks?: string | null;
   reference_number?: string | null;
+  transition_id?: number | string | null;
+  outcome_key?: string | null;
   tracking_number?: string | null;
   amount?: number | null;
   extra?: Record<string, unknown> | null;
+  line_prices?: Array<{
+    application_document_id: string | number;
+    amount: number;
+  }> | null;
 };
 
 export async function postCompleteApplicationTask(
