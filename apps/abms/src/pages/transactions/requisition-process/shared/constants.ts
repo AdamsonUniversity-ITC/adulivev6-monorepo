@@ -43,6 +43,14 @@ const COMMON_STATUS_OPTIONS = [
     { label: 'Served' },
 ];
 
+// Stockroom-specific status options (simpler workflow)
+const STOCKROOM_STATUS_OPTIONS = [
+    { label: 'All' },
+    { label: 'To Process RS' },
+    { label: 'Processed RS' },
+    { label: 'Served' },
+];
+
 // Shared department filter config (deptOptions injected at runtime from loader data)
 const COMMON_DEPT_CONFIG = {
     placeholder: 'Select department / section…',
@@ -53,6 +61,17 @@ const COMMON_DEPT_CONFIG = {
 const COMMON_SEARCH_CONFIG = {
     checkboxLabel: 'Search by Requisition No.',
     placeholder: 'e.g. 2026100000',
+};
+
+// Shared school year filter config (options injected at runtime from backend)
+const COMMON_SCHOOL_YEAR_CONFIG = {
+    checkboxLabel: 'Filter by School Year',
+    placeholder: 'Select school year…',
+};
+
+// Shared date range filter config
+const COMMON_DATE_RANGE_CONFIG = {
+    checkboxLabel: 'Filter by Date Range',
 };
 
 // Shared sort columns
@@ -69,6 +88,8 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         status:      { options: COMMON_STATUS_OPTIONS },
         department:  COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
+        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange:   COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions:     COMMON_ACTIONS,
     },
@@ -76,6 +97,8 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         status:      { options: COMMON_STATUS_OPTIONS },
         department:  COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
+        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange:   COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions:     COMMON_ACTIONS,
     },
@@ -83,6 +106,8 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         status:      { options: COMMON_STATUS_OPTIONS },
         department:  COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
+        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange:   COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions:     COMMON_ACTIONS,
     },
@@ -90,13 +115,17 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         status:      { options: COMMON_STATUS_OPTIONS },
         department:  COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
+        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange:   COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions:     COMMON_ACTIONS,
     },
     'stockroom-access': {
-        status:      { options: COMMON_STATUS_OPTIONS },
+        status:      { options: STOCKROOM_STATUS_OPTIONS },
         department:  COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
+        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange:   COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions:     COMMON_ACTIONS,
     },
@@ -104,6 +133,8 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         status:      { options: COMMON_STATUS_OPTIONS },
         department:  COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
+        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange:   COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions:     COMMON_ACTIONS,
     },

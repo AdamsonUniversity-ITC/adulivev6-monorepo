@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { z } from 'zod';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
@@ -24,6 +24,15 @@ const BudgetQuerySchema = z.object({
         .string()
         .regex(/^\d{10}$/, 'Requisition No. must be exactly 10 digits')
         .nullable(),
+    schoolYear: z.string().nullable(),
+    dateFrom: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date From must be a valid date')
+        .nullable(),
+    dateTo: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date To must be a valid date')
+        .nullable(),
 });
 
 export type BudgetQuery = z.infer<typeof BudgetQuerySchema>;
@@ -46,6 +55,7 @@ export interface BudgetRow {
     location: string | null;
     from: string | null;
     note: string | null;
+    for_liquidation?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,6 +134,9 @@ function buildQuery(fs: FilterState): BudgetQuery {
         requisitionNo: fs.searchEnabled && fs.searchValue.length === 10
             ? fs.searchValue
             : null,
+        schoolYear: fs.schoolYearEnabled && fs.schoolYear ? fs.schoolYear : null,
+        dateFrom: fs.dateRangeEnabled && fs.dateFrom ? fs.dateFrom : null,
+        dateTo: fs.dateRangeEnabled && fs.dateTo ? fs.dateTo : null,
     };
 }
 
@@ -140,6 +153,15 @@ function cellStyle(t: Theme, total: number, i: number): React.CSSProperties {
         borderRight: i < total - 1 ? `1px solid ${t.rowBorder}` : 'none',
         whiteSpace: 'nowrap',
     };
+}
+
+/** Row tint for entries tagged for_liquidation — distinct from status colors,
+ *  since the tag is independent of the row's status. */
+function liquidationRowBg(isDark: boolean): string {
+    return isDark ? 'rgba(234,179,8,0.10)' : 'rgba(234,179,8,0.08)';
+}
+function liquidationRowHoverBg(isDark: boolean): string {
+    return isDark ? 'rgba(234,179,8,0.16)' : 'rgba(234,179,8,0.13)';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -228,6 +250,14 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [currentSchoolYear, setCurrentSchoolYear] = useState<string | null>(null);
+    const [schoolYears, setSchoolYears] = useState<string[]>([]);
+
+    // Unique school years for the School Year filter dropdown — fetched once
+    useEffect(() => {
+        financeSvc.get('/abms/requisition-process/school-years')
+            .then(res => setSchoolYears(res.data?.data ?? []))
+            .catch(() => { /* dropdown just stays empty on failure */ });
+    }, []);
 
     // ── Modal state ───────────────────────────────────────────────────────────
     const [selectedRow, setSelectedRow] = useState<RSProcessRow | null>(null);
@@ -353,6 +383,30 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
             return;
         }
 
+        // 'For Liquidation' is a revertible toggle, not a one-way status
+        // transition — keep the modal open and patch the row in place
+        // instead of closing it like the other STATUS_ACTIONS below.
+        if (action === 'For Liquidation') {
+            setModalError(null);
+            setModalLoading(true);
+            try {
+                const res = await financeSvc.put(`/abms/requisition-process/${row.id}`, { action });
+                const updated = !!res.data?.data?.for_liquidation;
+                setSelectedRow(prev => prev ? { ...prev, for_liquidation: updated } : prev);
+                addToast('success', updated
+                    ? `RS ${row.requisition_no} marked for liquidation.`
+                    : `RS ${row.requisition_no} unmarked for liquidation.`);
+                await handleRequery();
+            } catch (err: any) {
+                const message = err?.response?.data?.message ?? 'Failed to update RS.';
+                setModalError(message);
+                addToast('error', message);
+            } finally {
+                setModalLoading(false);
+            }
+            return;
+        }
+
         if (STATUS_ACTIONS.includes(action)) {
             setModalError(null);
             setModalLoading(true);
@@ -371,13 +425,25 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
             return;
         }
 
+        // 'Save Note' — modal already did the PATCH; just sync local state + toast.
+        if (action === 'Save Note') {
+            setSelectedRow(prev => prev ? { ...prev, note: row.note ?? null } : prev);
+            setRows(prev => prev.map(r => r.id === row.id ? { ...r, note: row.note ?? null } : r));
+            addToast('success', `Note saved for RS ${row.requisition_no}.`);
+            return;
+        }
+
         addToast('info', `"${action}" isn't wired up yet for this role.`);
     }, [currentSchoolYear, handleRequery, addToast]);
+
 
     const wiredFilterCfg = {
         ...FILTER_CFG,
         department: FILTER_CFG.department
             ? { ...FILTER_CFG.department, deptOptions }
+            : undefined,
+        schoolYear: FILTER_CFG.schoolYear
+            ? { ...FILTER_CFG.schoolYear, options: schoolYears }
             : undefined,
         actions: FILTER_CFG.actions?.map(a =>
             a.label === 'Requery' ? { ...a, onClick: handleRequery } : a
@@ -458,17 +524,23 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                         )}
 
                         {/* ── Clickable data rows ── */}
-                        {!error && rows.map((row, idx) => (
+                        {!error && rows.map((row, idx) => {
+                            const tagged = !!row.for_liquidation;
+                            const baseBg = tagged
+                                ? liquidationRowBg(isDark)
+                                : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
+                            const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
+                            return (
                             <tr
                                 key={`${row.requisition_no}-${idx}`}
                                 onClick={() => handleRowClick(row)}
                                 style={{
-                                    background: idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg,
+                                    background: baseBg,
                                     cursor: 'pointer',
                                     transition: 'background .1s',
                                 }}
-                                onMouseEnter={e => (e.currentTarget.style.background = t.rowHoverBg)}
-                                onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg)}
+                                onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+                                onMouseLeave={e => (e.currentTarget.style.background = baseBg)}
                             >
                                 <td style={cellStyle(t, COLUMNS.length, 0)}>
                                     <span style={{ fontSize: 12, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
@@ -511,7 +583,8 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                                     <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.from ?? '—'}</span>
                                 </td>
                             </tr>
-                        ))}
+                            );
+                        })}
 
                         {!loading && !error && hasMore && rows.length > 0 && (
                             <tr>

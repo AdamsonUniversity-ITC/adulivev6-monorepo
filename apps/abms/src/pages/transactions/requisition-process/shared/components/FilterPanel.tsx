@@ -5,6 +5,12 @@ import { FilterCheckbox } from './FilterCheckbox';
 import { FilterSortDropdown, FilterActionButton } from './FilterControls';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// For Liquidation accent — kept in sync with RSProcessModal.tsx / BudgetView.tsx.
+// If you change one, change all three.
+// ─────────────────────────────────────────────────────────────────────────────
+const LIQUIDATION_COLOR = '#eab308';
+
+// ─────────────────────────────────────────────────────────────────────────────
 // InlineDeptSelect — badge-style dept+section dropdown used when deptOptions
 // is provided on the config. Mirrors DeptSelect from BudgetProposalEntry.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,9 +224,11 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
 
     const hasDept        = !!config.department;
     const hasSearch      = !!config.searchField;
+    const hasSchoolYear  = !!config.schoolYear;
+    const hasDateRange   = !!config.dateRange;
     const hasSort        = sortColumns.length > 0;
     const hasActions     = (config.actions?.length ?? 0) > 0;
-    const hasLeftCluster = hasDept || hasSort || hasActions;
+    const hasLeftCluster = hasDept || hasSort || hasActions || hasSchoolYear || hasDateRange;
     const hasRow2        = hasLeftCluster || hasSearch;
 
     const rsAccent = isDark ? '#60a5fa' : '#1d4ed8';
@@ -278,7 +286,7 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
 
                             {hasDept && (
                                 <>
-                                    <div style={{ ...colStack, minWidth: 200, maxWidth: 280, flex: '1 1 200px' }}>
+                                    <div style={{ ...colStack, minWidth: 200, maxWidth: 280, flex: '0 1 240px' }}>
                                         <span style={sectionLabel}>{config.department!.sectionLabel ?? 'Department'}</span>
 
                                         {/* Rich mode: DeptOption[] with Dept/Sec badges */}
@@ -349,7 +357,7 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             t={t}
                                         />
                                     </div>
-                                    {(hasSort || hasActions) && <div style={{ ...vDivider, margin: '0 8px' }} />}
+                                    {(hasSort || hasActions || hasSchoolYear || hasDateRange) && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
@@ -370,22 +378,146 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             <FilterCheckbox id="sort-desc" checked={state.sortDir === 'desc'} onChange={() => onChange({ sortDir: 'desc' })} label="Descending" t={t} />
                                         </div>
                                     </div>
+                                    {(hasSchoolYear || hasDateRange || hasActions) && <div style={{ ...vDivider, margin: '0 8px' }} />}
+                                </>
+                            )}
+
+                            {/* School Year filter — its own bounded column, same pattern as
+                                Department/Sort Options, so it doesn't spill into the action
+                                row and wrap unpredictably. Checkbox gates the dropdown; only
+                                contributes to the requery query when checked. */}
+                            {hasSchoolYear && (
+                                <>
+                                    <div style={{ ...colStack, minWidth: 150 }}>
+                                        <span style={sectionLabel}>School Year</span>
+                                        <FilterCheckbox
+                                            id="schoolyear-toggle"
+                                            checked={state.schoolYearEnabled}
+                                            onChange={v => onChange({ schoolYearEnabled: v, ...(v ? {} : { schoolYear: null }) })}
+                                            label={config.schoolYear!.checkboxLabel ?? 'Filter by School Year'}
+                                            t={t}
+                                        />
+                                        <select
+                                            value={state.schoolYear ?? ''}
+                                            onChange={e => onChange({ schoolYear: e.target.value || null })}
+                                            disabled={!state.schoolYearEnabled}
+                                            style={{
+                                                background: t.inputBg,
+                                                border: `1px solid ${t.inputBorder}`,
+                                                borderRadius: 7,
+                                                padding: '6px 8px',
+                                                fontSize: 11,
+                                                color: t.inputText,
+                                                outline: 'none',
+                                                width: '100%',
+                                                opacity: state.schoolYearEnabled ? 1 : 0.4,
+                                                cursor: state.schoolYearEnabled ? 'pointer' : 'not-allowed',
+                                            }}
+                                        >
+                                            <option value="">{config.schoolYear!.placeholder ?? 'Select school year…'}</option>
+                                            {(config.schoolYear!.options ?? []).map(sy => (
+                                                <option key={sy} value={sy}>{sy}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {(hasDateRange || hasActions) && <div style={{ ...vDivider, margin: '0 8px' }} />}
+                                </>
+                            )}
+
+                            {/* Date Range filter — own bounded column, same reasoning as
+                                School Year above. Checkbox gates the from/to inputs; only
+                                contributes to the requery query when checked. */}
+                            {hasDateRange && (
+                                <>
+                                    <div style={{ ...colStack, minWidth: 190 }}>
+                                        <span style={sectionLabel}>Date Range</span>
+                                        <FilterCheckbox
+                                            id="daterange-toggle"
+                                            checked={state.dateRangeEnabled}
+                                            onChange={v => onChange({ dateRangeEnabled: v, ...(v ? {} : { dateFrom: '', dateTo: '' }) })}
+                                            label={config.dateRange!.checkboxLabel ?? 'Filter by Date Range'}
+                                            t={t}
+                                        />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input
+                                                type="date"
+                                                value={state.dateFrom}
+                                                onChange={e => onChange({ dateFrom: e.target.value })}
+                                                disabled={!state.dateRangeEnabled}
+                                                style={{
+                                                    background: t.inputBg,
+                                                    border: `1px solid ${t.inputBorder}`,
+                                                    borderRadius: 7,
+                                                    padding: '5px 6px',
+                                                    fontSize: 11,
+                                                    color: t.inputText,
+                                                    outline: 'none',
+                                                    width: '100%',
+                                                    colorScheme: isDark ? 'dark' : 'light',
+                                                    opacity: state.dateRangeEnabled ? 1 : 0.4,
+                                                    cursor: state.dateRangeEnabled ? 'text' : 'not-allowed',
+                                                }}
+                                            />
+                                            <span style={{ fontSize: 10, color: t.cellMuted, flexShrink: 0 }}>to</span>
+                                            <input
+                                                type="date"
+                                                value={state.dateTo}
+                                                onChange={e => onChange({ dateTo: e.target.value })}
+                                                disabled={!state.dateRangeEnabled}
+                                                style={{
+                                                    background: t.inputBg,
+                                                    border: `1px solid ${t.inputBorder}`,
+                                                    borderRadius: 7,
+                                                    padding: '5px 6px',
+                                                    fontSize: 11,
+                                                    color: t.inputText,
+                                                    outline: 'none',
+                                                    width: '100%',
+                                                    colorScheme: isDark ? 'dark' : 'light',
+                                                    opacity: state.dateRangeEnabled ? 1 : 0.4,
+                                                    cursor: state.dateRangeEnabled ? 'text' : 'not-allowed',
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                     {hasActions && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
                             {hasActions && (
-                                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                                    {config.actions!.map(action => (
-                                        <FilterActionButton
-                                            key={action.label}
-                                            label={action.label}
-                                            icon={action.icon}
-                                            variant={action.variant ?? 'secondary'}
-                                            onClick={action.onClick}
-                                            t={t}
-                                        />
-                                    ))}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {config.actions!.map(action => (
+                                            <FilterActionButton
+                                                key={action.label}
+                                                label={action.label}
+                                                icon={action.icon}
+                                                variant={action.variant ?? 'secondary'}
+                                                onClick={action.onClick}
+                                                t={t}
+                                            />
+                                        ))}
+                                    </div>
+                                    {/* For Liquidation legend — explains the yellow row
+                                        highlight in the results table beside it. Static,
+                                        not an action: it's just a key for the user. */}
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: 6,
+                                        padding: '5px 12px', borderRadius: 8,
+                                        border: `1px solid ${LIQUIDATION_COLOR}55`,
+                                        background: isDark ? `${LIQUIDATION_COLOR}1a` : `${LIQUIDATION_COLOR}14`,
+                                    }}>
+                                        <span style={{
+                                            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                                            background: LIQUIDATION_COLOR, flexShrink: 0,
+                                        }} />
+                                        <span style={{
+                                            fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+                                            color: isDark ? '#fde047' : '#854d0e', whiteSpace: 'nowrap',
+                                        }}>
+                                            For Liquidation
+                                        </span>
+                                    </div>
                                 </div>
                             )}
                         </div>

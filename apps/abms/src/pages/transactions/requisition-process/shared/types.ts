@@ -33,6 +33,17 @@ export interface SearchFieldConfig {
     placeholder?: string;
 }
 
+export interface SchoolYearFilterConfig {
+    checkboxLabel?: string;
+    placeholder?: string;
+    /** Unique school years, injected at runtime from the backend (e.g. school-years endpoint) */
+    options?: string[];
+}
+
+export interface DateRangeFilterConfig {
+    checkboxLabel?: string;
+}
+
 export interface ActionButtonConfig {
     label: string;
     icon: LucideIcon;
@@ -44,6 +55,8 @@ export interface FilterPanelConfig {
     status?: StatusFilterConfig;
     department?: DeptFilterConfig;
     searchField?: SearchFieldConfig;
+    schoolYear?: SchoolYearFilterConfig;
+    dateRange?: DateRangeFilterConfig;
     sortColumns?: string[];
     actions?: ActionButtonConfig[];
 }
@@ -60,6 +73,11 @@ export interface FilterState {
     deptQuery: string;
     searchEnabled: boolean;
     searchValue: string;
+    schoolYearEnabled: boolean;
+    schoolYear: string | null;
+    dateRangeEnabled: boolean;
+    dateFrom: string;
+    dateTo: string;
     sortBy: string;
     sortDir: 'asc' | 'desc';
 }
@@ -78,6 +96,11 @@ export function makeDefaultFilterState(
         deptQuery: '',
         searchEnabled: false,
         searchValue: '',
+        schoolYearEnabled: false,
+        schoolYear: null,
+        dateRangeEnabled: false,
+        dateFrom: '',
+        dateTo: '',
         sortBy: firstSortCol,
         sortDir: 'asc',
     };
