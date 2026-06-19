@@ -176,6 +176,21 @@ const T = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// For Liquidation accent — kept in sync with RSProcessModal.tsx, BudgetView.tsx,
+// and FilterPanel.tsx. If you change one, change all four.
+// ─────────────────────────────────────────────────────────────────────────────
+const LIQUIDATION_COLOR = '#eab308';
+
+/** Row tint for entries tagged for_liquidation — distinct from status colors,
+ *  since the tag is independent of the row's status. */
+function liquidationRowBg(isDark: boolean): string {
+    return isDark ? 'rgba(234,179,8,0.10)' : 'rgba(234,179,8,0.08)';
+}
+function liquidationRowHoverBg(isDark: boolean): string {
+    return isDark ? 'rgba(234,179,8,0.16)' : 'rgba(234,179,8,0.13)';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Static data
 // ─────────────────────────────────────────────────────────────────────────────
 type Status =
@@ -199,6 +214,7 @@ interface RSRecord {
     requestedBy: string;
     requestedByName: string;
     totalAmount: number; status: Status;
+    forLiquidation?: boolean;
 }
 
 interface ChatMessage {
@@ -5049,7 +5065,7 @@ function BudgetRequestEntryInner({
             const raw: Array<{
                 id: number; date: string; requisitionNo: string;
                 payee: string; requestedBy: string; requestedByName: string;
-                totalAmount: number; status: string;
+                totalAmount: number; status: string; forLiquidation?: boolean;
             }> = res.data?.entries ?? [];
 
             const mapped: RSRecord[] = raw.map(e => ({
@@ -5057,6 +5073,7 @@ function BudgetRequestEntryInner({
                 payee: e.payee, requestedBy: e.requestedBy,
                 requestedByName: e.requestedByName,
                 totalAmount: e.totalAmount, status: normalizeStatus(e.status),
+                forLiquidation: !!e.forLiquidation,
             }));
             setRecords(mapped);
             setNextCursor(res.data?.next_cursor ?? null);
@@ -5080,13 +5097,14 @@ function BudgetRequestEntryInner({
             const raw: Array<{
                 id: number; date: string; requisitionNo: string;
                 payee: string; requestedBy: string; requestedByName: string;
-                totalAmount: number; status: string;
+                totalAmount: number; status: string; forLiquidation?: boolean;
             }> = res.data?.entries ?? [];
             const mapped: RSRecord[] = raw.map(e => ({
                 id: e.id, date: e.date, requisitionNo: e.requisitionNo,
                 payee: e.payee, requestedBy: e.requestedBy,
                 requestedByName: e.requestedByName,
                 totalAmount: e.totalAmount, status: normalizeStatus(e.status),
+                forLiquidation: !!e.forLiquidation,
             }));
             setRecords(prev => [...prev, ...mapped]);
             setNextCursor(res.data?.next_cursor ?? null);
@@ -5348,6 +5366,26 @@ function BudgetRequestEntryInner({
                             onClick={handleToggleSY}
                             t={t}
                         />
+                        {/* For Liquidation legend — explains the yellow row
+                            highlight in the table below. Static, not an action. */}
+                        <div
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg shrink-0"
+                            style={{
+                                border: `1px solid ${LIQUIDATION_COLOR}55`,
+                                background: isDark ? `${LIQUIDATION_COLOR}1a` : `${LIQUIDATION_COLOR}14`,
+                            }}
+                        >
+                            <span
+                                className="inline-block rounded-full shrink-0"
+                                style={{ width: 8, height: 8, background: LIQUIDATION_COLOR }}
+                            />
+                            <span
+                                className="text-[11px] font-bold tracking-wide whitespace-nowrap"
+                                style={{ color: isDark ? '#fde047' : '#854d0e' }}
+                            >
+                                For Liquidation
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -5456,16 +5494,22 @@ function BudgetRequestEntryInner({
                                         }
                                     </td>
                                 </tr>
-                            ) : displayed.map((row, i) => (
+                            ) : displayed.map((row, i) => {
+                                const tagged = !!row.forLiquidation;
+                                const baseBg = tagged
+                                    ? liquidationRowBg(isDark)
+                                    : (i % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
+                                const activeBg = hovered === row.id
+                                    ? (tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg)
+                                    : baseBg;
+                                return (
                                 <tr
                                     key={row.id}
                                     onClick={() => { setViewModalId(row.id); setShowViewModal(true); }}
                                     onMouseEnter={() => setHovered(row.id)}
                                     onMouseLeave={() => setHovered(null)}
                                     style={{
-                                        background: hovered === row.id
-                                            ? t.rowHoverBg
-                                            : i % 2 === 0 ? t.rowEvenBg : t.rowOddBg,
+                                        background: activeBg,
                                         borderBottom: `1px solid ${t.rowBorder}`,
                                         transition: 'background 0.12s ease',
                                         cursor: 'pointer',
@@ -5575,7 +5619,8 @@ function BudgetRequestEntryInner({
                                         <StatusBadge status={row.status} t={t} />
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
