@@ -8,7 +8,7 @@ import {
     Eye, MessageSquare, History, Send, RefreshCw, Printer, XCircle,
     AlertTriangle, AlertCircle, ArrowRight, ShoppingCart, Pencil, Save,
     Warehouse, BookOpen, Users, Briefcase, Landmark, Banknote,
-    Undo2, PackageCheck,
+    Undo2, PackageCheck, CircleDollarSign
 } from 'lucide-react';
 import { Theme } from '../types.ts';
 import { PermissionKey } from '../constants.ts';
@@ -26,6 +26,7 @@ export interface RSLineItem {
     unit_of_measurement: string;
     unit_cost: number;
     total_cost: number;
+    quoted_price?: number | null;
 }
 
 export interface RSProcessRow {
@@ -147,13 +148,19 @@ const COMMON_ACTIONS: RoleAction[] = [
         visibleOn: ['certified rs', 'certified'], restrictedTo: ['stockroom-access'],
         locationFilter: ['stockroom'], toolbarGroup: 'left',
     },
-    { label: 'For Purchase', icon: ShoppingCart, variant: 'secondary', visibleOn: ['for budget director'], restrictedTo: ['admin-access'], locationFilter: ['budget office'], toolbarGroup: 'right' },
+    {
+        label: 'For Pricing', icon: CircleDollarSign, variant: 'secondary',
+        visibleOn: ['for budget director'], restrictedTo: ['admin-access'],
+        locationFilter: ['budget office'], toolbarGroup: 'left',
+    },
+    { label: 'Send RS to WICO', icon: Send, variant: 'primary', visibleOn: ['for purchase'], restrictedTo: ['logistics-access'], locationFilter: ['logistics'], toolbarGroup: 'right' },
+    { label: 'For Purchase', icon: ShoppingCart, variant: 'secondary', visibleOn: ['for approval'], restrictedTo: ['admin-access'], locationFilter: ['budget office'], toolbarGroup: 'right' },
     { label: 'Reprocess RS', icon: RefreshCw, variant: 'secondary', visibleOn: '*', restrictedTo: ['budget-access', 'admin-access'], toolbarGroup: 'right' },
     { label: 'Send RS to Staff', icon: Send, variant: 'primary', visibleOn: ['for budget director'], restrictedTo: ['admin-access'], locationFilter: ['budget office'], toolbarGroup: 'right' },
     { label: 'Print RS', icon: Printer, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'right' },
     {
         label: 'Mark Served', icon: PackageCheck, variant: 'success',
-        visibleOn: ['certified rs', 'certified'], restrictedTo: ['stockroom-access'],
+        visibleOn: ['certified rs', 'certified', 'p.o. on process'], restrictedTo: ['stockroom-access'],
         locationFilter: ['stockroom'], toolbarGroup: 'right',
     },
 ];
@@ -481,7 +488,7 @@ function ToolbarButton({
             onClick={onClick}
             style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: 4, padding: '7px 9px', minWidth: 62,
+                gap: 4, padding: '6px 7px', minWidth: 52,
                 border: 'none', background: 'transparent',
                 borderRadius: 8, cursor: 'pointer', transition: 'background .12s ease',
             }}
@@ -559,6 +566,96 @@ export function RSProcessModal({
     }>>({});
     const [isSavingItems, setIsSavingItems] = useState(false);
     const [itemsError, setItemsError] = useState<string | null>(null);
+
+    // ── Quoted price entry (logistics-only) ──────────────────────────────────
+    // Logistics checks supplier prices and records a quoted price per line
+    // item while the entry sits at the pricing stage reached via the
+    // 'For Pricing' action (DB status 'for pricing', location 'logistics').
+    // This never touches quantity/unit_cost/total_cost or any account
+    // balance — quoted_price is a reference column for whoever reviews the
+    // RS afterward. Saving forwards the RS on to the Budget Office.
+    const canPriceItems = roleKey === 'logistics-access'
+        && (row.status ?? '').toLowerCase() === 'for pricing'
+        && (row.location ?? '').toLowerCase() === 'logistics';
+    const [isPricingItems, setIsPricingItems] = useState(false);
+    const [priceDrafts, setPriceDrafts] = useState<Record<number, number>>({});
+    const [isSavingPrices, setIsSavingPrices] = useState(false);
+    const [pricesError, setPricesError] = useState<string | null>(null);
+
+    // ── Accept quoted prices (admin-only, for approval stage) ────────────────
+    // Clicking "Accept Quoted Prices" fetches a preview of what the change
+    // would do to each account balance, then shows a confirmation modal.
+    // The actual write is POST'd only after the user confirms.
+    const canAcceptQuotedPrices = roleKey === 'admin-access'
+        && (row.status ?? '').toLowerCase() === 'for approval'
+        && (row.location ?? '').toLowerCase() === 'budget office';
+
+    interface QuotedPricePreviewItem {
+        id: number;
+        account_code: string;
+        description: string;
+        quantity: number;
+        unit_of_measurement: string;
+        unit_cost: number;
+        quoted_price: number | null;
+        total_cost: number;
+        proposed_unit_cost: number;
+        proposed_total_cost: number;
+        delta: number;
+        account_balance: number | null;
+        balance_after: number | null;
+        sufficient: boolean | null;
+    }
+
+    const [acceptPreviewOpen, setAcceptPreviewOpen] = useState(false);
+    const [acceptPreviewItems, setAcceptPreviewItems] = useState<QuotedPricePreviewItem[]>([]);
+    const [acceptPreviewAllSufficient, setAcceptPreviewAllSufficient] = useState(false);
+    const [acceptPreviewLoading, setAcceptPreviewLoading] = useState(false);
+    const [acceptPreviewError, setAcceptPreviewError] = useState<string | null>(null);
+    const [isAccepting, setIsAccepting] = useState(false);
+    const [acceptError, setAcceptError] = useState<string | null>(null);
+
+    async function handleOpenAcceptPreview() {
+        setAcceptPreviewError(null);
+        setAcceptPreviewLoading(true);
+        setAcceptPreviewOpen(true);
+        try {
+            const res = await financeSvc.get(`/abms/requisition-process/${row.id}/quoted-prices-preview`);
+            setAcceptPreviewItems(res.data.items ?? []);
+            setAcceptPreviewAllSufficient(res.data.all_sufficient ?? false);
+        } catch (err: any) {
+            setAcceptPreviewError(err?.response?.data?.message ?? 'Failed to load preview. Please try again.');
+        } finally {
+            setAcceptPreviewLoading(false);
+        }
+    }
+
+    async function handleConfirmAcceptQuotedPrices() {
+        if (isAccepting) return;
+        setAcceptError(null);
+        setIsAccepting(true);
+        try {
+            const res = await financeSvc.put(`/abms/requisition-process/${row.id}/accept-quoted-prices`);
+            setAcceptPreviewOpen(false);
+            const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
+            const updatedTotal: number = res.data?.data?.total_amount ?? row.total_amount;
+            onAction?.('Accept Quoted Prices', { ...row, items: updatedItems, total_amount: updatedTotal });
+        } catch (err: any) {
+            setAcceptError(err?.response?.data?.message ?? 'Failed to accept quoted prices. No changes were applied.');
+        } finally {
+            setIsAccepting(false);
+        }
+    }
+
+    // The Quoted Price column itself is only shown to: logistics, while
+    // they're actively entering prices (canPriceItems above); and admin,
+    // once the RS has reached the Budget Office for approval — i.e. after
+    // logistics has already priced it. Every other role/stage never sees
+    // this column at all.
+    const showQuotedPriceColumn = canPriceItems
+        || (roleKey === 'admin-access'
+            && (row.status ?? '').toLowerCase() === 'for approval'
+            && (row.location ?? '').toLowerCase() === 'budget office');
 
     // ── Chat state ────────────────────────────────────────────────────────────
     const [showChat, setShowChat] = useState(false);
@@ -716,6 +813,57 @@ export function RSProcessModal({
         }
     }
 
+    // ── Quoted price handlers (logistics-only) ───────────────────────────────
+    function startPricingItems() {
+        const drafts: typeof priceDrafts = {};
+        (row.items ?? []).forEach(item => {
+            drafts[item.id] = item.quoted_price ?? 0;
+        });
+        setPriceDrafts(drafts);
+        setPricesError(null);
+        setIsPricingItems(true);
+    }
+
+    function cancelPricingItems() {
+        setPriceDrafts({});
+        setPricesError(null);
+        setIsPricingItems(false);
+    }
+
+    function updatePriceDraft(itemId: number, quoted_price: number) {
+        setPriceDrafts(prev => ({ ...prev, [itemId]: quoted_price }));
+    }
+
+    async function handleSaveQuotedPrices() {
+        if (isSavingPrices) return;
+        setIsSavingPrices(true);
+        setPricesError(null);
+        try {
+            const payload = {
+                items: Object.entries(priceDrafts).map(([id, quoted_price]) => ({
+                    id: Number(id),
+                    quoted_price,
+                })),
+            };
+            const res = await financeSvc.put(`/abms/requisition-process/${row.id}/quoted-prices`, payload);
+            const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
+            const updatedEntry = res.data?.data ?? {};
+            setIsPricingItems(false);
+            setPriceDrafts({});
+            onAction?.('Save Quoted Prices', {
+                ...row,
+                items: updatedItems,
+                status: updatedEntry.status ?? 'for approval',
+                location: updatedEntry.location ?? 'budget office',
+                from: updatedEntry.from ?? row.location,
+            });
+        } catch (err: any) {
+            setPricesError(err?.response?.data?.message ?? 'Failed to save quoted prices. No changes were applied.');
+        } finally {
+            setIsSavingPrices(false);
+        }
+    }
+
 
     const statusLower = (row.status ?? '').toLowerCase();
     const locationLower = (row.location ?? '').toLowerCase();
@@ -748,6 +896,10 @@ export function RSProcessModal({
     // Mock line items if not provided
     const lineItems: RSLineItem[] = row.items ?? [];
 
+    // Column count for the Requested Items table — 7 when the Quoted Price
+    // column is visible (see showQuotedPriceColumn above), 6 otherwise.
+    const totalCols = showQuotedPriceColumn ? 7 : 6;
+
     // Client-side mirror of the backend's validation — purely for disabling
     // the Save button / giving instant feedback. The backend re-validates
     // and is the actual source of truth; this never substitutes for it.
@@ -755,6 +907,12 @@ export function RSProcessModal({
         Number.isInteger(d.quantity) && d.quantity >= 1 &&
         typeof d.unit_cost === 'number' && d.unit_cost > 0 &&
         d.unit_of_measurement.trim().length > 0
+    );
+
+    // Client-side mirror of the backend's validation for the quoted-price
+    // save button — every drafted quoted price must be a number > 0.
+    const priceDraftsValid = !isPricingItems || Object.values(priceDrafts).every(v =>
+        typeof v === 'number' && v > 0 && !Number.isNaN(v)
     );
 
     // Live recalculated grand total while editing, so the admin can see the
@@ -877,10 +1035,10 @@ export function RSProcessModal({
                         gap: 8, padding: '8px 14px',
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                        flexShrink: 0, flexWrap: 'wrap',
+                        flexShrink: 0, flexWrap: 'nowrap', overflow: 'hidden',
                     }}>
                         <div style={{
-                            display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center',
+                            display: 'flex', gap: 1, flexWrap: 'nowrap', alignItems: 'center',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             border: `1px solid ${t.cardBorder}`,
                             borderRadius: 10, padding: '3px',
@@ -923,7 +1081,7 @@ export function RSProcessModal({
                             ))}
                         </div>
                         <div style={{
-                            display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center',
+                            display: 'flex', gap: 1, flexWrap: 'nowrap', alignItems: 'center',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             border: `1px solid ${t.cardBorder}`,
                             borderRadius: 10, padding: '3px',
@@ -1192,6 +1350,108 @@ export function RSProcessModal({
                                     )
                                 )}
 
+                                {/* Admin accept-all quoted prices button — only when gated open above */}
+                                {canAcceptQuotedPrices && itemsExpanded && lineItems.length > 0 && lineItems.some(i => i.quoted_price != null) && (
+                                    <button
+                                        onClick={handleOpenAcceptPreview}
+                                        title="Review and accept all quoted prices for this entry"
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 7,
+                                            padding: '7px 16px', borderRadius: 8,
+                                            fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
+                                            border: `1.5px solid ${isDark ? 'rgba(16,185,129,0.38)' : 'rgba(4,120,87,0.30)'}`,
+                                            background: isDark ? 'rgba(16,185,129,0.09)' : 'rgba(187,247,208,0.30)',
+                                            color: isDark ? '#86efac' : '#047857',
+                                            cursor: 'pointer',
+                                            transition: 'background .12s ease, border-color .12s ease',
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.18)' : 'rgba(187,247,208,0.50)';
+                                            e.currentTarget.style.borderColor = isDark ? 'rgba(16,185,129,0.60)' : 'rgba(4,120,87,0.45)';
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.09)' : 'rgba(187,247,208,0.30)';
+                                            e.currentTarget.style.borderColor = isDark ? 'rgba(16,185,129,0.38)' : 'rgba(4,120,87,0.30)';
+                                        }}
+                                    >
+                                        <CheckCircle2 style={{ width: 14, height: 14 }} />
+                                        Accept Quoted Prices
+                                    </button>
+                                )}
+
+                                {/* Logistics quoted-price controls — only when gated open above */}
+                                {canPriceItems && itemsExpanded && lineItems.length > 0 && (
+                                    isPricingItems ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                            {pricesError && (
+                                                <span style={{ fontSize: 10, color: t.cellAmber, maxWidth: 240, textAlign: 'right', lineHeight: 1.4 }}>
+                                                    {pricesError}
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={handleSaveQuotedPrices}
+                                                disabled={isSavingPrices || !priceDraftsValid}
+                                                title={!priceDraftsValid ? 'Every quoted price must be greater than 0' : 'Save quoted prices and forward to Budget Office'}
+                                                style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                    padding: '5px 12px', borderRadius: 8,
+                                                    fontSize: 11, fontWeight: 700, border: 'none',
+                                                    background: (isSavingPrices || !priceDraftsValid)
+                                                        ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')
+                                                        : (isDark ? 'rgba(37,99,235,0.70)' : '#1d4ed8'),
+                                                    color: (isSavingPrices || !priceDraftsValid) ? t.cellMuted : '#ffffff',
+                                                    cursor: (isSavingPrices || !priceDraftsValid) ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                {isSavingPrices
+                                                    ? <RefreshCw style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} />
+                                                    : <Save style={{ width: 12, height: 12 }} />
+                                                }
+                                                {isSavingPrices ? 'Saving…' : 'Save'}
+                                            </button>
+                                            <button
+                                                onClick={cancelPricingItems}
+                                                disabled={isSavingPrices}
+                                                style={{
+                                                    padding: '5px 12px', borderRadius: 8,
+                                                    fontSize: 11, fontWeight: 700,
+                                                    border: `1px solid ${t.cardBorder}`,
+                                                    background: 'transparent', color: t.cellMuted,
+                                                    cursor: isSavingPrices ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={startPricingItems}
+                                            title="Enter quoted prices for each item"
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 7,
+                                                padding: '7px 16px', borderRadius: 8,
+                                                fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                                                border: `1.5px solid ${isDark ? 'rgba(37,99,235,0.55)' : 'rgba(29,78,216,0.45)'}`,
+                                                background: isDark ? 'rgba(37,99,235,0.18)' : 'rgba(37,99,235,0.10)',
+                                                color: isDark ? '#93c5fd' : '#1d4ed8',
+                                                cursor: 'pointer', flexShrink: 0,
+                                                transition: 'background .12s ease, border-color .12s ease, transform .12s ease',
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.28)' : 'rgba(37,99,235,0.16)';
+                                                e.currentTarget.style.borderColor = isDark ? 'rgba(37,99,235,0.80)' : 'rgba(29,78,216,0.70)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.18)' : 'rgba(37,99,235,0.10)';
+                                                e.currentTarget.style.borderColor = isDark ? 'rgba(37,99,235,0.55)' : 'rgba(29,78,216,0.45)';
+                                            }}
+                                        >
+                                            <Calculator style={{ width: 14, height: 14 }} />
+                                            Enter Quoted Prices
+                                        </button>
+                                    )
+                                )}
+
                                 <div
                                     onClick={() => setItemsExpanded(p => !p)}
                                     style={{
@@ -1216,7 +1476,10 @@ export function RSProcessModal({
                                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
                                             <thead>
                                                 <tr style={{ background: t.tableHeadBg }}>
-                                                    {['Account Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Total Cost'].map((col, i, arr) => (
+                                                    {(showQuotedPriceColumn
+                                                        ? ['Account Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Quoted Price', 'Total Cost']
+                                                        : ['Account Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Total Cost']
+                                                    ).map((col, i, arr) => (
                                                         <th key={col} style={{
                                                             padding: '10px 14px',
                                                             fontSize: 10, fontWeight: 700,
@@ -1236,6 +1499,8 @@ export function RSProcessModal({
                                                 {lineItems.map((item, idx) => {
                                                     const draft = itemDrafts[item.id];
                                                     const rowEditing = isEditingItems && !!draft;
+                                                    const priceDraft = priceDrafts[item.id];
+                                                    const rowPricing = isPricingItems && priceDraft !== undefined;
                                                     const liveTotal = rowEditing ? draft.quantity * draft.unit_cost : item.total_cost;
                                                     const rowBg = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg;
                                                     const inputStyle: React.CSSProperties = {
@@ -1252,13 +1517,13 @@ export function RSProcessModal({
                                                             onMouseEnter={e => { if (!rowEditing) e.currentTarget.style.background = t.rowHoverBg; }}
                                                             onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
                                                         >
-                                                            <td style={itemTdStyle(t, 6, 0, 'left', false, true)}>
+                                                            <td style={itemTdStyle(t, totalCols, 0, 'left', false, true)}>
                                                                 {item.account_code}
                                                             </td>
-                                                            <td style={itemTdStyle(t, 6, 1, 'left', false, false)}>
+                                                            <td style={itemTdStyle(t, totalCols, 1, 'left', false, false)}>
                                                                 {item.description}
                                                             </td>
-                                                            <td style={itemTdStyle(t, 6, 2, 'right', false, true)}>
+                                                            <td style={itemTdStyle(t, totalCols, 2, 'right', false, true)}>
                                                                 {rowEditing ? (
                                                                     <input
                                                                         type="number" min={1} step={1}
@@ -1271,7 +1536,7 @@ export function RSProcessModal({
                                                                     />
                                                                 ) : item.quantity}
                                                             </td>
-                                                            <td style={itemTdStyle(t, 6, 3, 'right', true, false)}>
+                                                            <td style={itemTdStyle(t, totalCols, 3, 'right', true, false)}>
                                                                 {rowEditing ? (
                                                                     <input
                                                                         type="text" maxLength={50}
@@ -1282,7 +1547,7 @@ export function RSProcessModal({
                                                                     />
                                                                 ) : (item.unit_of_measurement || '—')}
                                                             </td>
-                                                            <td style={itemTdStyle(t, 6, 4, 'right', false, true)}>
+                                                            <td style={itemTdStyle(t, totalCols, 4, 'right', false, true)}>
                                                                 {rowEditing ? (
                                                                     <input
                                                                         type="number" min={0.01} step={0.01}
@@ -1295,8 +1560,23 @@ export function RSProcessModal({
                                                                     />
                                                                 ) : formatAmount(item.unit_cost)}
                                                             </td>
+                                                            {showQuotedPriceColumn && (
+                                                                <td style={itemTdStyle(t, totalCols, 5, 'right', false, true)}>
+                                                                    {rowPricing ? (
+                                                                        <input
+                                                                            type="number" min={0.01} step={0.01}
+                                                                            value={priceDraft}
+                                                                            disabled={isSavingPrices}
+                                                                            onChange={e => updatePriceDraft(item.id,
+                                                                                e.target.value === '' ? 0 : parseFloat(e.target.value),
+                                                                            )}
+                                                                            style={inputStyle}
+                                                                        />
+                                                                    ) : (item.quoted_price != null ? formatAmount(item.quoted_price) : '—')}
+                                                                </td>
+                                                            )}
                                                             <td style={{
-                                                                ...itemTdStyle(t, 6, 5, 'right', false, true),
+                                                                ...itemTdStyle(t, totalCols, totalCols - 1, 'right', false, true),
                                                                 borderRight: 'none',
                                                                 fontWeight: rowEditing && liveTotal !== item.total_cost ? 700 : undefined,
                                                                 color: rowEditing && liveTotal !== item.total_cost ? t.accentColor : undefined,
@@ -1308,7 +1588,7 @@ export function RSProcessModal({
                                                 })}
                                                 {isEditingItems && (
                                                     <tr style={{ background: isDark ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.05)' }}>
-                                                        <td colSpan={5} style={{
+                                                        <td colSpan={totalCols - 1} style={{
                                                             padding: '10px 14px', fontSize: 11, fontWeight: 700,
                                                             textAlign: 'right', color: t.cellMuted,
                                                             borderTop: `1px solid ${t.rowBorder}`,
@@ -1500,10 +1780,10 @@ export function RSProcessModal({
                                 }}>
                                     {formatAmount(row.total_amount)}
                                 </span>
-                                {/* For Liquidation — a tag on the entry, independent of its
-                                status, so it gets its own toggle rather than living in
-                                the status strip below. Revertible: clicking again flips
-                                it back off. */}
+                                {/* For Liquidation — only shown to admin-access and budget-access
+                                when the entry is at the budget office. A tag on the entry,
+                                independent of its status. Revertible: clicking again flips it off. */}
+                                {(roleKey === 'admin-access' || roleKey === 'budget-access') && locationLower === 'budget office' && (
                                 <button
                                     onClick={() => triggerAction({ label: 'For Liquidation', variant: 'primary', visibleOn: '*', confirm: false })}
                                     style={{
@@ -1526,6 +1806,7 @@ export function RSProcessModal({
                                     }} />
                                     {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
                                 </button>
+                                )}
                             </div>
                             <div style={{
                                 padding: '9px 20px', textAlign: 'center',
@@ -1590,6 +1871,261 @@ export function RSProcessModal({
             </div>
 
             {/* ── Confirmation modal — shown before any onAction actually fires ── */}
+            {/* ── Accept Quoted Prices preview + confirmation modal ──────────── */}
+            {acceptPreviewOpen && createPortal(
+                <>
+                    <style>{`
+                        @keyframes accept-modal-in {
+                            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+                            to   { opacity: 1; transform: scale(1)    translateY(0);   }
+                        }
+                    `}</style>
+                    <div
+                        style={{
+                            position: 'fixed', inset: 0, zIndex: 80,
+                            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '24px 16px',
+                        }}
+                        onClick={e => { if (e.target === e.currentTarget && !isAccepting) setAcceptPreviewOpen(false); }}
+                    >
+                        <div
+                            style={{
+                                background: t.cardBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                borderRadius: 14,
+                                boxShadow: t.cardShadow,
+                                width: '100%',
+                                maxWidth: 820,
+                                maxHeight: 'calc(100vh - 48px)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                animation: 'accept-modal-in .22s cubic-bezier(.22,1,.36,1)',
+                                overflow: 'hidden',
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '14px 20px',
+                                background: t.cardHeaderBg,
+                                borderBottom: `1px solid ${t.cardHeaderBorder}`,
+                                flexShrink: 0,
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{
+                                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                                        background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(187,247,208,0.50)',
+                                        border: `1px solid ${isDark ? 'rgba(16,185,129,0.35)' : 'rgba(4,120,87,0.25)'}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <CheckCircle2 style={{ width: 14, height: 14, color: isDark ? '#6ee7b7' : '#047857' }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: t.titleColor }}>
+                                            Accept Quoted Prices
+                                        </div>
+                                        <div style={{ fontSize: 10, color: t.cellMuted, marginTop: 1 }}>
+                                            Review balance impact before confirming — RS {row.requisition_no}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => { if (!isAccepting) setAcceptPreviewOpen(false); }}
+                                    disabled={isAccepting}
+                                    style={{
+                                        width: 28, height: 28, borderRadius: 8, border: 'none',
+                                        background: 'transparent', color: t.cellMuted,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        cursor: isAccepting ? 'not-allowed' : 'pointer',
+                                    }}
+                                >
+                                    <X style={{ width: 15, height: 15 }} />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+                                {acceptPreviewLoading ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, gap: 10, color: t.cellMuted }}>
+                                        <RefreshCw style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+                                        <span style={{ fontSize: 12 }}>Loading balance preview…</span>
+                                    </div>
+                                ) : acceptPreviewError ? (
+                                    <div style={{
+                                        padding: '14px 16px', borderRadius: 10, fontSize: 12,
+                                        background: isDark ? 'rgba(239,68,68,0.10)' : 'rgba(254,242,242,0.90)',
+                                        border: `1px solid ${isDark ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.30)'}`,
+                                        color: isDark ? '#fca5a5' : '#b91c1c',
+                                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                                    }}>
+                                        <AlertTriangle style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
+                                        {acceptPreviewError}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Info banner */}
+                                        <div style={{
+                                            padding: '10px 14px', borderRadius: 10, fontSize: 11,
+                                            marginBottom: 14,
+                                            background: isDark ? 'rgba(96,165,250,0.08)' : 'rgba(219,234,254,0.60)',
+                                            border: `1px solid ${isDark ? 'rgba(96,165,250,0.25)' : 'rgba(37,99,235,0.18)'}`,
+                                            color: isDark ? '#93c5fd' : '#1e40af',
+                                            display: 'flex', alignItems: 'flex-start', gap: 8,
+                                        }}>
+                                            <AlertCircle style={{ width: 13, height: 13, flexShrink: 0, marginTop: 1 }} />
+                                            <span>
+                                                Accepting will replace each item's <strong>unit cost</strong> with its <strong>quoted price</strong> and recalculate totals.
+                                                Items without a quoted price are left unchanged. This action adjusts account balances and <strong>cannot be undone</strong>.
+                                            </span>
+                                        </div>
+
+                                        {/* Insufficient balance warning */}
+                                        {!acceptPreviewAllSufficient && (
+                                            <div style={{
+                                                padding: '10px 14px', borderRadius: 10, fontSize: 11,
+                                                marginBottom: 14,
+                                                background: isDark ? 'rgba(239,68,68,0.10)' : 'rgba(254,242,242,0.90)',
+                                                border: `1px solid ${isDark ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.30)'}`,
+                                                color: isDark ? '#fca5a5' : '#b91c1c',
+                                                display: 'flex', alignItems: 'flex-start', gap: 8, fontWeight: 600,
+                                            }}>
+                                                <AlertTriangle style={{ width: 13, height: 13, flexShrink: 0, marginTop: 1 }} />
+                                                One or more accounts have insufficient balance for the quoted prices. You cannot accept until the budget allocation is corrected.
+                                            </div>
+                                        )}
+
+                                        {/* Items table */}
+                                        <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${t.cardBorder}` }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+                                                <thead>
+                                                    <tr style={{ background: t.tableHeadBg }}>
+                                                        {['Account', 'Description', 'Qty', 'Current Cost', 'Quoted Price', 'Delta', 'Acct. Balance', 'Balance After'].map((col, i, arr) => (
+                                                            <th key={col} style={{
+                                                                padding: '9px 12px', fontSize: 9, fontWeight: 700,
+                                                                textTransform: 'uppercase', letterSpacing: '0.08em',
+                                                                color: t.tableHeadText,
+                                                                borderBottom: `2px solid ${t.tableHeadBorder}`,
+                                                                borderRight: i < arr.length - 1 ? `1px solid ${t.tableHeadBorder}` : 'none',
+                                                                textAlign: i >= 2 ? 'right' : 'left',
+                                                                whiteSpace: 'nowrap',
+                                                            }}>
+                                                                {col}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {acceptPreviewItems.map((item, idx) => {
+                                                        const rowBg = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg;
+                                                        const noChange = item.quoted_price === null || item.delta === 0;
+                                                        const insufficient = item.sufficient === false;
+                                                        return (
+                                                            <tr key={item.id} style={{ background: insufficient ? (isDark ? 'rgba(239,68,68,0.07)' : 'rgba(254,242,242,0.70)') : rowBg }}>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap' }}>
+                                                                    {item.account_code}
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {item.description}
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                    {item.quantity} {item.unit_of_measurement}
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellMuted, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                    {formatAmount(item.unit_cost)}
+                                                                    <div style={{ fontSize: 9, color: t.cellMuted, marginTop: 1 }}>Total: {formatAmount(item.total_cost)}</div>
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap', color: noChange ? t.cellMuted : (isDark ? '#93c5fd' : '#1d4ed8'), fontWeight: noChange ? undefined : 700 }}>
+                                                                    {item.quoted_price != null ? formatAmount(item.quoted_price) : <span style={{ color: t.cellMuted, fontSize: 10 }}>—</span>}
+                                                                    {!noChange && <div style={{ fontSize: 9, color: isDark ? '#93c5fd' : '#1d4ed8', marginTop: 1 }}>Total: {formatAmount(item.proposed_total_cost)}</div>}
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap',
+                                                                    color: noChange ? t.cellMuted : item.delta > 0 ? (isDark ? '#fca5a5' : '#dc2626') : (isDark ? '#6ee7b7' : '#047857'),
+                                                                    fontWeight: noChange ? undefined : 700,
+                                                                }}>
+                                                                    {noChange ? '—' : (item.delta > 0 ? '+' : '') + formatAmount(item.delta)}
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                    {item.account_balance != null ? formatAmount(item.account_balance) : <span style={{ color: t.cellMuted }}>—</span>}
+                                                                </td>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap',
+                                                                    color: insufficient ? (isDark ? '#fca5a5' : '#dc2626') : (item.balance_after != null && item.balance_after < item.account_balance! * 0.2 ? (isDark ? t.cellAmber : '#b45309') : (isDark ? '#6ee7b7' : '#047857')),
+                                                                    fontWeight: 700,
+                                                                }}>
+                                                                    {item.balance_after != null ? (
+                                                                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                                                                            {insufficient && <AlertTriangle style={{ width: 11, height: 11, flexShrink: 0 }} />}
+                                                                            {formatAmount(item.balance_after)}
+                                                                        </span>
+                                                                    ) : <span style={{ color: t.cellMuted }}>—</span>}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            {!acceptPreviewLoading && !acceptPreviewError && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+                                    padding: '12px 20px',
+                                    borderTop: `1px solid ${t.cardHeaderBorder}`,
+                                    flexShrink: 0,
+                                    background: t.cardHeaderBg,
+                                }}>
+                                    {acceptError && (
+                                        <span style={{ fontSize: 11, color: isDark ? '#fca5a5' : '#dc2626', flex: 1, lineHeight: 1.4 }}>
+                                            {acceptError}
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => { if (!isAccepting) setAcceptPreviewOpen(false); }}
+                                        disabled={isAccepting}
+                                        style={{
+                                            padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                            border: `1px solid ${t.cardBorder}`,
+                                            background: 'transparent', color: t.cellMuted,
+                                            cursor: isAccepting ? 'not-allowed' : 'pointer',
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmAcceptQuotedPrices}
+                                        disabled={isAccepting || !acceptPreviewAllSufficient}
+                                        title={!acceptPreviewAllSufficient ? 'Cannot accept — one or more accounts have insufficient balance' : 'Accept all quoted prices and update balances'}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 7,
+                                            padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                            border: 'none',
+                                            background: (isAccepting || !acceptPreviewAllSufficient)
+                                                ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')
+                                                : (isDark ? 'rgba(16,185,129,0.75)' : '#059669'),
+                                            color: (isAccepting || !acceptPreviewAllSufficient) ? t.cellMuted : '#ffffff',
+                                            cursor: (isAccepting || !acceptPreviewAllSufficient) ? 'not-allowed' : 'pointer',
+                                            transition: 'background .12s ease',
+                                        }}
+                                    >
+                                        {isAccepting
+                                            ? <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />
+                                            : <CheckCircle2 style={{ width: 13, height: 13 }} />
+                                        }
+                                        {isAccepting ? 'Accepting…' : 'Confirm & Accept'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>,
+                document.body,
+            )}
+
             {pendingAction && (
                 <ConfirmActionModal
                     action={pendingAction.label}

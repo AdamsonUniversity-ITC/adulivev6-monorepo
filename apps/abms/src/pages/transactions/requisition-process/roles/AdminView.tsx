@@ -373,7 +373,7 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
     // RSProcessModal ever emits those action strings for admin-access (the
     // real button is labeled 'Disapprove'), so they were dead entries that
     // masked the fact that 'Disapprove' was never wired up.
-    const STATUS_ACTIONS = ['Disapprove', 'Reprocess RS', 'Send RS to Staff', 'Forward to Stockroom', 'Forward to BAO'];
+    const STATUS_ACTIONS = ['Disapprove', 'Reprocess RS', 'Send RS to Staff', 'For Pricing', 'Forward to Stockroom', 'Forward to BAO', 'Forward to Accounting', 'Forward to Acctg. Director', 'Forward to HRMDO', 'Forward to Cash Management', 'For Purchase'];
 
     // Handle action button in modal
     const handleModalAction = useCallback(async (action: string, row: RSProcessRow) => {
@@ -456,6 +456,18 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
             setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount } : prev);
             setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount } : r));
             addToast('success', `Items updated for RS ${row.requisition_no}.`);
+            return;
+        }
+
+        // 'Accept Quoted Prices' — modal already did the PUT to
+        // /accept-quoted-prices and recalculated balances server-side.
+        // Sync the updated items + total_amount into local state and toast.
+        // The modal stays open so the admin can see the updated figures
+        // and proceed with the next action (e.g. forward to stockroom).
+        if (action === 'Accept Quoted Prices') {
+            setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount } : prev);
+            setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount } : r));
+            addToast('success', `Quoted prices accepted for RS ${row.requisition_no}. Costs and balances updated.`);
             return;
         }
 
