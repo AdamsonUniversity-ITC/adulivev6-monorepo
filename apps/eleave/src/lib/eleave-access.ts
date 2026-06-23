@@ -4,6 +4,7 @@ import type { AuthUser } from "@/lib/fetch-auth-user"
 export const ELEAVE_PERMISSIONS = {
   adminApproval: "eleave-admin-approval-access",
   rankAndFileApproval: "eleave-rank-and-file-approval-access",
+  hrAdmin: "eleave-hr-admin-access",
   dev: "eleave-dev-access",
 } as const
 
@@ -28,7 +29,7 @@ export function canAccessHrApproval(user: AuthUser | undefined): boolean {
 export function canAccessAdminFeatures(user: AuthUser | undefined): boolean {
   return hasAnyPermission(
     user,
-    ELEAVE_PERMISSIONS.rankAndFileApproval,
+    ELEAVE_PERMISSIONS.hrAdmin,
     ELEAVE_PERMISSIONS.dev,
   )
 }
