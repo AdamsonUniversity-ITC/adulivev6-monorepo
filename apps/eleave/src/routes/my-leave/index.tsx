@@ -13,8 +13,9 @@ import {
 import { useLeaveBalances } from "@/hooks/use-leave-balances"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
 import { useMyLeaveApplications } from "@/hooks/use-my-leave-applications"
-import { LeaveBalanceTable } from "@/components/shared/leave-balance-table"
+import { LeaveBalancePanel } from "@/components/shared/leave-balance-table"
 import { mapLeaveApplicationsToRows } from "@/lib/map-leave-application-to-row"
+import { cn } from "@/lib/utils"
 
 import { MyLeaveDataTable } from "./-leave-datatable"
 
@@ -69,18 +70,33 @@ function MyLeavePage() {
         label: "Total requests",
         value: leaveApplicationsResponse?.meta.total ?? rows.length,
         icon: FileText,
+        cardClassName:
+          "border-blue-300/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.22),_transparent_55%),linear-gradient(90deg,_#93c5fd_0%,_#60a5fa_52%,_#3b82f6_100%)]",
+        iconClassName: "bg-blue-700/35 text-white",
+        labelClassName: "text-blue-50/90",
+        valueClassName: "text-white",
       },
       {
         label: "Pending approval",
         value: pendingCount,
         icon: Clock3,
+        cardClassName:
+          "border-amber-200/80 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.28),_transparent_55%),linear-gradient(90deg,_#fef3c7_0%,_#fde68a_52%,_#fbbf24_100%)]",
+        iconClassName: "bg-amber-700/15 text-amber-900",
+        labelClassName: "text-amber-900/80",
+        valueClassName: "text-amber-950",
       },
       {
         label: "Approved",
         value: approvedCount,
         icon: CalendarDays,
+        cardClassName:
+          "border-green-300/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.2),_transparent_55%),linear-gradient(90deg,_#86efac_0%,_#4ade80_52%,_#22c55e_100%)]",
+        iconClassName: "bg-green-800/25 text-white",
+        labelClassName: "text-green-50/90",
+        valueClassName: "text-white",
       },
-    ] as const
+    ]
   }, [leaveApplicationsResponse?.meta.total, rows])
 
   return (
@@ -111,16 +127,36 @@ function MyLeavePage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {stats.map((stat) => (
-          <Card key={stat.label} className="py-4 shadow-sm">
+          <Card
+            key={stat.label}
+            className={cn("overflow-hidden py-4 shadow-sm", stat.cardClassName)}
+          >
             <CardContent className="flex items-center gap-4 px-5">
-              <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+              <div
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-lg",
+                  stat.iconClassName,
+                )}
+              >
                 <stat.icon className="size-4" />
               </div>
               <div>
-                <p className="text-muted-foreground text-xs font-medium">
+                <p
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-wide",
+                    stat.labelClassName,
+                  )}
+                >
                   {stat.label}
                 </p>
-                <p className="text-2xl font-semibold tabular-nums">{stat.value}</p>
+                <p
+                  className={cn(
+                    "text-2xl font-semibold tabular-nums",
+                    stat.valueClassName,
+                  )}
+                >
+                  {stat.value}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -131,9 +167,9 @@ function MyLeavePage() {
         <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
           <CardHeader className="border-b bg-muted/20 px-6 py-5">
             <CardTitle className="text-lg">Your Leave Requests</CardTitle>
-            <CardDescription>
+            {/* <CardDescription>
               Search, sort, and open a request to view or edit details.
-            </CardDescription>
+            </CardDescription> */}
           </CardHeader>
           <CardContent className="px-6 py-5">
             <MyLeaveDataTable
@@ -145,7 +181,7 @@ function MyLeavePage() {
         </Card>
 
         <aside className="flex min-h-0 flex-col">
-          <LeaveBalanceTable
+          <LeaveBalancePanel
             className="h-full"
             rows={leaveBalanceRows}
             isLoading={isLeaveBalancesLoading}
