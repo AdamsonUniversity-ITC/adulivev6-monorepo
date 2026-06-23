@@ -348,8 +348,6 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
             const items = res.data.data ?? [];
             setSelectedRow({
                 ...row,
-                payee: null,
-                payment_form: null,
                 note: row.note ?? null,
                 items,
             } as RSProcessRow);

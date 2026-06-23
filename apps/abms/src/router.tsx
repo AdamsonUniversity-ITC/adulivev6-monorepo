@@ -1,4 +1,4 @@
-import { RootRoute, Route, createRouter, Outlet, redirect } from '@tanstack/react-router';
+import { RootRoute, Route, createRouter, Outlet, redirect, isRedirect } from '@tanstack/react-router';
 import App from './App';
 import Home from './pages/Home';
 import Test from './pages/Test';
@@ -45,15 +45,23 @@ const protectedRoute = new Route({
         // Fetch user once here, pass it down as context
         try {
             const authRes = await authSvc.get('/user');
+            const permissions: string[] = authRes.data.permissions ?? [];
+
+            if (!permissions.includes('abms_access')) {
+                window.location.href = '/403';
+                await new Promise(() => { });
+            }
+
             const username = authRes.data.username;
             const nameRes = await financeSvc.get(`/user/${username}`);
-            return { user: { username, ...nameRes.data } };
+            return { user: { username, permissions, ...nameRes.data } };
         } catch {
             return { user: null };
         }
     },
     component: () => <Outlet />,
 });
+
 
 export const homeRoute = new Route({
     getParentRoute: () => protectedRoute,
