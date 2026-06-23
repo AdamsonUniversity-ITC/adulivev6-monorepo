@@ -3,12 +3,15 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import './globals.css';
 // Import the generated route tree
-import { Toaster } from '@repo/ui/exports';
+import { DrsNotFoundPage } from '@/components/drs-not-found-page.tsx';
 import './axios.ts';
 import { routeTree } from './routeTree.gen';
 
 // Create a new router instance
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  defaultNotFoundComponent: DrsNotFoundPage,
+});
 
 // Register the router instance for type safety
 declare module '@tanstack/react-router' {
@@ -24,7 +27,6 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <RouterProvider router={router} />
-      <Toaster />
     </StrictMode>,
   );
 }

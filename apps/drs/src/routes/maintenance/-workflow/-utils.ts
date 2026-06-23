@@ -1,6 +1,7 @@
 import type {
   WorkflowStage,
   WorkflowTask,
+  WorkflowTransition,
 } from '../-lib/api/workflow/types.ts';
 
 export const STAGES_QUERY_KEY = ['workflow_stages'];
@@ -17,11 +18,12 @@ export const sortedStages = (
 ): WorkflowStage[] =>
   (stages ?? []).slice().sort((a, b) => a.position - b.position);
 
-export const moveItem = <T,>(
-  items: T[],
-  from: number,
-  to: number,
-): T[] => {
+export const sortedTransitions = (
+  transitions: WorkflowTransition[] | undefined,
+): WorkflowTransition[] =>
+  (transitions ?? []).slice().sort((a, b) => a.position - b.position);
+
+export const moveItem = <T>(items: T[], from: number, to: number): T[] => {
   if (to < 0 || to >= items.length) return items;
   const next = items.slice();
   const [moved] = next.splice(from, 1);

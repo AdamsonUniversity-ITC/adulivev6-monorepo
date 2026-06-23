@@ -12,16 +12,13 @@ import {
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
 import { toast } from '@repo/ui/exports';
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { JSX, useState } from 'react';
 import { z } from 'zod';
 import { createRole } from '../-lib/api/access/createRole.ts';
 import { fetchPermissions } from '../-lib/api/access/fetchPermissions.ts';
+import { formatRolePermissionName } from '../-lib/api/access/permissionLabels.ts';
 
 type Props = {
   onCreated?: () => void;
@@ -145,7 +142,17 @@ export const CreateRoleDialog = ({ onCreated }: Props): JSX.Element => {
                         togglePermission(permission.name, Boolean(checked))
                       }
                     />
-                    <span>{permission.name}</span>
+                    <span className="min-w-0">
+                      <span className="block">
+                        {formatRolePermissionName(permission.name)}
+                      </span>
+                      {formatRolePermissionName(permission.name) !==
+                      permission.name ? (
+                        <span className="text-muted-foreground block font-mono text-[10px]">
+                          {permission.name}
+                        </span>
+                      ) : null}
+                    </span>
                   </label>
                 ))
               )}

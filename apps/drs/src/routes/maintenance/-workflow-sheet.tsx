@@ -1,34 +1,34 @@
 import { Button } from '@repo/ui/components/button';
 import { Card, CardContent } from '@repo/ui/components/card';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@repo/ui/components/tabs';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { JSX, useMemo, useState } from 'react';
-import { ApplicationSheet } from './-application-sheet.tsx';
-import { AssessmentSheet } from './-assessment-sheet.tsx';
-import { ClearanceSheet } from './-clearance-sheet.tsx';
 import { ConfirmActionDialog } from './-clearance/-confirm-action-dialog.tsx';
 import { fetchClearanceDepartments } from './-lib/api/fetchClearanceDepartments.ts';
 import { deleteWorkflowStage } from './-lib/api/workflow/deleteStage.ts';
 import { deleteWorkflowTask } from './-lib/api/workflow/deleteTask.ts';
+import { deleteWorkflowTransition } from './-lib/api/workflow/deleteTransition.ts';
 import { fetchWorkflowStages } from './-lib/api/workflow/fetchStages.ts';
 import { fetchWorkflowTaskKinds } from './-lib/api/workflow/fetchTaskKinds.ts';
 import { reorderWorkflowStages } from './-lib/api/workflow/reorderStages.ts';
 import { reorderWorkflowTasks } from './-lib/api/workflow/reorderTasks.ts';
+import { reorderWorkflowTransitions } from './-lib/api/workflow/reorderTransitions.ts';
 import type {
   WorkflowKind,
   WorkflowStage,
   WorkflowTask,
+  WorkflowTransition,
 } from './-lib/api/workflow/types.ts';
+import {
+  TASK_KIND_SLIDE_META,
+  isTaskKindSlideKind,
+} from './-task-kind-slides.ts';
 import { StageCard } from './-workflow/-stage-card.tsx';
 import { StageDialog } from './-workflow/-stage-dialog.tsx';
 import { TaskDialog } from './-workflow/-task-dialog.tsx';
+import { TaskKindAccessPanel } from './-workflow/-task-kind-access-panel.tsx';
+import { TransitionDialog } from './-workflow/-transition-dialog.tsx';
 import {
   CLEARANCES_QUERY_KEY,
   type ClearanceOption,
@@ -37,6 +37,7 @@ import {
   moveItem,
   sortedStages,
   sortedTasks,
+  sortedTransitions,
 } from './-workflow/-utils.ts';
 
 type StageDialogState = { open: boolean; stage: WorkflowStage | null };
@@ -44,6 +45,11 @@ type TaskDialogState = {
   open: boolean;
   stage: WorkflowStage | null;
   task: WorkflowTask | null;
+};
+type TransitionDialogState = {
+  open: boolean;
+  stage: WorkflowStage | null;
+  transition: WorkflowTransition | null;
 };
 
 const unwrapClearances = (raw: unknown): ClearanceOption[] => {
@@ -112,6 +118,19 @@ const StagesAndTasks = (): JSX.Element => {
   const deleteTaskMutation = useMutation({
     mutationFn: (taskId: number | string) => deleteWorkflowTask(taskId),
   });
+  const reorderTransitionsMutation = useMutation({
+    mutationFn: ({
+      stageId,
+      orderedIds,
+    }: {
+      stageId: number | string;
+      orderedIds: Array<number | string>;
+    }) => reorderWorkflowTransitions(stageId, orderedIds),
+  });
+  const deleteTransitionMutation = useMutation({
+    mutationFn: (transitionId: number | string) =>
+      deleteWorkflowTransition(transitionId),
+  });
 
   const [stageDialog, setStageDialog] = useState<StageDialogState>({
     open: false,
@@ -122,10 +141,18 @@ const StagesAndTasks = (): JSX.Element => {
     stage: null,
     task: null,
   });
+  const [transitionDialog, setTransitionDialog] =
+    useState<TransitionDialogState>({
+      open: false,
+      stage: null,
+      transition: null,
+    });
   const [pendingDeleteStage, setPendingDeleteStage] =
     useState<WorkflowStage | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] =
     useState<WorkflowTask | null>(null);
+  const [pendingDeleteTransition, setPendingDeleteTransition] =
+    useState<WorkflowTransition | null>(null);
 
   const handleReorderStage = (index: number, direction: -1 | 1) => {
     const reordered = moveItem(stages, index, index + direction);
@@ -171,6 +198,27 @@ const StagesAndTasks = (): JSX.Element => {
     );
   };
 
+  const handleReorderTransition = (
+    stage: WorkflowStage,
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    const transitions = sortedTransitions(stage.transitions);
+    const reordered = moveItem(transitions, index, index + direction);
+    if (reordered === transitions) return;
+
+    reorderTransitionsMutation.mutate(
+      { stageId: stage.id, orderedIds: reordered.map((t) => t.id) },
+      {
+        onSuccess: () => {
+          toast.success('Transition order updated.');
+          invalidateStages();
+        },
+        onError: () => toast.error('Failed to reorder transitions.'),
+      },
+    );
+  };
+
   const confirmDeleteStage = () => {
     if (!pendingDeleteStage) return;
     deleteStageMutation.mutate(pendingDeleteStage.id, {
@@ -192,6 +240,18 @@ const StagesAndTasks = (): JSX.Element => {
         invalidateStages();
       },
       onError: () => toast.error('Failed to delete task.'),
+    });
+  };
+
+  const confirmDeleteTransition = () => {
+    if (!pendingDeleteTransition) return;
+    deleteTransitionMutation.mutate(pendingDeleteTransition.id, {
+      onSuccess: () => {
+        toast.success('Transition deleted.');
+        setPendingDeleteTransition(null);
+        invalidateStages();
+      },
+      onError: () => toast.error('Failed to delete transition.'),
     });
   };
 
@@ -240,7 +300,9 @@ const StagesAndTasks = (): JSX.Element => {
                 total={stages.length}
                 isStageDeleting={deleteStageMutation.isPending}
                 isTaskDeleting={deleteTaskMutation.isPending}
-                onMoveStage={(direction) => handleReorderStage(index, direction)}
+                onMoveStage={(direction) =>
+                  handleReorderStage(index, direction)
+                }
                 onEditStage={() => setStageDialog({ open: true, stage })}
                 onDeleteStage={() => setPendingDeleteStage(stage)}
                 onAddTask={() =>
@@ -253,8 +315,109 @@ const StagesAndTasks = (): JSX.Element => {
                   setTaskDialog({ open: true, stage, task })
                 }
                 onDeleteTask={(task) => setPendingDeleteTask(task)}
+                onAddTransition={() =>
+                  setTransitionDialog({
+                    open: true,
+                    stage,
+                    transition: null,
+                  })
+                }
+                onMoveTransition={(_, transitionIndex, direction) =>
+                  handleReorderTransition(stage, transitionIndex, direction)
+                }
+                onEditTransition={(transition) =>
+                  setTransitionDialog({ open: true, stage, transition })
+                }
+                onDeleteTransition={(transition) =>
+                  setPendingDeleteTransition(transition)
+                }
               />
             ))}
+            {kinds.length > 0 ? (
+              <div className="border-muted/60 mt-10 space-y-4 border-t pt-8">
+                <div>
+                  <h3 className="text-foreground text-lg font-semibold">
+                    Operator access by task kind
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Assign employees (by HR employee number) and auth roles for
+                    each task kind. Clearance sign-off uses per-clearance users;
+                    assessment, payment collection, and payment verification use
+                    their own maintenance panels. Processing, compliance,
+                    release, dispatch, handoff, and disposal also have dedicated
+                    panels.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {kinds.map((k) => {
+                    if (k.kind === 'clearance_signoff') {
+                      return (
+                        <TaskKindAccessPanel
+                          key={k.kind}
+                          kind={k.kind}
+                          title={k.label}
+                          readOnly
+                          readOnlyDescription="Configure operators on each clearance record."
+                        />
+                      );
+                    }
+                    if (k.kind === 'assessment') {
+                      return (
+                        <TaskKindAccessPanel
+                          key={k.kind}
+                          kind={k.kind}
+                          title={k.label}
+                          readOnly
+                          readOnlyDescription="Use the Assessment panel to manage who may assess applications."
+                        />
+                      );
+                    }
+                    if (k.kind === 'payment_collection') {
+                      return (
+                        <TaskKindAccessPanel
+                          key={k.kind}
+                          kind={k.kind}
+                          title={k.label}
+                          readOnly
+                          readOnlyDescription="Use the Payment collection panel to manage payment accounts and fees."
+                        />
+                      );
+                    }
+                    if (k.kind === 'payment_verification') {
+                      return (
+                        <TaskKindAccessPanel
+                          key={k.kind}
+                          kind={k.kind}
+                          title={k.label}
+                          readOnly
+                          readOnlyDescription="Use the Payment verification panel to manage who may verify payments."
+                        />
+                      );
+                    }
+                    if (isTaskKindSlideKind(k.kind)) {
+                      return (
+                        <TaskKindAccessPanel
+                          key={k.kind}
+                          kind={k.kind}
+                          title={k.label}
+                          readOnly
+                          readOnlyDescription={
+                            TASK_KIND_SLIDE_META[k.kind].readOnlyDescription
+                          }
+                        />
+                      );
+                    }
+                    return (
+                      <TaskKindAccessPanel
+                        key={k.kind}
+                        kind={k.kind}
+                        title={k.label}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -287,6 +450,25 @@ const StagesAndTasks = (): JSX.Element => {
         }
         onSaved={() => {
           setTaskDialog({ open: false, stage: null, task: null });
+          invalidateStages();
+        }}
+      />
+
+      <TransitionDialog
+        open={transitionDialog.open}
+        stage={transitionDialog.stage}
+        transition={transitionDialog.transition}
+        stages={stages}
+        onOpenChange={(open) =>
+          setTransitionDialog((prev) => ({
+            ...prev,
+            open,
+            stage: open ? prev.stage : null,
+            transition: open ? prev.transition : null,
+          }))
+        }
+        onSaved={() => {
+          setTransitionDialog({ open: false, stage: null, transition: null });
           invalidateStages();
         }}
       />
@@ -328,6 +510,28 @@ const StagesAndTasks = (): JSX.Element => {
         pending={deleteTaskMutation.isPending}
         onConfirm={confirmDeleteTask}
       />
+
+      <ConfirmActionDialog
+        open={pendingDeleteTransition !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteTransition(null);
+        }}
+        title="Delete transition?"
+        description={
+          pendingDeleteTransition ? (
+            <>
+              Remove the branch{' '}
+              <span className="font-medium">
+                {pendingDeleteTransition.label}
+              </span>
+              ?
+            </>
+          ) : null
+        }
+        confirmLabel="Delete transition"
+        pending={deleteTransitionMutation.isPending}
+        onConfirm={confirmDeleteTransition}
+      />
     </>
   );
 };
@@ -339,32 +543,11 @@ export const WorkflowSheet = (): JSX.Element => {
         <div className="space-y-1">
           <h1 className="text-foreground text-2xl font-bold">Workflow</h1>
           <p className="text-muted-foreground text-sm">
-            Configure the full DRS application flow: catalog, clearance,
-            assessment, and the workflow stages and tasks.
+            Configure the DRS workflow stages, tasks, and task access rules.
           </p>
         </div>
 
-        <Tabs defaultValue="workflow">
-          <TabsList className="w-full justify-start" variant="line">
-            <TabsTrigger value="application">Application</TabsTrigger>
-            <TabsTrigger value="clearance">Clearance</TabsTrigger>
-            <TabsTrigger value="assessment">Assessment</TabsTrigger>
-            <TabsTrigger value="workflow">Stages &amp; tasks</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="application" className="mt-4">
-            <ApplicationSheet />
-          </TabsContent>
-          <TabsContent value="clearance" className="mt-4">
-            <ClearanceSheet />
-          </TabsContent>
-          <TabsContent value="assessment" className="mt-4">
-            <AssessmentSheet />
-          </TabsContent>
-          <TabsContent value="workflow" className="mt-4">
-            <StagesAndTasks />
-          </TabsContent>
-        </Tabs>
+        <StagesAndTasks />
       </div>
     </div>
   );

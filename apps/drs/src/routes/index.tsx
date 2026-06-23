@@ -1,25 +1,51 @@
 import {
+  DrsEmptyState,
+  DrsPageHeader,
+  DrsPageShell,
+  DrsSectionCard,
+  DrsStatCard,
+  DrsStatusBadge,
+} from '@/components/drs-ui.tsx';
+import {
   DRS_STUDENT_APPLY_PERMISSION,
   getDrMaintenancePermissionForHost,
 } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { checkPermission, usePermission } from '@repo/hooks';
 import { Button } from '@repo/ui/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/card';
 import { Spinner } from '@repo/ui/components/spinner';
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute, redirect } from '@tanstack/react-router';
+import {
+  ClipboardCheck,
+  FileText,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+  Wrench,
+} from 'lucide-react';
 import { ApplicationsDataTable } from './-applications-datatable.tsx';
+import { fetchWorkflowStageAccess } from './-lib/api/fetchWorkflowStageAccess.ts';
 import { loadMaintenanceAccess } from './maintenance/-lib/loadMaintenanceAccess.ts';
 import { MaintenanceHome } from './maintenance/-maintenance-home.tsx';
 import type { MaintenanceLoaderAccess } from './maintenance/-maintenance-loader-data-context.tsx';
 
 export const Route = createFileRoute('/')({
+  beforeLoad: async () => {
+    const { data } = await fetchAuthUser();
+    const permissions = normalizePermissions(data);
+    const maintPerm = getDrMaintenancePermissionForHost();
+    const hasMaint =
+      maintPerm !== null && checkPermission(permissions, maintPerm);
+
+    if (hasMaint) {
+      return;
+    }
+
+    const { hasWorkflowStageAccess } = await fetchWorkflowStageAccess();
+    if (hasWorkflowStageAccess) {
+      throw redirect({ to: '/staff/queue' });
+    }
+  },
   loader: async () => {
     const { data } = await fetchAuthUser();
     const permissions = normalizePermissions(data);
@@ -56,35 +82,81 @@ function Index() {
 
   if (hasCollege) {
     return (
-      <div id="root" className="bg-background min-h-screen p-4">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>DRS</CardTitle>
-              <CardDescription>
-                Your applications — click a row to open details, messages, and
-                edits (when allowed).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button asChild>
-                  <Link to="/apply">Apply for documents</Link>
-                </Button>
+      <DrsPageShell maxWidth="xl" contentClassName="space-y-6">
+        <DrsPageHeader
+          eyebrow="Document Request System"
+          title="Your registrar requests, clearly organized."
+          description="Request documents, follow every workflow stage, upload payment references, and keep conversations with the registrar in one secure workspace."
+          actions={
+            <>
+              <Button asChild size="lg" className="rounded-full">
+                <Link to="/apply">
+                  <FileText className="size-4" />
+                  Apply for documents
+                </Link>
+              </Button>
 
-                {hasMaint ? (
-                  <Button variant="outline" asChild>
-                    <Link to="/maintenance">Maintenance</Link>
-                  </Button>
-                ) : null}
-              </div>
-              <section className="flex flex-col gap-2">
-                <ApplicationsDataTable />
-              </section>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              {hasMaint ? (
+                <Button
+                  variant="outline"
+                  asChild
+                  size="lg"
+                  className="rounded-full"
+                >
+                  <Link to="/maintenance">
+                    <Wrench className="size-4" />
+                    Maintenance
+                  </Link>
+                </Button>
+              ) : null}
+            </>
+          }
+          badges={
+            <>
+              <DrsStatusBadge tone="info">Online requests</DrsStatusBadge>
+              <DrsStatusBadge tone="success">Status tracking</DrsStatusBadge>
+              <DrsStatusBadge tone="warning">Payment updates</DrsStatusBadge>
+            </>
+          }
+        />
+
+        <section
+          aria-label="DRS service highlights"
+          className="grid gap-4 md:grid-cols-3"
+        >
+          <DrsStatCard
+            label="Request"
+            value="24/7"
+            description="Build document requests anytime from the live catalog."
+            icon={Sparkles}
+            tone="blue"
+          />
+          <DrsStatCard
+            label="Workflow"
+            value="Live"
+            description="Track stage movement, clearances, and payment state."
+            icon={ClipboardCheck}
+            tone="emerald"
+          />
+          <DrsStatCard
+            label="Support"
+            value="Threaded"
+            description="Keep registrar messages attached to each application."
+            icon={MessageSquareText}
+            tone="amber"
+          />
+        </section>
+
+        <DrsSectionCard
+          title="Applications"
+          description="Click a row to open request details, messages, payment references, and edits when the workflow allows them."
+          icon={FileText}
+        >
+          <section className="flex flex-col gap-2">
+            <ApplicationsDataTable />
+          </section>
+        </DrsSectionCard>
+      </DrsPageShell>
     );
   }
 
@@ -97,29 +169,15 @@ function Index() {
   }
 
   return (
-    <div id="root" className="bg-background min-h-screen p-4">
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>DRS</CardTitle>
-            <CardDescription>No access</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground text-sm">
-              You do not have permission to use this DRS tenant. If you believe
-              this is an error, contact your administrator.
-            </p>
-            <p className="text-muted-foreground text-sm">
-              If you complete workflow tasks for students (for example clearance
-              sign-off), try the{' '}
-              <Link className="text-primary underline" to="/staff/queue">
-                staff queue
-              </Link>
-              .
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <DrsPageShell
+      maxWidth="sm"
+      contentClassName="flex min-h-[70dvh] items-center"
+    >
+      <DrsEmptyState
+        icon={ShieldCheck}
+        title="No DRS access"
+        description="You do not have permission to use this DRS tenant. If you believe this is an error, contact your administrator."
+      />
+    </DrsPageShell>
   );
 }

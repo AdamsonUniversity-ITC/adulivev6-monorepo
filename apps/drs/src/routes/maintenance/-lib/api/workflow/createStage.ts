@@ -7,6 +7,8 @@ export type CreateStagePayload = {
   is_terminal?: boolean;
   color?: string | null;
   transition_rule?: 'all_required_done' | 'any_done';
+  restrict_assigned_users_to_course_programs?: boolean;
+  allows_owner_cancellation?: boolean;
 };
 
 export const createWorkflowStage = async (payload: CreateStagePayload) => {

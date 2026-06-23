@@ -1,1 +1,245 @@
 @import "@repo/tailwind-config";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 10%, transparent), transparent 30rem),
+      linear-gradient(180deg, color-mix(in oklch, var(--muted) 42%, transparent), var(--background) 18rem);
+  }
+}
+
+@layer components {
+  .drs-surface {
+    background:
+      radial-gradient(circle at 8% 4%, color-mix(in oklch, var(--primary) 13%, transparent), transparent 24rem),
+      radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--chart-4) 16%, transparent), transparent 22rem),
+      linear-gradient(180deg, color-mix(in oklch, var(--muted) 52%, transparent), var(--background) 20rem);
+  }
+
+  .drs-panel {
+    background:
+      linear-gradient(135deg, color-mix(in oklch, var(--card) 92%, transparent), color-mix(in oklch, var(--card) 74%, transparent)),
+      radial-gradient(circle at top right, color-mix(in oklch, var(--primary) 10%, transparent), transparent 18rem);
+    border-color: color-mix(in oklch, var(--border) 80%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  .drs-card {
+    border-color: color-mix(in oklch, var(--border) 82%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--card) 94%, transparent), color-mix(in oklch, var(--card) 88%, transparent));
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
+      0 18px 60px color-mix(in oklch, var(--foreground) 4%, transparent);
+  }
+
+  .drs-card-hover {
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .drs-card-hover:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+    box-shadow:
+      0 2px 6px color-mix(in oklch, var(--foreground) 8%, transparent),
+      0 24px 80px color-mix(in oklch, var(--primary) 9%, transparent);
+  }
+
+  .drs-focus-ring {
+    outline: none;
+  }
+
+  .drs-focus-ring:focus-visible {
+    box-shadow:
+      0 0 0 3px color-mix(in oklch, var(--background) 90%, transparent),
+      0 0 0 6px color-mix(in oklch, var(--ring) 45%, transparent);
+  }
+
+  .drs-print-receipt {
+    display: none;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .drs-surface {
+    min-height: auto !important;
+    background: #ffffff !important;
+  }
+
+  #drs-main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .drs-screen-content {
+    display: none !important;
+  }
+
+  .drs-print-receipt {
+    display: block !important;
+    color: #111827;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .drs-receipt-paper {
+    width: 100%;
+  }
+
+  .drs-receipt-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 2px solid #111827;
+    padding-bottom: 16px;
+  }
+
+  .drs-receipt-header h1 {
+    margin: 2px 0;
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .drs-receipt-header p,
+  .drs-receipt-footer p {
+    margin: 0;
+  }
+
+  .drs-receipt-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .drs-receipt-reference {
+    min-width: 210px;
+    border: 1px solid #111827;
+    padding: 10px 12px;
+    text-align: right;
+  }
+
+  .drs-receipt-reference span {
+    display: block;
+    color: #4b5563;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .drs-receipt-reference strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 16px;
+  }
+
+  .drs-receipt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 16px;
+    margin: 16px 0 0;
+  }
+
+  .drs-receipt-field {
+    break-inside: avoid;
+  }
+
+  .drs-receipt-field dt {
+    color: #4b5563;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .drs-receipt-field dd {
+    margin: 2px 0 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .drs-receipt-section {
+    margin-top: 18px;
+    break-inside: avoid;
+  }
+
+  .drs-receipt-section h2 {
+    margin: 0 0 8px;
+    border-bottom: 1px solid #d1d5db;
+    padding-bottom: 4px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .drs-receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .drs-receipt-table th,
+  .drs-receipt-table td {
+    border: 1px solid #d1d5db;
+    padding: 7px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .drs-receipt-table th:nth-child(n + 2),
+  .drs-receipt-table td:nth-child(n + 2),
+  .drs-receipt-table tfoot th,
+  .drs-receipt-table tfoot td {
+    text-align: right;
+  }
+
+  .drs-receipt-table thead th,
+  .drs-receipt-table tfoot th {
+    font-weight: 700;
+  }
+
+  .drs-receipt-table tfoot tr:last-child th,
+  .drs-receipt-table tfoot tr:last-child td {
+    border-top: 2px solid #111827;
+    font-size: 13px;
+  }
+
+  .drs-receipt-note {
+    margin: 8px 0 0;
+    color: #374151;
+    white-space: pre-wrap;
+  }
+
+  .drs-receipt-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 22px;
+    border-top: 1px solid #111827;
+    padding-top: 10px;
+    color: #4b5563;
+    font-size: 10px;
+  }
+}

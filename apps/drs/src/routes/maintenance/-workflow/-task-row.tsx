@@ -1,6 +1,7 @@
 import { Button } from '@repo/ui/components/button';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import type { WorkflowTask } from '../-lib/api/workflow/types.ts';
+import { WorkflowAssignmentSummary } from './-workflow-assignment-summary.tsx';
 
 type Props = {
   task: WorkflowTask;
@@ -37,6 +38,15 @@ export const TaskRow = ({
               group: {task.parallel_group}
             </span>
           ) : null}
+        </div>
+        <div className="mt-2">
+          <WorkflowAssignmentSummary
+            target={{
+              target_type: 'effective_task',
+              task,
+              label: task.name,
+            }}
+          />
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">

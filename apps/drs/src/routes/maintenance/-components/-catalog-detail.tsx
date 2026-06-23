@@ -18,21 +18,19 @@ import { Save } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { editDocument } from '../-lib/api/editDocument.ts';
+import { editPackage } from '../-lib/api/editPackage.ts';
 import {
   type DocumentDetail,
   fetchDocument,
 } from '../-lib/api/fetchDocument.ts';
-import {
-  type PackageDetail,
-  fetchPackage,
-} from '../-lib/api/fetchPackage.ts';
-import { editDocument } from '../-lib/api/editDocument.ts';
-import { editPackage } from '../-lib/api/editPackage.ts';
+import { type PackageDetail, fetchPackage } from '../-lib/api/fetchPackage.ts';
 import { LoadingIndicator } from '../../-loading-indicator.tsx';
 import {
-  type CatalogKind,
-  EMPTY_CATALOG_RULES,
-} from './-types.ts';
+  type SupportingRequirementFormValue,
+  SupportingRequirementsFields,
+} from './-supporting-requirements-fields.tsx';
+import { type CatalogKind, EMPTY_CATALOG_RULES } from './-types.ts';
 
 const detailFormSchema = z.object({
   name: z.string().min(1, { message: 'This field is required.' }).max(255),
@@ -45,6 +43,19 @@ const detailFormSchema = z.object({
     enrolled: z.boolean(),
     unenrolled: z.boolean(),
   }),
+  supporting_document_requirements: z.array(
+    z.object({
+      id: z.union([z.string(), z.number()]).nullable().optional(),
+      name: z.string().min(1, { message: 'This field is required.' }).max(255),
+      instructions: z.string().nullable().optional(),
+      is_required: z.boolean(),
+      is_active: z.boolean(),
+      sort_order: z.number().nullable().optional(),
+      allowed_mime_types: z.array(z.string()).optional(),
+      max_file_size_kb: z.number().nullable().optional(),
+      max_files: z.number().min(1).max(20).nullable().optional(),
+    }),
+  ),
 });
 
 type DetailFormValues = z.infer<typeof detailFormSchema>;
@@ -77,6 +88,22 @@ const detailToForm = (
     is_active: Boolean(detail.is_active),
     allow_multiple_per_request: detail.allow_multiple_per_request !== false,
     rules,
+    supporting_document_requirements:
+      kind === 'document'
+        ? (
+            (detail as DocumentDetail).supporting_document_requirements ?? []
+          ).map((requirement, index) => ({
+            id: requirement.id,
+            name: requirement.name,
+            instructions: requirement.instructions ?? '',
+            is_required: Boolean(requirement.is_required),
+            is_active: requirement.is_active !== false,
+            sort_order: requirement.sort_order ?? index,
+            allowed_mime_types: requirement.allowed_mime_types ?? [],
+            max_file_size_kb: requirement.max_file_size_kb ?? null,
+            max_files: requirement.max_files ?? 1,
+          }))
+        : [],
   };
 };
 
@@ -99,6 +126,7 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
       is_active: true,
       allow_multiple_per_request: true,
       rules: { ...EMPTY_CATALOG_RULES },
+      supporting_document_requirements: [],
     },
   });
 
@@ -118,6 +146,11 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
           is_active: values.is_active,
           allow_multiple_per_request: values.allow_multiple_per_request,
           rules: values.rules,
+          supporting_document_requirements:
+            values.supporting_document_requirements.map((item, index) => ({
+              ...item,
+              sort_order: index,
+            })) as SupportingRequirementFormValue[],
         });
       }
 
@@ -230,12 +263,25 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
             </div>
           </div>
 
+          {kind === 'document' ? (
+            <>
+              <Separator />
+              <SupportingRequirementsFields
+                form={form}
+                disabled={mutation.isPending}
+              />
+            </>
+          ) : null}
+
           <div className="border-border flex justify-end gap-2 border-t pt-4">
             <Button
               type="button"
               variant="ghost"
               disabled={mutation.isPending || !form.formState.isDirty}
-              onClick={() => detailQuery.data && form.reset(detailToForm(kind, detailQuery.data))}
+              onClick={() =>
+                detailQuery.data &&
+                form.reset(detailToForm(kind, detailQuery.data))
+              }
             >
               Reset
             </Button>

@@ -1,0 +1,10 @@
+{
+  "name": "@repo/echo-config",
+  "version": "1.0.0",
+  "main": "./echo.ts",
+  "types": "./echo.ts",
+  "dependencies": {
+    "laravel-echo": "^1.19.0",
+    "pusher-js": "^8.5.0"
+  }
+}

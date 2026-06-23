@@ -38,3 +38,9 @@ yarn-error.log*
 *.pem
 .vscode
 .idea
+.cursor
+
+AGENTS.md
+agents/
+docs/
+tasks/

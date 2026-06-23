@@ -10,5 +10,7 @@ export const searchEmployees = async (q: string): Promise<Employee[]> => {
     { params: { q: trimmed } },
   );
 
-  return Array.isArray(data?.data) ? data.data : [];
+  return Array.isArray(data?.data)
+    ? data.data.filter((employee) => employee.emp_no?.trim())
+    : [];
 };

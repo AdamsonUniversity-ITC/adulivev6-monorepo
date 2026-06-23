@@ -11,6 +11,17 @@ export type EditDocumentPayload = {
     enrolled?: boolean;
     unenrolled?: boolean;
   };
+  supporting_document_requirements?: Array<{
+    id?: string | number | null;
+    name: string;
+    instructions?: string | null;
+    is_required: boolean;
+    is_active?: boolean;
+    sort_order?: number | null;
+    allowed_mime_types?: string[];
+    max_file_size_kb?: number | null;
+    max_files?: number | null;
+  }>;
 };
 
 export const editDocument = async (

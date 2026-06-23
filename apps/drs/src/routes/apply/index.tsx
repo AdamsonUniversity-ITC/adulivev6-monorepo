@@ -1,4 +1,10 @@
+import { DrsSearchField } from '@/components/drs-ui.tsx';
+import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
+import { DRS_STUDENT_APPLY_PERMISSION } from '@/lib/drsPermissions.ts';
+import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
+import { type TempUpload } from '@/lib/tempUploads.ts';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { checkPermission } from '@repo/hooks';
 import {
   Accordion,
   AccordionContent,
@@ -35,18 +41,17 @@ import {
 } from '@repo/ui/components/select';
 import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
-import { checkPermission } from '@repo/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
-import { DRS_STUDENT_APPLY_PERMISSION } from '@/lib/drsPermissions.ts';
-import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
-import { ChevronLeft, Minus, Plus, Search } from 'lucide-react';
+import { ChevronLeft, Minus, Plus } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { LoadingIndicator } from '../-loading-indicator.tsx';
 import {
   buildApplyRequestPayload,
   submitApplyRequest,
   validateApplyLineQuantities,
+  type ApplySupportingUpload,
 } from './-lib/api/submitApplyRequest.ts';
 import {
   applyRequestFormDefaults,
@@ -63,7 +68,6 @@ import type {
   CatalogGroup,
   CatalogPackage,
 } from './-lib/types.ts';
-import { LoadingIndicator } from '../-loading-indicator.tsx';
 
 export const Route = createFileRoute('/apply/')({
   beforeLoad: async () => {
@@ -110,6 +114,21 @@ type SummaryLine = {
   unit: number;
   line: number;
 };
+
+type SelectedSupportingRequirement = {
+  documentId: number;
+  documentName: string;
+  requirement: NonNullable<
+    CatalogDocument['supporting_document_requirements']
+  >[number];
+};
+
+function supportingUploadKey(
+  documentId: number,
+  requirementId: number,
+): string {
+  return `${documentId}:${requirementId}`;
+}
 
 function getSubmitErrorMessage(err: unknown): string {
   if (typeof err === 'object' && err !== null && 'response' in err) {
@@ -178,6 +197,9 @@ function ApplyDocumentsPage() {
   );
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [supportingUploads, setSupportingUploads] = React.useState<
+    Record<string, TempUpload[]>
+  >({});
 
   const form = useForm<ApplyRequestFormValues>({
     resolver: zodResolver(applyRequestFormSchema),
@@ -333,6 +355,32 @@ function ApplyDocumentsPage() {
     return rows;
   }, [quantities, catalogLookup, priceIndex]);
 
+  const selectedSupportingRequirements =
+    React.useMemo((): SelectedSupportingRequirement[] => {
+      const rows: SelectedSupportingRequirement[] = [];
+      for (const group of sortedGroups) {
+        for (const doc of group.documents ?? []) {
+          if ((quantities[docKey(doc.id)] ?? 0) <= 0) {
+            continue;
+          }
+
+          for (const requirement of doc.supporting_document_requirements ??
+            []) {
+            if (requirement.is_active === false) {
+              continue;
+            }
+            rows.push({
+              documentId: doc.id,
+              documentName: doc.document_name,
+              requirement,
+            });
+          }
+        }
+      }
+
+      return rows;
+    }, [quantities, sortedGroups]);
+
   const { totalSelected, lineCount, unitCount } = React.useMemo(() => {
     let total = 0;
     let lines = 0;
@@ -393,7 +441,10 @@ function ApplyDocumentsPage() {
     [maxQtyByKey],
   );
 
-  const clearSelection = () => setQuantities({});
+  const clearSelection = () => {
+    setQuantities({});
+    setSupportingUploads({});
+  };
 
   const openReviewDialog = handleSubmit(() => {
     if (unitCount === 0) {
@@ -419,7 +470,42 @@ function ApplyDocumentsPage() {
         toast.error(validated.message);
         return;
       }
-      const payload = buildApplyRequestPayload(values, validated.lines);
+      const missingRequired = selectedSupportingRequirements.find(
+        ({ documentId, requirement }) => {
+          if (!requirement.is_required) return false;
+          const key = supportingUploadKey(documentId, requirement.id);
+          return (supportingUploads[key] ?? []).length === 0;
+        },
+      );
+      if (missingRequired) {
+        toast.error(
+          `Upload ${missingRequired.requirement.name} for ${missingRequired.documentName}.`,
+        );
+        return;
+      }
+
+      const uploadRows: ApplySupportingUpload[] = selectedSupportingRequirements
+        .map(({ documentId, requirement }) => {
+          const tempUploadIds = (
+            supportingUploads[
+              supportingUploadKey(documentId, requirement.id)
+            ] ?? []
+          ).map((upload) => Number(upload.id));
+
+          return {
+            requestable_type: 'document' as const,
+            requestable_id: documentId,
+            requirement_id: requirement.id,
+            temp_upload_ids: tempUploadIds,
+          };
+        })
+        .filter((row) => row.temp_upload_ids.length > 0);
+
+      const payload = buildApplyRequestPayload(
+        values,
+        validated.lines,
+        uploadRows,
+      );
       await submitApplyRequest(payload);
       toast.success('Request submitted successfully.');
       setConfirmOpen(false);
@@ -435,8 +521,8 @@ function ApplyDocumentsPage() {
   const formSnapshot = confirmOpen ? getValues() : null;
 
   return (
-    <div className="bg-background from-muted/30 text-foreground via-background to-background relative m-4 min-h-screen bg-linear-to-b">
-      <header className="border-border/80 bg-background/85 sticky top-0 z-30 border-b backdrop-blur-md">
+    <div className="drs-surface text-foreground relative min-h-screen">
+      <header className="border-border/80 bg-background/90 sticky top-14 z-30 border-b backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2">
@@ -473,7 +559,7 @@ function ApplyDocumentsPage() {
                 </Badge>
               </div>
               <p className="text-primary mt-1 text-right text-3xl font-semibold tabular-nums">
-                ${formatPrice(totalSelected)}
+                PHP {formatPrice(totalSelected)}
               </p>
               <p className="text-muted-foreground mt-1 text-right text-xs">
                 {unitCount === 0
@@ -494,21 +580,20 @@ function ApplyDocumentsPage() {
           </div>
         </div>
         <div className="mb-4 flex items-center justify-center">
-          <div className="relative w-full max-w-6xl">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
+          <div className="w-full max-w-6xl px-4">
+            <DrsSearchField
+              label="Filter catalog"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter by document or package name…"
-              className="bg-card/60 border-border/80 h-11 rounded-xl pl-10 shadow-sm"
-              aria-label="Filter catalog"
+              inputClassName="bg-card/80 border-border/80 shadow-sm"
             />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-6">
-        <Card className="border-border/80 bg-card/50 border shadow-sm">
+        <Card className="drs-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Contact & delivery</CardTitle>
             <CardDescription>
@@ -689,9 +774,7 @@ function ApplyDocumentsPage() {
                                     <li key={key}>
                                       <CatalogLineRow
                                         quantity={qty}
-                                        maxQuantity={
-                                          maxQtyByKey.get(key) ?? 0
-                                        }
+                                        maxQuantity={maxQtyByKey.get(key) ?? 0}
                                         allowMultiple={
                                           doc.allow_multiple_per_request !==
                                           false
@@ -723,9 +806,7 @@ function ApplyDocumentsPage() {
                                     <li key={key}>
                                       <CatalogLineRow
                                         quantity={qty}
-                                        maxQuantity={
-                                          maxQtyByKey.get(key) ?? 0
-                                        }
+                                        maxQuantity={maxQtyByKey.get(key) ?? 0}
                                         allowMultiple={
                                           pkg.allow_multiple_per_request !==
                                           false
@@ -756,7 +837,7 @@ function ApplyDocumentsPage() {
 
       <Dialog open={confirmOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent
-          className="max-h-[min(90vh,720px)] gap-0 overflow-hidden p-0 sm:max-w-6xl"
+          className="max-h-[min(90vh,720px)] gap-0 overflow-auto p-0 sm:max-w-6xl"
           showCloseButton={!isSubmitting}
         >
           <div className="max-h-[min(90vh,720px)] overflow-y-auto p-6 pb-4">
@@ -845,7 +926,7 @@ function ApplyDocumentsPage() {
                             key={row.key}
                             className="border-border/60 border-t first:border-t-0"
                           >
-                            <td className="max-w-[10rem] px-2 py-1.5 align-top">
+                            <td className="max-w-40 px-2 py-1.5 align-top">
                               <span className="line-clamp-2" title={row.title}>
                                 {row.title}
                               </span>
@@ -857,7 +938,7 @@ function ApplyDocumentsPage() {
                               {row.qty}
                             </td>
                             <td className="px-2 py-1.5 text-right tabular-nums">
-                              ${formatPrice(row.line)}
+                              PHP {formatPrice(row.line)}
                             </td>
                           </tr>
                         ))}
@@ -865,9 +946,53 @@ function ApplyDocumentsPage() {
                     </table>
                   </div>
                   <p className="text-right text-sm font-semibold tabular-nums">
-                    Estimated total: ${formatPrice(totalSelected)}
+                    Estimated total: PHP {formatPrice(totalSelected)}
                   </p>
                 </section>
+
+                {selectedSupportingRequirements.length > 0 ? (
+                  <section className="space-y-3">
+                    <h4 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                      Supporting uploads
+                    </h4>
+                    <div className="space-y-4">
+                      {selectedSupportingRequirements.map(
+                        ({ documentId, documentName, requirement }) => {
+                          const key = supportingUploadKey(
+                            documentId,
+                            requirement.id,
+                          );
+
+                          return (
+                            <div key={key} className="rounded-lg border p-3">
+                              <p className="mb-2 text-xs font-semibold">
+                                {documentName}
+                              </p>
+                              <SupportingDocumentDropzone
+                                label={requirement.name}
+                                description={requirement.instructions}
+                                required={requirement.is_required}
+                                maxFiles={requirement.max_files ?? 1}
+                                maxSizeKb={requirement.max_file_size_kb}
+                                allowedMimeTypes={
+                                  requirement.allowed_mime_types ?? []
+                                }
+                                value={supportingUploads[key] ?? []}
+                                disabled={isSubmitting}
+                                onChange={(uploads) =>
+                                  setSupportingUploads((prev) => ({
+                                    ...prev,
+                                    [key]: uploads,
+                                  }))
+                                }
+                              />
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -952,14 +1077,14 @@ function CatalogLineRow({
       <div className="min-w-0 flex-1">
         <p className="leading-snug font-medium">{title}</p>
         <div className="text-muted-foreground mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums">
-          <span>${formatPrice(unit)} each</span>
+          <span>PHP {formatPrice(unit)} each</span>
           {inCart ? (
             <>
               <span aria-hidden="true">·</span>
               <span>
-                {quantity} × ${formatPrice(unit)} ={' '}
+                {quantity} x PHP {formatPrice(unit)} ={' '}
                 <span className="text-foreground font-semibold">
-                  ${formatPrice(lineTotal)}
+                  PHP {formatPrice(lineTotal)}
                 </span>
               </span>
             </>

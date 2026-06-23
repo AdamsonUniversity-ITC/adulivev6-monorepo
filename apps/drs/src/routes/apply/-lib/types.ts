@@ -9,6 +9,18 @@ export type DocumentRuleRow = {
   } | null;
 };
 
+export type SupportingDocumentRequirement = {
+  id: number;
+  name: string;
+  instructions?: string | null;
+  is_required: boolean;
+  is_active: boolean;
+  sort_order?: number;
+  allowed_mime_types?: string[] | null;
+  max_file_size_kb?: number | null;
+  max_files?: number | null;
+};
+
 export type CatalogDocument = {
   id: number;
   document_name: string;
@@ -16,6 +28,7 @@ export type CatalogDocument = {
   is_active: boolean;
   allow_multiple_per_request?: boolean;
   rules?: DocumentRuleRow[] | null;
+  supporting_document_requirements?: SupportingDocumentRequirement[] | null;
 };
 
 export type CatalogPackage = {

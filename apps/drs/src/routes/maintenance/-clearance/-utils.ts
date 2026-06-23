@@ -30,6 +30,7 @@ export type Department = {
   department_name?: string | null;
   description?: string | null;
   name?: string | null;
+  restrict_assigned_users_to_course_programs?: boolean;
   users?: DepartmentUser[] | null;
 };
 

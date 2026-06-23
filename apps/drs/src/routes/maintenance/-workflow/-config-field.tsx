@@ -1,6 +1,13 @@
 import { Checkbox } from '@repo/ui/components/checkbox';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/select';
 import type { WorkflowKind } from '../-lib/api/workflow/types.ts';
 
 type Props = {
@@ -50,6 +57,31 @@ export const ConfigField = ({ fieldKey, schema, value, onChange }: Props) => {
             onChange(raw === '' ? '' : Number(raw));
           }}
         />
+      </div>
+    );
+  }
+
+  if (schema.type === 'enum' && Array.isArray(schema.options)) {
+    return (
+      <div>
+        <Label htmlFor={id} className="capitalize">
+          {label}
+        </Label>
+        <Select
+          value={String(value ?? schema.default ?? '')}
+          onValueChange={(next) => onChange(next)}
+        >
+          <SelectTrigger id={id} className="mt-1">
+            <SelectValue placeholder={`Select ${label}`} />
+          </SelectTrigger>
+          <SelectContent>
+            {schema.options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option.replace(/_/g, ' ')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     );
   }
