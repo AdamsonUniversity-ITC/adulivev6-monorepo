@@ -33,7 +33,7 @@ const protectedRoute = new Route({
             await financeSvc.get('/abms/protected-test');
         } catch (error: any) {
             if (error.response?.status === 401) {
-                window.location.href = 'http://localhost.test:8081/login';
+                window.location.href = 'http://live.adamson.edu.ph/login';
                 await new Promise(() => { });
             }
             if (error.response?.status === 503) {
