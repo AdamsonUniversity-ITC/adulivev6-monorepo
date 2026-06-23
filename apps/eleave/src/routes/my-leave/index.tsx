@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { CalendarDays, Clock3, FileText, Plus } from "lucide-react"
+import { CalendarDays, Clock3, FileText, Plus, XCircle } from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
@@ -64,6 +64,9 @@ function MyLeavePage() {
   const stats = React.useMemo(() => {
     const pendingCount = rows.filter((row) => row.overall_status === "pending").length
     const approvedCount = rows.filter((row) => row.overall_status === "approved").length
+    const disapprovedCount = rows.filter(
+      (row) => row.overall_status === "disapproved",
+    ).length
 
     return [
       {
@@ -96,6 +99,16 @@ function MyLeavePage() {
         labelClassName: "text-green-50/90",
         valueClassName: "text-white",
       },
+      {
+        label: "Disapproved",
+        value: disapprovedCount,
+        icon: XCircle,
+        cardClassName:
+          "border-red-300/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.2),_transparent_55%),linear-gradient(90deg,_#fecaca_0%,_#f87171_52%,_#ef4444_100%)]",
+        iconClassName: "bg-red-900/25 text-white",
+        labelClassName: "text-red-50/90",
+        valueClassName: "text-white",
+      },
     ]
   }, [leaveApplicationsResponse?.meta.total, rows])
 
@@ -125,7 +138,7 @@ function MyLeavePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <Card
             key={stat.label}

@@ -37,12 +37,23 @@ export function groupLeaveBalanceRowsByCode(
     existing.pending_filed_leave += row.pending_filed_leave
   }
 
-  return Array.from(groups.values()).map(
-    ({ leave_code, leave_type, credits, pending_filed_leave }) => ({
+  return Array.from(groups.values())
+    .map(({ leave_code, leave_type, credits, pending_filed_leave }) => ({
       leave_code,
       leave_type,
       credits,
       pending_filed_leave,
-    }),
-  )
+    }))
+    .sort((a, b) => {
+      const aHasCredits = a.credits > 0 ? 0 : 1
+      const bHasCredits = b.credits > 0 ? 0 : 1
+
+      if (aHasCredits !== bHasCredits) {
+        return aHasCredits - bHasCredits
+      }
+
+      return a.leave_type.localeCompare(b.leave_type, undefined, {
+        sensitivity: "base",
+      })
+    })
 }
