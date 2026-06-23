@@ -2,7 +2,7 @@ import { createEcho } from '@repo/echo-config';
 import { financeSvc } from '@repo/axios-config/finance-service';
 
 const echo = createEcho({
-    key: import.meta.env.VITE_REVERB_APP_KEY as string,
+    key: "sps1wgcoaooyc9frjvxu",
     wsHost: import.meta.env.VITE_REVERB_HOST as string,
     wsPort: Number(import.meta.env.VITE_REVERB_PORT ?? 8080),
     wssPort: Number(import.meta.env.VITE_REVERB_PORT ?? 8080),
