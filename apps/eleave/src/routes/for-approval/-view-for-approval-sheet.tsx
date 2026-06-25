@@ -14,10 +14,7 @@ import {
   submitLeaveApplicationDecision,
   type LeaveApplicationDecisionPayload,
 } from "@/lib/leave-applications-api"
-import {
-  mapLeaveApplicationToForApprovalRow,
-  type ForApprovalRow,
-} from "@/lib/map-for-approval-row"
+import { type ForApprovalRow } from "@/lib/map-for-approval-row"
 import { resolveViewerApprovalStatus } from "@/lib/resolve-viewer-approval-status"
 import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
@@ -77,20 +74,16 @@ export const ViewForApprovalSheet = ({
       leaveId: string
       payload: LeaveApplicationDecisionPayload
     }) => submitLeaveApplicationDecision(leaveId, payload),
-    onSuccess: async (updated) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["for-approval-leave-applications"],
       })
 
-      onActiveRequestChange(
-        mapLeaveApplicationToForApprovalRow(
-          updated.data,
-          leaveTypeNames.get(updated.data.leave_type_id) ?? "Unknown leave type",
-        ),
-      )
       setPendingDecision(null)
       setRemarks("")
       setActionError(null)
+      onActiveRequestChange(null)
+      onOpenChange(false)
     },
     onError: (error) => {
       setActionError(
@@ -101,12 +94,26 @@ export const ViewForApprovalSheet = ({
   })
 
   const requestDecision = (nextStatus: PendingDecision) => {
+    if (nextStatus === "Disapproved" && remarks.trim() === "") {
+      setActionError("Remarks is required when disapproving.")
+      return
+    }
+
     setPendingDecision(nextStatus)
     setActionError(null)
   }
 
+  const isRemarksRequired = pendingDecision === "Disapproved"
+  const canConfirm =
+    !isRemarksRequired || remarks.trim() !== ""
+
   const confirmDecision = () => {
     if (!activeRequest || !pendingDecision) {
+      return
+    }
+
+    if (pendingDecision === "Disapproved" && remarks.trim() === "") {
+      setActionError("Remarks is required when disapproving.")
       return
     }
 
@@ -224,8 +231,17 @@ export const ViewForApprovalSheet = ({
 
               <Textarea
                 value={remarks}
-                onChange={(event) => setRemarks(event.target.value)}
-                placeholder="Optional remarks"
+                onChange={(event) => {
+                  setRemarks(event.target.value)
+                  if (actionError) {
+                    setActionError(null)
+                  }
+                }}
+                placeholder={
+                  pendingDecision === "Disapproved"
+                    ? "Required remarks"
+                    : "Optional remarks"
+                }
                 className="mb-3 min-h-20"
               />
 
@@ -299,7 +315,7 @@ export const ViewForApprovalSheet = ({
                     <Button
                       type="button"
                       onClick={confirmDecision}
-                      disabled={decisionMutation.isPending}
+                      disabled={decisionMutation.isPending || !canConfirm}
                     >
                       {decisionMutation.isPending ? "Saving..." : "Confirm"}
                     </Button>
