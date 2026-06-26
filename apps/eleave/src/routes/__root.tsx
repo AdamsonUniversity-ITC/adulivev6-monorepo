@@ -1,4 +1,5 @@
-import { Outlet, createRootRoute } from '@tanstack/react-router'
+import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import type { QueryClient } from '@tanstack/react-query'
 
 import { AppSidebar } from '@/components/app-sidebar'
 import {
@@ -9,8 +10,12 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ensureAuthenticated } from '@/lib/ensure-authenticated'
 
-export const Route = createRootRoute({
-  beforeLoad: () => ensureAuthenticated(),
+export interface RouterContext {
+  queryClient: QueryClient
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: ({ context }) => ensureAuthenticated(context.queryClient),
   component: RootComponent,
 })
 

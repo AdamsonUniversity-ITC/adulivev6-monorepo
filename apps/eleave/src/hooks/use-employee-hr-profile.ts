@@ -1,14 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 
-import {
-  fetchEmployeeHrProfile,
-  fetchMyEmployeeHrProfile,
-} from "@/lib/employee-hr-profile-api"
+import { myHrProfileQueryOptions } from "@/lib/auth-queries"
+import { fetchEmployeeHrProfile } from "@/lib/employee-hr-profile-api"
 
 export function useMyEmployeeHrProfile(enabled = true) {
   return useQuery({
-    queryKey: ["employee-hr-profile", "me"],
-    queryFn: fetchMyEmployeeHrProfile,
+    ...myHrProfileQueryOptions,
     enabled,
   })
 }

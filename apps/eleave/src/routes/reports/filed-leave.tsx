@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { requireAdminFeaturesAccess } from "@/lib/eleave-route-guards"
 
 export const Route = createFileRoute("/reports/filed-leave")({
-  beforeLoad: () => requireAdminFeaturesAccess(),
+  beforeLoad: ({ context }) => requireAdminFeaturesAccess({ context }),
   component: FiledLeavePage,
 })
 

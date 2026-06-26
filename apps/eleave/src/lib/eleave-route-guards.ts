@@ -1,39 +1,48 @@
 import { redirect } from "@tanstack/react-router"
 
 import {
+  authUserQueryOptions,
+  myHrProfileQueryOptions,
+} from "@/lib/auth-queries"
+import {
   canAccessAdminFeatures,
   canAccessForApproval,
   canAccessHrApproval,
 } from "@/lib/eleave-access"
-import { ensureAuthenticated, redirectToLoginIfUnauthorized } from "@/lib/ensure-authenticated"
-import { fetchMyEmployeeHrProfile } from "@/lib/employee-hr-profile-api"
-import { fetchAuthUser } from "@/lib/fetch-auth-user"
+import { redirectToLoginIfUnauthorized } from "@/lib/ensure-authenticated"
+import type { RouterContext } from "@/routes/__root"
 
-export async function requireHrApprovalAccess(): Promise<void> {
-  await ensureAuthenticated()
+type GuardContext = {
+  context: RouterContext
+}
 
-  const authUser = (await fetchAuthUser()).data
+export async function requireHrApprovalAccess({
+  context,
+}: GuardContext): Promise<void> {
+  const authUser = await context.queryClient.ensureQueryData(authUserQueryOptions)
 
   if (!canAccessHrApproval(authUser)) {
     throw redirect({ to: "/forbidden" })
   }
 }
 
-export async function requireAdminFeaturesAccess(): Promise<void> {
-  await ensureAuthenticated()
-
-  const authUser = (await fetchAuthUser()).data
+export async function requireAdminFeaturesAccess({
+  context,
+}: GuardContext): Promise<void> {
+  const authUser = await context.queryClient.ensureQueryData(authUserQueryOptions)
 
   if (!canAccessAdminFeatures(authUser)) {
     throw redirect({ to: "/forbidden" })
   }
 }
 
-export async function requireForApprovalAccess(): Promise<void> {
-  await ensureAuthenticated()
-
+export async function requireForApprovalAccess({
+  context,
+}: GuardContext): Promise<void> {
   try {
-    const profile = await fetchMyEmployeeHrProfile()
+    const profile = await context.queryClient.ensureQueryData(
+      myHrProfileQueryOptions,
+    )
 
     if (!canAccessForApproval(profile)) {
       throw redirect({ to: "/forbidden" })
