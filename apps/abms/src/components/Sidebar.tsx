@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Settings, Menu, LogOut, LucideIcon, Receipt
+  LayoutDashboard, Settings, Menu, LogOut, LucideIcon, Receipt, FileText
 } from 'lucide-react';
 import {
   Accordion,
@@ -158,6 +158,15 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Requisition Process', href: '/transactions/requisition-process' },
     ],
   },
+  {
+    icon: FileText,
+    label: 'Reports',
+    children: [
+      { label: 'Department Performance', href: '/reports/budget-performance-department' },
+    ],
+  },
+
+
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

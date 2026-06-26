@@ -19,7 +19,7 @@ import BudgetTransferAccount from './pages/administration/BudgetTransferAccount.
 import BudgetAdjustmentEntry from './pages/administration/BudgetAdjustmentEntry.tsx';
 import BudgetRequestEntry from './pages/transactions/BudgetRequestEntry.tsx';
 import RequisitionProcess from './pages/transactions/requisition-process/index.tsx';
-
+import BudgetPerformanceDepartment from './pages/reports/BudgetPerformanceDepartment.tsx';
 
 const rootRoute = new RootRoute({
     component: App,
@@ -33,7 +33,7 @@ const protectedRoute = new Route({
             await financeSvc.get('/abms/protected-test');
         } catch (error: any) {
             if (error.response?.status === 401) {
-                window.location.href = 'http://live.adamson.edu.ph/login';
+                window.location.href = 'http://localhost.test:8081/login';
                 await new Promise(() => { });
             }
             if (error.response?.status === 503) {
@@ -290,6 +290,17 @@ export const requesitionprocessRoute = new Route({
     },
     component: RequisitionProcess,
 });
+
+export const budgetperformancedepartmentRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/budget-performance-department',
+    loader: async () => {
+       const data = await financeSvc.get('abms/budget-performance-per-department');
+        
+       return {data}
+    },
+    component: BudgetPerformanceDepartment,
+});
 export const testRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/test',
@@ -313,7 +324,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute, budgetperformancedepartmentRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);
