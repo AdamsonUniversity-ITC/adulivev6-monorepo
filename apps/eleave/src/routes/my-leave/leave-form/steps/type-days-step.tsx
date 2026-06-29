@@ -20,15 +20,16 @@ import { useLeaveTypes } from "@/hooks/use-leave-types"
 import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import { cn } from "@/lib/utils"
 
-import { DAY_PORTION_OPTIONS, type LeaveFormValues } from "../schema"
+import { getSelectableDayPortionOptions, type LeaveFormValues } from "../schema"
 import { formatLeaveDay, formatLeaveDayCount, sumLeaveDayCredits } from "../utils"
 import { StepSection, stepFieldClassName } from "./-step-section"
 
 type TypeDaysStepProps = {
   form: UseFormReturn<LeaveFormValues>
+  canSelectEvening: boolean
 }
 
-export function TypeDaysStep({ form }: TypeDaysStepProps) {
+export function TypeDaysStep({ form, canSelectEvening }: TypeDaysStepProps) {
   const leaveDays = form.watch("leave_days")
   const dateFrom = form.watch("date_from")
   const dateTo = form.watch("date_to")
@@ -170,7 +171,10 @@ export function TypeDaysStep({ form }: TypeDaysStepProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {DAY_PORTION_OPTIONS.map((option) => (
+                          {getSelectableDayPortionOptions(
+                            canSelectEvening,
+                            field.value,
+                          ).map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>

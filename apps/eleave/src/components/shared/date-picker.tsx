@@ -16,6 +16,7 @@ type DatePickerProps = {
   onChange: (value: string) => void
   placeholder?: string
   disabledDate?: (date: Date) => boolean
+  className?: string
 }
 
 export function DatePicker({
@@ -23,6 +24,7 @@ export function DatePicker({
   onChange,
   placeholder = "Pick a date",
   disabledDate,
+  className,
 }: DatePickerProps) {
   const parsed = value ? parseISO(value) : undefined
   const selected = parsed && isValid(parsed) ? parsed : undefined
@@ -35,12 +37,17 @@ export function DatePicker({
             type="button"
             variant="outline"
             className={cn(
-              "w-full pl-3 text-left font-normal",
+              "h-11 w-full cursor-pointer justify-between gap-2 border-slate-300 bg-white pl-3 pr-3 text-left font-normal shadow-sm transition-colors",
+              "hover:border-primary/60 hover:bg-primary/5",
+              "focus-visible:ring-2 focus-visible:ring-primary/25",
               !selected && "text-muted-foreground",
+              className,
             )}
           >
-            <CalendarIcon className="size-4" />
-            {selected ? format(selected, "PPP") : placeholder}
+            <span className="truncate">
+              {selected ? format(selected, "PPP") : placeholder}
+            </span>
+            <CalendarIcon className="text-primary size-4 shrink-0 opacity-80" />
           </Button>
         </FormControl>
       </PopoverTrigger>
