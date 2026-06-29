@@ -311,10 +311,19 @@ export const liquidationsubmissionRoute = new Route({
             (p: any) => p.name === 'allow-budget-request-entry'
         );
         const permissionid = permission?.id;
+        const budget = liquidationpermission.data.permissions.find(
+            (p: any) => p.name === 'budget-access'
+        );
+        const budgetid = budget?.id;
+        const admin = liquidationpermission.data.permissions.find(
+            (p: any) => p.name === 'admin-access'
+        );
+        const adminid = admin?.id;
+
 
         const data = await financeSvc.get('abms/liquidation-submission', {
             params: {
-                permissionid,
+                permissionid, budgetid, adminid, 
             },
         });
 
