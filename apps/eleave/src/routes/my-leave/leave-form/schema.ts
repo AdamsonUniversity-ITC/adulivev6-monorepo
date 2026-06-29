@@ -11,6 +11,19 @@ export const dayPortionSchema = z.enum(["wholeday", "am", "pm", "evening"])
 
 export type DayPortion = z.infer<typeof dayPortionSchema>
 
+export function getSelectableDayPortionOptions(
+  canSelectEvening: boolean,
+  currentPortion?: DayPortion | "",
+) {
+  const base = DAY_PORTION_OPTIONS.filter((option) => option.value !== "evening")
+
+  if (canSelectEvening || currentPortion === "evening") {
+    return [...base, { value: "evening", label: "Evening" } as const]
+  }
+
+  return base
+}
+
 export const leaveDaySchema = z.object({
   date: z.string().min(1),
   day_portion: z

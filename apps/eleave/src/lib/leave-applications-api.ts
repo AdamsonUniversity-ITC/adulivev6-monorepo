@@ -142,10 +142,16 @@ export async function submitLeaveApplicationDecision(
   return response.data
 }
 
-export async function fetchHrApprovalLeaveApplications(params?: {
+export type HrApprovalListParams = {
   page?: number
   per_page?: number
-}) {
+  search?: string
+  year?: string | number
+  status?: string
+  classification?: string
+}
+
+export async function fetchHrApprovalLeaveApplications(params?: HrApprovalListParams) {
   const response = await hrmdoSvc.get<PaginatedLeaveApplicationsResponse>(
     "v1/leave-applications/for-hr-approval",
     { params },

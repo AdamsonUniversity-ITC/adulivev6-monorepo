@@ -58,14 +58,14 @@ export function DatesStep({ form }: DatesStepProps) {
             control={form.control}
             name="date_from"
             render={({ field }) => (
-              <FormItem className="flex flex-col gap-2">
-                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <FormItem className="group flex flex-col gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3 transition-colors hover:border-primary/50 hover:bg-primary/5">
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500 group-hover:text-slate-700">
                   Start date
                 </FormLabel>
                 <DatePicker
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="Select start date"
+                  placeholder="Click to select start date"
                   disabledDate={(date) => isDateDisabled(date)}
                 />
                 <FormMessage />
@@ -77,14 +77,14 @@ export function DatesStep({ form }: DatesStepProps) {
             control={form.control}
             name="date_to"
             render={({ field }) => (
-              <FormItem className="flex flex-col gap-2">
-                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <FormItem className="group flex flex-col gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3 transition-colors hover:border-primary/50 hover:bg-primary/5">
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500 group-hover:text-slate-700">
                   End date
                 </FormLabel>
                 <DatePicker
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="Select end date"
+                  placeholder="Click to select end date"
                   disabledDate={(date) => isDateDisabled(date, { minDate: dateFrom })}
                 />
                 <FormMessage />

@@ -1,21 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 
-import { Button } from "@/components/ui/button"
+import { useDataTable } from "@/components/shared/datatable"
 import { useAuthUser } from "@/hooks/use-auth-user"
 import { useHrApprovalLeaveApplications } from "@/hooks/use-hr-approval-leave-applications"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
-import {
-  collectLeavePeriodYears,
-  matchesLeaveYearFilter,
-} from "@/lib/leave-date-year"
-import {
-  mapLeaveApplicationsToHrApprovalRows,
-  type HrApprovalRow,
-} from "@/lib/map-hr-approval-row"
+import { collectLeavePeriodYears } from "@/lib/leave-date-year"
+import type { HrApprovalRow } from "@/lib/map-hr-approval-row"
 import { HrApprovalDataTable } from "@/routes/hr-approval/-hr-approval-datatable"
-import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
 import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-sheet"
+import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
 
 export const Route = createFileRoute("/hr-approval/")({
   component: HrApprovalPage,
@@ -24,12 +18,7 @@ export const Route = createFileRoute("/hr-approval/")({
 function HrApprovalPage() {
   const { data: authUser } = useAuthUser()
   const { data: leaveTypes = [] } = useLeaveTypes()
-  const {
-    data: response,
-    isLoading,
-    isError,
-    refetch,
-  } = useHrApprovalLeaveApplications()
+  const tanstackHook = useDataTable()
 
   const permissions = authUser?.permissions ?? []
   const canViewDev = permissions.includes("eleave-dev-access")
@@ -50,29 +39,7 @@ function HrApprovalPage() {
     }
 
     return options
-  }, [canViewAdmin, canViewRankAndFile,])
-
-  const leaveTypeNames = React.useMemo(
-    () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
-    [leaveTypes],
-  )
-
-  const rows = React.useMemo(
-    () =>
-      mapLeaveApplicationsToHrApprovalRows(response?.data ?? [], leaveTypeNames),
-    [leaveTypeNames, response?.data],
-  )
-
-  const years = React.useMemo(
-    () =>
-      collectLeavePeriodYears(
-        rows.map((row) => ({
-          date_from: row.record.date_from,
-          date_to: row.record.date_to,
-        })),
-      ),
-    [rows],
-  )
+  }, [canViewAdmin, canViewRankAndFile])
 
   const [selectedYear, setSelectedYear] = React.useState<string>(
     String(new Date().getFullYear()),
@@ -96,29 +63,65 @@ function HrApprovalPage() {
     }
   }, [classificationOptions, selectedClassification])
 
-  const filteredRequests = React.useMemo(
-    () =>
-      rows.filter((row) => {
-        const yearMatches = matchesLeaveYearFilter(
-          row.record.date_from,
-          row.record.date_to,
-          selectedYear,
-        )
-        const statusMatches =
-          selectedStatus === "all" || row.status === selectedStatus
+  React.useEffect(() => {
+    tanstackHook.setPage(1)
+  }, [
+    tanstackHook.keyword,
+    selectedYear,
+    selectedStatus,
+    selectedClassification,
+    tanstackHook.setPage,
+  ])
 
-        const isAdmin = Boolean(row.record.employee_teacher?.is_admin)
-        const classificationMatches =
-          selectedClassification === ""
-            ? true
-            : selectedClassification === "admin"
-              ? isAdmin
-              : !isAdmin
-
-        return yearMatches && statusMatches && classificationMatches
-      }),
-    [rows, selectedStatus, selectedYear, selectedClassification],
+  const listParams = React.useMemo(
+    () => ({
+      page: tanstackHook.page,
+      per_page: tanstackHook.rows,
+      search: tanstackHook.keyword.trim() || undefined,
+      year: selectedYear === "all" ? undefined : selectedYear,
+      status: selectedStatus === "all" ? undefined : selectedStatus,
+      classification: selectedClassification || undefined,
+    }),
+    [
+      tanstackHook.page,
+      tanstackHook.rows,
+      tanstackHook.keyword,
+      selectedYear,
+      selectedStatus,
+      selectedClassification,
+    ],
   )
+
+  const {
+    data: response,
+    isLoading,
+    isError,
+  } = useHrApprovalLeaveApplications(listParams)
+
+  const leaveTypeNames = React.useMemo(
+    () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
+    [leaveTypes],
+  )
+
+  const years = React.useMemo(() => {
+    const fromData = collectLeavePeriodYears(
+      (response?.data ?? []).map((record) => ({
+        date_from: record.date_from,
+        date_to: record.date_to,
+      })),
+    )
+    const selected = Number(selectedYear)
+
+    if (Number.isFinite(selected) && selectedYear !== "all" && !fromData.includes(selected)) {
+      return [selected, ...fromData].sort((a, b) => b - a)
+    }
+
+    if (fromData.length > 0) {
+      return fromData
+    }
+
+    return [new Date().getFullYear()]
+  }, [response?.data, selectedYear])
 
   function openDetails(row: HrApprovalRow) {
     setActiveRequest(row)
@@ -219,24 +222,14 @@ function HrApprovalPage() {
         </div>
 
         <div className="p-3 sm:p-4">
-          {isError ? (
-            <div className="space-y-3 rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center">
-              <p className="text-destructive text-sm">
-                Unable to load HR approval requests.
-              </p>
-              <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
-                Try again
-              </Button>
-            </div>
-          ) : (
-            <HrApprovalDataTable
-              rows={filteredRequests}
-              isLoading={isLoading}
-              onViewDetails={openDetails}
-              selectedYear={selectedYear}
-              selectedStatus={selectedStatus}
-            />
-          )}
+          <HrApprovalDataTable
+            tanstack={{ hook: tanstackHook }}
+            response={response}
+            leaveTypeNames={leaveTypeNames}
+            isLoading={isLoading}
+            isError={isError}
+            onViewDetails={openDetails}
+          />
         </div>
       </section>
 

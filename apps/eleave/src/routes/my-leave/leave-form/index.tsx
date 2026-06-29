@@ -97,7 +97,8 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   const isInitialStepRender = React.useRef(true)
   const { data: leaveTypes = [] } = useLeaveTypes()
   const { data: leaveApplicationsResponse } = useMyLeaveApplications()
-  const { data: myHrProfile } = useMyEmployeeHrProfile(!isEdit)
+  const { data: myHrProfile } = useMyEmployeeHrProfile()
+  const canSelectEvening = myHrProfile?.can_select_evening_day_portion ?? false
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -120,6 +121,23 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
 
     form.setValue("address", hrAddress, { shouldDirty: false })
   }, [form, isEdit, myHrProfile?.address])
+
+  React.useEffect(() => {
+    if (canSelectEvening || myHrProfile === undefined) return
+
+    const leaveDays = form.getValues("leave_days")
+    const hasEvening = leaveDays.some((day) => day.day_portion === "evening")
+
+    if (!hasEvening) return
+
+    form.setValue(
+      "leave_days",
+      leaveDays.map((day) =>
+        day.day_portion === "evening" ? { ...day, day_portion: "" } : day,
+      ),
+      { shouldValidate: true },
+    )
+  }, [canSelectEvening, form, myHrProfile])
 
   React.useEffect(() => {
     if (!isEdit || !leaveId) return
@@ -200,6 +218,16 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
       })
       if (!result.success) {
         applyZodIssues(result.error.issues, form.setError)
+        return false
+      }
+
+      if (
+        !canSelectEvening &&
+        syncedDays.some((day) => day.day_portion === "evening")
+      ) {
+        form.setError("leave_days", {
+          message: "Evening is not available for your position.",
+        })
         return false
       }
 
@@ -348,7 +376,9 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
               ) : null}
 
               {currentStep === 1 ? <DatesStep form={form} /> : null}
-              {currentStep === 2 ? <TypeDaysStep form={form} /> : null}
+              {currentStep === 2 ? (
+                <TypeDaysStep form={form} canSelectEvening={canSelectEvening} />
+              ) : null}
               {currentStep === 3 ? <DetailsStep form={form} /> : null}
               {currentStep === 4 ? (
                 <ReviewStep form={form} isEdit={isEdit} />

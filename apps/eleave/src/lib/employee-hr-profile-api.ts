@@ -10,6 +10,7 @@ export type EmployeeHrProfile = {
   is_supervisor: boolean
   is_manager: boolean
   is_academic_contractual: boolean
+  can_select_evening_day_portion: boolean
   birthdate: string | null
   date_hired: string | null
   permanency_date: string | null

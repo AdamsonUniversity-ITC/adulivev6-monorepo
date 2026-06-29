@@ -10,11 +10,11 @@ import {
 } from "@/lib/day-portion"
 import { mapSlugToApiHrStatus, type HrApprovalStatus } from "@/lib/hr-approval-status"
 import {
-  fetchHrApprovalLeaveApplications,
   getValidationErrorMessage,
   getValidationFieldErrors,
   submitHrApproval,
   type HrApprovalPayload,
+  type PaginatedLeaveApplicationsResponse,
 } from "@/lib/leave-applications-api"
 import {
   getEmployeeAvatarUrl,
@@ -225,20 +225,34 @@ export const ViewHrApprovalSheet = ({
       await queryClient.invalidateQueries({
         queryKey: ["hr-approval-leave-applications"],
       })
-
-      const refreshed = await queryClient.fetchQuery({
-        queryKey: ["hr-approval-leave-applications", 100],
-        queryFn: () =>
-          fetchHrApprovalLeaveApplications({ per_page: 100, page: 1 }),
+      await queryClient.refetchQueries({
+        queryKey: ["hr-approval-leave-applications"],
       })
-      const refreshedRows = mapLeaveApplicationsToHrApprovalRows(
-        refreshed.data ?? [],
-        leaveTypeNames,
-      )
-      const updatedRow =
-        refreshedRows.find((row) => row.id === activeRequest?.id) ?? null
 
-      onActiveRequestChange(updatedRow)
+      const cachedQueries = queryClient.getQueriesData<PaginatedLeaveApplicationsResponse>({
+        queryKey: ["hr-approval-leave-applications"],
+      })
+
+      let updatedRecord: PaginatedLeaveApplicationsResponse["data"][number] | undefined
+      for (const [, data] of cachedQueries) {
+        updatedRecord = data?.data.find(
+          (record) => String(record.id) === activeRequest?.id,
+        )
+        if (updatedRecord) {
+          break
+        }
+      }
+
+      if (updatedRecord) {
+        const refreshedRows = mapLeaveApplicationsToHrApprovalRows(
+          [updatedRecord],
+          leaveTypeNames,
+        )
+        onActiveRequestChange(refreshedRows[0] ?? null)
+      } else {
+        onActiveRequestChange(null)
+      }
+
       setIsApplyConfirmOpen(false)
       setActionError(null)
     },

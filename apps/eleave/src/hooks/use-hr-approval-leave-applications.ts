@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { fetchHrApprovalLeaveApplications } from "@/lib/leave-applications-api"
+import {
+  fetchHrApprovalLeaveApplications,
+  type HrApprovalListParams,
+} from "@/lib/leave-applications-api"
 
-export function useHrApprovalLeaveApplications(perPage = 100) {
+export function useHrApprovalLeaveApplications(params: HrApprovalListParams) {
   return useQuery({
-    queryKey: ["hr-approval-leave-applications", perPage],
-    queryFn: () =>
-      fetchHrApprovalLeaveApplications({ per_page: perPage, page: 1 }),
+    queryKey: ["hr-approval-leave-applications", params],
+    queryFn: () => fetchHrApprovalLeaveApplications(params),
   })
 }
