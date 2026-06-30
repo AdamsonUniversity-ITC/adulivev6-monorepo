@@ -48,21 +48,28 @@ function mapToRecordPagination(
   response: PaginatedBeginningBalancesResponse | undefined,
 ): RecordPagination {
   const grouped = groupBeginningBalancesByEmployee(response?.data ?? [])
+  const meta = response?.meta
+  const total = meta?.total ?? 0
+  const currentPage = meta?.current_page ?? 1
+  const perPage = meta?.per_page ?? 10
+  const from =
+    meta?.from ?? (total === 0 ? 0 : (currentPage - 1) * perPage + 1)
+  const to = meta?.to ?? (total === 0 ? 0 : from + grouped.length - 1)
 
   return {
-    current_page: response?.meta.current_page ?? 1,
+    current_page: currentPage,
     data: grouped,
     first_page_url: "",
-    from: grouped.length > 0 ? 1 : 0,
-    last_page: response?.meta.last_page ?? 1,
+    from,
+    last_page: meta?.last_page ?? 1,
     last_page_url: "",
     links: [],
     next_page_url: null,
     path: "",
-    per_page: response?.meta.per_page ?? 10,
+    per_page: perPage,
     prev_page_url: null,
-    to: grouped.length,
-    total: response?.meta.total ?? 0,
+    to,
+    total,
   }
 }
 
@@ -184,8 +191,6 @@ export function BeginningBalancesDataTable({
     [response],
   )
 
-  const groupedCount = tableData.data.length
-
   if (isError) {
     return (
       <div className="text-destructive rounded-md border border-dashed px-4 py-10 text-center text-sm">
@@ -268,8 +273,7 @@ export function BeginningBalancesDataTable({
 
       {!isLoading ? (
         <p className="text-muted-foreground text-sm">
-          {tableData.total} record{tableData.total === 1 ? "" : "s"} · {groupedCount}{" "}
-          employee{groupedCount === 1 ? "" : "s"} on this page
+          {tableData.total} employee{tableData.total === 1 ? "" : "s"}
         </p>
       ) : null}
     </div>
