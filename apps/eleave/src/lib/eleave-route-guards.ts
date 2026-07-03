@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth-queries"
 import {
   canAccessAdminFeatures,
+  canAccessDeveloperFeatures,
   canAccessForApproval,
   canAccessHrApproval,
 } from "@/lib/eleave-access"
@@ -32,6 +33,16 @@ export async function requireAdminFeaturesAccess({
   const authUser = await context.queryClient.ensureQueryData(authUserQueryOptions)
 
   if (!canAccessAdminFeatures(authUser)) {
+    throw redirect({ to: "/forbidden" })
+  }
+}
+
+export async function requireDeveloperFeaturesAccess({
+  context,
+}: GuardContext): Promise<void> {
+  const authUser = await context.queryClient.ensureQueryData(authUserQueryOptions)
+
+  if (!canAccessDeveloperFeatures(authUser)) {
     throw redirect({ to: "/forbidden" })
   }
 }
