@@ -34,6 +34,10 @@ export function canAccessAdminFeatures(user: AuthUser | undefined): boolean {
   )
 }
 
+export function canAccessDeveloperFeatures(user: AuthUser | undefined): boolean {
+  return hasAnyPermission(user, ELEAVE_PERMISSIONS.dev)
+}
+
 export function canAccessForApproval(
   profile: Pick<EmployeeHrProfile, "is_supervisor" | "is_manager"> | undefined,
 ): boolean {

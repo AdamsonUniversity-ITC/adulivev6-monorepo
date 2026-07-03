@@ -16,11 +16,13 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as MyLeaveRouteRouteImport } from './routes/my-leave/route'
 import { Route as HrApprovalRouteRouteImport } from './routes/hr-approval/route'
 import { Route as ForApprovalRouteRouteImport } from './routes/for-approval/route'
+import { Route as EmployeeLeaveCreditsRouteRouteImport } from './routes/employee-leave-credits/route'
 import { Route as BeginningBalancesRouteRouteImport } from './routes/beginning-balances/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MyLeaveIndexRouteImport } from './routes/my-leave/index'
 import { Route as HrApprovalIndexRouteImport } from './routes/hr-approval/index'
 import { Route as ForApprovalIndexRouteImport } from './routes/for-approval/index'
+import { Route as EmployeeLeaveCreditsIndexRouteImport } from './routes/employee-leave-credits/index'
 import { Route as BeginningBalancesIndexRouteImport } from './routes/beginning-balances/index'
 import { Route as ReportsFiledLeaveRouteImport } from './routes/reports/filed-leave'
 import { Route as HrApprovalViewHrApprovalSheetRouteImport } from './routes/hr-approval/view-hr-approval-sheet'
@@ -63,6 +65,12 @@ const ForApprovalRouteRoute = ForApprovalRouteRouteImport.update({
   path: '/for-approval',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmployeeLeaveCreditsRouteRoute =
+  EmployeeLeaveCreditsRouteRouteImport.update({
+    id: '/employee-leave-credits',
+    path: '/employee-leave-credits',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const BeginningBalancesRouteRoute = BeginningBalancesRouteRouteImport.update({
   id: '/beginning-balances',
   path: '/beginning-balances',
@@ -88,6 +96,12 @@ const ForApprovalIndexRoute = ForApprovalIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ForApprovalRouteRoute,
 } as any)
+const EmployeeLeaveCreditsIndexRoute =
+  EmployeeLeaveCreditsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => EmployeeLeaveCreditsRouteRoute,
+  } as any)
 const BeginningBalancesIndexRoute = BeginningBalancesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -125,6 +139,7 @@ const BeginningBalancesViewEmployeeNoRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/beginning-balances': typeof BeginningBalancesRouteRouteWithChildren
+  '/employee-leave-credits': typeof EmployeeLeaveCreditsRouteRouteWithChildren
   '/for-approval': typeof ForApprovalRouteRouteWithChildren
   '/hr-approval': typeof HrApprovalRouteRouteWithChildren
   '/my-leave': typeof MyLeaveRouteRouteWithChildren
@@ -135,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/beginning-balances/': typeof BeginningBalancesIndexRoute
+  '/employee-leave-credits/': typeof EmployeeLeaveCreditsIndexRoute
   '/for-approval/': typeof ForApprovalIndexRoute
   '/hr-approval/': typeof HrApprovalIndexRoute
   '/my-leave/': typeof MyLeaveIndexRoute
@@ -151,6 +167,7 @@ export interface FileRoutesByTo {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/beginning-balances': typeof BeginningBalancesIndexRoute
+  '/employee-leave-credits': typeof EmployeeLeaveCreditsIndexRoute
   '/for-approval': typeof ForApprovalIndexRoute
   '/hr-approval': typeof HrApprovalIndexRoute
   '/my-leave': typeof MyLeaveIndexRoute
@@ -162,6 +179,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/beginning-balances': typeof BeginningBalancesRouteRouteWithChildren
+  '/employee-leave-credits': typeof EmployeeLeaveCreditsRouteRouteWithChildren
   '/for-approval': typeof ForApprovalRouteRouteWithChildren
   '/hr-approval': typeof HrApprovalRouteRouteWithChildren
   '/my-leave': typeof MyLeaveRouteRouteWithChildren
@@ -172,6 +190,7 @@ export interface FileRoutesById {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/beginning-balances/': typeof BeginningBalancesIndexRoute
+  '/employee-leave-credits/': typeof EmployeeLeaveCreditsIndexRoute
   '/for-approval/': typeof ForApprovalIndexRoute
   '/hr-approval/': typeof HrApprovalIndexRoute
   '/my-leave/': typeof MyLeaveIndexRoute
@@ -184,6 +203,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/beginning-balances'
+    | '/employee-leave-credits'
     | '/for-approval'
     | '/hr-approval'
     | '/my-leave'
@@ -194,6 +214,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/beginning-balances/'
+    | '/employee-leave-credits/'
     | '/for-approval/'
     | '/hr-approval/'
     | '/my-leave/'
@@ -210,6 +231,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/beginning-balances'
+    | '/employee-leave-credits'
     | '/for-approval'
     | '/hr-approval'
     | '/my-leave'
@@ -220,6 +242,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/beginning-balances'
+    | '/employee-leave-credits'
     | '/for-approval'
     | '/hr-approval'
     | '/my-leave'
@@ -230,6 +253,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/beginning-balances/'
+    | '/employee-leave-credits/'
     | '/for-approval/'
     | '/hr-approval/'
     | '/my-leave/'
@@ -241,6 +265,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BeginningBalancesRouteRoute: typeof BeginningBalancesRouteRouteWithChildren
+  EmployeeLeaveCreditsRouteRoute: typeof EmployeeLeaveCreditsRouteRouteWithChildren
   ForApprovalRouteRoute: typeof ForApprovalRouteRouteWithChildren
   HrApprovalRouteRoute: typeof HrApprovalRouteRouteWithChildren
   MyLeaveRouteRoute: typeof MyLeaveRouteRouteWithChildren
@@ -302,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForApprovalRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/employee-leave-credits': {
+      id: '/employee-leave-credits'
+      path: '/employee-leave-credits'
+      fullPath: '/employee-leave-credits'
+      preLoaderRoute: typeof EmployeeLeaveCreditsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/beginning-balances': {
       id: '/beginning-balances'
       path: '/beginning-balances'
@@ -336,6 +368,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/for-approval/'
       preLoaderRoute: typeof ForApprovalIndexRouteImport
       parentRoute: typeof ForApprovalRouteRoute
+    }
+    '/employee-leave-credits/': {
+      id: '/employee-leave-credits/'
+      path: '/'
+      fullPath: '/employee-leave-credits/'
+      preLoaderRoute: typeof EmployeeLeaveCreditsIndexRouteImport
+      parentRoute: typeof EmployeeLeaveCreditsRouteRoute
     }
     '/beginning-balances/': {
       id: '/beginning-balances/'
@@ -398,6 +437,20 @@ const BeginningBalancesRouteRouteWithChildren =
     BeginningBalancesRouteRouteChildren,
   )
 
+interface EmployeeLeaveCreditsRouteRouteChildren {
+  EmployeeLeaveCreditsIndexRoute: typeof EmployeeLeaveCreditsIndexRoute
+}
+
+const EmployeeLeaveCreditsRouteRouteChildren: EmployeeLeaveCreditsRouteRouteChildren =
+  {
+    EmployeeLeaveCreditsIndexRoute: EmployeeLeaveCreditsIndexRoute,
+  }
+
+const EmployeeLeaveCreditsRouteRouteWithChildren =
+  EmployeeLeaveCreditsRouteRoute._addFileChildren(
+    EmployeeLeaveCreditsRouteRouteChildren,
+  )
+
 interface ForApprovalRouteRouteChildren {
   ForApprovalIndexRoute: typeof ForApprovalIndexRoute
 }
@@ -443,6 +496,7 @@ const MyLeaveRouteRouteWithChildren = MyLeaveRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BeginningBalancesRouteRoute: BeginningBalancesRouteRouteWithChildren,
+  EmployeeLeaveCreditsRouteRoute: EmployeeLeaveCreditsRouteRouteWithChildren,
   ForApprovalRouteRoute: ForApprovalRouteRouteWithChildren,
   HrApprovalRouteRoute: HrApprovalRouteRouteWithChildren,
   MyLeaveRouteRoute: MyLeaveRouteRouteWithChildren,

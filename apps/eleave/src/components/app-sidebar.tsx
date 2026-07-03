@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  CreditCard,
   FolderOpen,
   UserCheck,
   Wallet,
@@ -43,6 +44,7 @@ import {
 } from "@/lib/employee-teacher-display";
 import {
   canAccessAdminFeatures,
+  canAccessDeveloperFeatures,
   canAccessForApproval,
   canAccessHrApproval,
 } from "@/lib/eleave-access";
@@ -58,6 +60,7 @@ const mainNavItems = [
 
 const adminNavItems = [
   { title: "Beginning Balances", url: "/beginning-balances", icon: Wallet },
+  { title: "Employee Leave Credits", url: "/employee-leave-credits", icon: CreditCard },
 ] as const;
 
 const reportNavItems = [
@@ -69,7 +72,8 @@ function isNavItemActive(pathname: string, url: string) {
     url === "/my-leave" ||
     url === "/for-approval" ||
     url === "/hr-approval" ||
-    url === "/beginning-balances"
+    url === "/beginning-balances" ||
+    url === "/employee-leave-credits"
   ) {
     return pathname === url || pathname.startsWith(`${url}/`);
   }
@@ -109,9 +113,18 @@ export function AppSidebar() {
     return true;
   });
   const canViewAdminFeatures = canAccessAdminFeatures(authUser);
-  const visibleAdminNavItems = adminNavItems.filter(
-    (item) => item.url !== "/beginning-balances" || canViewAdminFeatures,
-  );
+  const canViewDeveloperFeatures = canAccessDeveloperFeatures(authUser);
+  const visibleAdminNavItems = adminNavItems.filter((item) => {
+    if (item.url === "/beginning-balances") {
+      return canViewAdminFeatures;
+    }
+
+    if (item.url === "/employee-leave-credits") {
+      return canViewDeveloperFeatures;
+    }
+
+    return true;
+  });
   const canViewReports = canAccessAdminFeatures(authUser);
   const hrmdoPortalUrl = resolveHrmdoPortalUrl();
 
@@ -158,7 +171,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup className="px-4 pt-2 group-data-[collapsible=icon]:px-2">
-          <SidebarGroupLabel className="mb-2 px-2 text-[10px] font-bold tracking-widest text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel className=" px-2 text-[10px] font-bold tracking-widest text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
             Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -172,7 +185,7 @@ export function AppSidebar() {
                     className="relative h-11 rounded-full px-4 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
                   >
                     <Link to={item.url}>
-                      <item.icon className="mr-2 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
+                      <item.icon className="mr-1 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
                       <span className="group-data-[collapsible=icon]:hidden">
                         {item.title}
                       </span>
