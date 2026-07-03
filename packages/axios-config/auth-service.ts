@@ -4,7 +4,7 @@ import { buildLoginUrl } from './login-url';
 
 export const authSvc = axios.create({
   baseURL: env.authService,
-  timeout: 30000,
+  timeout: 300000,
   withCredentials: true,
   withXSRFToken: true,
 });
