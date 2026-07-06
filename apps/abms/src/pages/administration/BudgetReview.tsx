@@ -13,6 +13,7 @@ import {
     X,
     AlertCircle,
     CheckCircle2,
+    Search,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -249,6 +250,10 @@ export default function BudgetReview() {
         persisted?.activeYear ?? 'current'
     );
     const [deptOpen, setDeptOpen] = useState(false);
+    const [deptSearch, setDeptSearch] = useState('');
+    const filteredUnitOptions = deptSearch.trim()
+        ? unitOptions.filter(u => u.name.toLowerCase().includes(deptSearch.trim().toLowerCase()))
+        : unitOptions;
     const [budgetData, setBudgetData] = useState<BudgetRow[]>(
         persisted?.budgetData ?? []
     );
@@ -379,7 +384,7 @@ export default function BudgetReview() {
                                     </label>
                                     <div className="relative">
                                         <button
-                                            onClick={() => setDeptOpen(prev => !prev)}
+                                            onClick={() => setDeptOpen(prev => { if (prev) setDeptSearch(''); return !prev; })}
                                             className="flex items-center gap-2 pl-3 pr-2.5 py-1.5 rounded-lg text-sm font-semibold transition-all duration-150 min-w-[200px]"
                                             style={{
                                                 background: t.inputBg,
@@ -387,7 +392,21 @@ export default function BudgetReview() {
                                                 color: t.inputText,
                                             }}
                                         >
-                                            <span className="flex-1 text-left">{selectedUnit?.name ?? '—'}</span>
+                                            <span className="flex-1 text-left truncate">{selectedUnit?.name ?? '—'}</span>
+                                            {/* Show kind badge inline when something is selected */}
+                                            {selectedUnit && (
+                                                <span
+                                                    className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
+                                                    style={{
+                                                        background: selectedUnit.kind === 'Department'
+                                                            ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
+                                                            : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
+                                                        color: selectedUnit.kind === 'Department' ? t.cellBlue : t.cellGreen,
+                                                    }}
+                                                >
+                                                    {selectedUnit.kind === 'Department' ? 'Dept' : 'Sec'}
+                                                </span>
+                                            )}
                                             <ChevronDown
                                                 className="w-3.5 h-3.5 shrink-0 transition-transform duration-150"
                                                 style={{ color: t.subColor, transform: deptOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -400,52 +419,87 @@ export default function BudgetReview() {
                                                     background: isDark ? 'rgba(10, 18, 38, 0.98)' : 'rgba(255,255,255,0.99)',
                                                     border: `1px solid ${t.cardBorder}`,
                                                     boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.50)' : '0 8px 32px rgba(0,48,135,0.15)',
-                                                    maxHeight: '260px',
-                                                    overflowY: 'auto',
                                                 }}
                                             >
-                                                {unitOptions.map((unit, idx) => {
-                                                    const isSelected = unit.id === selectedUnit?.id;
-                                                    return (
-                                                        <button
-                                                            key={unit.id}
-                                                            className="w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-center justify-between gap-3"
+                                                {/* Search box — list can contain 100+ items */}
+                                                <div
+                                                    className="px-3 py-2"
+                                                    style={{ borderBottom: `1px solid ${t.dividerColor}` }}
+                                                >
+                                                    <div className="relative">
+                                                        <Search
+                                                            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+                                                            style={{ color: t.subColor }}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            autoFocus
+                                                            value={deptSearch}
+                                                            onChange={e => setDeptSearch(e.target.value)}
+                                                            placeholder="Search department / section…"
+                                                            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-150"
                                                             style={{
-                                                                color: isSelected ? t.pillText : t.cellText,
-                                                                background: isSelected
-                                                                    ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)')
-                                                                    : 'transparent',
-                                                                fontWeight: isSelected ? 600 : 400,
-                                                                borderBottom: idx < unitOptions.length - 1 ? `1px solid ${t.dividerColor}` : 'none',
+                                                                background: t.cardHeaderBg,
+                                                                border: `1px solid ${t.inputBorder}`,
+                                                                color: t.inputText,
                                                             }}
-                                                            onClick={() => { setSelectedUnit(unit); setDeptOpen(false); }}
-                                                            onMouseEnter={e => {
-                                                                if (!isSelected)
-                                                                    (e.currentTarget as HTMLElement).style.background = isDark
-                                                                        ? 'rgba(59,130,246,0.12)'
-                                                                        : 'rgba(219,234,254,0.50)';
-                                                            }}
-                                                            onMouseLeave={e => {
-                                                                if (!isSelected)
-                                                                    (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                                            }}
-                                                        >
-                                                            <span>{unit.name}</span>
-                                                            {/* Kind badge */}
-                                                            <span
-                                                                className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
-                                                                style={{
-                                                                    background: unit.kind === 'Department'
-                                                                        ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
-                                                                        : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
-                                                                    color: unit.kind === 'Department' ? t.cellBlue : t.cellGreen,
-                                                                }}
-                                                            >
-                                                                {unit.kind === 'Department' ? 'Dept' : 'Sec'}
+                                                            onClick={e => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                                                    {filteredUnitOptions.length === 0 ? (
+                                                        <div className="flex items-center justify-center py-6">
+                                                            <span className="text-xs" style={{ color: t.subColor }}>
+                                                                No results found.
                                                             </span>
-                                                        </button>
-                                                    );
-                                                })}
+                                                        </div>
+                                                    ) : (
+                                                        filteredUnitOptions.map((unit, idx) => {
+                                                            const isSelected = unit.id === selectedUnit?.id && unit.kind === selectedUnit?.kind;
+                                                            return (
+                                                                <button
+                                                                    key={`${unit.kind}-${unit.id}`}
+                                                                    className="w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-center justify-between gap-3"
+                                                                    style={{
+                                                                        color: isSelected ? t.pillText : t.cellText,
+                                                                        background: isSelected
+                                                                            ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)')
+                                                                            : 'transparent',
+                                                                        fontWeight: isSelected ? 600 : 400,
+                                                                        borderBottom: idx < filteredUnitOptions.length - 1 ? `1px solid ${t.dividerColor}` : 'none',
+                                                                    }}
+                                                                    onClick={() => { setSelectedUnit(unit); setDeptOpen(false); setDeptSearch(''); }}
+                                                                    onMouseEnter={e => {
+                                                                        if (!isSelected)
+                                                                            (e.currentTarget as HTMLElement).style.background = isDark
+                                                                                ? 'rgba(59,130,246,0.12)'
+                                                                                : 'rgba(219,234,254,0.50)';
+                                                                    }}
+                                                                    onMouseLeave={e => {
+                                                                        if (!isSelected)
+                                                                            (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                                                    }}
+                                                                >
+                                                                    <span className="truncate">{unit.name}</span>
+                                                                    {/* Kind badge */}
+                                                                    <span
+                                                                        className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
+                                                                        style={{
+                                                                            background: unit.kind === 'Department'
+                                                                                ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
+                                                                                : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
+                                                                            color: unit.kind === 'Department' ? t.cellBlue : t.cellGreen,
+                                                                        }}
+                                                                    >
+                                                                        {unit.kind === 'Department' ? 'Dept' : 'Sec'}
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>

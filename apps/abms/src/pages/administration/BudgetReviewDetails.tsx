@@ -297,6 +297,20 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
         });
     }
 
+    // An item's approved amount can never exceed its proposed amount.
+    function getApprovedError(row: BudgetItem): string | null {
+        const raw = (drafts[row.id]?.approvedAmount ?? '').trim();
+        if (raw === '') return null;
+        const val = Number(raw);
+        if (isNaN(val)) return null;
+        if (val > row.amount) {
+            return `Cannot exceed proposed amount (${fmt(row.amount)}).`;
+        }
+        return null;
+    }
+
+    const hasApprovedErrors = items.some(row => getApprovedError(row) !== null);
+
     function handleRemarksChange(id: number, value: string) {
         patchDraft(id, { remarks: value });
     }
@@ -308,6 +322,12 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
     // ── Save (dirty rows only) ────────────────────────────────────────────────
     async function handleSave() {
         if (dirtyIds.size === 0 || saving) return;
+
+        if (hasApprovedErrors) {
+            showToast('error', 'One or more approved amounts exceed their proposed amount. Please fix before saving.');
+            return;
+        }
+
         setSaving(true);
 
         const statusToNum: Record<BudgetItem['status'], number> = {
@@ -731,15 +751,15 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                     <div className="flex items-end gap-2">
                         <button
                             onClick={handleSave}
-                            disabled={dirtyIds.size === 0 || saving}
+                            disabled={dirtyIds.size === 0 || saving || hasApprovedErrors}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-150"
                             style={{
-                                background: dirtyIds.size === 0 || saving
+                                background: dirtyIds.size === 0 || saving || hasApprovedErrors
                                     ? 'rgba(37,99,235,0.08)'
                                     : 'rgba(37,99,235,0.85)',
-                                color: dirtyIds.size === 0 || saving ? '#4b6a9b' : '#ffffff',
-                                border: `1px solid ${dirtyIds.size === 0 || saving ? 'rgba(99,155,255,0.12)' : 'rgba(99,155,255,0.70)'}`,
-                                cursor: dirtyIds.size === 0 || saving ? 'not-allowed' : 'pointer',
+                                color: dirtyIds.size === 0 || saving || hasApprovedErrors ? '#4b6a9b' : '#ffffff',
+                                border: `1px solid ${dirtyIds.size === 0 || saving || hasApprovedErrors ? 'rgba(99,155,255,0.12)' : 'rgba(99,155,255,0.70)'}`,
+                                cursor: dirtyIds.size === 0 || saving || hasApprovedErrors ? 'not-allowed' : 'pointer',
                                 whiteSpace: 'nowrap',
                             }}
                         >
@@ -846,25 +866,43 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                                             style={{ borderRight: `1px solid ${t.rowBorder}` }}
                                             onClick={e => e.stopPropagation()}
                                         >
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={drafts[row.id]?.approvedAmount ?? ''}
-                                                onChange={e => handleApprovedChange(row.id, e.target.value)}
-                                                placeholder="0.00"
-                                                className="w-full rounded-lg px-2 py-1 text-xs font-bold text-right border outline-none"
-                                                style={{
-                                                    background: t.summaryValueBg,
-                                                    borderColor: drafts[row.id]?.approvedAmount
-                                                        ? 'rgba(52,211,153,0.45)'
-                                                        : t.inputBorder,
-                                                    color: t.cellBlue,
-                                                    fontFamily: "'JetBrains Mono', monospace",
-                                                    fontVariantNumeric: 'tabular-nums',
-                                                    minWidth: '110px',
-                                                }}
-                                            />
+                                            {(() => {
+                                                const approvedError = getApprovedError(row);
+                                                return (
+                                                    <>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={row.amount}
+                                                            step="0.01"
+                                                            value={drafts[row.id]?.approvedAmount ?? ''}
+                                                            onChange={e => handleApprovedChange(row.id, e.target.value)}
+                                                            placeholder="0.00"
+                                                            className="w-full rounded-lg px-2 py-1 text-xs font-bold text-right border outline-none"
+                                                            style={{
+                                                                background: t.summaryValueBg,
+                                                                borderColor: approvedError
+                                                                    ? '#f87171'
+                                                                    : drafts[row.id]?.approvedAmount
+                                                                    ? 'rgba(52,211,153,0.45)'
+                                                                    : t.inputBorder,
+                                                                color: approvedError ? '#f87171' : t.cellBlue,
+                                                                fontFamily: "'JetBrains Mono', monospace",
+                                                                fontVariantNumeric: 'tabular-nums',
+                                                                minWidth: '110px',
+                                                            }}
+                                                        />
+                                                        {approvedError && (
+                                                            <div
+                                                                className="text-[9px] font-semibold mt-1 text-right"
+                                                                style={{ color: '#f87171' }}
+                                                            >
+                                                                {approvedError}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </td>
                                         <td
                                             className="px-2 py-1.5"
