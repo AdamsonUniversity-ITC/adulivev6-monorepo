@@ -1784,6 +1784,7 @@ interface AccountOption {
     account_code: string;
     account_name: string;
     balance: number;
+    account_parent_id: number;
 }
 
 function SelectAccountModal({
@@ -2003,6 +2004,7 @@ function SelectAccountModal({
 interface AddItemFormState {
     accountNo: string;
     accountName: string;
+    accountParentId: string;
     balance: string;
     itemDescription: string;
     unitCost: string;
@@ -2013,6 +2015,7 @@ interface AddItemFormState {
 const EMPTY_ITEM_FORM: AddItemFormState = {
     accountNo: '',
     accountName: '',
+    accountParentId: '',
     balance: '',
     itemDescription: '',
     unitCost: '',
@@ -2025,6 +2028,7 @@ const EMPTY_ITEM_FORM: AddItemFormState = {
 const addItemSchema = z.object({
     accountNo: z.string().min(1, 'Please select an account first.'),
     accountName: z.string(),
+    accountParentId: z.string().min(1, 'Please select an account first.'),
     balance: z.string(),
     itemDescription: z.string().min(1, 'Item description is required.'),
     unitCost: z.coerce
@@ -2110,6 +2114,7 @@ function AddItemModal({
             ...prev,
             accountNo: item.account_code,
             accountName: item.account_name,
+            accountParentId: String(item.account_parent_id),
             balance: String(item.balance),
         }));
         // Clear account-related errors and the balance cap error when a new account is picked
@@ -2161,6 +2166,7 @@ function AddItemModal({
             const res = await financeSvc.post('/abms/budget-request-entry/items', {
                 budget_request_entry_id: rsHeaderId,
                 account_code: form.accountNo,
+                account_parent_id: parseInt(form.accountParentId, 10),
                 description: form.itemDescription,
                 unit_cost: parseFloat(form.unitCost),
                 quantity: parseInt(form.quantity, 10),
