@@ -2045,7 +2045,7 @@ type AddItemSchemaErrors = Partial<Record<keyof AddItemFormState | 'balance_cap'
 
 function AddItemModal({
     open, onClose, onSave, t, isDark,
-    departmentId, sectionId, currentSchoolYear, rsHeaderId,
+    departmentId, sectionId, currentSchoolYear, rsHeaderId, rsType,
 }: {
     open: boolean;
     onClose: () => void;
@@ -2056,6 +2056,7 @@ function AddItemModal({
     sectionId: string;
     currentSchoolYear: string;
     rsHeaderId: number | null;
+    rsType?: RSType;
 }) {
     const [form, setForm] = useState<AddItemFormState>(EMPTY_ITEM_FORM);
     // Preserved form while pickers are open
@@ -2425,6 +2426,7 @@ function AddItemModal({
                                         error: errors.itemDescription,
                                     })}
                                 </div>
+                                {rsType === 'stockroom' && (
                                 <button
                                     onClick={accountSelected ? handleOpenSupplyPicker : undefined}
                                     disabled={!accountSelected}
@@ -2446,6 +2448,7 @@ function AddItemModal({
                                     <ClipboardList style={{ width: 13, height: 13 }} />
                                     Get Items
                                 </button>
+                                )}
                             </div>
 
                             {/* Pricing section */}
@@ -3203,6 +3206,7 @@ function RSFormModal({
                 sectionId={sectionId}
                 currentSchoolYear={currentSchoolYear}
                 rsHeaderId={rsHeaderId}
+                rsType={rsType}
             />
         </div>,
         document.body,
