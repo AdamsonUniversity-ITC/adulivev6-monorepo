@@ -25,6 +25,7 @@ import {
     Info,
     Lock,
     CalendarClock,
+    Search,
 } from 'lucide-react';
 import { budgetproposalentryRoute } from '../../router.tsx';
 import { financeSvc } from '@repo/axios-config';
@@ -370,6 +371,7 @@ function StyledSelect({
 // ─────────────────────────────────────────────────────────────────────────────
 function DeptSelect({
     value,
+    valueKind,
     onChange,
     departments,
     sections,
@@ -377,6 +379,7 @@ function DeptSelect({
     isDark,
 }: {
     value: string;
+    valueKind: 'Department' | 'Section' | '';
     onChange: (id: string, kind: 'Department' | 'Section') => void;
     departments: DeptOption[];
     sections: DeptOption[];
@@ -384,24 +387,33 @@ function DeptSelect({
     isDark: boolean;
 }) {
     const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState('');
 
     const mergedList: DeptOption[] = [
         ...departments.map(d => ({ ...d, kind: 'Department' as const })),
         ...sections.map(s => ({ ...s, kind: 'Section' as const })),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    const selected = mergedList.find(o => o.id === value) ?? null;
+    // Match on BOTH id and kind — ids can collide between departments and
+    // sections (e.g. department id "5" and section id "5"), so matching on
+    // id alone would pick whichever one happens to appear first in the list.
+    const selected = mergedList.find(o => o.id === value && o.kind === valueKind) ?? null;
+
+    const filteredList = search.trim()
+        ? mergedList.filter(o => o.name.toLowerCase().includes(search.trim().toLowerCase()))
+        : mergedList;
 
     const handleSelect = (item: DeptOption) => {
         onChange(item.id, item.kind);
         setOpen(false);
+        setSearch('');
     };
 
     return (
         <div className="relative">
             <button
                 type="button"
-                onClick={() => setOpen(prev => !prev)}
+                onClick={() => setOpen(prev => { if (prev) setSearch(''); return !prev; })}
                 className="w-full flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-md text-sm font-semibold transition-all duration-150"
                 style={{
                     background: t.inputBg,
@@ -445,59 +457,94 @@ function DeptSelect({
                         background: isDark ? 'rgba(10, 18, 38, 0.98)' : 'rgba(255,255,255,0.99)',
                         border: `1px solid ${isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.20)'}`,
                         boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.50)' : '0 8px 32px rgba(0,48,135,0.15)',
-                        maxHeight: '260px',
-                        overflowY: 'auto',
                     }}
                 >
-                    {mergedList.map((item, idx) => {
-                        const isSelected = item.id === value;
-                        return (
-                            <button
-                                key={`${item.kind}-${item.id}`}
-                                type="button"
-                                className="w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-center justify-between gap-3"
+                    {/* Search box — list can contain 100+ items */}
+                    <div
+                        className="px-3 py-2"
+                        style={{ borderBottom: `1px solid ${isDark ? 'rgba(99,155,255,0.15)' : 'rgba(37,99,235,0.10)'}` }}
+                    >
+                        <div className="relative">
+                            <Search
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+                                style={{ color: isDark ? '#64748b' : '#94a3b8' }}
+                            />
+                            <input
+                                type="text"
+                                autoFocus
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search department / section…"
+                                className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none transition-all duration-150"
                                 style={{
-                                    color: isSelected
-                                        ? (isDark ? '#93c5fd' : '#1d4ed8')
-                                        : (isDark ? '#e2e8f0' : '#0f172a'),
-                                    background: isSelected
-                                        ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)')
-                                        : 'transparent',
-                                    fontWeight: isSelected ? 600 : 400,
-                                    borderBottom: idx < mergedList.length - 1
-                                        ? `1px solid ${isDark ? 'rgba(99,155,255,0.10)' : 'rgba(37,99,235,0.08)'}`
-                                        : 'none',
+                                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.03)',
+                                    border: `1px solid ${isDark ? 'rgba(99,155,255,0.20)' : 'rgba(37,99,235,0.15)'}`,
+                                    color: isDark ? '#e2e8f0' : '#0f172a',
                                 }}
-                                onClick={() => handleSelect(item)}
-                                onMouseEnter={e => {
-                                    if (!isSelected)
-                                        (e.currentTarget as HTMLElement).style.background = isDark
-                                            ? 'rgba(59,130,246,0.12)'
-                                            : 'rgba(219,234,254,0.50)';
-                                }}
-                                onMouseLeave={e => {
-                                    if (!isSelected)
-                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                }}
-                            >
-                                <span className="truncate">{item.name}</span>
-                                {/* Kind badge */}
-                                <span
-                                    className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
-                                    style={{
-                                        background: item.kind === 'Department'
-                                            ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
-                                            : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
-                                        color: item.kind === 'Department'
-                                            ? (isDark ? '#93c5fd' : '#1d4ed8')
-                                            : (isDark ? '#6ee7b7' : '#047857'),
-                                    }}
-                                >
-                                    {item.kind === 'Department' ? 'Dept' : 'Sec'}
+                                onClick={e => e.stopPropagation()}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                        {filteredList.length === 0 ? (
+                            <div className="flex items-center justify-center py-6">
+                                <span className="text-xs" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
+                                    No results found.
                                 </span>
-                            </button>
-                        );
-                    })}
+                            </div>
+                        ) : (
+                            filteredList.map((item, idx) => {
+                                const isSelected = item.id === value && item.kind === valueKind;
+                                return (
+                                    <button
+                                        key={`${item.kind}-${item.id}`}
+                                        type="button"
+                                        className="w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-center justify-between gap-3"
+                                        style={{
+                                            color: isSelected
+                                                ? (isDark ? '#93c5fd' : '#1d4ed8')
+                                                : (isDark ? '#e2e8f0' : '#0f172a'),
+                                            background: isSelected
+                                                ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)')
+                                                : 'transparent',
+                                            fontWeight: isSelected ? 600 : 400,
+                                            borderBottom: idx < filteredList.length - 1
+                                                ? `1px solid ${isDark ? 'rgba(99,155,255,0.10)' : 'rgba(37,99,235,0.08)'}`
+                                                : 'none',
+                                        }}
+                                        onClick={() => handleSelect(item)}
+                                        onMouseEnter={e => {
+                                            if (!isSelected)
+                                                (e.currentTarget as HTMLElement).style.background = isDark
+                                                    ? 'rgba(59,130,246,0.12)'
+                                                    : 'rgba(219,234,254,0.50)';
+                                        }}
+                                        onMouseLeave={e => {
+                                            if (!isSelected)
+                                                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                        }}
+                                    >
+                                        <span className="truncate">{item.name}</span>
+                                        {/* Kind badge */}
+                                        <span
+                                            className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
+                                            style={{
+                                                background: item.kind === 'Department'
+                                                    ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
+                                                    : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
+                                                color: item.kind === 'Department'
+                                                    ? (isDark ? '#93c5fd' : '#1d4ed8')
+                                                    : (isDark ? '#6ee7b7' : '#047857'),
+                                            }}
+                                        >
+                                            {item.kind === 'Department' ? 'Dept' : 'Sec'}
+                                        </span>
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
             )}
         </div>
@@ -908,6 +955,7 @@ export default function BudgetProposalEntry() {
                                                 </label>
                                                 <DeptSelect
                                                     value={selectedDept}
+                                                    valueKind={selectedDeptKind}
                                                     onChange={handleDeptChange}
                                                     departments={departments}
                                                     sections={sections}

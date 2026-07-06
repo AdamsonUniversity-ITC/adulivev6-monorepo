@@ -381,6 +381,7 @@ function UserManagementModal({
   const [selectedDepts, setSelectedDepts] = useState<DeptOrSection[]>([]);
   const [deptPickerOpen, setDeptPickerOpen] = useState(false);
   const [deptSearch, setDeptSearch] = useState('');
+  const [hoveredDeptKey, setHoveredDeptKey] = useState<string | null>(null);
 
   // Validation errors & saving state
   const [errors, setErrors] = useState<FormErrors>({});
@@ -930,11 +931,13 @@ function UserManagementModal({
                   filteredList.map((item, idx) => {
                     const isSelected = selectedDepts.some((d) => d.id === item.id && d.kind === item.kind);
                     const isDept = item.kind === 'Department';
+                    const rowKey = `${item.kind}-${item.id}`;
+                    const isHovered = hoveredDeptKey === rowKey;
                     return (
                       <div
-                        key={`${item.kind}-${item.id}`}
+                        key={rowKey}
                         onClick={() => { if (isSelected) removeDept(item); else addDept(item); }}
-                        className="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer transition-all duration-150"
+                        className="relative flex items-center gap-2.5 px-4 py-2.5 cursor-pointer transition-all duration-150"
                         style={{
                           background: isSelected
                             ? (isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.80)')
@@ -943,9 +946,11 @@ function UserManagementModal({
                         }}
                         onMouseEnter={e => {
                           if (!isSelected) (e.currentTarget as HTMLElement).style.background = t.resultRowHover;
+                          setHoveredDeptKey(rowKey);
                         }}
                         onMouseLeave={e => {
                           if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                          setHoveredDeptKey(null);
                         }}
                       >
                         <div
@@ -984,6 +989,27 @@ function UserManagementModal({
                         >
                           {item.kind}
                         </span>
+
+                        {/* Hover tooltip showing full name for long text */}
+                        {isHovered && (
+                          <div
+                            className="absolute z-50 left-4 right-4 px-3 py-2 rounded-lg text-sm font-medium shadow-lg pointer-events-none"
+                            style={{
+                              top: '100%',
+                              marginTop: '2px',
+                              background: isDark ? '#1f2937' : '#ffffff',
+                              color: t.resultNameText,
+                              border: `1px solid ${t.inputBorder}`,
+                              boxShadow: isDark
+                                ? '0 4px 12px rgba(0,0,0,0.5)'
+                                : '0 4px 12px rgba(0,0,0,0.15)',
+                              whiteSpace: 'normal',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {item.name}
+                          </div>
+                        )}
                       </div>
                     );
                   })
