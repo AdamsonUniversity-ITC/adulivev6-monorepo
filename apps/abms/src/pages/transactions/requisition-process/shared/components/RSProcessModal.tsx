@@ -45,6 +45,8 @@ export interface RSProcessRow {
     location: string | null;
     from: string | null;
     for_liquidation?: boolean;
+    /** RS type (e.g. "Cashier") — used to gate certain actions; not displayed. */
+    rstype?: string | null;
     // Extended fields (populated when modal fetches detail)
     payee?: string | null;
     payment_form?: string | null;
@@ -178,7 +180,7 @@ const COMMON_ACTIONS: RoleAction[] = [
     { label: 'Print RS', icon: Printer, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'right' },
     {
         label: 'Mark Served', icon: PackageCheck, variant: 'success',
-        visibleOn: ['certified rs', 'certified', 'p.o. on process'], restrictedTo: ['stockroom-access'],
+        visibleOn: ['certified rs', 'certified', 'po on process'], restrictedTo: ['stockroom-access'],
         locationFilter: ['stockroom'], toolbarGroup: 'right',
     },
 ];
@@ -1831,31 +1833,34 @@ export function RSProcessModal({
                                     {formatAmount(row.total_amount)}
                                 </span>
                                 {/* For Liquidation — only shown to admin-access and budget-access
-                                when the entry is at the budget office. A tag on the entry,
-                                independent of its status. Revertible: clicking again flips it off. */}
-                                {(roleKey === 'admin-access' || roleKey === 'budget-access') && locationLower === 'budget office' && (
-                                <button
-                                    onClick={() => triggerAction({ label: 'For Liquidation', variant: 'primary', visibleOn: '*', confirm: false })}
-                                    style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                                        marginTop: 2,
-                                        padding: '5px 12px', borderRadius: 20,
-                                        fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                        border: row.for_liquidation ? `1px solid ${LIQUIDATION_COLOR}88` : `1px solid ${t.cardBorder}`,
-                                        background: row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent',
-                                        color: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
-                                        cursor: 'pointer', transition: 'background .14s ease',
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}38` : `${t.cellMuted}1a`)}
-                                    onMouseLeave={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent')}
-                                >
-                                    <span style={{
-                                        display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                                        background: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
-                                        flexShrink: 0,
-                                    }} />
-                                    {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
-                                </button>
+                                when the entry is at the budget office and the RS type is Cashier.
+                                A tag on the entry, independent of its status. Revertible: clicking
+                                again flips it off. */}
+                                {(roleKey === 'admin-access' || roleKey === 'budget-access')
+                                    && locationLower === 'budget office'
+                                    && (row.rstype ?? '').toLowerCase() === 'cashier' && (
+                                    <button
+                                        onClick={() => triggerAction({ label: 'For Liquidation', variant: 'primary', visibleOn: '*', confirm: false })}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                                            marginTop: 2,
+                                            padding: '5px 12px', borderRadius: 20,
+                                            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                            border: row.for_liquidation ? `1px solid ${LIQUIDATION_COLOR}88` : `1px solid ${t.cardBorder}`,
+                                            background: row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent',
+                                            color: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
+                                            cursor: 'pointer', transition: 'background .14s ease',
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}38` : `${t.cellMuted}1a`)}
+                                        onMouseLeave={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent')}
+                                    >
+                                        <span style={{
+                                            display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                                            background: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
+                                            flexShrink: 0,
+                                        }} />
+                                        {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
+                                    </button>
                                 )}
                             </div>
                             <div style={{
@@ -2090,7 +2095,8 @@ export function RSProcessModal({
                                                                     {item.quoted_price != null ? formatAmount(item.quoted_price) : <span style={{ color: t.cellMuted, fontSize: 10 }}>—</span>}
                                                                     {!noChange && <div style={{ fontSize: 9, color: isDark ? '#93c5fd' : '#1d4ed8', marginTop: 1 }}>Total: {formatAmount(item.proposed_total_cost)}</div>}
                                                                 </td>
-                                                                <td style={{ padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap',
+                                                                <td style={{
+                                                                    padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap',
                                                                     color: noChange ? t.cellMuted : item.delta > 0 ? (isDark ? '#fca5a5' : '#dc2626') : (isDark ? '#6ee7b7' : '#047857'),
                                                                     fontWeight: noChange ? undefined : 700,
                                                                 }}>
@@ -2099,7 +2105,8 @@ export function RSProcessModal({
                                                                 <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                                     {item.account_balance != null ? formatAmount(item.account_balance) : <span style={{ color: t.cellMuted }}>—</span>}
                                                                 </td>
-                                                                <td style={{ padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap',
+                                                                <td style={{
+                                                                    padding: '9px 12px', fontSize: 11, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap',
                                                                     color: insufficient ? (isDark ? '#fca5a5' : '#dc2626') : (item.balance_after != null && item.balance_after < item.account_balance! * 0.2 ? (isDark ? t.cellAmber : '#b45309') : (isDark ? '#6ee7b7' : '#047857')),
                                                                     fontWeight: 700,
                                                                 }}>

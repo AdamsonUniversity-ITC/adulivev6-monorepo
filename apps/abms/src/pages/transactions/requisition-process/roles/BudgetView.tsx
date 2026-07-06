@@ -56,6 +56,8 @@ export interface BudgetRow {
     from: string | null;
     note: string | null;
     for_liquidation?: boolean;
+    /** RS type (e.g. "Cashier") — passed through from the API but not displayed in this table. */
+    rstype?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

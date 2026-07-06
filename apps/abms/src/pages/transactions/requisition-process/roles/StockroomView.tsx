@@ -71,7 +71,9 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
             'for budget director': { bg: `${t.cellBlue}2e`, text: t.cellBlue, border: `${t.cellBlue}66` },
             'for purchase': { bg: `${t.cellBlue}1a`, text: t.cellBlue, border: `${t.cellBlue}4d` },
             'po on process': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}59` },
+            'p.o. on process': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}59` },
             'unserved': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
+            'unserved rs': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
             'served': { bg: `${t.cellGreen}1a`, text: t.cellGreen, border: `${t.cellGreen}55` },
         };
         return map[(status ?? '').toLowerCase()] ?? {
@@ -92,7 +94,9 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
         'for budget director': { bg: 'rgba(237,233,254,0.90)', border: 'rgba(109,40,217,0.40)', text: '#4c1d95' },
         'for purchase': { bg: 'rgba(207,250,254,0.65)', border: 'rgba(8,145,178,0.30)', text: '#155e75' },
         'po on process': { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)', text: '#0e4f63' },
+        'p.o. on process': { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)', text: '#0e4f63' },
         'unserved': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
+        'unserved rs': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
         'served': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
     };
     return map[(status ?? '').toLowerCase()] ?? {
@@ -242,6 +246,8 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [queried, setQueried] = useState(false);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(false);
     const [currentSchoolYear, setCurrentSchoolYear] = useState<string | null>(null);
     const [schoolYears, setSchoolYears] = useState<string[]>([]);
 
@@ -295,9 +301,11 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
-                params: parsed.data,
+                params: { ...parsed.data, per_page: 10 },
             });
             setRows(res.data.data ?? []);
+            setNextCursor(res.data.meta?.next_cursor ?? null);
+            setHasMore(res.data.meta?.has_more ?? false);
             setCurrentSchoolYear(res.data.meta?.current_school_year ?? null);
             setQueried(true);
         } catch (err: any) {
@@ -306,6 +314,25 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             setLoading(false);
         }
     }, [filterState]);
+
+    const handleLoadMore = useCallback(async () => {
+        if (!nextCursor || loading) return;
+        const parsed = StockroomQuerySchema.safeParse(buildQuery(filterState));
+        if (!parsed.success) return;
+        setLoading(true);
+        try {
+            const res = await financeSvc.get('/abms/requisition-process/getrs', {
+                params: { ...parsed.data, per_page: 10, cursor: nextCursor },
+            });
+            setRows(prev => [...prev, ...(res.data.data ?? [])]);
+            setNextCursor(res.data.meta?.next_cursor ?? null);
+            setHasMore(res.data.meta?.has_more ?? false);
+        } catch (err: any) {
+            setError(err?.response?.data?.message ?? 'Failed to fetch more data.');
+        } finally {
+            setLoading(false);
+        }
+    }, [filterState, nextCursor, loading]);
 
     // Handle row click — fetch line items then open the RS Process modal
     const handleRowClick = useCallback(async (row: StockroomRow) => {
@@ -568,6 +595,31 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                         </tr>
                         );
                     })}
+
+                    {!loading && !error && hasMore && rows.length > 0 && (
+                        <tr>
+                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center' }}>
+                                <button
+                                    onClick={handleLoadMore}
+                                    style={{
+                                        padding: '8px 20px', fontSize: 13, fontWeight: 600,
+                                        color: t.cellBlue, background: 'transparent',
+                                        border: `1px solid ${t.cellBlue}66`, borderRadius: 6,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Load More
+                                </button>
+                            </td>
+                        </tr>
+                    )}
+                    {loading && rows.length > 0 && (
+                        <tr>
+                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: t.cellMuted }}>
+                                Loading more…
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
             </RolePage>

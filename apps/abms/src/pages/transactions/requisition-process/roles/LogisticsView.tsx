@@ -59,42 +59,44 @@ const COLUMNS = ROLE_COLUMNS['logistics-access'];
 function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     if (isDark) {
         const map: Record<string, { bg: string; text: string; border: string }> = {
-            'for review':          { bg: `${t.cellAmber}26`, text: t.cellAmber, border: `${t.cellAmber}66` },
-            'for certification':   { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
-            'certified':           { bg: `${t.cellGreen}26`, text: t.cellGreen, border: `${t.cellGreen}66` },
-            'for pricing':         { bg: `${t.cellAmber}1f`, text: t.cellAmber, border: `${t.cellAmber}59` },
-            'disapproved':         { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}4d` },
-            'cancelled':           { bg: `${t.cellMuted}1a`, text: t.cellMuted, border: `${t.cellMuted}4d` },
-            'served by wico':      { bg: `${t.cellBlue}26`,  text: t.cellBlue,  border: `${t.cellBlue}66`  },
-            'for budget staff':    { bg: `${t.cellBlue}1f`,  text: t.cellBlue,  border: `${t.cellBlue}55`  },
-            'for budget director': { bg: `${t.cellBlue}2e`,  text: t.cellBlue,  border: `${t.cellBlue}66`  },
-            'for purchase':        { bg: `${t.cellBlue}1a`,  text: t.cellBlue,  border: `${t.cellBlue}4d`  },
-            'p.o. on process':       { bg: `${t.cellBlue}26`,  text: t.cellBlue,  border: `${t.cellBlue}59`  },
-            'unserved':            { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
-            'unserved rs':         { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
-            'served':              { bg: `${t.cellGreen}1a`, text: t.cellGreen, border: `${t.cellGreen}55` },
+            'for review': { bg: `${t.cellAmber}26`, text: t.cellAmber, border: `${t.cellAmber}66` },
+            'for certification': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
+            'certified': { bg: `${t.cellGreen}26`, text: t.cellGreen, border: `${t.cellGreen}66` },
+            'for pricing': { bg: `${t.cellAmber}1f`, text: t.cellAmber, border: `${t.cellAmber}59` },
+            'disapproved': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}4d` },
+            'cancelled': { bg: `${t.cellMuted}1a`, text: t.cellMuted, border: `${t.cellMuted}4d` },
+            'served by wico': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}66` },
+            'for budget staff': { bg: `${t.cellBlue}1f`, text: t.cellBlue, border: `${t.cellBlue}55` },
+            'for budget director': { bg: `${t.cellBlue}2e`, text: t.cellBlue, border: `${t.cellBlue}66` },
+            'for purchase': { bg: `${t.cellBlue}1a`, text: t.cellBlue, border: `${t.cellBlue}4d` },
+            'po on process': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}59` },
+            'p.o. on process': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}59` },
+            'unserved': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
+            'unserved rs': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
+            'served': { bg: `${t.cellGreen}1a`, text: t.cellGreen, border: `${t.cellGreen}55` },
         };
         return map[(status ?? '').toLowerCase()] ?? {
             bg: `${t.cellMuted}26`, text: t.cellMuted, border: `${t.cellMuted}59`,
         };
     }
 
-    // Light mode — matches the shared palette used by StockroomView / AdminView
+    // Light mode — explicit, carefully tuned palette (uniform with BudgetView)
     const map: Record<string, { bg: string; text: string; border: string }> = {
-        'for review':          { bg: 'rgba(253,230,138,0.50)', border: 'rgba(202,138,4,0.40)',   text: '#92400e' },
-        'for certification':   { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)',   text: '#a16207' },
-        'certified':           { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)',    text: '#065f46' },
-        'for pricing':         { bg: 'rgba(254,215,170,0.55)', border: 'rgba(194,65,12,0.32)',   text: '#9a3412' },
-        'disapproved':         { bg: 'rgba(254,226,226,0.65)', border: 'rgba(220,38,38,0.32)',   text: '#991b1b' },
-        'cancelled':           { bg: 'rgba(241,245,249,0.85)', border: 'rgba(148,163,184,0.38)', text: '#475569' },
-        'served by wico':      { bg: 'rgba(219,234,254,0.75)', border: 'rgba(29,78,216,0.30)',   text: '#1e3a8a' },
-        'for budget staff':    { bg: 'rgba(237,233,254,0.70)', border: 'rgba(109,40,217,0.30)',  text: '#5b21b6' },
-        'for budget director': { bg: 'rgba(237,233,254,0.90)', border: 'rgba(109,40,217,0.40)',  text: '#4c1d95' },
-        'for purchase':        { bg: 'rgba(207,250,254,0.65)', border: 'rgba(8,145,178,0.30)',   text: '#155e75' },
-        'p.o. on process':       { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)',   text: '#0e4f63' },
-        'unserved':            { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)',   text: '#a16207' },
-        'unserved rs':         { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)',   text: '#a16207' },
-        'served':              { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)',    text: '#065f46' },
+        'for review': { bg: 'rgba(253,230,138,0.50)', border: 'rgba(202,138,4,0.40)', text: '#92400e' },
+        'for certification': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
+        'certified': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
+        'for pricing': { bg: 'rgba(254,215,170,0.55)', border: 'rgba(194,65,12,0.32)', text: '#9a3412' },
+        'disapproved': { bg: 'rgba(254,226,226,0.65)', border: 'rgba(220,38,38,0.32)', text: '#991b1b' },
+        'cancelled': { bg: 'rgba(241,245,249,0.85)', border: 'rgba(148,163,184,0.38)', text: '#475569' },
+        'served by wico': { bg: 'rgba(219,234,254,0.75)', border: 'rgba(29,78,216,0.30)', text: '#1e3a8a' },
+        'for budget staff': { bg: 'rgba(237,233,254,0.70)', border: 'rgba(109,40,217,0.30)', text: '#5b21b6' },
+        'for budget director': { bg: 'rgba(237,233,254,0.90)', border: 'rgba(109,40,217,0.40)', text: '#4c1d95' },
+        'for purchase': { bg: 'rgba(207,250,254,0.65)', border: 'rgba(8,145,178,0.30)', text: '#155e75' },
+        'po on process': { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)', text: '#0e4f63' },
+        'p.o. on process': { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)', text: '#0e4f63' },
+        'unserved': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
+        'unserved rs': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
+        'served': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
     };
     return map[(status ?? '').toLowerCase()] ?? {
         bg: 'rgba(241,245,249,0.85)', text: '#475569', border: 'rgba(148,163,184,0.38)',
@@ -242,6 +244,8 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [queried, setQueried] = useState(false);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(false);
 
     // ── Modal state ───────────────────────────────────────────────────────────
     const [selectedRow, setSelectedRow] = useState<RSProcessRow | null>(null);
@@ -286,9 +290,11 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
-                params: parsed.data,
+                params: { ...parsed.data, per_page: 10 },
             });
             setRows(res.data.data ?? []);
+            setNextCursor(res.data.meta?.next_cursor ?? null);
+            setHasMore(res.data.meta?.has_more ?? false);
             setQueried(true);
         } catch (err: any) {
             setError(err?.response?.data?.message ?? 'Failed to fetch data. Please try again.');
@@ -296,6 +302,25 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
             setLoading(false);
         }
     }, [filterState]);
+
+    const handleLoadMore = useCallback(async () => {
+        if (!nextCursor || loading) return;
+        const parsed = LogisticsQuerySchema.safeParse(buildQuery(filterState));
+        if (!parsed.success) return;
+        setLoading(true);
+        try {
+            const res = await financeSvc.get('/abms/requisition-process/getrs', {
+                params: { ...parsed.data, per_page: 10, cursor: nextCursor },
+            });
+            setRows(prev => [...prev, ...(res.data.data ?? [])]);
+            setNextCursor(res.data.meta?.next_cursor ?? null);
+            setHasMore(res.data.meta?.has_more ?? false);
+        } catch (err: any) {
+            setError(err?.response?.data?.message ?? 'Failed to fetch more data.');
+        } finally {
+            setLoading(false);
+        }
+    }, [filterState, nextCursor, loading]);
 
     // Handle row click — fetch line items then open the RS Process modal
     const handleRowClick = useCallback(async (row: LogisticsRow) => {
@@ -563,6 +588,31 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
                         </tr>
                         );
                     })}
+
+                    {!loading && !error && hasMore && rows.length > 0 && (
+                        <tr>
+                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center' }}>
+                                <button
+                                    onClick={handleLoadMore}
+                                    style={{
+                                        padding: '8px 20px', fontSize: 13, fontWeight: 600,
+                                        color: t.cellBlue, background: 'transparent',
+                                        border: `1px solid ${t.cellBlue}66`, borderRadius: 6,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Load More
+                                </button>
+                            </td>
+                        </tr>
+                    )}
+                    {loading && rows.length > 0 && (
+                        <tr>
+                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: t.cellMuted }}>
+                                Loading more…
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
             </RolePage>
