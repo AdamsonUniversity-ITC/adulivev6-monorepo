@@ -13,7 +13,9 @@ export type DatatableConfig = {
    * Debounce delay (ms) when `searchMode` is "debounce".
    */
   searchDebounceMs?: number;
+  searchPlaceholder?: string;
   fn?: {
+    onClick?: (row: unknown) => void;
     onDoubleClick?: (row: unknown) => void;
   };
 };
