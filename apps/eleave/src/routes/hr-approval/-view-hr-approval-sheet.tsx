@@ -8,7 +8,7 @@ import {
   isWholeDayPortion,
   SPLIT_DAY_PORTION_OPTIONS,
 } from "@/lib/day-portion"
-import { mapSlugToApiHrStatus, type HrApprovalStatus } from "@/lib/hr-approval-status"
+import { mapSlugToApiHrStatus, type HrApprovalStatus, getHrApprovalStatusMeta } from "@/lib/hr-approval-status"
 import {
   getValidationErrorMessage,
   getValidationFieldErrors,
@@ -94,6 +94,7 @@ type ViewHrApprovalSheetProps = {
   onActiveRequestChange: (row: HrApprovalRow | null) => void
   leaveTypeNames: Map<number, string>
   leaveTypes: LeaveTypeRecord[]
+  readOnly?: boolean
 }
 
 function ApprovalStatusSelect({
@@ -179,6 +180,7 @@ export const ViewHrApprovalSheet = ({
   onActiveRequestChange,
   leaveTypeNames,
   leaveTypes,
+  readOnly = false,
 }: ViewHrApprovalSheetProps) => {
   const queryClient = useQueryClient()
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = React.useState(false)
@@ -449,6 +451,18 @@ export const ViewHrApprovalSheet = ({
 
   const hasPendingDays = dailyDraft.some(hasPendingHrDayDecision)
   const draftStatus = resolveOverallStatusFromHrDayStatuses(resolveDraftStatuses(dailyDraft))
+  const displayStatus = readOnly ? (activeRequest?.status ?? "pending") : draftStatus
+  const displayDecisions = readOnly
+    ? (activeRequest?.dailyDecisions ?? [])
+    : dailyDraft
+
+  const formatStatusLabel = (status: HrApprovalStatus | null | undefined) => {
+    if (!status) {
+      return "—"
+    }
+
+    return getHrApprovalStatusMeta(status).label
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -457,9 +471,13 @@ export const ViewHrApprovalSheet = ({
         className="flex h-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-7xl"
       >
         <SheetHeader className="shrink-0 border-b bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] pb-4">
-          <SheetTitle className="text-lg">View HR Approval</SheetTitle>
+          <SheetTitle className="text-lg">
+            {readOnly ? "View Leave Details" : "View HR Approval"}
+          </SheetTitle>
           <SheetDescription>
-            Review request details and update HR approval status.
+            {readOnly
+              ? "Review filed leave request details and approval history."
+              : "Review request details and update HR approval status."}
           </SheetDescription>
         </SheetHeader>
 
@@ -505,7 +523,7 @@ export const ViewHrApprovalSheet = ({
                     Leave Type
                   </p>
                   <p className="font-medium">
-                    {summarizeLeaveType(dailyDraft) || activeRequest.leaveType}
+                    {summarizeLeaveType(displayDecisions) || activeRequest.leaveType}
                   </p>
                 </div>
                 <div>
@@ -513,7 +531,7 @@ export const ViewHrApprovalSheet = ({
                   Overall Status
                 </p>
                 <div className="pt-1">
-                  <OverallStatusBadge status={draftStatus} />
+                  <OverallStatusBadge status={displayStatus} />
                 </div>
               </div>
               </div>
@@ -551,23 +569,25 @@ export const ViewHrApprovalSheet = ({
                 <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
                   Daily Decisions
                 </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={requestApplyDailyChanges}
-                  disabled={hasPendingDays || hrApprovalMutation.isPending}
-                >
-                  Apply Daily Changes
-                </Button>
+                {!readOnly ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={requestApplyDailyChanges}
+                    disabled={hasPendingDays || hrApprovalMutation.isPending}
+                  >
+                    Apply Daily Changes
+                  </Button>
+                ) : null}
               </div>
 
-              {hasPendingDays ? (
+              {!readOnly && hasPendingDays ? (
                 <p className="text-muted-foreground mb-3 text-sm">
                   All days must have an approval status before applying.
                 </p>
               ) : null}
 
-              {actionError ? (
+              {!readOnly && actionError ? (
                 <p className="text-destructive mb-3 text-sm">{actionError}</p>
               ) : null}
 
@@ -596,7 +616,60 @@ export const ViewHrApprovalSheet = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {dailyDraft.map((entry) => {
+                    {readOnly
+                      ? displayDecisions.map((entry) => {
+                          const rowSpan = entry.isSplit ? 2 : 1
+
+                          return (
+                            <React.Fragment key={entry.dayNumber}>
+                              <tr className="align-top">
+                                <td
+                                  rowSpan={rowSpan}
+                                  className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
+                                >
+                                  {entry.actualDate}
+                                </td>
+                                <td
+                                  rowSpan={rowSpan}
+                                  className="border-b border-slate-200 px-3 py-3 text-sm"
+                                >
+                                  {entry.isSplit ? "Split day" : "—"}
+                                </td>
+                                <td className="w-36 border-b border-slate-200 px-3 py-3 text-sm">
+                                  {entry.isSplit
+                                    ? getDayPortionLabel(entry.approvedDayPortion1 ?? entry.requestedPortion)
+                                    : getDayPortionLabel(entry.requestedPortion)}
+                                </td>
+                                <td className="w-40 border-b border-slate-200 px-3 py-3 text-sm">
+                                  {entry.leaveType1}
+                                </td>
+                                <td className="w-44 border-b border-slate-200 px-3 py-3 text-sm">
+                                  {formatStatusLabel(entry.status1)}
+                                </td>
+                                <td
+                                  rowSpan={rowSpan}
+                                  className="border-b border-slate-200 px-3 py-3 text-sm whitespace-pre-wrap"
+                                >
+                                  {entry.hrRemarks?.trim() || "—"}
+                                </td>
+                              </tr>
+                              {entry.isSplit ? (
+                                <tr className="align-top">
+                                  <td className="w-36 border-b border-slate-200 px-3 py-3 text-sm">
+                                    {getDayPortionLabel(entry.approvedDayPortion2 ?? entry.requestedPortion)}
+                                  </td>
+                                  <td className="w-40 border-b border-slate-200 px-3 py-3 text-sm">
+                                    {entry.leaveType2 || "—"}
+                                  </td>
+                                  <td className="w-44 border-b border-slate-200 px-3 py-3 text-sm">
+                                    {formatStatusLabel(entry.status2)}
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </React.Fragment>
+                          )
+                        })
+                      : dailyDraft.map((entry) => {
                       const canSplit = canSplitLeaveDayDecision(entry)
                       const rowSpan = entry.isSplit ? 2 : 1
 
@@ -856,7 +929,7 @@ export const ViewHrApprovalSheet = ({
               </div>
             </div>
 
-            {isApplyConfirmOpen ? (
+            {isApplyConfirmOpen && !readOnly ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
                 <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
                   <h3 className="text-base font-semibold text-slate-900">

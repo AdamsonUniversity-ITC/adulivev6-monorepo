@@ -42,12 +42,7 @@ import {
   getAvatarUrlFromEmpNo,
   getInitialsFromDisplayName,
 } from "@/lib/employee-teacher-display";
-import {
-  canAccessAdminFeatures,
-  canAccessDeveloperFeatures,
-  canAccessForApproval,
-  canAccessHrApproval,
-} from "@/lib/eleave-access";
+import { canAccessEleaveRoute } from "@/lib/eleave-route-access";
 import { resolveDisplayName, resolveEmployeeNo } from "@/lib/fetch-auth-user";
 import { resolveHrmdoPortalUrl } from "@/lib/resolve-adu-live-url";
 
@@ -99,33 +94,21 @@ export function AppSidebar() {
   const avatarUrl = getAvatarUrlFromEmpNo(empNo);
   const initials = getInitialsFromDisplayName(displayName, empNo, "EL");
 
-  const canViewHrApproval = canAccessHrApproval(authUser);
-  const canViewForApproval = canAccessForApproval(hrProfile);
-  const visibleMainNavItems = mainNavItems.filter((item) => {
-    if (item.url === "/hr-approval") {
-      return canViewHrApproval;
-    }
+  const visibleMainNavItems = mainNavItems.filter((item) =>
+    canAccessEleaveRoute(item.url, { user: authUser, profile: hrProfile }),
+  );
 
-    if (item.url === "/for-approval") {
-      return canViewForApproval;
-    }
+  function canViewNavItem(url: string): boolean {
+    return canAccessEleaveRoute(url, { user: authUser, profile: hrProfile });
+  }
 
-    return true;
-  });
-  const canViewAdminFeatures = canAccessAdminFeatures(authUser);
-  const canViewDeveloperFeatures = canAccessDeveloperFeatures(authUser);
-  const visibleAdminNavItems = adminNavItems.filter((item) => {
-    if (item.url === "/beginning-balances") {
-      return canViewAdminFeatures;
-    }
-
-    if (item.url === "/employee-leave-credits") {
-      return canViewDeveloperFeatures;
-    }
-
-    return true;
-  });
-  const canViewReports = canAccessAdminFeatures(authUser);
+  const visibleAdminNavItems = adminNavItems.filter((item) =>
+    canViewNavItem(item.url),
+  );
+  const visibleReportNavItems = reportNavItems.filter((item) =>
+    canViewNavItem(item.url),
+  );
+  const canViewReports = visibleReportNavItems.length > 0;
   const hrmdoPortalUrl = resolveHrmdoPortalUrl();
 
   useEffect(() => {
@@ -169,20 +152,20 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup className="px-4 pt-2 group-data-[collapsible=icon]:px-2">
-          <SidebarGroupLabel className=" px-2 text-[10px] font-bold tracking-widest text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
+      <SidebarContent className="gap-0">
+        <SidebarGroup className="px-2 pt-1 group-data-[collapsible=icon]:px-1">
+          <SidebarGroupLabel className="px-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
             Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
+            <SidebarMenu className="gap-1">
               {visibleMainNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild
                     isActive={isNavItemActive(pathname, item.url)}
                     tooltip={item.title}
-                    className="relative h-11 rounded-full px-4 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
+                    className="relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
                   >
                     <Link to={item.url}>
                       <item.icon className="mr-1 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
@@ -200,7 +183,7 @@ export function AppSidebar() {
                     asChild
                     isActive={isNavItemActive(pathname, item.url)}
                     tooltip={item.title}
-                    className="relative h-11 rounded-full px-4 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
+                    className="relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
                   >
                     <Link to={item.url}>
                       <item.icon className="mr-2 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
@@ -224,7 +207,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       tooltip="Reports"
                       isActive={isReportsActive}
-                      className="relative h-11 rounded-full px-4 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
+                      className="relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
                     >
                       <BarChart3 className="mr-2 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]/collapsible:opacity-100" />
                       <span className="group-data-[collapsible=icon]:hidden">
@@ -234,13 +217,13 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SidebarMenuSub className="mx-5 mt-2 rounded-2xl border-none bg-sidebar-accent/5 p-2 shadow-inner group-data-[collapsible=icon]:hidden">
-                      {reportNavItems.map((item) => (
+                    <SidebarMenuSub className="mx-2 mt-1 rounded-xl border-none bg-sidebar-accent/5 p-1 shadow-inner group-data-[collapsible=icon]:hidden">
+                      {visibleReportNavItems.map((item) => (
                         <SidebarMenuSubItem key={item.url}>
                           <SidebarMenuSubButton
                             asChild
                             isActive={pathname === item.url}
-                            className="h-9 rounded-full px-3 text-sm font-medium transition-all hover:bg-sidebar-accent/60 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                            className="h-8 rounded-full px-2 text-sm font-medium transition-all hover:bg-sidebar-accent/60 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
                           >
                             <Link to={item.url}>
                               <item.icon className="mr-2 size-4 opacity-70" />

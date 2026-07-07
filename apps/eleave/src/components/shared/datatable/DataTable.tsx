@@ -118,6 +118,7 @@ function DataTable<TData = unknown>({
               tanstack={tanstack}
               mode={config?.searchMode}
               debounceMs={config?.searchDebounceMs}
+              data={{ placeholder: config?.searchPlaceholder }}
               styles={{ input: `h-9 text-sm ${styles?.searchbar ?? ""}` }}
             />
           )}
@@ -186,6 +187,11 @@ function DataTable<TData = unknown>({
           ) : table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row, index) => (
               <TableRow
+                onClick={() => {
+                  if (config?.fn?.onClick) {
+                    config.fn.onClick(row);
+                  }
+                }}
                 onDoubleClick={() => {
                   if (config?.fn?.onDoubleClick) {
                     config.fn.onDoubleClick(row);
@@ -194,7 +200,9 @@ function DataTable<TData = unknown>({
                 className={cn(
                   "",
                   index % 2 === 0 ? "bg-gray-50" : "bg-white",
-                  config?.fn?.onDoubleClick ? "cursor-pointer" : ""
+                  config?.fn?.onClick || config?.fn?.onDoubleClick
+                    ? "cursor-pointer"
+                    : ""
                 )}
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}>
