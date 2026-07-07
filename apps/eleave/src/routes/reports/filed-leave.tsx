@@ -228,6 +228,7 @@ function FiledLeavePage() {
       {printedAt ? (
         <FiledLeavePrint
           rows={printRows}
+          leaveTypes={leaveTypes}
           printedAt={printedAt}
           filterSummary={{
             search: tanstackHook.keyword.trim(),
