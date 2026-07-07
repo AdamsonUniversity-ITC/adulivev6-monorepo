@@ -1,8 +1,18 @@
+import {
+  buildLeaveTypesById,
+  formatPrintEmployeeName,
+  formatPrintHrRemarks,
+  formatPrintLeaveDate,
+  getPrintLeaveDetailSegments,
+} from "@/lib/filed-leave-print-format"
+import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import type { FiledLeaveReportRow } from "@/lib/map-filed-leave-report-row"
 import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
+import * as React from "react"
 
 type FiledLeavePrintProps = {
   rows: FiledLeaveReportRow[]
+  leaveTypes: LeaveTypeRecord[]
   filterSummary: {
     search: string
     dateFrom: string
@@ -37,9 +47,15 @@ function resolveLeaveDateFilterLabel(dateFrom: string, dateTo: string): string |
 
 export function FiledLeavePrint({
   rows,
+  leaveTypes,
   filterSummary,
   printedAt,
 }: FiledLeavePrintProps) {
+  const leaveTypesById = React.useMemo(
+    () => buildLeaveTypesById(leaveTypes),
+    [leaveTypes],
+  )
+
   const printedAtLabel = printedAt.toLocaleString("en-PH", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -54,6 +70,9 @@ export function FiledLeavePrint({
     <section className="eleave-filed-leave-print hidden print:block" aria-hidden>
       <style>{`
         @media print {
+          @page {
+            margin: 0.25in;
+          }
           body * {
             visibility: hidden;
           }
@@ -66,7 +85,7 @@ export function FiledLeavePrint({
             left: 0;
             top: 0;
             width: 100%;
-            padding: 1rem;
+            padding: 0;
           }
         }
       `}</style>
@@ -103,31 +122,53 @@ export function FiledLeavePrint({
         </dl>
       </header>
 
-      <table className="w-full border-collapse text-xs">
+      <table className="w-full border-collapse border border-slate-300 text-xs">
         <thead>
-          <tr className="border-b">
-            <th className="px-2 py-2 text-left font-semibold">Employee</th>
-            <th className="px-2 py-2 text-left font-semibold">Leave</th>
-            <th className="px-2 py-2 text-left font-semibold">HR remarks</th>
+          <tr className="bg-slate-100">
+            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+              Name
+            </th>
+            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+              Details
+            </th>
+            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+              Date of Leave
+            </th>
+            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+              Reasons
+            </th>
+            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+              HR Remarks
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="border-b align-top">
-              <td className="px-2 py-2">
-                <div>{row.employee}</div>
-                <div className="text-slate-600">{row.employeeNo}</div>
-                <div className="text-slate-600">{row.department}</div>
+            <tr key={row.id} className="align-top">
+              <td className="border border-slate-300 px-3 py-3 text-center font-bold uppercase">
+                {formatPrintEmployeeName(row.record.employee_teacher, row.employee)}
               </td>
-              <td className="px-2 py-2">
-              <div>{row.leaveType}</div>
-                <div className="text-slate-600">
-                  {row.dates} · {row.days} day{row.days === 1 ? "" : "s"}
-                </div>
-                <div>{row.record.reason?.trim() || "—"}</div>
-                <div className="text-slate-600">{row.approvalsLabel}</div>
+              <td className="border border-slate-300 px-3 py-3 text-left">
+                {getPrintLeaveDetailSegments(row, leaveTypesById).map(
+                  (segment, index) => (
+                    <React.Fragment key={`${row.id}-detail-${index}`}>
+                      {index > 0 ? (
+                        <span className="mx-1 text-slate-500">·</span>
+                      ) : null}
+                      <span>{segment}</span>
+                    </React.Fragment>
+                  ),
+                )}
               </td>
-              <td className="px-2 py-2">{row.hrRemarksLabel || "—"}</td>
+              <td className="border border-slate-300 px-0 py-3 text-center">
+                {formatPrintLeaveDate(row.record.date_from, row.record.date_to)}
+              </td>
+              <td className="border border-slate-300 px-3 py-3 text-left">
+                {row.record.reason?.trim() || "—"}
+              </td>
+              <td className="border border-slate-300 px-3 py-3 text-left uppercase">
+                {formatPrintHrRemarks(row)}
+              </td>
             </tr>
           ))}
         </tbody>
