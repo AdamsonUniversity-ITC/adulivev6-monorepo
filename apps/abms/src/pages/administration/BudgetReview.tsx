@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useLoaderData, useNavigate } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
+import ReviewSheetButton from './shared/ReviewSheetButton';
 import {
     RefreshCw,
-    FileText,
     CheckCircle,
     ChevronDown,
     TrendingUp,
@@ -258,6 +258,7 @@ export default function BudgetReview() {
         persisted?.budgetData ?? []
     );
     const [isLoading, setIsLoading] = useState(false);
+    
 
     // Persist whenever any of the three pieces of state change
     useEffect(() => {
@@ -279,11 +280,11 @@ export default function BudgetReview() {
 
     useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-    const totalApproved      = budgetData.reduce((acc, r) => acc + r.approvedBudget, 0);
-    const totalReleased      = budgetData.reduce((acc, r) => acc + r.released,        0);
-    const totalBalance       = budgetData.reduce((acc, r) => acc + r.balance,         0);
-    const totalProposed      = budgetData.reduce((acc, r) => acc + r.proposed,        0);
-    const totalFinalApproved = budgetData.reduce((acc, r) => acc + r.approved,        0);
+    const totalApproved = budgetData.reduce((acc, r) => acc + r.approvedBudget, 0);
+    const totalReleased = budgetData.reduce((acc, r) => acc + r.released, 0);
+    const totalBalance = budgetData.reduce((acc, r) => acc + r.balance, 0);
+    const totalProposed = budgetData.reduce((acc, r) => acc + r.proposed, 0);
+    const totalFinalApproved = budgetData.reduce((acc, r) => acc + r.approved, 0);
 
     const handleRequery = async () => {
         if (!selectedUnit) return;
@@ -307,10 +308,10 @@ export default function BudgetReview() {
             setBudgetData((data as any[]).map(row => ({
                 ...row,
                 approvedBudget: row.approvedBudget ?? 0,
-                released:       row.released       ?? 0,
-                balance:        row.balance        ?? 0,
-                proposed:       row.proposed       ?? 0,
-                approved:       row.approved       ?? 0,
+                released: row.released ?? 0,
+                balance: row.balance ?? 0,
+                proposed: row.proposed ?? 0,
+                approved: row.approved ?? 0,
             })));
             showToast(`Budget data loaded for ${selectedUnit.name}.`, 'success');
         } catch (err) {
@@ -322,10 +323,11 @@ export default function BudgetReview() {
     };
 
 
+
     const status: 'INCREASED' | 'DECREASED' | 'NO CHANGE' =
-        budgetData.length === 0   ? 'NO CHANGE' :
-        totalProposed > totalApproved ? 'INCREASED' :
-        totalProposed < totalApproved ? 'DECREASED' : 'NO CHANGE';
+        budgetData.length === 0 ? 'NO CHANGE' :
+            totalProposed > totalApproved ? 'INCREASED' :
+                totalProposed < totalApproved ? 'DECREASED' : 'NO CHANGE';
 
     return (
         <AdamsonBudgetLayout>
@@ -585,19 +587,18 @@ export default function BudgetReview() {
                                 <div className="flex-1" />
 
                                 {/* Review Sheet */}
-                                <button
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold self-end transition-all duration-150"
-                                    style={{
+                                <ReviewSheetButton
+                                    ghostBtnStyle={{
                                         background: t.ghostBtnBg,
                                         color: t.ghostBtnText,
                                         border: `1px solid ${t.ghostBtnBorder}`,
                                     }}
-                                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.ghostBtnHoverBg)}
-                                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = t.ghostBtnBg)}
-                                >
-                                    <FileText className="w-3.5 h-3.5" />
-                                    Review Sheet
-                                </button>
+                                    ghostBtnBg={t.ghostBtnBg}
+                                    ghostBtnHoverBg={t.ghostBtnHoverBg}
+                                    kind={selectedUnit?.kind}
+                                    current_school_year={current_school_year}
+                                    unitid = {selectedUnit?.id}
+                                />
                             </div>
 
                             {/* ── Table ── */}
@@ -734,11 +735,11 @@ export default function BudgetReview() {
                                                         navigate({
                                                             to: '/admin/budget-review/details',
                                                             state: {
-                                                                mainAccountId:      row.id,
-                                                                mainAccountName:    row.account,
-                                                                unitId:             selectedUnit!.id,
-                                                                unitName:           selectedUnit!.name,
-                                                                unitKind:           selectedUnit!.kind,
+                                                                mainAccountId: row.id,
+                                                                mainAccountName: row.account,
+                                                                unitId: selectedUnit!.id,
+                                                                unitName: selectedUnit!.name,
+                                                                unitKind: selectedUnit!.kind,
                                                                 current_school_year,
                                                                 proposal_school_year,
                                                             },
@@ -873,67 +874,67 @@ export default function BudgetReview() {
                             </div>
                         </div>
 
-                    {/* ── Toast notification (fixed: lower-right) ── */}
-                    <div
-                        role="status"
-                        aria-live="polite"
-                        style={{
-                            position: 'fixed',
-                            bottom: '28px',
-                            right: '28px',
-                            zIndex: 9999,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '12px 16px',
-                            borderRadius: '12px',
-                            minWidth: '280px',
-                            maxWidth: '400px',
-                            backdropFilter: 'blur(12px)',
-                            boxShadow: isDark
-                                ? '0 8px 32px rgba(0,0,0,0.55)'
-                                : '0 8px 32px rgba(0,48,135,0.18)',
-                            border: `1px solid ${toast.kind === 'success'
-                                ? (isDark ? 'rgba(52,211,153,0.35)' : 'rgba(16,185,129,0.30)')
-                                : (isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.25)')}`,
-                            background: toast.kind === 'success'
-                                ? (isDark ? 'rgba(5,46,37,0.92)' : 'rgba(236,253,245,0.97)')
-                                : (isDark ? 'rgba(69,10,10,0.92)' : 'rgba(254,242,242,0.97)'),
-                            opacity: toast.visible ? 1 : 0,
-                            transform: toast.visible ? 'translateY(0)' : 'translateY(12px)',
-                            pointerEvents: toast.visible ? 'auto' : 'none',
-                            transition: 'opacity 0.22s ease, transform 0.22s ease',
-                        }}
-                    >
-                        {toast.kind === 'success'
-                            ? <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: isDark ? '#34d399' : '#059669' }} />
-                            : <AlertCircle  className="w-4 h-4 shrink-0" style={{ color: isDark ? '#f87171' : '#dc2626' }} />
-                        }
-                        <span
-                            className="flex-1 text-xs font-medium leading-snug"
+                        {/* ── Toast notification (fixed: lower-right) ── */}
+                        <div
+                            role="status"
+                            aria-live="polite"
                             style={{
-                                color: toast.kind === 'success'
-                                    ? (isDark ? '#6ee7b7' : '#065f46')
-                                    : (isDark ? '#fca5a5' : '#991b1b'),
+                                position: 'fixed',
+                                bottom: '28px',
+                                right: '28px',
+                                zIndex: 9999,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '12px 16px',
+                                borderRadius: '12px',
+                                minWidth: '280px',
+                                maxWidth: '400px',
+                                backdropFilter: 'blur(12px)',
+                                boxShadow: isDark
+                                    ? '0 8px 32px rgba(0,0,0,0.55)'
+                                    : '0 8px 32px rgba(0,48,135,0.18)',
+                                border: `1px solid ${toast.kind === 'success'
+                                    ? (isDark ? 'rgba(52,211,153,0.35)' : 'rgba(16,185,129,0.30)')
+                                    : (isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.25)')}`,
+                                background: toast.kind === 'success'
+                                    ? (isDark ? 'rgba(5,46,37,0.92)' : 'rgba(236,253,245,0.97)')
+                                    : (isDark ? 'rgba(69,10,10,0.92)' : 'rgba(254,242,242,0.97)'),
+                                opacity: toast.visible ? 1 : 0,
+                                transform: toast.visible ? 'translateY(0)' : 'translateY(12px)',
+                                pointerEvents: toast.visible ? 'auto' : 'none',
+                                transition: 'opacity 0.22s ease, transform 0.22s ease',
                             }}
                         >
-                            {toast.message}
-                        </span>
-                        <button
-                            onClick={() => setToast(prev => ({ ...prev, visible: false }))}
-                            className="shrink-0 rounded-md p-0.5 transition-colors duration-100"
-                            style={{
-                                color: toast.kind === 'success'
-                                    ? (isDark ? '#34d399' : '#059669')
-                                    : (isDark ? '#f87171' : '#dc2626'),
-                                opacity: 0.65,
-                            }}
-                            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
-                            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '0.65')}
-                        >
-                            <X className="w-3.5 h-3.5" />
-                        </button>
-                    </div>
+                            {toast.kind === 'success'
+                                ? <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: isDark ? '#34d399' : '#059669' }} />
+                                : <AlertCircle className="w-4 h-4 shrink-0" style={{ color: isDark ? '#f87171' : '#dc2626' }} />
+                            }
+                            <span
+                                className="flex-1 text-xs font-medium leading-snug"
+                                style={{
+                                    color: toast.kind === 'success'
+                                        ? (isDark ? '#6ee7b7' : '#065f46')
+                                        : (isDark ? '#fca5a5' : '#991b1b'),
+                                }}
+                            >
+                                {toast.message}
+                            </span>
+                            <button
+                                onClick={() => setToast(prev => ({ ...prev, visible: false }))}
+                                className="shrink-0 rounded-md p-0.5 transition-colors duration-100"
+                                style={{
+                                    color: toast.kind === 'success'
+                                        ? (isDark ? '#34d399' : '#059669')
+                                        : (isDark ? '#f87171' : '#dc2626'),
+                                    opacity: 0.65,
+                                }}
+                                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+                                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '0.65')}
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
 
                     </div>
                 );
