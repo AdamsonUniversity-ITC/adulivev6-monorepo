@@ -26,6 +26,60 @@ const rootRoute = new RootRoute({
     component: App,
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Permission helpers — mirrors the logic in Sidebar.tsx (canShowItem/buildPermissionSet)
+// so that route access matches what's shown in the nav.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type AbmsPermission = {
+    permission_id?: string | number;
+    auth_permission?: {
+        id?: string | number;
+        name?: string;
+    } | null;
+};
+
+type AbmsPermissionsPayload = {
+    general_permissions?: AbmsPermission[];
+    abms_permissions?: AbmsPermission[];
+};
+
+const getPermissionName = (permission: AbmsPermission) => permission.auth_permission?.name;
+
+const buildPermissionSet = (payload?: AbmsPermissionsPayload | null) => {
+    const permissionNames = new Set<string>();
+
+    payload?.general_permissions?.forEach(permission => {
+        const name = getPermissionName(permission);
+        if (name) permissionNames.add(name);
+    });
+
+    payload?.abms_permissions?.forEach(permission => {
+        const name = getPermissionName(permission);
+        if (name) permissionNames.add(name);
+    });
+
+    return permissionNames;
+};
+
+/**
+ * Guard to be used inside a route's beforeLoad. Pass the list of permission
+ * names allowed to access the route (same array you'd pass to the Sidebar
+ * nav item's `permissions` prop). If the list is empty/undefined, access is
+ * allowed to any authenticated user (matches Sidebar's canShowItem default).
+ */
+const requirePermissions = (context: any, permissions?: string[]) => {
+    if (!permissions || permissions.length === 0) return;
+
+    const userPermissions = buildPermissionSet(context?.user?.abmsPermissions);
+    const allowed = permissions.some(permission => userPermissions.has(permission));
+
+    if (!allowed) {
+        throw redirect({ to: '/unauthorized' });
+    }
+};
+
+
 const protectedRoute = new Route({
     getParentRoute: () => rootRoute,
     id: 'protected',
@@ -55,14 +109,23 @@ const protectedRoute = new Route({
 
             const username = authRes.data.username;
             const nameRes = await financeSvc.get(`/user/${username}`);
-            return { user: { username, permissions, ...nameRes.data } };
+
+            const abmsPermissionsRes = await financeSvc.get('/user/abmspermissions');
+
+            return {
+                user: {
+                    username,
+                    permissions,
+                    abmsPermissions: abmsPermissionsRes.data,
+                    ...nameRes.data,
+                },
+            };
         } catch {
             return { user: null };
         }
     },
     component: () => <Outlet />,
 });
-
 
 export const homeRoute = new Route({
     getParentRoute: () => protectedRoute,
@@ -77,6 +140,7 @@ export const homeRoute = new Route({
 export const budgetsettingsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-settings',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-settings');
         return { data: response.data };
@@ -86,6 +150,7 @@ export const budgetsettingsRoute = new Route({
 export const budgetstatusRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-status',
+    beforeLoad: ({ context }) => requirePermissions(context, ['no-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-status');
         return { data: response.data };
@@ -96,6 +161,7 @@ export const budgetstatusRoute = new Route({
 export const departmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/department',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/department');
         return { data: response.data };
@@ -106,6 +172,7 @@ export const departmentRoute = new Route({
 export const budgetreviewRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-review',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-review');
         const {
@@ -139,6 +206,7 @@ export const budgetreviewdetailsRoute = new Route({
 export const userdepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/user-department-access',
+    // No `permissions` array on this item in Sidebar.tsx, so it's open to any authenticated user.
     loader: async () => {
         const [permissionsRes, departmentsRes, usersRes] = await Promise.all([
             authSvc.get('/abms-permissions'),
@@ -158,6 +226,7 @@ export const userdepartmentRoute = new Route({
 export const budgettransferaccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-transfer-account',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-transfer-account');
         const { units, school_years } = response.data;
@@ -169,6 +238,7 @@ export const budgettransferaccountRoute = new Route({
 export const budgetadjustmententryRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-adjustment-entry',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-adjustment-entry');
         const { proposal_school_year, current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries } = response.data;
@@ -182,6 +252,7 @@ export const budgetadjustmententryRoute = new Route({
 export const officeSuppliesRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/office-supplies',
+    beforeLoad: ({ context }) => requirePermissions(context, ['stockroom-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/office-supplies');
         return { data: response.data };
@@ -192,6 +263,7 @@ export const officeSuppliesRoute = new Route({
 export const mainAccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/chart-of-accounts',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/main-accounts');
         return { data: response.data };
@@ -202,6 +274,8 @@ export const mainAccountRoute = new Route({
 export const subAccountsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/sub-accounts/$parentId',
+    // Not a direct sidebar nav item; inherits Chart of Accounts' permission requirement.
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async ({ params }) => {
         const [subRes, parentRes] = await Promise.all([
             financeSvc.get('/abms/sub-accounts', { params: { parent_id: params.parentId } }),
@@ -215,6 +289,7 @@ export const subAccountsRoute = new Route({
 export const budgetproposalentryRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/budget-proposal-entry',
+    beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-proposal-entry']),
     loader: async ({ context }) => {
         const { user } = context;
 
@@ -238,6 +313,7 @@ export const budgetproposalentryRoute = new Route({
 export const budgetrequestentryRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/budget-request-entry',
+    beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-request-entry']),
     loader: async ({ context }) => {
         const username = context.user?.username;
         const budgetrequestpermission = await authSvc.get('/abms-permissions/');
@@ -273,6 +349,7 @@ export const budgetrequestentryRoute = new Route({
 export const requesitionprocessRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/requisition-process',
+    beforeLoad: ({ context }) => requirePermissions(context, ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'stockroom-access']),
     loader: async () => {
         const permissions = await authSvc.get('/abms-permissions/');
         const response = await financeSvc.get('/abms/requisition-process', {
@@ -295,6 +372,7 @@ export const requesitionprocessRoute = new Route({
 export const budgetperformancedepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-performance-department',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-performance-per-department');
 
@@ -305,6 +383,7 @@ export const budgetperformancedepartmentRoute = new Route({
 export const liquidationsubmissionRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/liquidation-submission',
+    beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-request-entry', 'budget-access', 'admin-access']),
     loader: async () => {
         const liquidationpermission = await authSvc.get('/abms-permissions/');
         const permission = liquidationpermission.data.permissions.find(

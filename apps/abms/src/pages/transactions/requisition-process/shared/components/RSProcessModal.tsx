@@ -160,7 +160,7 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // / Print RS respectively, replacing the old stockroom-access footer.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
-    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
+    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left', restrictedTo: ['admin-access', 'budget-access'] },
     { label: 'Chat / Messages', icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     { label: 'RS Process History', icon: History, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     {

@@ -1,15 +1,16 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Settings, Menu, LogOut, LucideIcon, Receipt, FileText
+  LayoutDashboard, Settings, Menu, Receipt, FileText
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@repo/ui/components/accordion";
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { useNavigate, useRouteContext, useRouterState } from '@tanstack/react-router';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -19,6 +20,7 @@ export interface NavSubItem {
   label: string;
   href?: string;
   active?: boolean;
+  permissions?: string[];
 }
 
 export interface NavItem {
@@ -26,6 +28,7 @@ export interface NavItem {
   label: string;
   active?: boolean;
   href?: string;
+  permissions?: string[];
   children?: NavSubItem[];
 }
 
@@ -138,38 +141,97 @@ const NAV_ITEMS: NavItem[] = [
     icon: Settings,
     label: 'Administration',
     children: [
-      { label: 'Budget Settings', href: '/admin/budget-settings' },
-      { label: 'Budget Status', href: '/admin/budget-status' },
-      { label: 'Budget Review', href: '/admin/budget-review' },
-      { label: 'Budget Transfer Account', href: '/admin/budget-transfer-account' },
-      { label: 'Budget Adjustment Entry', href: '/admin/budget-adjustment-entry' },
-      { label: 'Departments and Sections', href: '/admin/department' },
+      { label: 'Budget Settings', href: '/admin/budget-settings', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Status', href: '/admin/budget-status', permissions: ['no-access'] },
+      { label: 'Budget Review', href: '/admin/budget-review', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Transfer Account', href: '/admin/budget-transfer-account', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Adjustment Entry', href: '/admin/budget-adjustment-entry', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Departments and Sections', href: '/admin/department', permissions: ['admin-access', 'budget-access'] },
       { label: 'User Department Access', href: '/admin/user-department-access' },
-      { label: 'Chart of Accounts', href: '/admin/chart-of-accounts' },
-      { label: 'Office Supplies', href: '/admin/office-supplies' },
+      { label: 'Chart of Accounts', href: '/admin/chart-of-accounts', permissions: ['admin-access', 'budget-access'] },
+      // Only show if user has the explicit permission.
+      // (Admin/budget-access-only users should not see this.)
+      { label: 'Office Supplies', href: '/admin/office-supplies', permissions: ['stockroom-access'] },
     ],
   },
   {
     icon: Receipt,
     label: 'Transactions',
     children: [
-      { label: 'Budget Proposal Entry', href: '/transactions/budget-proposal-entry' },
-      { label: 'Budget Request Entry', href: '/transactions/budget-request-entry' },
-      { label: 'Requisition Process', href: '/transactions/requisition-process' },
-      { label: 'Liquidation Submission', href: '/transactions/liquidation-submission' },
+      { label: 'Budget Proposal Entry', href: '/transactions/budget-proposal-entry', permissions: ['allow-budget-proposal-entry'] },
+      { label: 'Budget Request Entry', href: '/transactions/budget-request-entry', permissions: ['allow-budget-request-entry'] },
+      { label: 'Requisition Process', href: '/transactions/requisition-process', permissions: ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'stockroom-access'] },
+      { label: 'Liquidation Submission', href: '/transactions/liquidation-submission', permissions: ['allow-budget-request-entry', 'budget-access', 'admin-access'] },
     ],
   },
   {
     icon: FileText,
     label: 'Reports',
     children: [
-      { label: 'Department Performance', href: '/reports/budget-performance-department' },
-      
+      { label: 'Department Performance', href: '/reports/budget-performance-department', permissions: ['admin-access', 'budget-access'] },
+
     ],
   },
 
 
 ];
+
+type AbmsPermission = {
+  permission_id?: string | number;
+  auth_permission?: {
+    id?: string | number;
+    name?: string;
+  } | null;
+};
+
+type AbmsPermissionsPayload = {
+  general_permissions?: AbmsPermission[];
+  abms_permissions?: AbmsPermission[];
+};
+
+const getPermissionName = (permission: AbmsPermission) => {
+  // Some endpoints may return auth_permission as null; then we can't show a name.
+  // We only use permission.auth_permission.name for filtering.
+  return permission.auth_permission?.name;
+};
+
+
+const buildPermissionSet = (payload?: AbmsPermissionsPayload | null) => {
+  const permissionNames = new Set<string>();
+
+  payload?.general_permissions?.forEach(permission => {
+    const name = getPermissionName(permission);
+    if (name) permissionNames.add(name);
+  });
+
+  payload?.abms_permissions?.forEach(permission => {
+    const name = getPermissionName(permission);
+    if (name) permissionNames.add(name);
+  });
+
+  return permissionNames;
+};
+
+const canShowItem = (permissions: string[] | undefined, userPermissions: Set<string>) => {
+  if (!permissions || permissions.length === 0) return true;
+
+  return permissions.some(permission => userPermissions.has(permission));
+};
+
+const filterNavItems = (items: NavItem[], userPermissions: Set<string>) =>
+  items
+    .map(item => {
+      const children = item.children?.filter(child => canShowItem(child.permissions, userPermissions));
+
+      return {
+        ...item,
+        children,
+      };
+    })
+    .filter(item => {
+      const hasVisibleChildren = item.children && item.children.length > 0;
+      return canShowItem(item.permissions, userPermissions) && (!item.children || hasVisibleChildren);
+    });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shimmer sweep
@@ -288,10 +350,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
   const t = isDark ? T.dark : T.light;
   const themeKey = isDark ? 'dark' : 'light';
   const navigate = useNavigate();
+  const { user } = useRouteContext({ strict: false });
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Permissions shape comes from router protectedRoute loader:
+  // user.abmsPermissions = financeSvc.get('/user/abmspermissions').data
+  // Backend returns:
+  // { general_permissions: Permission[], abms_permissions: Permission[] }
+  // where each item has auth_permission resolved via authPermission().
+  const userPermissions = buildPermissionSet((user as any)?.abmsPermissions);
+  // console.log(userPermissions)
+  const navItems = filterNavItems(NAV_ITEMS, userPermissions);
+
+
+
+
   // Compute which accordion groups should be open by default (when a child matches)
-  const defaultOpenAccordions = NAV_ITEMS
+  const defaultOpenAccordions = navItems
     .map((item, index) =>
       item.children?.some((child) => child.href === pathname) ? `nav-${index}` : null
     )
@@ -403,7 +478,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
 
       <nav className="flex-1 py-2 px-2 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         <Accordion type="multiple" defaultValue={defaultOpenAccordions} className="w-full border-none space-y-0.5">
-          {NAV_ITEMS.map((item, index) => {
+          {navItems.map((item, index) => {
             const Icon = item.icon;
             const hasChildren = item.children && item.children.length > 0;
             const isActive = !hasChildren && item.href === pathname;

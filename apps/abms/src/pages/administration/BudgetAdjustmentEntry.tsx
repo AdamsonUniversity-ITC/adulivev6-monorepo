@@ -777,10 +777,11 @@ function AddAdjustmentModal({
 
         try {
             const selectedUnit = units.find(u => u.id === form.unitId);
+            const rawUnitId    = form.unitId.replace(/^(dept|sec)-/, '');
 
             const payload = {
-                department_id:   selectedUnit?.kind === 'Department' ? form.unitId : null,
-                section_id:      selectedUnit?.kind === 'Section'    ? form.unitId : null,
+                department_id:   selectedUnit?.kind === 'Department' ? rawUnitId : null,
+                section_id:      selectedUnit?.kind === 'Section'    ? rawUnitId : null,
                 main_account_id: form.mainAccId,
                 sub_account_id:  form.subAccId,
                 description:     form.description.trim(),
@@ -1813,8 +1814,8 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
 
     // ── Merge departments + sections into a single unit list ─────────────────
     const units: UnitOption[] = [
-        ...(departments ?? []).map((d: any) => ({ id: String(d.id), name: d.name, kind: 'Department' as const })),
-        ...(sections    ?? []).map((s: any) => ({ id: String(s.id), name: s.name, kind: 'Section'    as const })),
+        ...(departments ?? []).map((d: any) => ({ id: `dept-${d.id}`, name: d.name, kind: 'Department' as const })),
+        ...(sections    ?? []).map((s: any) => ({ id: `sec-${s.id}`,  name: s.name, kind: 'Section'    as const })),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
     const mainAccounts: Account[] = main_accounts ?? [];
