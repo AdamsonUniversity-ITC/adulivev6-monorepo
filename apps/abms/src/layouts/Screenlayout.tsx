@@ -1,10 +1,12 @@
-import React, { useState, ReactNode, useEffect } from 'react';
+import React, { useState, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar';
 import Sidebar from '../components/Sidebar';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 import { useRouterState, useRouteContext } from '@tanstack/react-router';
+import { abmsTheme } from '../theme/tokens';
+import PageTransitionLoader from '../components/PageTransitionLoader';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -20,8 +22,8 @@ interface LayoutProps {
 
 const L = {
   dark: {
-    base: '#010818',
-    gridLine: 'rgba(79,168,255,0.025)',
+    base: abmsTheme.canvas,
+    gridLine: abmsTheme.grid,
     glowLeft: 'radial-gradient(ellipse 60% 50% at 0% 40%, rgba(0,40,120,0.22) 0%, transparent 100%)',
     glowRight: 'radial-gradient(ellipse 50% 60% at 100% 60%, rgba(0,70,199,0.1) 0%, transparent 100%)',
     glowTop: 'radial-gradient(ellipse 80% 30% at 50% 0%, rgba(79,168,255,0.07) 0%, transparent 100%)',
@@ -31,16 +33,16 @@ const L = {
     headerRule: 'linear-gradient(90deg, transparent 0%, rgba(79,168,255,0.18) 35%, rgba(0,40,120,0.12) 65%, transparent 100%)',
     headerGlow: '0 1px 0 rgba(79,168,255,0.06)',
 
-    titleColor: '#FFFFFF',
+    titleColor: abmsTheme.text,
     titleAccent: '#4FA8FF',
-    subColor: '#3A5070',
+    subColor: abmsTheme.textMuted,
 
     toggleBg: 'rgba(0,40,120,0.25)',
     toggleBorder: 'rgba(79,168,255,0.22)',
     toggleColor: '#4FA8FF',
     toggleHoverBg: 'rgba(0,70,199,0.3)',
 
-    userNameColor: '#E8F0FF',
+    userNameColor: abmsTheme.text,
     userRoleColor: '#3A5070',
 
     avatarBorder: 'rgba(79,168,255,0.35)',
@@ -59,15 +61,15 @@ const L = {
     statusBarBg: 'rgba(1,8,24,0.85)',
     statusBorder: 'rgba(255,255,255,0.025)',
     statusOnline: '#10b981',
-    statusText: '#2A4060',
+    statusText: abmsTheme.textMuted,
 
     contentBg: 'transparent',
     noise: 'rgba(79,168,255,0.008)',
   },
 
   light: {
-    base: '#E0EAFB',
-    gridLine: 'rgba(0,26,94,0.07)',
+    base: abmsTheme.canvas,
+    gridLine: abmsTheme.grid,
     glowLeft: 'radial-gradient(ellipse 60% 50% at 0% 40%, rgba(0,70,199,0.13) 0%, transparent 100%)',
     glowRight: 'radial-gradient(ellipse 50% 60% at 100% 60%, rgba(0,26,94,0.11) 0%, transparent 100%)',
     glowTop: 'radial-gradient(ellipse 80% 30% at 50% 0%, rgba(0,40,160,0.14) 0%, transparent 100%)',
@@ -77,16 +79,16 @@ const L = {
     headerRule: 'linear-gradient(90deg, transparent 0%, rgba(0,70,199,0.28) 35%, rgba(0,26,94,0.12) 65%, transparent 100%)',
     headerGlow: '0 2px 0 rgba(0,26,94,0.10)',
 
-    titleColor: '#00082E',
+    titleColor: abmsTheme.text,
     titleAccent: '#0040C0',
-    subColor: '#2C4A72',
+    subColor: abmsTheme.textMuted,
 
     toggleBg: '#DDE8FF',
     toggleBorder: 'rgba(0,26,94,0.28)',
     toggleColor: '#0040C0',
     toggleHoverBg: 'rgba(0,70,199,0.16)',
 
-    userNameColor: '#00082E',
+    userNameColor: abmsTheme.text,
     userRoleColor: '#2C4A72',
 
     avatarBorder: 'rgba(0,26,94,0.35)',
@@ -105,7 +107,7 @@ const L = {
     statusBarBg: 'rgba(255,255,255,0.92)',
     statusBorder: 'rgba(0,26,94,0.13)',
     statusOnline: '#059669',
-    statusText: '#2C4A72',
+    statusText: abmsTheme.textMuted,
 
     contentBg: 'transparent',
     noise: 'transparent',
@@ -187,34 +189,25 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
   const { isDark, toggleTheme } = useTheme();
   const t = isDark ? L.dark : L.light;
 
-  // ── Stable animation key fix ───────────────────────────────────────────────
-  // useRouterState fires on every router status change (pending → loading →
-  // idle), which makes AnimatePresence animate multiple times per navigation.
-  // We track a separate `animKey` that only updates once the router is fully
-  // idle (i.e. the loader has finished), so the page transition fires exactly
-  // once — smoothly into the fully-loaded target page.
-  const { pathname, isLoading } = useRouterState({
-    select: (s) => ({
-      pathname: s.location.pathname,
-      isLoading: s.status !== 'idle',
+  // Select only the pathname so loader status updates do not replay the page
+  // transition during navigation.
+  const { pathname, isNavigating } = useRouterState({
+    select: (state) => ({
+      pathname: state.location.pathname,
+      isNavigating: state.status !== 'idle',
     }),
   });
-
-  const [animKey, setAnimKey] = useState(pathname);
-
-  useEffect(() => {
-    if (!isLoading) {
-      setAnimKey(pathname);
-    }
-  }, [pathname, isLoading]);
   // ──────────────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <motion.div
+      aria-busy={isNavigating}
+      inert={isNavigating}
       className="min-h-screen flex overflow-hidden"
       animate={{ background: t.base }}
       transition={{ duration: 0.35 }}
-      style={{ fontFamily: "'Sora', 'DM Sans', sans-serif" }}
+      style={{ fontFamily: 'var(--abms-font-sans)' }}
     >
       {/* ── Backgrounds ─────────────────────────────────────────── */}
       <GridBg color={t.gridLine} />
@@ -233,6 +226,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(p => !p)}
         isDark={isDark}
+        isNavigating={isNavigating}
       />
 
       {/* ── Main ────────────────────────────────────────────────── */}
@@ -240,7 +234,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* ── Header ────────────────────────────────────────────── */}
         <motion.header
-          className="h-[72px] flex items-center justify-between px-8 shrink-0"
+          className="h-[72px] flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 shrink-0"
           animate={{ background: t.headerBg }}
           transition={{ duration: 0.35 }}
           style={{
@@ -250,9 +244,9 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
           }}
         >
           {/* Title */}
-          <div>
+          <div className="min-w-0">
             <h2
-              className="text-[15px] font-bold tracking-wide leading-none"
+              className="truncate font-[var(--abms-font-display)] text-sm font-bold tracking-wide leading-none sm:text-[15px]"
               style={{ color: t.titleColor }}
             >
               Adamson Budget Monitoring System
@@ -281,7 +275,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* User chip */}
             <div className="flex items-center gap-3">
-              <div className="text-right">
+              <div className="hidden text-right sm:block">
                 <p
                   className="text-sm font-semibold leading-none"
                   style={{ color: t.userNameColor }}
@@ -335,15 +329,13 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         {/* ── Content area ──────────────────────────────────────── */}
         {/*
           AnimatePresence mode="wait" exits the old page fully before the new
-          one enters. The key is `animKey` — a stable value that only updates
-          once the router reaches idle status (loader finished). This prevents
-          the double-animation caused by intermediate router state changes
-          (pending → loading → idle) all firing with the new pathname.
+          one enters. Its key is the selected pathname; intermediate router
+          status changes do not trigger this component to re-render.
           The sidebar, header, and status bar are outside AnimatePresence so
           they remain mounted and do not flicker or re-animate on navigation.
         */}
         <div
-          className="flex-1 overflow-y-auto p-8"
+          className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"
           style={{
             scrollbarWidth: 'thin',
             scrollbarColor: `${t.scrollThumb} transparent`,
@@ -351,7 +343,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={animKey}
+              key={pathname}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -364,7 +356,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* ── Status bar ────────────────────────────────────────── */}
         <motion.div
-          className="h-8 flex items-center justify-between px-8 shrink-0"
+          className="h-8 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0"
           animate={{ background: t.statusBarBg }}
           transition={{ duration: 0.35 }}
           style={{ borderTop: `1px solid ${t.statusBorder}` }}
@@ -403,6 +395,8 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         </motion.div>
       </main>
     </motion.div>
+    <AnimatePresence>{isNavigating && <PageTransitionLoader />}</AnimatePresence>
+    </>
   );
 };
 

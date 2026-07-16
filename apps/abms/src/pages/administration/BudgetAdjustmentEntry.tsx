@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { budgetadjustmententryRoute } from '../../router.tsx';
 import { financeSvc } from '@repo/axios-config';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens
@@ -1969,16 +1970,12 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
                 />
             )}
 
-            <div className="p-6">
+            <div className="mx-auto max-w-7xl space-y-5">
                 {/* ── Page title */}
-                <div className="mb-5">
-                    <h1 className="text-lg font-bold tracking-tight" style={{ color: t.titleColor }}>
-                        Budget Adjustment Entry
-                    </h1>
-                    <p className="text-[11px] mt-0.5" style={{ color: t.cellMuted }}>
-                        Manage additional and deduction adjustments per department or section.
-                    </p>
-                </div>
+                <PageHeader
+                    title="Budget Adjustment Entry"
+                    description="Manage additional and deduction adjustments per department or section."
+                />
 
                 {/* ── Card */}
                 <div

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { mainAccountRoute } from '../../router';
 import { financeSvc } from '@repo/axios-config/finance-service';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -373,22 +374,16 @@ export default function MainAccount() {
                     <>
                         <Toaster position="bottom-right" richColors closeButton />
 
-                        <div className="max-w-6xl mx-auto space-y-6">
+                        <div className="max-w-7xl mx-auto space-y-6">
 
                             {/* ── Page header ───────────────────────────────── */}
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h1 className="text-2xl font-bold tracking-tight" style={{ color: t.titleColor }}>
-                                        Chart of Accounts
-                                    </h1>
-                                    <p className="text-sm mt-0.5" style={{ color: t.subColor }}>
-                                        Manage main accounts and their sub-accounts in a tree view.
-                                    </p>
-                                </div>
-                                <Button onClick={openMainCreate} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-600/20">
+                            <PageHeader
+                                title="Chart of Accounts"
+                                description="Manage main accounts and their sub-accounts in a tree view."
+                                actions={<Button onClick={openMainCreate} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-600/20">
                                     <Plus className="w-4 h-4" /> Add Main Account
-                                </Button>
-                            </div>
+                                </Button>}
+                            />
 
                             {/* ── Card ──────────────────────────────────────── */}
                             <Card className="overflow-hidden backdrop-blur-sm" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}>

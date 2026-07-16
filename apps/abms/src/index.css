@@ -1,1 +1,24 @@
 @import '@repo/tailwind-config';
+@import './styles/tokens.css';
+
+html {
+  background: var(--abms-canvas);
+  font-family: var(--abms-font-sans);
+  color: var(--abms-text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-width: 20rem;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--abms-canvas);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLoaderData, useNavigate } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
+import { PageHeader } from '../../components/ui/Page';
 import ReviewSheetButton from './shared/ReviewSheetButton';
 import {
     RefreshCw,
@@ -351,16 +352,7 @@ export default function BudgetReview() {
                     <div className="max-w-7xl mx-auto space-y-5">
 
                         {/* ── Page Title ── */}
-                        <div className="flex items-center gap-3">
-                            <div>
-                                <h1 className="text-lg font-bold tracking-tight" style={{ color: t.titleColor }}>
-                                    Budget Review
-                                </h1>
-                                <p className="text-xs mt-0.5" style={{ color: t.subColor }}>
-                                    Review and manage departmental budget allocations
-                                </p>
-                            </div>
-                        </div>
+                        <PageHeader title="Budget Review" description="Review and manage departmental budget allocations." />
 
                         {/* ── Main Card ── */}
                         <div

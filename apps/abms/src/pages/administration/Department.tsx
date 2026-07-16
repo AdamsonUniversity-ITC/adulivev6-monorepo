@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ca
 import { Badge } from '@repo/ui/components/badge';
 import { Layers, ChevronRight, ChevronDown } from 'lucide-react';
 import { departmentRoute } from '../../router.tsx';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens
@@ -146,20 +147,10 @@ export default function Department() {
         const t = isDark ? T.dark : T.light;
 
         return (
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto space-y-6">
 
             {/* ── Page header ─────────────────────────────────── */}
-            <div>
-              <h1
-                className="text-2xl font-bold tracking-tight"
-                style={{ color: t.titleColor }}
-              >
-                Departments & Sections
-              </h1>
-              <p className="text-sm mt-0.5" style={{ color: t.subColor }}>
-                Click a department to view its sections.
-              </p>
-            </div>
+            <PageHeader title="Departments & Sections" description="Click a department to view its sections." />
 
             {/* ── Card ────────────────────────────────────────── */}
             <Card

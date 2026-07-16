@@ -14,6 +14,7 @@ import { Users, UserPlus, Search, X, Loader2, UserCheck, ShieldCheck, ChevronLef
 import { userdepartmentRoute } from '../../router';
 import { financeSvc } from '@repo/axios-config';
 import { useRouteContext } from '@tanstack/react-router';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // These permissions are stored directly on the user (user_general_permissions),
@@ -1731,7 +1732,7 @@ export default function UserAccess() {
         const t = isDark ? T.dark : T.light;
 
         return (
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto space-y-6">
 
             {/* ── Toast Container ────────────────────────────── */}
             <ToastContainer toasts={toasts} isDark={isDark} onDismiss={dismissToast} />
@@ -1767,17 +1768,10 @@ export default function UserAccess() {
             />
 
             {/* ── Page header ─────────────────────────────────── */}
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight" style={{ color: t.titleColor }}>
-                  User Department Access
-                </h1>
-                <p className="text-sm mt-0.5" style={{ color: t.subColor }}>
-                  Users and their assigned department or office.
-                </p>
-              </div>
-
-              <button
+            <PageHeader
+              title="User Department Access"
+              description="Users and their assigned department or office."
+              actions={<button
                 className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg shrink-0 transition-all duration-150"
                 style={{
                   background: t.addBtnBg,
@@ -1791,8 +1785,8 @@ export default function UserAccess() {
               >
                 <UserPlus className="w-4 h-4" />
                 Add User
-              </button>
-            </div>
+              </button>}
+            />
 
             {/* ── Card ────────────────────────────────────────── */}
             <Card

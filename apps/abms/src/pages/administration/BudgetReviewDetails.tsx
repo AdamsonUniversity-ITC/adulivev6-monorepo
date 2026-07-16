@@ -3,6 +3,7 @@ import { useRouter } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import { FileSpreadsheet, ChevronDown, Clock, CheckCircle2, XCircle, ArrowLeft, Save, Loader2, History } from 'lucide-react';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — mirrors BudgetReview / ScreenLayout palette
@@ -63,11 +64,11 @@ interface SubAccountOption {
 }
 
 interface NavState {
-    mainAccountId:       number;
-    mainAccountName:     string;
-    unitId:              string;
-    unitName:            string;
-    unitKind:            'Department' | 'Section';
+    mainAccountId: number;
+    mainAccountName: string;
+    unitId: string;
+    unitName: string;
+    unitKind: 'Department' | 'Section';
     current_school_year: string;
     proposal_school_year: string;
 }
@@ -81,10 +82,10 @@ const fmt = (n: number) =>
 function StatusBadge({ status, t }: { status: string; t: typeof T.dark }) {
     const cfg =
         status === 'PENDING'
-            ? { bg: t.openBg,     text: t.openText,     border: t.openBorder,     Icon: Clock        }
+            ? { bg: t.openBg, text: t.openText, border: t.openBorder, Icon: Clock }
             : status === 'APPROVED'
-            ? { bg: t.approvedBg, text: t.approvedText, border: t.approvedBorder, Icon: CheckCircle2 }
-            : { bg: t.closedBg,   text: t.closedText,   border: t.closedBorder,   Icon: XCircle      };
+                ? { bg: t.approvedBg, text: t.approvedText, border: t.approvedBorder, Icon: CheckCircle2 }
+                : { bg: t.closedBg, text: t.closedText, border: t.closedBorder, Icon: XCircle };
 
     return (
         <span
@@ -140,8 +141,8 @@ function StyledSelect({
 // ─────────────────────────────────────────────────────────────────────────────
 interface ItemDraft {
     approvedAmount: string;          // raw string from input
-    remarks:        string;
-    status:         BudgetItem['status'];
+    remarks: string;
+    status: BudgetItem['status'];
 }
 
 type DraftMap = Record<number, ItemDraft>;
@@ -149,14 +150,14 @@ type DraftMap = Record<number, ItemDraft>;
 function makeDraft(item: BudgetItem): ItemDraft {
     return {
         approvedAmount: item.approvedAmount != null ? String(item.approvedAmount) : '',
-        remarks:        item.remarks,
-        status:         item.status,
+        remarks: item.remarks,
+        status: item.status,
     };
 }
 
 
 export default function BudgetReviewDetails() {
-    const router   = useRouter();
+    const router = useRouter();
     const navState = (router.state.location.state ?? {}) as Partial<NavState>;
 
     return (
@@ -174,34 +175,34 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
 
     const {
         mainAccountId,
-        mainAccountName   = '—',
+        mainAccountName = '—',
         unitId,
-        unitName          = '—',
+        unitName = '—',
         unitKind,
-        current_school_year   = '—',
-        proposal_school_year  = '—',
+        current_school_year = '—',
+        proposal_school_year = '—',
     } = navState;
 
     // ── Sub-account list fetched from API ─────────────────────────────────────
-    const [subAccounts,  setSubAccounts]  = useState<SubAccountOption[]>([]);
-    const [subAccount,   setSubAccount]   = useState<SubAccountOption | null>(null);
-    const [items,        setItems]        = useState<BudgetItem[]>([]);
-    const [loadingSubs,  setLoadingSubs]  = useState(false);
+    const [subAccounts, setSubAccounts] = useState<SubAccountOption[]>([]);
+    const [subAccount, setSubAccount] = useState<SubAccountOption | null>(null);
+    const [items, setItems] = useState<BudgetItem[]>([]);
+    const [loadingSubs, setLoadingSubs] = useState(false);
     const [loadingItems, setLoadingItems] = useState(false);
     const [selectedItem, setSelectedItem] = useState<BudgetItem | null>(null);
 
     // ── Editable drafts + dirty tracking ─────────────────────────────────────
-    const [drafts,   setDrafts]   = useState<DraftMap>({});
+    const [drafts, setDrafts] = useState<DraftMap>({});
     const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
-    const [saving,   setSaving]   = useState(false);
-    const [toast,    setToast]    = useState<{ visible: boolean; type: 'success' | 'error'; message: string }>({
+    const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState<{ visible: boolean; type: 'success' | 'error'; message: string }>({
         visible: false, type: 'success', message: '',
     });
 
     // ── Previous-year comparison panel ────────────────────────────────────────
-    const [showPrevious,  setShowPrevious]  = useState(false);
-    const [prevItems,     setPrevItems]     = useState<BudgetItem[]>([]);
-    const [loadingPrev,   setLoadingPrev]   = useState(false);
+    const [showPrevious, setShowPrevious] = useState(false);
+    const [prevItems, setPrevItems] = useState<BudgetItem[]>([]);
+    const [loadingPrev, setLoadingPrev] = useState(false);
 
     function showToast(type: 'success' | 'error', message: string) {
         setToast({ visible: true, type, message });
@@ -216,7 +217,7 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
             .get('/abms/budget-review/sub-accounts', {
                 params: {
                     main_account_id: mainAccountId,
-                    kind:            unitKind,
+                    kind: unitKind,
                     ...(unitKind === 'Department' ? { department_id: unitId } : { section_id: unitId }),
                     current_school_year,
                     proposed_school_year: proposal_school_year,
@@ -239,7 +240,7 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
             .get('/abms/budget-review/items', {
                 params: {
                     sub_account_id: subAccount.id,
-                    kind:           unitKind,
+                    kind: unitKind,
                     ...(unitKind === 'Department' ? { department_id: unitId } : { section_id: unitId }),
                     current_school_year,
                     proposed_school_year: proposal_school_year,
@@ -253,15 +254,15 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                         'PENDING': 'PENDING', 'APPROVED': 'APPROVED', 'DISAPPROVED': 'DISAPPROVED',
                     };
                     return {
-                        id:          r.id        ?? i + 1,
+                        id: r.id ?? i + 1,
                         particulars: r.particulars ?? r.description ?? '—',
-                        remarks:     r.remarks    ?? '',
-                        amount:         Number(r.amount     ?? r.total_cost ?? 0),
+                        remarks: r.remarks ?? '',
+                        amount: Number(r.amount ?? r.total_cost ?? 0),
                         approvedAmount: r.approved_total_cost != null ? Number(r.approved_total_cost) : null,
-                        status:         statusMap[rawStatus] ?? 'PENDING',
-                        uom:         r.uom       ?? '',
-                        unitCost:    Number(r.unit_cost  ?? 0),
-                        qty:         Number(r.quantity   ?? 0),
+                        status: statusMap[rawStatus] ?? 'PENDING',
+                        uom: r.uom ?? '',
+                        unitCost: Number(r.unit_cost ?? 0),
+                        qty: Number(r.quantity ?? 0),
                     };
                 });
                 setItems(rows);
@@ -293,7 +294,7 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
         const hasValue = trimmed !== '' && !isNaN(Number(trimmed)) && Number(trimmed) >= 0;
         patchDraft(id, {
             approvedAmount: raw,
-            status:         hasValue ? 'APPROVED' : 'PENDING',
+            status: hasValue ? 'APPROVED' : 'PENDING',
         });
     }
 
@@ -340,8 +341,8 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
             return {
                 id,
                 approved_total_cost: approvedVal === '' ? null : Number(approvedVal),
-                remarks:             d.remarks,
-                status:              statusToNum[d.status],
+                remarks: d.remarks,
+                status: statusToNum[d.status],
             };
         });
 
@@ -355,8 +356,8 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                 return {
                     ...item,
                     approvedAmount: approvedVal === '' ? null : Number(approvedVal),
-                    remarks:        d.remarks,
-                    status:         d.status,
+                    remarks: d.remarks,
+                    status: d.status,
                 };
             }));
             setDirtyIds(new Set());
@@ -387,7 +388,7 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
             .get('/abms/budget-review/previous-items', {
                 params: {
                     sub_account_id: subAccount.id,
-                    kind:           unitKind,
+                    kind: unitKind,
                     ...(unitKind === 'Department' ? { department_id: unitId } : { section_id: unitId }),
                     current_school_year,
                     proposed_school_year: proposal_school_year,
@@ -399,15 +400,15 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                         PENDING: 'PENDING', APPROVED: 'APPROVED', DISAPPROVED: 'DISAPPROVED',
                     };
                     return {
-                        id:             r.id             ?? i + 1,
-                        particulars:    r.particulars    ?? r.description ?? '—',
-                        remarks:        r.remarks        ?? '',
-                        amount:         Number(r.amount  ?? r.total_cost  ?? 0),
+                        id: r.id ?? i + 1,
+                        particulars: r.particulars ?? r.description ?? '—',
+                        remarks: r.remarks ?? '',
+                        amount: Number(r.amount ?? r.total_cost ?? 0),
                         approvedAmount: r.approved_total_cost != null ? Number(r.approved_total_cost) : null,
-                        status:         statusMap[r.status] ?? 'PENDING',
-                        uom:            r.uom            ?? '',
-                        unitCost:       Number(r.unit_cost   ?? 0),
-                        qty:            Number(r.quantity    ?? 0),
+                        status: statusMap[r.status] ?? 'PENDING',
+                        uom: r.uom ?? '',
+                        unitCost: Number(r.unit_cost ?? 0),
+                        qty: Number(r.quantity ?? 0),
                     };
                 });
                 setPrevItems(rows);
@@ -417,7 +418,7 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
     }, [showPrevious, subAccount]);
 
     return (
-        <div style={{ fontFamily: "'Sora', 'DM Sans', sans-serif" }}>
+        <div className="mx-auto max-w-7xl" style={{ fontFamily: 'var(--abms-font-sans)' }}>
 
             {/* ── Toast notification ────────────────────────────── */}
             <div
@@ -466,71 +467,337 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                     <ArrowLeft className="w-4 h-4" style={{ color: t.cellBlue }} />
                 </button>
                 <FileSpreadsheet className="w-5 h-5" style={{ color: t.cellBlue }} />
-                <div>
-                    <h1 className="text-lg font-bold tracking-tight" style={{ color: t.titleColor }}>
-                        {mainAccountName}
-                    </h1>
-                    <p className="text-[10px] tracking-widest uppercase" style={{ color: t.subColor }}>
-                        Budget Review Details &mdash; {unitName} &mdash; SY {current_school_year} / {proposal_school_year}
-                    </p>
-                </div>
+                <PageHeader
+                    className="min-w-0 flex-1"
+                    title={mainAccountName}
+                    description={<>Budget Review Details &mdash; {unitName} &mdash; SY {current_school_year} / {proposal_school_year}</>}
+                />
             </div>
 
             {/* ── Main layout: side-by-side when comparison is open ─── */}
             <div className={showPrevious ? 'flex gap-4 items-start' : ''}>
 
-            {/* ── Previous year read-only card ──────────────────────── */}
-            {showPrevious && (() => {
-                const prevTotal         = prevItems.reduce((s, r) => s + r.amount, 0);
-                const prevTotalApproved = prevItems.reduce((s, r) => s + (r.approvedAmount ?? 0), 0);
-                return (
+                {/* ── Previous year read-only card ──────────────────────── */}
+                {showPrevious && (() => {
+                    const prevTotal = prevItems.reduce((s, r) => s + r.amount, 0);
+                    const prevTotalApproved = prevItems.reduce((s, r) => s + (r.approvedAmount ?? 0), 0);
+                    return (
+                        <div
+                            className="rounded-2xl overflow-hidden flex-shrink-0"
+                            style={{
+                                width: '38%',
+                                minWidth: '320px',
+                                background: t.cardBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                boxShadow: t.cardShadow,
+                                opacity: loadingPrev ? 0.6 : 1,
+                                transition: 'opacity 0.2s',
+                            }}
+                        >
+                            {/* Previous card header */}
+                            <div
+                                className="px-5 py-4 flex items-center justify-between gap-3"
+                                style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}` }}
+                            >
+                                <div>
+                                    <span
+                                        className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md mb-1"
+                                        style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.35)' }}
+                                    >
+                                        <History className="w-3 h-3" />
+                                        Previous Year
+                                    </span>
+                                    <p className="text-[11px] font-bold" style={{ color: t.titleColor }}>
+                                        SY {current_school_year}
+                                    </p>
+                                    <p className="text-[9px] uppercase tracking-widest" style={{ color: t.subColor }}>
+                                        {subAccount?.name ?? '—'} · Read-only
+                                    </p>
+                                </div>
+                                {loadingPrev && <Loader2 className="w-4 h-4 animate-spin" style={{ color: t.cellBlue }} />}
+                            </div>
+
+                            {/* Previous card table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                        <tr style={{ background: t.tableHeadBg }}>
+                                            {['#', 'Description', 'Amount', 'Approved', 'Status'].map(h => (
+                                                <th
+                                                    key={h}
+                                                    className="px-3 py-2.5 text-left font-bold uppercase tracking-widest whitespace-nowrap"
+                                                    style={{
+                                                        fontSize: '9px',
+                                                        color: '#fbbf24',
+                                                        borderBottom: `2px solid ${t.tableHeadBorder}`,
+                                                        borderRight: `1px solid ${t.tableHeadBorder}`,
+                                                    }}
+                                                >
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {prevItems.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="px-4 py-8 text-center text-xs" style={{ color: t.cellMuted }}>
+                                                    {loadingPrev ? 'Fetching previous year items…' : 'No items found for previous year.'}
+                                                </td>
+                                            </tr>
+                                        ) : prevItems.map((row, i) => (
+                                            <tr
+                                                key={row.id}
+                                                style={{
+                                                    background: i % 2 === 0 ? t.rowEvenBg : t.rowOddBg,
+                                                    borderBottom: `1px solid ${t.rowBorder}`,
+                                                    borderLeft: '3px solid transparent',
+                                                }}
+                                            >
+                                                <td className="px-3 py-2" style={{ borderRight: `1px solid ${t.rowBorder}` }}>
+                                                    <span
+                                                        className="px-2 py-0.5 rounded-md font-mono font-bold"
+                                                        style={{
+                                                            fontSize: '10px',
+                                                            background: 'rgba(245,158,11,0.15)',
+                                                            color: '#fbbf24',
+                                                            border: '1px solid rgba(245,158,11,0.30)',
+                                                        }}
+                                                    >
+                                                        {i + 1}
+                                                    </span>
+                                                </td>
+                                                <td
+                                                    className="px-3 py-2 font-semibold"
+                                                    style={{ color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, maxWidth: '160px' }}
+                                                >
+                                                    <span className="block truncate" title={row.particulars}>{row.particulars}</span>
+                                                    {row.remarks && (
+                                                        <span className="block text-[9px] mt-0.5 truncate" style={{ color: t.cellMuted }} title={row.remarks}>
+                                                            {row.remarks}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td
+                                                    className="px-3 py-2 text-right font-bold"
+                                                    style={{
+                                                        color: t.cellGreen,
+                                                        fontFamily: "'JetBrains Mono', monospace",
+                                                        fontVariantNumeric: 'tabular-nums',
+                                                        borderRight: `1px solid ${t.rowBorder}`,
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {fmt(row.amount)}
+                                                </td>
+                                                <td
+                                                    className="px-3 py-2 text-right font-bold"
+                                                    style={{
+                                                        color: row.approvedAmount != null ? t.cellBlue : t.cellMuted,
+                                                        fontFamily: "'JetBrains Mono', monospace",
+                                                        fontVariantNumeric: 'tabular-nums',
+                                                        borderRight: `1px solid ${t.rowBorder}`,
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {row.approvedAmount != null ? fmt(row.approvedAmount) : '—'}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <StatusBadge status={row.status} t={t} />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Previous card summary footer */}
+                            <div
+                                className="px-5 py-3 flex flex-wrap items-center justify-between gap-3"
+                                style={{ background: t.summaryBg, borderTop: `2px solid ${t.summaryBorder}` }}
+                            >
+                                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
+                                    {prevItems.length} item{prevItems.length !== 1 ? 's' : ''}
+                                </span>
+                                <div className="flex flex-col gap-1.5 ml-auto">
+                                    <div className="flex items-center gap-2 justify-end">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Total</span>
+                                        <div
+                                            className="px-3 py-1 rounded-lg text-xs font-bold text-right"
+                                            style={{
+                                                background: t.summaryValueBg,
+                                                border: `1px solid ${t.summaryValueBorder}`,
+                                                color: t.cellGreen,
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                                minWidth: '110px',
+                                            }}
+                                        >
+                                            {fmt(prevTotal)}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 justify-end">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Approved</span>
+                                        <div
+                                            className="px-3 py-1 rounded-lg text-xs font-bold text-right"
+                                            style={{
+                                                background: t.summaryValueBg,
+                                                border: `1px solid ${prevTotalApproved > 0 ? 'rgba(52,211,153,0.35)' : t.summaryValueBorder}`,
+                                                color: prevTotalApproved > 0 ? t.cellBlue : t.cellMuted,
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                                minWidth: '110px',
+                                            }}
+                                        >
+                                            {prevTotalApproved > 0 ? fmt(prevTotalApproved) : '—'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* ── Main card ─────────────────────────────────────────── */}
+                <div className={showPrevious ? 'flex-1 min-w-0' : ''}>
+                    {/* ── Single card ───────────────────────────────────── */}
                     <div
-                        className="rounded-2xl overflow-hidden flex-shrink-0"
+                        className="rounded-2xl overflow-hidden"
                         style={{
-                            width: '38%',
-                            minWidth: '320px',
                             background: t.cardBg,
                             border: `1px solid ${t.cardBorder}`,
                             boxShadow: t.cardShadow,
-                            opacity: loadingPrev ? 0.6 : 1,
-                            transition: 'opacity 0.2s',
                         }}
                     >
-                        {/* Previous card header */}
+                        {/* Card header — Department Label + Sub Account Select + Save */}
                         <div
-                            className="px-5 py-4 flex items-center justify-between gap-3"
-                            style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}` }}
+                            className="px-5 py-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]"
+                            style={{
+                                background: t.cardHeaderBg,
+                                borderBottom: `1px solid ${t.cardHeaderBorder}`,
+                            }}
                         >
+                            {/* Read-Only Department / Section Display */}
                             <div>
-                                <span
-                                    className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md mb-1"
-                                    style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.35)' }}
+                                <label
+                                    className="block text-[9px] font-bold uppercase tracking-widest mb-1.5"
+                                    style={{ color: t.subColor }}
                                 >
-                                    <History className="w-3 h-3" />
-                                    Previous Year
-                                </span>
-                                <p className="text-[11px] font-bold" style={{ color: t.titleColor }}>
-                                    SY {current_school_year}
-                                </p>
-                                <p className="text-[9px] uppercase tracking-widest" style={{ color: t.subColor }}>
-                                    {subAccount?.name ?? '—'} · Read-only
-                                </p>
+                                    Department / Section
+                                </label>
+                                <div
+                                    className="w-full px-3 py-2.5 rounded-xl text-xs font-semibold border flex items-center gap-2"
+                                    style={{
+                                        background: t.inputBg,
+                                        borderColor: t.inputBorder,
+                                        color: t.inputText,
+                                    }}
+                                >
+                                    <span
+                                        className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md"
+                                        style={{
+                                            background: unitKind === 'Department'
+                                                ? 'rgba(37,99,235,0.20)'
+                                                : 'rgba(5,150,105,0.20)',
+                                            color: unitKind === 'Department' ? t.cellBlue : t.cellGreen,
+                                        }}
+                                    >
+                                        {unitKind === 'Department' ? 'Dept' : 'Sec'}
+                                    </span>
+                                    {unitName}
+                                </div>
                             </div>
-                            {loadingPrev && <Loader2 className="w-4 h-4 animate-spin" style={{ color: t.cellBlue }} />}
+
+                            {/* Sub Account dropdown — driven by API */}
+                            <div>
+                                <label
+                                    className="block text-[9px] font-bold uppercase tracking-widest mb-1.5"
+                                    style={{ color: t.subColor }}
+                                >
+                                    Sub Account
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={subAccount ? String(subAccount.id) : ''}
+                                        onChange={e => handleSubChange(e.target.value)}
+                                        disabled={loadingSubs || subAccounts.length === 0}
+                                        className="w-full appearance-none pl-3 pr-9 py-2.5 rounded-xl text-xs font-semibold border outline-none"
+                                        style={{
+                                            background: t.inputBg,
+                                            borderColor: t.inputBorder,
+                                            color: t.inputText,
+                                            cursor: loadingSubs ? 'wait' : 'pointer',
+                                            opacity: loadingSubs ? 0.6 : 1,
+                                        }}
+                                    >
+                                        {loadingSubs && <option value="">Loading…</option>}
+                                        {!loadingSubs && subAccounts.length === 0 && (
+                                            <option value="">No sub-accounts found</option>
+                                        )}
+                                        {subAccounts.map(s => (
+                                            <option key={s.id} value={String(s.id)}>
+                                                {s.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown
+                                        className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                        style={{ color: t.subColor }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Save + Compare buttons */}
+                            <div className="flex items-end gap-2">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={dirtyIds.size === 0 || saving || hasApprovedErrors}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-150"
+                                    style={{
+                                        background: dirtyIds.size === 0 || saving || hasApprovedErrors
+                                            ? 'rgba(37,99,235,0.08)'
+                                            : 'rgba(37,99,235,0.85)',
+                                        color: dirtyIds.size === 0 || saving || hasApprovedErrors ? '#4b6a9b' : '#ffffff',
+                                        border: `1px solid ${dirtyIds.size === 0 || saving || hasApprovedErrors ? 'rgba(99,155,255,0.12)' : 'rgba(99,155,255,0.70)'}`,
+                                        cursor: dirtyIds.size === 0 || saving || hasApprovedErrors ? 'not-allowed' : 'pointer',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {saving
+                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</>
+                                        : <><Save className="w-3.5 h-3.5" />Save{dirtyIds.size > 0 ? ` (${dirtyIds.size})` : ''}</>
+                                    }
+                                </button>
+                                {/* Compare toggle button */}
+                                <button
+                                    onClick={() => setShowPrevious(p => !p)}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-150"
+                                    style={{
+                                        background: showPrevious
+                                            ? 'rgba(245,158,11,0.22)'
+                                            : 'rgba(245,158,11,0.08)',
+                                        color: showPrevious ? '#fbbf24' : '#b58a2e',
+                                        border: `1px solid ${showPrevious ? 'rgba(245,158,11,0.55)' : 'rgba(245,158,11,0.20)'}`,
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    <History className="w-3.5 h-3.5" />
+                                    {showPrevious ? 'Hide Prev Year' : 'Compare Prev Year'}
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Previous card table */}
+                        {/* Table */}
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs border-collapse">
                                 <thead>
                                     <tr style={{ background: t.tableHeadBg }}>
-                                        {['#', 'Description', 'Amount', 'Approved', 'Status'].map(h => (
+                                        {['#', 'Description', 'Amount', 'Approved Amount', 'Remarks', 'Status', 'Action'].map(h => (
                                             <th
                                                 key={h}
-                                                className="px-3 py-2.5 text-left font-bold uppercase tracking-widest whitespace-nowrap"
+                                                className="px-4 py-2.5 text-left font-bold uppercase tracking-widest whitespace-nowrap"
                                                 style={{
                                                     fontSize: '9px',
-                                                    color: '#fbbf24',
+                                                    color: t.tableHeadText,
                                                     borderBottom: `2px solid ${t.tableHeadBorder}`,
                                                     borderRight: `1px solid ${t.tableHeadBorder}`,
                                                 }}
@@ -541,549 +808,279 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {prevItems.length === 0 ? (
+                                    {items.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-4 py-8 text-center text-xs" style={{ color: t.cellMuted }}>
-                                                {loadingPrev ? 'Fetching previous year items…' : 'No items found for previous year.'}
+                                            <td colSpan={7} className="px-4 py-8 text-center text-xs" style={{ color: t.cellMuted }}>
+                                                {loadingItems ? 'Fetching items…' : 'No items found for this sub-account.'}
                                             </td>
                                         </tr>
-                                    ) : prevItems.map((row, i) => (
-                                        <tr
-                                            key={row.id}
-                                            style={{
-                                                background: i % 2 === 0 ? t.rowEvenBg : t.rowOddBg,
-                                                borderBottom: `1px solid ${t.rowBorder}`,
-                                                borderLeft: '3px solid transparent',
-                                            }}
-                                        >
-                                            <td className="px-3 py-2" style={{ borderRight: `1px solid ${t.rowBorder}` }}>
-                                                <span
-                                                    className="px-2 py-0.5 rounded-md font-mono font-bold"
+                                    ) : items.map((row, i) => {
+                                        const isSel = selectedItem?.id === row.id;
+                                        return (
+                                            <tr
+                                                key={row.id}
+                                                onClick={() => setSelectedItem(row)}
+                                                className="cursor-pointer transition-colors duration-100"
+                                                style={{
+                                                    background: isSel
+                                                        ? t.rowSelectedBg
+                                                        : i % 2 === 0 ? t.rowEvenBg : t.rowOddBg,
+                                                    borderBottom: `1px solid ${t.rowBorder}`,
+                                                    borderLeft: isSel ? `3px solid ${t.cellBlue}` : '3px solid transparent',
+                                                }}
+                                            >
+                                                <td className="px-4 py-2.5" style={{ borderRight: `1px solid ${t.rowBorder}` }}>
+                                                    <span
+                                                        className="px-2 py-0.5 rounded-md font-mono font-bold"
+                                                        style={{
+                                                            fontSize: '10px',
+                                                            background: t.pillBg,
+                                                            color: t.pillText,
+                                                            border: `1px solid ${t.pillBorder}`,
+                                                        }}
+                                                    >
+                                                        {i + 1}
+                                                    </span>
+                                                </td>
+                                                <td
+                                                    className="px-4 py-2.5 font-semibold"
+                                                    style={{ color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}
+                                                >
+                                                    {row.particulars}
+                                                </td>
+                                                <td
+                                                    className="px-4 py-2.5 text-right font-bold"
                                                     style={{
-                                                        fontSize: '10px',
-                                                        background: 'rgba(245,158,11,0.15)',
-                                                        color: '#fbbf24',
-                                                        border: '1px solid rgba(245,158,11,0.30)',
+                                                        color: t.cellGreen,
+                                                        fontFamily: "'JetBrains Mono', monospace",
+                                                        fontVariantNumeric: 'tabular-nums',
+                                                        borderRight: `1px solid ${t.rowBorder}`,
                                                     }}
                                                 >
-                                                    {i + 1}
-                                                </span>
-                                            </td>
-                                            <td
-                                                className="px-3 py-2 font-semibold"
-                                                style={{ color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, maxWidth: '160px' }}
-                                            >
-                                                <span className="block truncate" title={row.particulars}>{row.particulars}</span>
-                                                {row.remarks && (
-                                                    <span className="block text-[9px] mt-0.5 truncate" style={{ color: t.cellMuted }} title={row.remarks}>
-                                                        {row.remarks}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td
-                                                className="px-3 py-2 text-right font-bold"
-                                                style={{
-                                                    color: t.cellGreen,
-                                                    fontFamily: "'JetBrains Mono', monospace",
-                                                    fontVariantNumeric: 'tabular-nums',
-                                                    borderRight: `1px solid ${t.rowBorder}`,
-                                                    whiteSpace: 'nowrap',
-                                                }}
-                                            >
-                                                {fmt(row.amount)}
-                                            </td>
-                                            <td
-                                                className="px-3 py-2 text-right font-bold"
-                                                style={{
-                                                    color: row.approvedAmount != null ? t.cellBlue : t.cellMuted,
-                                                    fontFamily: "'JetBrains Mono', monospace",
-                                                    fontVariantNumeric: 'tabular-nums',
-                                                    borderRight: `1px solid ${t.rowBorder}`,
-                                                    whiteSpace: 'nowrap',
-                                                }}
-                                            >
-                                                {row.approvedAmount != null ? fmt(row.approvedAmount) : '—'}
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <StatusBadge status={row.status} t={t} />
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                    {fmt(row.amount)}
+                                                </td>
+                                                <td
+                                                    className="px-2 py-1.5"
+                                                    style={{ borderRight: `1px solid ${t.rowBorder}` }}
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    {(() => {
+                                                        const approvedError = getApprovedError(row);
+                                                        return (
+                                                            <>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max={row.amount}
+                                                                    step="0.01"
+                                                                    value={drafts[row.id]?.approvedAmount ?? ''}
+                                                                    onChange={e => handleApprovedChange(row.id, e.target.value)}
+                                                                    placeholder="0.00"
+                                                                    className="w-full rounded-lg px-2 py-1 text-xs font-bold text-right border outline-none"
+                                                                    style={{
+                                                                        background: t.summaryValueBg,
+                                                                        borderColor: approvedError
+                                                                            ? '#f87171'
+                                                                            : drafts[row.id]?.approvedAmount
+                                                                                ? 'rgba(52,211,153,0.45)'
+                                                                                : t.inputBorder,
+                                                                        color: approvedError ? '#f87171' : t.cellBlue,
+                                                                        fontFamily: "'JetBrains Mono', monospace",
+                                                                        fontVariantNumeric: 'tabular-nums',
+                                                                        minWidth: '110px',
+                                                                    }}
+                                                                />
+                                                                {approvedError && (
+                                                                    <div
+                                                                        className="text-[9px] font-semibold mt-1 text-right"
+                                                                        style={{ color: '#f87171' }}
+                                                                    >
+                                                                        {approvedError}
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td
+                                                    className="px-2 py-1.5"
+                                                    style={{ color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}` }}
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        value={drafts[row.id]?.remarks ?? ''}
+                                                        onChange={e => handleRemarksChange(row.id, e.target.value)}
+                                                        placeholder="—"
+                                                        className="w-full rounded-lg px-2 py-1 text-xs border outline-none"
+                                                        style={{
+                                                            background: t.summaryValueBg,
+                                                            borderColor: t.inputBorder,
+                                                            color: t.cellText,
+                                                            minWidth: '120px',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2.5" style={{ borderRight: `1px solid ${t.rowBorder}` }}>
+                                                    <StatusBadge status={drafts[row.id]?.status ?? row.status} t={t} />
+                                                </td>
+                                                <td className="px-4 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                                                    {(() => {
+                                                        // const hasApproved = (drafts[row.id]?.approvedAmount ?? '').trim() !== '';
+                                                        return (
+                                                            <button
+                                                                onClick={() => handleDisapprove(row.id)}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-bold tracking-widest uppercase transition-opacity"
+                                                                style={{
+                                                                    background: 'rgba(220,38,38,0.15)',
+                                                                    color: '#f87171',
+                                                                    border: '1px solid rgba(220,38,38,0.35)',
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                            >
+                                                                <XCircle className="w-3 h-3" />
+                                                                Disapprove
+                                                            </button>
+                                                        );
+                                                    })()}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
 
-                        {/* Previous card summary footer */}
+                        {/* Summary footer */}
                         <div
-                            className="px-5 py-3 flex flex-wrap items-center justify-between gap-3"
+                            className="px-5 py-3 flex flex-wrap items-center gap-4"
                             style={{ background: t.summaryBg, borderTop: `2px solid ${t.summaryBorder}` }}
                         >
+                            {/* Left: item count */}
                             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
-                                {prevItems.length} item{prevItems.length !== 1 ? 's' : ''}
+                                {items.length} item{items.length !== 1 ? 's' : ''}
                             </span>
-                            <div className="flex flex-col gap-1.5 ml-auto">
-                                <div className="flex items-center gap-2 justify-end">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Total</span>
+
+                            <div className="flex flex-wrap items-center gap-3 flex-1">
+                                {/* Description */}
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Description</span>
+                                    <input
+                                        readOnly
+                                        value={selectedItem?.particulars ?? ''}
+                                        placeholder="Select a row…"
+                                        className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
+                                        style={{
+                                            background: t.summaryValueBg,
+                                            border: `1px solid ${t.summaryValueBorder}`,
+                                            color: t.cellText,
+                                            minWidth: '140px',
+                                            cursor: 'default',
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Unit of Measurement */}
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Unit of Measurement</span>
+                                    <input
+                                        readOnly
+                                        value={selectedItem?.uom ?? ''}
+                                        placeholder="—"
+                                        className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
+                                        style={{
+                                            background: t.summaryValueBg,
+                                            border: `1px solid ${t.summaryValueBorder}`,
+                                            color: t.cellText,
+                                            minWidth: '100px',
+                                            cursor: 'default',
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Quantity */}
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Quantity</span>
+                                    <input
+                                        readOnly
+                                        value={selectedItem != null ? selectedItem.qty : ''}
+                                        placeholder="—"
+                                        className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
+                                        style={{
+                                            background: t.summaryValueBg,
+                                            border: `1px solid ${t.summaryValueBorder}`,
+                                            color: t.cellText,
+                                            minWidth: '80px',
+                                            cursor: 'default',
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Unit Cost */}
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Unit Cost</span>
+                                    <input
+                                        readOnly
+                                        value={selectedItem != null ? fmt(selectedItem.unitCost) : ''}
+                                        placeholder="—"
+                                        className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
+                                        style={{
+                                            background: t.summaryValueBg,
+                                            border: `1px solid ${t.summaryValueBorder}`,
+                                            color: t.cellText,
+                                            minWidth: '100px',
+                                            cursor: 'default',
+                                            fontFamily: "'JetBrains Mono', monospace",
+                                            fontVariantNumeric: 'tabular-nums',
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Right: Total Amount + Total Approved Amount */}
+                            <div className="flex items-center gap-4 ml-auto">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
+                                        Total Amount
+                                    </span>
                                     <div
-                                        className="px-3 py-1 rounded-lg text-xs font-bold text-right"
+                                        className="px-4 py-1.5 rounded-lg text-xs font-bold"
                                         style={{
                                             background: t.summaryValueBg,
                                             border: `1px solid ${t.summaryValueBorder}`,
                                             color: t.cellGreen,
                                             fontFamily: "'JetBrains Mono', monospace",
-                                            minWidth: '110px',
+                                            fontVariantNumeric: 'tabular-nums',
+                                            minWidth: '130px',
+                                            textAlign: 'right',
                                         }}
                                     >
-                                        {fmt(prevTotal)}
+                                        {fmt(total)}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 justify-end">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Approved</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
+                                        Total Approved
+                                    </span>
                                     <div
-                                        className="px-3 py-1 rounded-lg text-xs font-bold text-right"
+                                        className="px-4 py-1.5 rounded-lg text-xs font-bold"
                                         style={{
                                             background: t.summaryValueBg,
-                                            border: `1px solid ${prevTotalApproved > 0 ? 'rgba(52,211,153,0.35)' : t.summaryValueBorder}`,
-                                            color: prevTotalApproved > 0 ? t.cellBlue : t.cellMuted,
+                                            border: `1px solid ${totalApproved > 0 ? 'rgba(52,211,153,0.35)' : t.summaryValueBorder}`,
+                                            color: totalApproved > 0 ? t.cellBlue : t.cellMuted,
                                             fontFamily: "'JetBrains Mono', monospace",
-                                            minWidth: '110px',
+                                            fontVariantNumeric: 'tabular-nums',
+                                            minWidth: '130px',
+                                            textAlign: 'right',
                                         }}
                                     >
-                                        {prevTotalApproved > 0 ? fmt(prevTotalApproved) : '—'}
+                                        {totalApproved > 0 ? fmt(totalApproved) : '—'}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                );
-            })()}
-
-            {/* ── Main card ─────────────────────────────────────────── */}
-            <div className={showPrevious ? 'flex-1 min-w-0' : ''}>
-            {/* ── Single card ───────────────────────────────────── */}
-            <div
-                className="rounded-2xl overflow-hidden"
-                style={{
-                    background: t.cardBg,
-                    border: `1px solid ${t.cardBorder}`,
-                    boxShadow: t.cardShadow,
-                }}
-            >
-                {/* Card header — Department Label + Sub Account Select + Save */}
-                <div
-                    className="px-5 py-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]"
-                    style={{
-                        background: t.cardHeaderBg,
-                        borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                    }}
-                >
-                    {/* Read-Only Department / Section Display */}
-                    <div>
-                        <label
-                            className="block text-[9px] font-bold uppercase tracking-widest mb-1.5"
-                            style={{ color: t.subColor }}
-                        >
-                            Department / Section
-                        </label>
-                        <div
-                            className="w-full px-3 py-2.5 rounded-xl text-xs font-semibold border flex items-center gap-2"
-                            style={{
-                                background: t.inputBg,
-                                borderColor: t.inputBorder,
-                                color: t.inputText,
-                            }}
-                        >
-                            <span
-                                className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md"
-                                style={{
-                                    background: unitKind === 'Department'
-                                        ? 'rgba(37,99,235,0.20)'
-                                        : 'rgba(5,150,105,0.20)',
-                                    color: unitKind === 'Department' ? t.cellBlue : t.cellGreen,
-                                }}
-                            >
-                                {unitKind === 'Department' ? 'Dept' : 'Sec'}
-                            </span>
-                            {unitName}
-                        </div>
-                    </div>
-
-                    {/* Sub Account dropdown — driven by API */}
-                    <div>
-                        <label
-                            className="block text-[9px] font-bold uppercase tracking-widest mb-1.5"
-                            style={{ color: t.subColor }}
-                        >
-                            Sub Account
-                        </label>
-                        <div className="relative">
-                            <select
-                                value={subAccount ? String(subAccount.id) : ''}
-                                onChange={e => handleSubChange(e.target.value)}
-                                disabled={loadingSubs || subAccounts.length === 0}
-                                className="w-full appearance-none pl-3 pr-9 py-2.5 rounded-xl text-xs font-semibold border outline-none"
-                                style={{
-                                    background: t.inputBg,
-                                    borderColor: t.inputBorder,
-                                    color: t.inputText,
-                                    cursor: loadingSubs ? 'wait' : 'pointer',
-                                    opacity: loadingSubs ? 0.6 : 1,
-                                }}
-                            >
-                                {loadingSubs && <option value="">Loading…</option>}
-                                {!loadingSubs && subAccounts.length === 0 && (
-                                    <option value="">No sub-accounts found</option>
-                                )}
-                                {subAccounts.map(s => (
-                                    <option key={s.id} value={String(s.id)}>
-                                        {s.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown
-                                className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                                style={{ color: t.subColor }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Save + Compare buttons */}
-                    <div className="flex items-end gap-2">
-                        <button
-                            onClick={handleSave}
-                            disabled={dirtyIds.size === 0 || saving || hasApprovedErrors}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-150"
-                            style={{
-                                background: dirtyIds.size === 0 || saving || hasApprovedErrors
-                                    ? 'rgba(37,99,235,0.08)'
-                                    : 'rgba(37,99,235,0.85)',
-                                color: dirtyIds.size === 0 || saving || hasApprovedErrors ? '#4b6a9b' : '#ffffff',
-                                border: `1px solid ${dirtyIds.size === 0 || saving || hasApprovedErrors ? 'rgba(99,155,255,0.12)' : 'rgba(99,155,255,0.70)'}`,
-                                cursor: dirtyIds.size === 0 || saving || hasApprovedErrors ? 'not-allowed' : 'pointer',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {saving
-                                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</>
-                                : <><Save className="w-3.5 h-3.5" />Save{dirtyIds.size > 0 ? ` (${dirtyIds.size})` : ''}</>
-                            }
-                        </button>
-                        {/* Compare toggle button */}
-                        <button
-                            onClick={() => setShowPrevious(p => !p)}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-150"
-                            style={{
-                                background: showPrevious
-                                    ? 'rgba(245,158,11,0.22)'
-                                    : 'rgba(245,158,11,0.08)',
-                                color: showPrevious ? '#fbbf24' : '#b58a2e',
-                                border: `1px solid ${showPrevious ? 'rgba(245,158,11,0.55)' : 'rgba(245,158,11,0.20)'}`,
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            <History className="w-3.5 h-3.5" />
-                            {showPrevious ? 'Hide Prev Year' : 'Compare Prev Year'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                        <thead>
-                            <tr style={{ background: t.tableHeadBg }}>
-                                {['#', 'Description', 'Amount', 'Approved Amount', 'Remarks', 'Status', 'Action'].map(h => (
-                                    <th
-                                        key={h}
-                                        className="px-4 py-2.5 text-left font-bold uppercase tracking-widest whitespace-nowrap"
-                                        style={{
-                                            fontSize: '9px',
-                                            color: t.tableHeadText,
-                                            borderBottom: `2px solid ${t.tableHeadBorder}`,
-                                            borderRight: `1px solid ${t.tableHeadBorder}`,
-                                        }}
-                                    >
-                                        {h}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-4 py-8 text-center text-xs" style={{ color: t.cellMuted }}>
-                                        {loadingItems ? 'Fetching items…' : 'No items found for this sub-account.'}
-                                    </td>
-                                </tr>
-                            ) : items.map((row, i) => {
-                                const isSel = selectedItem?.id === row.id;
-                                return (
-                                    <tr
-                                        key={row.id}
-                                        onClick={() => setSelectedItem(row)}
-                                        className="cursor-pointer transition-colors duration-100"
-                                        style={{
-                                            background: isSel
-                                                ? t.rowSelectedBg
-                                                : i % 2 === 0 ? t.rowEvenBg : t.rowOddBg,
-                                            borderBottom: `1px solid ${t.rowBorder}`,
-                                            borderLeft: isSel ? `3px solid ${t.cellBlue}` : '3px solid transparent',
-                                        }}
-                                    >
-                                        <td className="px-4 py-2.5" style={{ borderRight: `1px solid ${t.rowBorder}` }}>
-                                            <span
-                                                className="px-2 py-0.5 rounded-md font-mono font-bold"
-                                                style={{
-                                                    fontSize: '10px',
-                                                    background: t.pillBg,
-                                                    color: t.pillText,
-                                                    border: `1px solid ${t.pillBorder}`,
-                                                }}
-                                            >
-                                                {i + 1}
-                                            </span>
-                                        </td>
-                                        <td
-                                            className="px-4 py-2.5 font-semibold"
-                                            style={{ color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}
-                                        >
-                                            {row.particulars}
-                                        </td>
-                                        <td
-                                            className="px-4 py-2.5 text-right font-bold"
-                                            style={{
-                                                color: t.cellGreen,
-                                                fontFamily: "'JetBrains Mono', monospace",
-                                                fontVariantNumeric: 'tabular-nums',
-                                                borderRight: `1px solid ${t.rowBorder}`,
-                                            }}
-                                        >
-                                            {fmt(row.amount)}
-                                        </td>
-                                        <td
-                                            className="px-2 py-1.5"
-                                            style={{ borderRight: `1px solid ${t.rowBorder}` }}
-                                            onClick={e => e.stopPropagation()}
-                                        >
-                                            {(() => {
-                                                const approvedError = getApprovedError(row);
-                                                return (
-                                                    <>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={row.amount}
-                                                            step="0.01"
-                                                            value={drafts[row.id]?.approvedAmount ?? ''}
-                                                            onChange={e => handleApprovedChange(row.id, e.target.value)}
-                                                            placeholder="0.00"
-                                                            className="w-full rounded-lg px-2 py-1 text-xs font-bold text-right border outline-none"
-                                                            style={{
-                                                                background: t.summaryValueBg,
-                                                                borderColor: approvedError
-                                                                    ? '#f87171'
-                                                                    : drafts[row.id]?.approvedAmount
-                                                                    ? 'rgba(52,211,153,0.45)'
-                                                                    : t.inputBorder,
-                                                                color: approvedError ? '#f87171' : t.cellBlue,
-                                                                fontFamily: "'JetBrains Mono', monospace",
-                                                                fontVariantNumeric: 'tabular-nums',
-                                                                minWidth: '110px',
-                                                            }}
-                                                        />
-                                                        {approvedError && (
-                                                            <div
-                                                                className="text-[9px] font-semibold mt-1 text-right"
-                                                                style={{ color: '#f87171' }}
-                                                            >
-                                                                {approvedError}
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                );
-                                            })()}
-                                        </td>
-                                        <td
-                                            className="px-2 py-1.5"
-                                            style={{ color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}` }}
-                                            onClick={e => e.stopPropagation()}
-                                        >
-                                            <input
-                                                type="text"
-                                                value={drafts[row.id]?.remarks ?? ''}
-                                                onChange={e => handleRemarksChange(row.id, e.target.value)}
-                                                placeholder="—"
-                                                className="w-full rounded-lg px-2 py-1 text-xs border outline-none"
-                                                style={{
-                                                    background: t.summaryValueBg,
-                                                    borderColor: t.inputBorder,
-                                                    color: t.cellText,
-                                                    minWidth: '120px',
-                                                }}
-                                            />
-                                        </td>
-                                        <td className="px-4 py-2.5" style={{ borderRight: `1px solid ${t.rowBorder}` }}>
-                                            <StatusBadge status={drafts[row.id]?.status ?? row.status} t={t} />
-                                        </td>
-                                        <td className="px-4 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                                            {(() => {
-                                                const hasApproved = (drafts[row.id]?.approvedAmount ?? '').trim() !== '';
-                                                return (
-                                                    <button
-                                                        onClick={() => handleDisapprove(row.id)}
-                                                        disabled={hasApproved}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-bold tracking-widest uppercase transition-opacity"
-                                                        style={{
-                                                            background: hasApproved ? 'rgba(220,38,38,0.05)' : 'rgba(220,38,38,0.15)',
-                                                            color:      hasApproved ? 'rgba(248,113,113,0.35)' : '#f87171',
-                                                            border:     `1px solid ${hasApproved ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.35)'}`,
-                                                            cursor:     hasApproved ? 'not-allowed' : 'pointer',
-                                                        }}
-                                                    >
-                                                        <XCircle className="w-3 h-3" />
-                                                        Disapprove
-                                                    </button>
-                                                );
-                                            })()}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Summary footer */}
-                <div
-                    className="px-5 py-3 flex flex-wrap items-center gap-4"
-                    style={{ background: t.summaryBg, borderTop: `2px solid ${t.summaryBorder}` }}
-                >
-                    {/* Left: item count */}
-                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
-                        {items.length} item{items.length !== 1 ? 's' : ''}
-                    </span>
-
-                    <div className="flex flex-wrap items-center gap-3 flex-1">
-                        {/* Description */}
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Description</span>
-                            <input
-                                readOnly
-                                value={selectedItem?.particulars ?? ''}
-                                placeholder="Select a row…"
-                                className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
-                                style={{
-                                    background: t.summaryValueBg,
-                                    border: `1px solid ${t.summaryValueBorder}`,
-                                    color: t.cellText,
-                                    minWidth: '140px',
-                                    cursor: 'default',
-                                }}
-                            />
-                        </div>
-
-                        {/* Unit of Measurement */}
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Unit of Measurement</span>
-                            <input
-                                readOnly
-                                value={selectedItem?.uom ?? ''}
-                                placeholder="—"
-                                className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
-                                style={{
-                                    background: t.summaryValueBg,
-                                    border: `1px solid ${t.summaryValueBorder}`,
-                                    color: t.cellText,
-                                    minWidth: '100px',
-                                    cursor: 'default',
-                                }}
-                            />
-                        </div>
-
-                        {/* Quantity */}
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Quantity</span>
-                            <input
-                                readOnly
-                                value={selectedItem != null ? selectedItem.qty : ''}
-                                placeholder="—"
-                                className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
-                                style={{
-                                    background: t.summaryValueBg,
-                                    border: `1px solid ${t.summaryValueBorder}`,
-                                    color: t.cellText,
-                                    minWidth: '80px',
-                                    cursor: 'default',
-                                }}
-                            />
-                        </div>
-
-                        {/* Unit Cost */}
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>Unit Cost</span>
-                            <input
-                                readOnly
-                                value={selectedItem != null ? fmt(selectedItem.unitCost) : ''}
-                                placeholder="—"
-                                className="rounded-lg px-3 py-1.5 text-xs font-semibold border outline-none"
-                                style={{
-                                    background: t.summaryValueBg,
-                                    border: `1px solid ${t.summaryValueBorder}`,
-                                    color: t.cellText,
-                                    minWidth: '100px',
-                                    cursor: 'default',
-                                    fontFamily: "'JetBrains Mono', monospace",
-                                    fontVariantNumeric: 'tabular-nums',
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Right: Total Amount + Total Approved Amount */}
-                    <div className="flex items-center gap-4 ml-auto">
-                        <div className="flex items-center gap-3">
-                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
-                                Total Amount
-                            </span>
-                            <div
-                                className="px-4 py-1.5 rounded-lg text-xs font-bold"
-                                style={{
-                                    background: t.summaryValueBg,
-                                    border: `1px solid ${t.summaryValueBorder}`,
-                                    color: t.cellGreen,
-                                    fontFamily: "'JetBrains Mono', monospace",
-                                    fontVariantNumeric: 'tabular-nums',
-                                    minWidth: '130px',
-                                    textAlign: 'right',
-                                }}
-                            >
-                                {fmt(total)}
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.summaryLabelText }}>
-                                Total Approved
-                            </span>
-                            <div
-                                className="px-4 py-1.5 rounded-lg text-xs font-bold"
-                                style={{
-                                    background: t.summaryValueBg,
-                                    border: `1px solid ${totalApproved > 0 ? 'rgba(52,211,153,0.35)' : t.summaryValueBorder}`,
-                                    color: totalApproved > 0 ? t.cellBlue : t.cellMuted,
-                                    fontFamily: "'JetBrains Mono', monospace",
-                                    fontVariantNumeric: 'tabular-nums',
-                                    minWidth: '130px',
-                                    textAlign: 'right',
-                                }}
-                            >
-                                {totalApproved > 0 ? fmt(totalApproved) : '—'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            </div>{/* end main card wrapper */}
+                </div>{/* end main card wrapper */}
             </div>{/* end side-by-side flex */}
         </div>
     );

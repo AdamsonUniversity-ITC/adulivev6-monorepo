@@ -12,6 +12,7 @@ import {
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@repo/ui/components/alert-dialog';
 import { z } from 'zod';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,14 +330,11 @@ export default function BudgetStatus() {
 
                         {/* ── Header bar ──────────────────────────────────────── */}
                         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-                            <div>
-                                <h1 className="text-xl font-bold tracking-tight" style={{ color: t.titleColor }}>
-                                    Budget Status
-                                </h1>
-                                <p className="text-xs mt-0.5" style={{ color: t.subColor }}>
-                                    Inline spreadsheet — edit cells then save all changes at once.
-                                </p>
-                            </div>
+                            <PageHeader
+                                className="flex-1"
+                                title="Budget Status"
+                                description="Inline spreadsheet — edit cells then save all changes at once."
+                            />
 
                             <div className="flex items-center gap-2">
                                 {dirtyCount > 0 && (
