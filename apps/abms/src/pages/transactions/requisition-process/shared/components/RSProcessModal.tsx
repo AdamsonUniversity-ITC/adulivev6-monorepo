@@ -14,6 +14,7 @@ import { Theme } from '../types.ts';
 import { PermissionKey } from '../constants.ts';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import echo from '../../../../../lib/echo';
+import { RSPrintPreview } from './RSPrintPreview';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ import echo from '../../../../../lib/echo';
 // ─────────────────────────────────────────────────────────────────────────────
 export interface RSLineItem {
     id: number;
+    account_id?: number | null;
     account_code: string;
     description: string;
     quantity: number;
@@ -555,7 +557,6 @@ export function RSProcessModal({
     row, roleKey, roleLabel, t, isDark, isLoading = false, error = null, onClose, onAction,
     currentUser = { id: '', name: '' },
 }: RSProcessModalProps) {
-    console.log(roleKey);
     const [itemsExpanded, setItemsExpanded] = useState(true);
     const [pendingAction, setPendingAction] = useState<RoleAction | null>(null);
 
@@ -572,8 +573,8 @@ export function RSProcessModal({
 
     // ── Payee detail state ───────────────────────────────────────────────────
     const [payeeDetail, setPayeeDetail] = useState<PayeeDetailRecord | null>(null);
-    console.log('payment_form:', row.payment_form, 'payeeDetail:', payeeDetail);
     const [showPayeeView, setShowPayeeView] = useState(false);
+    const [showPrintPreview, setShowPrintPreview] = useState(false);
 
     useEffect(() => {
         if (!row.id) return;
@@ -749,6 +750,10 @@ export function RSProcessModal({
         }
         if (action.label === 'RS Process History') {
             setShowHistory(true);
+            return;
+        }
+        if (action.label === 'Print RS') {
+            setShowPrintPreview(true);
             return;
         }
         // Forward actions use a prefixed label so onAction handlers can
@@ -2223,6 +2228,14 @@ export function RSProcessModal({
                 t={t}
                 isDark={isDark}
             />
+            {showPrintPreview && (
+                <RSPrintPreview
+                    row={row}
+                    items={row.items ?? []}
+                    payeeDetail={payeeDetail}
+                    onClose={() => setShowPrintPreview(false)}
+                />
+            )}
         </>
     );
 }
