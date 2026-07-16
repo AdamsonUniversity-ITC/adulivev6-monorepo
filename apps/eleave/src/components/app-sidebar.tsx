@@ -60,6 +60,7 @@ const adminNavItems = [
 
 const reportNavItems = [
   { title: "Filed Leave", url: "/reports/filed-leave", icon: FolderOpen },
+  { title: "Filed Leave After Cutoff", url: "/reports/filed-leave-after-cutoff", icon: FolderOpen },
 ] as const;
 
 function isNavItemActive(pathname: string, url: string) {

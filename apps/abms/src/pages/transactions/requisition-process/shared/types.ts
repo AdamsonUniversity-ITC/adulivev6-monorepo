@@ -102,6 +102,6 @@ export function makeDefaultFilterState(
         dateFrom: '',
         dateTo: '',
         sortBy: firstSortCol,
-        sortDir: 'desc',
+        sortDir: 'asc',
     };
 }

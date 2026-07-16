@@ -1,11 +1,4 @@
 import { Button } from "@repo/ui/components/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select"
 import type { ColumnDef, Row } from "@tanstack/react-table"
 import { X } from "lucide-react"
 import * as React from "react"
@@ -17,7 +10,6 @@ import type {
 } from "@/components/shared/datatable/types"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { FiledLeaveReportDepartment } from "@/lib/filed-leave-report-api"
 import {
   getAvatarUrlFromEmpNo,
   getInitialsFromDisplayName,
@@ -27,7 +19,10 @@ import {
   mapLeaveApplicationsToFiledLeaveReportRows,
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
-import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
+import { PendingStatusBadge } from "@/routes/my-leave/-leave-status-badge"
+
+const NOT_PRINTED_ROW_CLASS =
+  "bg-amber-50/80 hover:bg-amber-50 border-l-2 border-l-amber-400"
 
 function mapToRecordPagination(
   response: PaginatedLeaveApplicationsResponse | undefined,
@@ -57,7 +52,7 @@ function mapToRecordPagination(
   }
 }
 
-type FiledLeaveDataTableProps = {
+type FiledLeaveAfterCutoffDataTableProps = {
   tanstack: TanstackType
   response: PaginatedLeaveApplicationsResponse | undefined
   leaveTypeNames: Map<number, string>
@@ -65,18 +60,16 @@ type FiledLeaveDataTableProps = {
   isError?: boolean
   dateFrom: string
   dateTo: string
-  statusFilter: string
-  departmentFilter: string
-  departments: FiledLeaveReportDepartment[]
+  hasPrintHistory: boolean
+  printedApplicationIds: ReadonlySet<number>
+  remainingCount: number
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
-  onStatusFilterChange: (value: string) => void
-  onDepartmentFilterChange: (value: string) => void
   onClearFilters: () => void
   onRowClick: (row: FiledLeaveReportRow) => void
 }
 
-export function FiledLeaveDataTable({
+export function FiledLeaveAfterCutoffDataTable({
   tanstack,
   response,
   leaveTypeNames,
@@ -84,16 +77,23 @@ export function FiledLeaveDataTable({
   isError = false,
   dateFrom,
   dateTo,
-  statusFilter,
-  departmentFilter,
-  departments,
+  hasPrintHistory,
+  printedApplicationIds,
+  remainingCount,
   onDateFromChange,
   onDateToChange,
-  onStatusFilterChange,
-  onDepartmentFilterChange,
   onClearFilters,
   onRowClick,
-}: FiledLeaveDataTableProps) {
+}: FiledLeaveAfterCutoffDataTableProps) {
+  const hasDateRange = dateFrom !== "" && dateTo !== ""
+  const showPrintHighlight = hasDateRange && hasPrintHistory
+
+  const isNotPrintedRow = React.useCallback(
+    (row: FiledLeaveReportRow) =>
+      showPrintHighlight && !printedApplicationIds.has(Number(row.id)),
+    [printedApplicationIds, showPrintHighlight],
+  )
+
   const rows = React.useMemo(
     () => mapLeaveApplicationsToFiledLeaveReportRows(response?.data ?? [], leaveTypeNames),
     [leaveTypeNames, response?.data],
@@ -113,6 +113,7 @@ export function FiledLeaveDataTable({
           const item = row.original
           const teacher = item.record.employee_teacher
           const avatarUrl = getAvatarUrlFromEmpNo(item.employeeNo)
+          const notPrinted = isNotPrintedRow(item)
 
           return (
             <div className="flex items-center gap-3 py-1">
@@ -130,7 +131,14 @@ export function FiledLeaveDataTable({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{item.employee}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">{item.employee}</p>
+                  {notPrinted ? (
+                    <PendingStatusBadge className="text-[10px]">
+                      Not printed
+                    </PendingStatusBadge>
+                  ) : null}
+                </div>
                 <p className="text-muted-foreground text-xs tabular-nums">
                   {item.employeeNo}
                 </p>
@@ -192,15 +200,11 @@ export function FiledLeaveDataTable({
         },
       },
     ],
-    [],
+    [isNotPrintedRow],
   )
 
   const hasActiveFilters =
-    tanstack.hook.keyword.trim() !== "" ||
-    dateFrom !== "" ||
-    dateTo !== "" ||
-    statusFilter !== "all" ||
-    departmentFilter !== "all"
+    tanstack.hook.keyword.trim() !== "" || dateFrom !== "" || dateTo !== ""
 
   const handleRowClick = React.useCallback(
     (row: Row<FiledLeaveReportRow>) => {
@@ -209,10 +213,21 @@ export function FiledLeaveDataTable({
     [onRowClick],
   )
 
+  const getRowClassName = React.useCallback(
+    (row: Row<FiledLeaveReportRow>) => {
+      if (isNotPrintedRow(row.original)) {
+        return NOT_PRINTED_ROW_CLASS
+      }
+
+      return undefined
+    },
+    [isNotPrintedRow],
+  )
+
   if (isError) {
     return (
       <div className="text-destructive rounded-md border border-dashed px-4 py-10 text-center text-sm">
-        Unable to load filed leave report. Please try again.
+        Unable to load approved leave after cut-off report. Please try again.
       </div>
     )
   }
@@ -238,7 +253,7 @@ export function FiledLeaveDataTable({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Leave date from
@@ -262,44 +277,13 @@ export function FiledLeaveDataTable({
               className="h-9 rounded-lg border-slate-300 bg-background shadow-sm"
             />
           </label>
-
-          <label className="space-y-1">
-            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-              Status
-            </span>
-            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAVE_STATUS_FILTER_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-              Department
-            </span>
-            <Select value={departmentFilter} onValueChange={onDepartmentFilterChange}>
-              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
-                <SelectValue placeholder="All departments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All departments</SelectItem>
-                {departments.map((department) => (
-                  <SelectItem key={department.id} value={String(department.id)}>
-                    {department.sec_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
         </div>
+
+        {showPrintHighlight && remainingCount > 0 ? (
+          <p className="text-muted-foreground mt-3 text-xs">
+            Amber rows are approved applications not yet printed for this date range.
+          </p>
+        ) : null}
       </section>
 
       <DataTable<FiledLeaveReportRow>
@@ -314,6 +298,7 @@ export function FiledLeaveDataTable({
           searchPlaceholder: "Search by name or employee number...",
           fn: {
             onClick: handleRowClick,
+            getRowClassName,
           },
         }}
         columns={columns}

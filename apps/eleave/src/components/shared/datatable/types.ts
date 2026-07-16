@@ -17,6 +17,7 @@ export type DatatableConfig = {
   fn?: {
     onClick?: (row: unknown) => void;
     onDoubleClick?: (row: unknown) => void;
+    getRowClassName?: (row: unknown) => string | undefined;
   };
 };
 
