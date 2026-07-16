@@ -185,7 +185,10 @@ function DataTable<TData = unknown>({
               </TableCell>
             </TableRow>
           ) : table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row, index) => (
+            table.getRowModel().rows.map((row, index) => {
+              const customRowClassName = config?.fn?.getRowClassName?.(row);
+
+              return (
               <TableRow
                 onClick={() => {
                   if (config?.fn?.onClick) {
@@ -198,8 +201,8 @@ function DataTable<TData = unknown>({
                   }
                 }}
                 className={cn(
-                  "",
-                  index % 2 === 0 ? "bg-gray-50" : "bg-white",
+                  customRowClassName ??
+                    (index % 2 === 0 ? "bg-gray-50" : "bg-white"),
                   config?.fn?.onClick || config?.fn?.onDoubleClick
                     ? "cursor-pointer"
                     : ""
@@ -217,7 +220,8 @@ function DataTable<TData = unknown>({
                   </TableCell>
                 ))}
               </TableRow>
-            ))
+            );
+            })
           ) : (
             <TableRow>
               <TableCell

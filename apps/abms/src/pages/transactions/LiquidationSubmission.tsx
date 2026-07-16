@@ -3,7 +3,6 @@ import AdamsonBudgetLayout from '../../layouts/Screenlayout.tsx';
 import { RefreshCw, ChevronDown, X, Upload, FileText, Trash2, Lock, ExternalLink, Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { liquidationsubmissionRoute } from '../../router.tsx';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens
@@ -279,16 +278,16 @@ function DeptDropdown({
     }
 
     return (
-        <div className="relative w-full" ref={ref}>
+        <div className="relative" ref={ref}>
             <button
                 type="button"
                 onClick={() => { setOpen(p => !p); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); }}
-                className="flex w-full items-center gap-2 rounded-xl border py-2 pl-3 pr-2.5 text-xs font-semibold outline-none transition-all duration-150"
+                className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-xl text-xs font-semibold border outline-none transition-all duration-150"
                 style={{
                     background: t.inputBg,
                     borderColor: open ? (isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)') : t.inputBorder,
                     color: selected ? t.inputText : t.inputPlaceholder,
-                    minWidth: 0,
+                    minWidth: 220,
                 }}
             >
                 <span className="flex-1 text-left truncate">
@@ -345,7 +344,7 @@ function DeptDropdown({
                             <button
                                 key={item.id}
                                 type="button"
-                                className="group flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-all duration-100"
+                                className="w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition-all duration-100"
                                 style={{
                                     color: isSel ? t.dropdownSelectedText : t.dropdownText,
                                     background: isSel ? t.dropdownSelected : 'transparent',
@@ -356,8 +355,8 @@ function DeptDropdown({
                                 onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = t.dropdownHover; }}
                                 onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                             >
-                                <span className="min-w-0 flex-1 truncate leading-5 group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words">{item.name}</span>
-                                <span className="mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={kindStyle(item.kind)}>
+                                <span className="truncate">{item.name}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0" style={kindStyle(item.kind)}>
                                     {item.kind === 'Department' ? 'Dept' : 'Sec'}
                                 </span>
                             </button>
@@ -1216,8 +1215,15 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
     return (
         <>
             <Toasts items={toasts} isDark={isDark} onDismiss={id => setToasts(p => p.filter(t => t.id !== id))} />
-            <div className="space-y-5">
-            <PageHeader title="Liquidation Submission" description="View and manage liquidation records." />
+            <div className="p-6">
+            <div className="mb-4">
+                <h1 className="text-base font-bold" style={{ color: t.titleColor }}>
+                    Liquidation Submission
+                </h1>
+                <p className="text-[11px] mt-0.5" style={{ color: t.subColor }}>
+                    View and manage liquidation records
+                </p>
+            </div>
 
             <div
                 className="rounded-2xl overflow-hidden"
@@ -1225,20 +1231,18 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
             >
                 {/* ── Filter Section ── */}
                 <div
-                    className="grid grid-cols-1 items-center gap-4 px-6 py-3 sm:grid-cols-[minmax(240px,1fr)_minmax(220px,1fr)_auto]"
+                    className="px-6 py-3 flex flex-wrap items-center gap-4"
                     style={{ borderBottom: `1px solid ${t.sectionDivider}` }}
                 >
-                    <div className="min-w-0 w-full">
-                        <DeptDropdown
-                            value={selectedDeptId}
-                            onChange={handleDeptChange}
-                            options={deptOptions}
-                            t={t}
-                            isDark={isDark}
-                        />
-                    </div>
+                    <DeptDropdown
+                        value={selectedDeptId}
+                        onChange={handleDeptChange}
+                        options={deptOptions}
+                        t={t}
+                        isDark={isDark}
+                    />
 
-                    <div className="flex items-center justify-start gap-4 sm:justify-center">
+                    <div className="flex items-center gap-4">
                         <Checkbox checked={ascending} onChange={handleAscending} label="Ascending" t={t} isDark={isDark} />
                         <Checkbox checked={descending} onChange={handleDescending} label="Descending" t={t} isDark={isDark} />
                     </div>
@@ -1246,7 +1250,7 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                     <button
                         onClick={fetchRecords}
                         disabled={isLoading}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all duration-150 select-none"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none ml-auto"
                         style={{
                             background: isLoading ? t.btnDisBg : t.btnRefresh.bg,
                             borderColor: isLoading ? t.btnDisBorder : t.btnRefresh.border,
@@ -1403,7 +1407,7 @@ export default function LiquidationSubmission() {
         <AdamsonBudgetLayout>
             {(isDark: boolean) => {
                 const t = isDark ? T.dark : T.light;
-                return <div className="mx-auto max-w-7xl"><LiquidationSubmissionInner t={t} isDark={isDark} /></div>;
+                return <LiquidationSubmissionInner t={t} isDark={isDark} />;
             }}
         </AdamsonBudgetLayout>
     );
