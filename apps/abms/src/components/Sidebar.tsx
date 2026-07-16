@@ -148,7 +148,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Budget Transfer Account', href: '/admin/budget-transfer-account', permissions: ['admin-access', 'budget-access'] },
       { label: 'Budget Adjustment Entry', href: '/admin/budget-adjustment-entry', permissions: ['admin-access', 'budget-access'] },
       { label: 'Departments and Sections', href: '/admin/department', permissions: ['admin-access', 'budget-access'] },
-      { label: 'User Department Access', href: '/admin/user-department-access' },
+      { label: 'User Department Access', href: '/admin/user-department-access', permissions: ['abms_user_department_access'] },
       { label: 'Chart of Accounts', href: '/admin/chart-of-accounts', permissions: ['admin-access', 'budget-access'] },
       // Only show if user has the explicit permission.
       // (Admin/budget-access-only users should not see this.)
@@ -191,6 +191,7 @@ type AbmsPermissionsPayload = {
 };
 
 type AbmsRouteUser = {
+  permissions?: string[];
   abmsPermissions?: AbmsPermissionsPayload | null;
 };
 
@@ -368,6 +369,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
   // where each item has auth_permission resolved via authPermission().
   const routeUser = user as AbmsRouteUser | null | undefined;
   const userPermissions = buildPermissionSet(routeUser?.abmsPermissions);
+  routeUser?.permissions?.forEach(permission => userPermissions.add(permission));
   // console.log(userPermissions)
   const navItems = filterNavItems(NAV_ITEMS, userPermissions);
 

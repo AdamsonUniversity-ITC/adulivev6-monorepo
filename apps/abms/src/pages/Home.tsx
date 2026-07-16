@@ -1,323 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { AlertCircle, ArrowRight, BarChart3, Boxes, CheckCircle2, Clock3, DollarSign, RefreshCw, Wallet } from 'lucide-react';
+import { financeSvc } from '@repo/axios-config';
 import AdamsonBudgetLayout from '../layouts/Screenlayout';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@repo/ui/components/dialog';
-import { Button } from '@repo/ui/components/button';
-import {
-  ShieldCheck,
-  Info,
-  FileText,
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  ReceiptText,
-  Users,
-  ArrowUpRight,
-} from 'lucide-react';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Static dashboard data
-// ─────────────────────────────────────────────────────────────────────────────
+type Scope={id:string;type:'role'|'unit';key:string;kind?:'Department'|'Section';label:string};
+type DashboardData={scopes:Scope[];schoolYears:string[];currentYear:string|null;scope:Scope;year:string|null;counts:Record<string,number>;financial:Record<string,number>;statusDistribution:{label:string;value:number}[];queue:{id:number;requisition_no:string;unit:string;status:string|null;location:string|null;amount:number;date:string|null}[]};
+type LinkTo='/transactions/requisition-process'|'/admin/budget-review'|'/admin/budget-adjustment-entry'|'/transactions/liquidation-submission'|'/admin/office-supplies'|'/transactions/budget-request-entry'|'/transactions/budget-proposal-entry';
+const STORAGE_KEY='abms-dashboard-scope';
+const peso=(n:number)=>new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',minimumFractionDigits:2}).format(Number(n)||0);
+const num=(n:number)=>new Intl.NumberFormat('en-US').format(Number(n)||0);
 
-const STAT_CARDS = [
-  {
-    label: 'Total Budget',
-    value: '₱ 4,250,000.00',
-    sub: 'FY 2024–2025',
-    icon: Wallet,
-    trend: null,
-    color: '#3b82f6',
-    bg: 'rgba(59,130,246,0.08)',
-    border: 'rgba(59,130,246,0.18)',
-  },
-  {
-    label: 'Total Disbursed',
-    value: '₱ 2,134,800.00',
-    sub: '50.2% utilized',
-    icon: TrendingUp,
-    trend: 'up',
-    color: '#22c55e',
-    bg: 'rgba(34,197,94,0.08)',
-    border: 'rgba(34,197,94,0.18)',
-  },
-  {
-    label: 'Remaining Balance',
-    value: '₱ 2,115,200.00',
-    sub: '49.8% available',
-    icon: TrendingDown,
-    trend: 'down',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
-    border: 'rgba(245,158,11,0.18)',
-  },
-  {
-    label: 'Pending RS',
-    value: '12',
-    sub: 'Awaiting approval',
-    icon: Clock,
-    trend: null,
-    color: '#ef4444',
-    bg: 'rgba(239,68,68,0.08)',
-    border: 'rgba(239,68,68,0.18)',
-  },
-];
+const roleConfig:Record<string,{subtitle:string;cards:[string,string,'count'|'money'][];links:[string,LinkTo][]}>={
+  'logistics-access':{subtitle:'Pricing, purchasing, and fulfillment workload',cards:[['Awaiting Logistics','work_queue','count'],['Served','served','count'],['Unserved','unserved','count'],['Total RS','total_rs','count']],links:[['Open pricing & purchase queue','/transactions/requisition-process']]},
+  'budget-access':{subtitle:'Budget review, utilization, adjustments, and liquidation',cards:[['Awaiting Budget','work_queue','count'],['Approved Budget','approved','money'],['Remaining Balance','balance','money'],['For Liquidation','liquidation','count']],links:[['Review requisitions','/transactions/requisition-process'],['Open Budget Review','/admin/budget-review'],['Budget adjustments','/admin/budget-adjustment-entry'],['Liquidation queue','/transactions/liquidation-submission']]},
+  'admin-access':{subtitle:'Approvals, routing decisions, and workflow bottlenecks',cards:[['Awaiting Action','work_queue','count'],['Pending Amount','work_amount','money'],['Disapproved / Cancelled','cancelled','count'],['Total RS','total_rs','count']],links:[['Open administration queue','/transactions/requisition-process'],['Open Budget Review','/admin/budget-review']]},
+  'stockroom-access':{subtitle:'Stockroom processing and served request activity',cards:[['To Process','work_queue','count'],['Served','served','count'],['Returned / Unserved','unserved','count'],['Total RS','total_rs','count']],links:[['Process requisitions','/transactions/requisition-process'],['Office supplies','/admin/office-supplies']]},
+  department:{subtitle:'Department budget position and requisition activity',cards:[['Approved Budget','approved','money'],['Released / Used','released','money'],['Remaining Balance','balance','money'],['Pending RS','work_queue','count']],links:[['Create / view budget request','/transactions/budget-request-entry'],['Budget proposal','/transactions/budget-proposal-entry'],['Liquidation submission','/transactions/liquidation-submission']]},
+};
 
-const RECENT_TRANSACTIONS = [
-  { id: 'RS-2025-0041', supplier: 'ABC Office Supplies Co.', amount: '₱ 18,500.00', date: 'Apr 20, 2025', status: 'approved' },
-  { id: 'RS-2025-0040', supplier: 'XYZ Printing Services',   amount: '₱ 6,200.00',  date: 'Apr 19, 2025', status: 'approved' },
-  { id: 'RS-2025-0039', supplier: 'Metro Catering Inc.',      amount: '₱ 32,000.00', date: 'Apr 18, 2025', status: 'pending'  },
-  { id: 'RS-2025-0038', supplier: 'Tech Solutions Corp.',     amount: '₱ 74,800.00', date: 'Apr 17, 2025', status: 'approved' },
-  { id: 'RS-2025-0037', supplier: 'Global Freight & Cargo',   amount: '₱ 9,150.00',  date: 'Apr 16, 2025', status: 'pending'  },
-];
-
-const BUDGET_BREAKDOWN = [
-  { dept: 'Academic Affairs',       allocated: 1200000, used: 680000  },
-  { dept: 'Student Services',       allocated: 850000,  used: 520000  },
-  { dept: 'Administration',         allocated: 1100000, used: 610000  },
-  { dept: 'Research & Development', allocated: 700000,  used: 234800  },
-  { dept: 'Facilities Management',  allocated: 400000,  used: 90000   },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Dashboard
-// ─────────────────────────────────────────────────────────────────────────────
-
-function Dashboard() {
-  return (
-    <div className="space-y-6">
-
-      {/* ── Page title ─────────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-100">Dashboard</h1>
-        <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">
-          Overview · AY 2024–2025
-        </p>
-      </div>
-
-      {/* ── Stat cards ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {STAT_CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={card.label}
-              className="rounded-xl p-5 flex flex-col gap-3 border"
-              style={{ background: card.bg, borderColor: card.border }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                  {card.label}
-                </span>
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: `${card.color}22`, border: `1px solid ${card.color}33` }}
-                >
-                  <Icon className="w-4 h-4" style={{ color: card.color }} />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-slate-100 leading-none">{card.value}</p>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wider">{card.sub}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Bottom row ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-
-        {/* Budget breakdown — 3 cols */}
-        <div
-          className="xl:col-span-3 rounded-xl border p-5"
-          style={{
-            background: 'rgba(15,26,48,0.6)',
-            borderColor: 'rgba(59,130,246,0.12)',
-          }}
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-semibold text-slate-200">Budget by Department</span>
-            </div>
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest">FY 2024–2025</span>
-          </div>
-
-          <div className="space-y-4">
-            {BUDGET_BREAKDOWN.map((row) => {
-              const pct = Math.round((row.used / row.allocated) * 100);
-              const barColor = pct > 75 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#3b82f6';
-              return (
-                <div key={row.dept} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-300 font-medium">{row.dept}</span>
-                    <span className="text-slate-500">
-                      ₱{(row.used / 1000).toFixed(0)}k / ₱{(row.allocated / 1000).toFixed(0)}k
-                      <span className="ml-2 font-bold" style={{ color: barColor }}>{pct}%</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div
-                      className="h-1.5 rounded-full transition-all duration-700"
-                      style={{ width: `${pct}%`, background: barColor }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Recent transactions — 2 cols */}
-        <div
-          className="xl:col-span-2 rounded-xl border p-5"
-          style={{
-            background: 'rgba(15,26,48,0.6)',
-            borderColor: 'rgba(59,130,246,0.12)',
-          }}
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <ReceiptText className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-semibold text-slate-200">Recent RS</span>
-            </div>
-            <button className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 uppercase tracking-widest transition-colors">
-              View all <ArrowUpRight className="w-3 h-3" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {RECENT_TRANSACTIONS.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-start justify-between gap-3 pb-3 border-b last:border-b-0 last:pb-0"
-                style={{ borderColor: 'rgba(255,255,255,0.05)' }}
-              >
-                <div className="flex items-start gap-2.5 min-w-0">
-                  {tx.status === 'approved' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400 mt-0.5 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-300 truncate">{tx.id}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{tx.supplier}</p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-bold text-slate-200">{tx.amount}</p>
-                  <p className="text-[10px] text-slate-600">{tx.date}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
+export default function Home(){
+  const navigate=useNavigate(); const [data,setData]=useState<DashboardData|null>(null); const [scope,setScope]=useState(localStorage.getItem(STORAGE_KEY)??''); const [year,setYear]=useState(''); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  const load=useCallback(async(nextScope:string,nextYear:string)=>{setLoading(true);setError('');try{const {data:res}=await financeSvc.get('/abms/dashboard',{params:{...(nextScope?{scope:nextScope}:{}),...(nextYear?{school_year:nextYear}:{})}});setData(res);setScope(res.scope.id);setYear(res.year??'');localStorage.setItem(STORAGE_KEY,res.scope.id);}catch(error:unknown){const err=error as {response?:{status?:number;data?:{message?:string}}};if(err.response?.status===403&&nextScope){localStorage.removeItem(STORAGE_KEY);setScope('');return load('',nextYear);}setData(null);setError(err.response?.data?.message??'Dashboard data could not be loaded.');}finally{setLoading(false);}},[]);
+  useEffect(()=>{void load(localStorage.getItem(STORAGE_KEY)??'','');},[load]);
+  const config=useMemo(()=>data?(data.scope.type==='role'?roleConfig[data.scope.key]:roleConfig.department):null,[data]);
+  const value=(key:string,type:'count'|'money')=>type==='money'?peso(data?.financial[key]??0):num(data?.counts[key]??0);
+  return <AdamsonBudgetLayout><div className="space-y-5 text-slate-900 dark:text-slate-100">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-xl font-bold">{data?.scope.label??'Dashboard'}</h1><p className="mt-1 text-xs uppercase tracking-widest text-slate-500">{config?.subtitle??'Your authorized ABMS overview'}</p></div><div className="flex flex-wrap gap-2">
+      <select aria-label="Dashboard scope" value={scope} onChange={e=>{setScope(e.target.value);void load(e.target.value,year)}} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900">{data?.scopes.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select>
+      <select aria-label="School year" value={year} onChange={e=>{setYear(e.target.value);void load(scope,e.target.value)}} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900">{data?.schoolYears.map(y=><option key={y}>{y}</option>)}</select>
+      <button onClick={()=>void load(scope,year)} className="rounded-lg border border-slate-300 p-2 dark:border-slate-700" aria-label="Refresh dashboard"><RefreshCw className={`h-4 w-4 ${loading?'animate-spin':''}`}/></button>
+    </div></div>
+    {error?<div className="rounded-xl border border-red-300 bg-red-50 p-8 text-center text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30"><AlertCircle className="mx-auto mb-2 h-6 w-6"/>{error}<button onClick={()=>void load(scope,year)} className="ml-3 underline">Retry</button></div>:loading&&!data?<div className="py-24 text-center text-sm text-slate-500">Loading dashboard…</div>:data&&config?<>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{config.cards.map(([label,key,type],i)=>{const Icon=[Clock3,Wallet,DollarSign,CheckCircle2][i];return <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500"><span>{label}</span><Icon className="h-4 w-4 text-blue-500"/></div><p className="mt-4 text-2xl font-bold">{value(key,type)}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">School year {data.year??'—'}</p></div>})}</div>
+      <div className="grid gap-4 xl:grid-cols-3"><section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><h2 className="mb-4 flex items-center gap-2 text-sm font-bold"><BarChart3 className="h-4 w-4 text-blue-500"/>Status distribution</h2>{data.statusDistribution.length?<div className="space-y-3">{data.statusDistribution.slice(0,8).map(row=>{const pct=data.counts.total_rs?Math.round(row.value/data.counts.total_rs*100):0;return <div key={row.label}><div className="mb-1 flex justify-between text-xs"><span className="capitalize">{row.label}</span><b>{row.value}</b></div><div className="h-2 rounded bg-slate-100 dark:bg-slate-800"><div className="h-2 rounded bg-blue-500" style={{width:`${pct}%`}}/></div></div>})}</div>:<Empty text="No requisitions for this school year."/>}</section>
+      <section className="xl:col-span-2 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><h2 className="mb-4 flex items-center gap-2 text-sm font-bold"><Boxes className="h-4 w-4 text-blue-500"/>Current work queue</h2>{data.queue.length?<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="text-slate-500"><tr><th className="pb-3">RS No.</th><th>Department / Section</th><th>Status</th><th className="text-right">Amount</th></tr></thead><tbody>{data.queue.map(row=><tr key={row.id} className="border-t border-slate-100 dark:border-slate-800"><td className="py-3 font-semibold">{row.requisition_no}</td><td>{row.unit}</td><td className="capitalize">{row.status??'—'}</td><td className="text-right">{peso(row.amount)}</td></tr>)}</tbody></table></div>:<Empty text="Nothing currently requires action in this scope."/>}</section></div>
+      <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"><h2 className="mb-3 text-sm font-bold">Quick actions</h2><div className="flex flex-wrap gap-2">{config.links.map(([label,to])=><button key={label} onClick={()=>navigate({to})} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700">{label}<ArrowRight className="h-3.5 w-3.5"/></button>)}</div></section>
+    </>:null}
+  </div></AdamsonBudgetLayout>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Home page
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default function Home() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(true);
-  }, []);
-
-  return (
-    <>
-      {/* ── Welcome dialog ───────────────────────────────────────── */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className="max-w-xl p-0 overflow-hidden border-blue-500/20 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xl shadow-2xl"
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <div className="h-2 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-blue-600" />
-
-          <div className="px-8 pt-6 pb-2">
-            <DialogHeader className="flex flex-row items-center gap-4 space-y-0">
-              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 shadow-inner">
-                <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-cyan-400" />
-              </div>
-              <div className="text-left">
-                <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 uppercase">
-                  Institutional Reminders
-                </DialogTitle>
-                <p className="text-xs font-medium tracking-[0.15em] text-blue-600/70 dark:text-cyan-500/70 uppercase">
-                  OVPFA Compliance Guidelines
-                </p>
-              </div>
-            </DialogHeader>
-
-            <div className="mt-6 space-y-4">
-              <div className="p-4 rounded-xl border border-blue-500/10 bg-blue-500/5 dark:bg-blue-400/5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Payment & Documentation
-                  </span>
-                </div>
-
-                <ol className="space-y-4">
-                  {[
-                    { text: 'RS for payment to supplier shall be prepared separately for each: ', highlight: 'One RS for One Supplier' },
-                    { text: 'RS for Cash Advance shall be supported by details of every expense.', highlight: '' },
-                    { text: "For all purchases, Invoice / Official Receipt shall be BIR registered with Supplier's Name and TIN.", highlight: '' },
-                    { text: 'TIN shall be secured from all non-employee recipients (honorariums, talent fees, etc).', highlight: '' },
-                    { text: 'Refer to OVPFA Memo 12 (Credit Card Usage) and OVPFA 14 (Modes of Payment).', highlight: '' },
-                  ].map((item, i) => (
-                    <li key={i} className="flex gap-3 items-start">
-                      <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-md bg-blue-600/10 text-[10px] font-bold text-blue-600 dark:text-cyan-400 border border-blue-500/20">
-                        {i + 1}
-                      </span>
-                      <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                        {item.text}
-                        {item.highlight && (
-                          <span className="ml-1 px-1.5 py-0.5 rounded bg-blue-600/10 text-blue-700 dark:text-cyan-300 font-bold underline decoration-blue-500/30">
-                            {item.highlight}
-                          </span>
-                        )}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="flex items-center gap-2 px-1 italic">
-                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                <p className="text-[11px] text-slate-500 dark:text-slate-500">
-                  By clicking "Acknowledge", you confirm that you have read the financial protocols.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="p-6 bg-slate-100/50 dark:bg-slate-900/50 border-t border-blue-500/10">
-            <Button
-              onClick={() => setOpen(false)}
-              className="w-full sm:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold tracking-wide uppercase transition-all shadow-lg shadow-blue-600/20"
-            >
-              Acknowledge
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Layout with dashboard as children ───────────────────── */}
-      <AdamsonBudgetLayout>
-        <Dashboard />
-      </AdamsonBudgetLayout>
-    </>
-  );
-}
+function Empty({text}:{text:string}){return <div className="py-12 text-center text-xs text-slate-500">{text}</div>}
