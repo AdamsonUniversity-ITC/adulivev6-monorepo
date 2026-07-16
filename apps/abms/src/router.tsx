@@ -21,6 +21,7 @@ import BudgetRequestEntry from './pages/transactions/budgetrequestentry';
 import RequisitionProcess from './pages/transactions/requisition-process/index.tsx';
 import BudgetPerformanceDepartment from './pages/reports/BudgetPerformanceDepartment.tsx';
 import LiquidationSubmission from './pages/transactions/LiquidationSubmission.tsx';
+import UnauthorizedScreen from './components/UnauthorizedScreen.tsx';
 
 const rootRoute = new RootRoute({
     component: App,
@@ -206,7 +207,13 @@ export const budgetreviewdetailsRoute = new Route({
 export const userdepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/user-department-access',
-    // No `permissions` array on this item in Sidebar.tsx, so it's open to any authenticated user.
+    beforeLoad: ({ context }) => {
+        const permissions: string[] = context?.user?.permissions ?? [];
+
+        if (!permissions.includes('abms_user_department_access')) {
+            throw redirect({ to: '/unauthorized' });
+        }
+    },
     loader: async () => {
         const [permissionsRes, departmentsRes, usersRes] = await Promise.all([
             authSvc.get('/abms-permissions'),
@@ -429,7 +436,7 @@ const maintenanceRoute = new Route({
 const unauthorizedRoute = new Route({
     getParentRoute: () => rootRoute,
     path: '/unauthorized',
-    component: () => <div>Unauthorized Page</div>,
+    component: UnauthorizedScreen,
 });
 
 const routeTree = rootRoute.addChildren([
