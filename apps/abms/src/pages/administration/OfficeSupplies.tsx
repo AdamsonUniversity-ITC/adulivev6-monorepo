@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { officeSuppliesRoute } from '../../router';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -302,25 +303,19 @@ export default function OfficeSupplies() {
           <>
             <Toaster position="bottom-right" richColors closeButton />
 
-            <div className="max-w-6xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-6">
 
               {/* ── Page header ─────────────────────────────────── */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight" style={{ color: t.titleColor }}>
-                    Office Supplies
-                  </h1>
-                  <p className="text-sm mt-0.5" style={{ color: t.subColor }}>
-                    Manage office supply items and pricing.
-                  </p>
-                </div>
-                <Button
+              <PageHeader
+                title="Office Supplies"
+                description="Manage office supply items and pricing."
+                actions={<Button
                   onClick={openCreate}
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-600/20"
                 >
                   <Plus className="w-4 h-4" /> Add Item
-                </Button>
-              </div>
+                </Button>}
+              />
 
               {/* ── Card ────────────────────────────────────────── */}
               <Card

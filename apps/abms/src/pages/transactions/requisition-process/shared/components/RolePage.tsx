@@ -1,8 +1,9 @@
 import React, { ReactNode } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Theme, FilterState, FilterPanelConfig } from '../types';
-import { ROLES, ROLE_COLUMNS, ROLE_FILTER_CONFIGS, PermissionKey } from '../constants';
+import { ROLES, ROLE_COLUMNS, ROLE_FILTER_CONFIGS } from '../constants';
 import { FilterPanel } from './FilterPanel';
+import { PageHeader } from '../../../../../components/ui/Page';
 
 interface RolePageProps {
     role: typeof ROLES[number];
@@ -29,17 +30,11 @@ export function RolePage({
     return (
         <div>
             {/* ── Page title row ─────────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 18, fontWeight: 800, color: t.titleColor, margin: 0, letterSpacing: '-0.01em' }}>
-                        Requisition Process
-                    </h1>
-                    <p style={{ fontSize: 11, color: t.subColor, margin: '4px 0 0', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                        {role.label} View
-                    </p>
-                </div>
-
-                {canSwitch && (
+            <PageHeader
+                className="mb-5"
+                title="Requisition Process"
+                description={`${role.label} View`}
+                actions={canSwitch ? (
                     <button
                         onClick={onSwitchRole}
                         style={{
@@ -55,8 +50,8 @@ export function RolePage({
                         <RefreshCw style={{ width: 11, height: 11 }} />
                         Switch Role
                     </button>
-                )}
-            </div>
+                ) : undefined}
+            />
 
             {/* ── Unified card ───────────────────────────────────── */}
             <div style={{

@@ -29,6 +29,7 @@ import { subAccountsRoute } from '../../router';
 import { useNavigate } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { Badge } from '@repo/ui/components/badge';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -280,7 +281,7 @@ export default function SubAccounts() {
                     <>
                         <Toaster position="bottom-right" richColors closeButton />
 
-                        <div className="max-w-6xl mx-auto space-y-6">
+                        <div className="max-w-7xl mx-auto space-y-6">
 
                             {/* ── Page header ─────────────────────────────────── */}
                             <div className="flex items-center justify-between">
@@ -294,17 +295,15 @@ export default function SubAccounts() {
                                     >
                                         <ArrowLeft className="w-4 h-4" />
                                     </button>
-                                    <div>
-                                        <h1 className="text-2xl font-bold tracking-tight" style={{ color: t.titleColor }}>
-                                            Sub Accounts
-                                        </h1>
-                                        <p className="text-sm mt-0.5" style={{ color: t.subColor }}>
+                                    <PageHeader
+                                        title="Sub Accounts"
+                                        description={<>
                                             Under{' '}
                                             <span className="font-semibold" style={{ color: t.tableHeadText }}>
                                                 {parent?.account_code} — {parent?.account_name}
                                             </span>
-                                        </p>
-                                    </div>
+                                        </>}
+                                    />
                                 </div>
                                 <Button
                                     onClick={openCreate}

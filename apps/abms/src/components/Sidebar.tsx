@@ -36,6 +36,7 @@ interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   isDark: boolean;
+  isNavigating?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +190,10 @@ type AbmsPermissionsPayload = {
   abms_permissions?: AbmsPermission[];
 };
 
+type AbmsRouteUser = {
+  abmsPermissions?: AbmsPermissionsPayload | null;
+};
+
 const getPermissionName = (permission: AbmsPermission) => {
   // Some endpoints may return auth_permission as null; then we can't show a name.
   // We only use permission.auth_permission.name for filtering.
@@ -274,16 +279,19 @@ function NavButton({
   isOpen,
   t,
   isActive,
+  isNavigating,
 }: {
   item: NavItem;
   isOpen: boolean;
   t: typeof T.dark;
   isActive: boolean;
+  isNavigating: boolean;
 }) {
   const Icon = item.icon;
   const navigate = useNavigate();
   return (
     <button
+      disabled={isNavigating}
       className={`relative w-full h-11 rounded-lg overflow-hidden flex items-center transition-all duration-200 border
         ${isOpen ? 'gap-3 px-3' : 'justify-center px-0'}
       `}
@@ -331,7 +339,7 @@ function NavButton({
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: 'auto' }}
             exit={{ opacity: 0, width: 0 }}
-            className="text-sm font-medium tracking-wide whitespace-nowrap overflow-hidden"
+            className="min-w-0 truncate text-sm font-medium tracking-wide"
             style={{ color: isActive ? t.activeText : t.textMuted }}
           >
             {item.label}
@@ -346,7 +354,7 @@ function NavButton({
 // Sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigating = false }) => {
   const t = isDark ? T.dark : T.light;
   const themeKey = isDark ? 'dark' : 'light';
   const navigate = useNavigate();
@@ -358,7 +366,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
   // Backend returns:
   // { general_permissions: Permission[], abms_permissions: Permission[] }
   // where each item has auth_permission resolved via authPermission().
-  const userPermissions = buildPermissionSet((user as any)?.abmsPermissions);
+  const routeUser = user as AbmsRouteUser | null | undefined;
+  const userPermissions = buildPermissionSet(routeUser?.abmsPermissions);
   // console.log(userPermissions)
   const navItems = filterNavItems(NAV_ITEMS, userPermissions);
 
@@ -374,7 +383,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
 
   return (
     <motion.aside
-      animate={{ width: isOpen ? 256 : 72 }}
+      animate={{ width: isOpen ? 288 : 72 }}
       transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
       className="relative z-20 flex flex-col h-screen shrink-0 overflow-hidden"
       style={{
@@ -450,6 +459,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
 
         {isOpen && (
           <button
+            disabled={isNavigating}
             onClick={onToggle}
             className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
             style={{ color: t.subTitle }}
@@ -490,7 +500,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
                   whileHover={{ x: isOpen ? 2 : 0 }}
                   transition={{ duration: 0.14 }}
                 >
-                  <NavButton item={item} isOpen={isOpen} t={t} isActive={isActive} />
+                  <NavButton item={item} isOpen={isOpen} t={t} isActive={isActive} isNavigating={isNavigating} />
                 </motion.div>
               );
             }
@@ -498,6 +508,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
             return (
               <AccordionItem key={index} value={`nav-${index}`} className="border-none">
                 <AccordionTrigger
+                  disabled={isNavigating}
                   className={`relative flex items-center h-11 w-full rounded-lg hover:no-underline transition-all duration-200 border border-transparent
                     ${isOpen ? 'gap-3 px-3' : 'justify-center px-0'}
                   `}
@@ -522,7 +533,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="text-sm font-medium tracking-wide flex-1 text-left"
+                        className="min-w-0 flex-1 truncate text-left text-sm font-medium tracking-wide"
                       >
                         {item.label}
                       </motion.span>
@@ -541,11 +552,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
                         return (
                           <motion.button
                             key={ci}
+                            disabled={isNavigating}
                             onClick={() => child.href && navigate({ to: child.href })}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: ci * 0.05, duration: 0.18 }}
-                            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-xs font-medium tracking-wide transition-all duration-150 border border-transparent"
+                            className="flex min-h-9 w-full items-start gap-2.5 rounded-md border border-transparent px-3 py-2 text-left text-xs font-medium leading-5 tracking-wide transition-all duration-150 disabled:cursor-wait disabled:opacity-65"
                             style={{ color: isChildActive ? t.activeIcon : t.subText }}
                             onMouseEnter={e => {
                               const el = e.currentTarget as HTMLElement;
@@ -561,10 +573,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
                             }}
                           >
                             <span
-                              className="w-1 h-1 rounded-full shrink-0 opacity-70"
+                              className="mt-2 h-1 w-1 shrink-0 rounded-full opacity-70"
                               style={{ background: isChildActive ? t.activeBar : t.subText }}
                             />
-                            {child.label}
+                            <span className="min-w-0 flex-1 break-words">{child.label}</span>
                           </motion.button>
                         );
                       })}
@@ -612,6 +624,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark }) => {
       {/* Collapsed expand pill */}
       {!isOpen && (
         <motion.button
+          disabled={isNavigating}
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.7 }}

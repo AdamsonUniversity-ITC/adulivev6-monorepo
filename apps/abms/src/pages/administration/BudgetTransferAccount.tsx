@@ -4,9 +4,10 @@ import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import { budgettransferaccountRoute } from '../../router.tsx';
 import { financeSvc } from '@repo/axios-config';
 import {
-    ArrowRightLeft, ChevronDown, Save, RefreshCw,
+    ChevronDown, Save, RefreshCw,
     FileText, Eye, Loader2, CheckCircle, XCircle, Info,
 } from 'lucide-react';
+import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens
@@ -523,20 +524,14 @@ function BudgetTransferAccountInner({
         <>
             <ToastStack toasts={toasts} dismiss={dismiss} />
 
-            <div style={{ fontFamily: "'Sora', 'DM Sans', sans-serif" }}>
+            <div className="mx-auto max-w-7xl" style={{ fontFamily: 'var(--abms-font-sans)' }}>
 
                 {/* ── Page title ──────────────────────────────────────── */}
-                <div className="flex items-center gap-2.5 mb-5">
-                    <ArrowRightLeft className="w-5 h-5" style={{ color: t.cellBlue }} />
-                    <div>
-                        <h1 className="text-lg font-bold tracking-tight" style={{ color: t.titleColor }}>
-                            Budget Transfer Account
-                        </h1>
-                        <p className="text-[10px] tracking-widest uppercase" style={{ color: t.subColor }}>
-                            Manage and review budget transfer entries
-                        </p>
-                    </div>
-                </div>
+                <PageHeader
+                    className="mb-5"
+                    title="Budget Transfer Account"
+                    description="Manage and review budget transfer entries."
+                />
 
                 {/* ── Card ────────────────────────────────────────────── */}
                 <div

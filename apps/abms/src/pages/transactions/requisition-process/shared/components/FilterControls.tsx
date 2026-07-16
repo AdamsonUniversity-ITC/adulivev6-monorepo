@@ -27,7 +27,7 @@ export function FilterSortDropdown({ columns, value, open, onToggle, onSelect, t
     };
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', width: '100%' }}>
             <button
                 onClick={onToggle}
                 style={{
@@ -38,6 +38,7 @@ export function FilterSortDropdown({ columns, value, open, onToggle, onSelect, t
                     paddingLeft: 10,
                     paddingRight: 28,
                     minWidth: 120,
+                    width: '100%',
                 }}
             >
                 <ArrowUpDown style={{ width: 10, height: 10, color: t.cellMuted, flexShrink: 0 }} />

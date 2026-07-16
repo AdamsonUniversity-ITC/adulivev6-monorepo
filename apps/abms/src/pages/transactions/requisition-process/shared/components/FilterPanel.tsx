@@ -39,7 +39,7 @@ function InlineDeptSelect({
         setOpen(false);
     };
 
-    const kindBadgeStyle = (kind: 'Department' | 'Section', forSelected = false) => ({
+    const kindBadgeStyle = (kind: 'Department' | 'Section') => ({
         background: kind === 'Department'
             ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
             : (isDark ? 'rgba(5,150,105,0.25)'  : 'rgba(209,250,229,0.90)'),
@@ -82,7 +82,7 @@ function InlineDeptSelect({
                     {selected?.name ?? placeholder ?? 'Select department / section…'}
                 </span>
                 {selected && (
-                    <span style={kindBadgeStyle(selected.kind, true)}>
+                    <span style={kindBadgeStyle(selected.kind)}>
                         {selected.kind === 'Department' ? 'Dept' : 'Sec'}
                     </span>
                 )}
@@ -114,11 +114,12 @@ function InlineDeptSelect({
                             <button
                                 key={`${item.kind}-${item.id}`}
                                 type="button"
+                                className="group"
                                 onMouseDown={() => handleSelect(item)}
                                 style={{
                                     width: '100%',
                                     display: 'flex',
-                                    alignItems: 'center',
+                                    alignItems: 'flex-start',
                                     justifyContent: 'space-between',
                                     gap: 10,
                                     padding: '7px 12px',
@@ -140,10 +141,10 @@ function InlineDeptSelect({
                                 onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(59,130,246,0.12)' : 'rgba(219,234,254,0.50)'; }}
                                 onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                             >
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span className="min-w-0 flex-1 truncate leading-5 group-hover:overflow-visible group-hover:whitespace-normal group-hover:break-words">
                                     {item.name}
                                 </span>
-                                <span style={kindBadgeStyle(item.kind)}>
+                                <span style={{ ...kindBadgeStyle(item.kind), marginTop: 2 }}>
                                     {item.kind === 'Department' ? 'Dept' : 'Sec'}
                                 </span>
                             </button>
@@ -220,7 +221,14 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
         textTransform: 'uppercase', color: t.labelColor, whiteSpace: 'nowrap',
     };
     const colStack: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 };
-    const vDivider: React.CSSProperties = { width: 1, background: t.dividerColor, alignSelf: 'stretch', flexShrink: 0 };
+    const filterCard: React.CSSProperties = {
+        ...colStack,
+        minWidth: 0,
+        padding: 16,
+        borderRadius: 12,
+        border: `1px solid ${t.inputBorder}`,
+        background: t.inputBg,
+    };
 
     const hasDept        = !!config.department;
     const hasSearch      = !!config.searchField;
@@ -242,7 +250,8 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
             {config.status && (
                 <div style={{
                     display: 'flex', alignItems: 'center', gap: 14,
-                    flexWrap: 'wrap', padding: '18px 24px',
+                    flexWrap: 'wrap', padding: 16, margin: 16, marginBottom: 0,
+                    borderRadius: 12, border: `1px solid ${t.inputBorder}`,
                     background: isDark ? 'rgba(10,20,48,0.40)' : 'rgba(232,242,255,0.45)',
                 }}>
                     <span style={sectionLabel}>{config.status.sectionLabel ?? 'Status'}</span>
@@ -279,14 +288,14 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
 
             {/* ── Row 2: Left cluster  ║  RS No. hero field ─────────── */}
             {hasRow2 && (
-                <div style={{ display: 'flex', alignItems: 'stretch', padding: '20px 24px', gap: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: hasSearch && hasLeftCluster ? 'minmax(0, 2fr) minmax(280px, 1fr)' : 'minmax(0, 1fr)', alignItems: 'stretch', padding: 16, gap: 12 }}>
 
                     {hasLeftCluster && (
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', flex: '1 1 0', minWidth: 0 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', alignItems: 'stretch', gap: 12, minWidth: 0 }}>
 
                             {hasDept && (
                                 <>
-                                    <div style={{ ...colStack, minWidth: 200, maxWidth: 280, flex: '0 1 240px' }}>
+                                    <div style={filterCard}>
                                         <span style={sectionLabel}>{config.department!.sectionLabel ?? 'Department'}</span>
 
                                         {/* Rich mode: DeptOption[] with Dept/Sec badges */}
@@ -357,13 +366,12 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             t={t}
                                         />
                                     </div>
-                                    {(hasSort || hasActions || hasSchoolYear || hasDateRange) && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
                             {hasSort && (
                                 <>
-                                    <div style={colStack}>
+                                    <div style={filterCard}>
                                         <span style={sectionLabel}>Sort Options</span>
                                         <FilterSortDropdown
                                             columns={sortColumns}
@@ -378,7 +386,6 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             <FilterCheckbox id="sort-desc" checked={state.sortDir === 'desc'} onChange={() => onChange({ sortDir: 'desc' })} label="Descending" t={t} />
                                         </div>
                                     </div>
-                                    {(hasSchoolYear || hasDateRange || hasActions) && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
@@ -388,7 +395,7 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                 contributes to the requery query when checked. */}
                             {hasSchoolYear && (
                                 <>
-                                    <div style={{ ...colStack, minWidth: 150 }}>
+                                    <div style={filterCard}>
                                         <span style={sectionLabel}>School Year</span>
                                         <FilterCheckbox
                                             id="schoolyear-toggle"
@@ -420,7 +427,6 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             ))}
                                         </select>
                                     </div>
-                                    {(hasDateRange || hasActions) && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
@@ -429,7 +435,7 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                 contributes to the requery query when checked. */}
                             {hasDateRange && (
                                 <>
-                                    <div style={{ ...colStack, minWidth: 190 }}>
+                                    <div style={filterCard}>
                                         <span style={sectionLabel}>Date Range</span>
                                         <FilterCheckbox
                                             id="daterange-toggle"
@@ -480,13 +486,12 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             />
                                         </div>
                                     </div>
-                                    {hasActions && <div style={{ ...vDivider, margin: '0 8px' }} />}
                                 </>
                             )}
 
                             {hasActions && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                                    <div style={{ display: 'flex', gap: 8 }}>
+                                <div style={{ ...filterCard, justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                         {config.actions!.map(action => (
                                             <FilterActionButton
                                                 key={action.label}
@@ -523,12 +528,8 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                         </div>
                     )}
 
-                    {hasSearch && hasLeftCluster && (
-                        <div style={{ width: 1, background: t.dividerColor, margin: '0 24px', flexShrink: 0, alignSelf: 'stretch' }} />
-                    )}
-
                     {hasSearch && (
-                        <div style={{ ...colStack, flexShrink: 0, width: 300 }}>
+                        <div style={{ ...filterCard, minWidth: 280, justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                                 <FilterCheckbox
                                     id="search-toggle"
