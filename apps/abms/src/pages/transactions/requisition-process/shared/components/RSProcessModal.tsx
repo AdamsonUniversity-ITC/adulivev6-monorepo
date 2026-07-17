@@ -8,7 +8,7 @@ import {
     Eye, MessageSquare, History, Send, RefreshCw, Printer, XCircle,
     AlertTriangle, AlertCircle, ArrowRight, ShoppingCart, Pencil, Save,
     Warehouse, BookOpen, Users, Briefcase, Landmark, Banknote,
-    Undo2, PackageCheck, CircleDollarSign
+    Undo2, PackageCheck, CircleDollarSign, Paperclip, ExternalLink,
 } from 'lucide-react';
 import { Theme } from '../types.ts';
 import { PermissionKey } from '../constants.ts';
@@ -30,6 +30,7 @@ export interface RSLineItem {
     unit_cost: number;
     total_cost: number;
     quoted_price?: number | null;
+    isreviewed?: boolean;
 }
 
 export interface RSProcessRow {
@@ -78,6 +79,17 @@ interface AuditRecord {
     new_values: Record<string, any>;
 }
 
+interface RSMediaFile {
+    id: number;
+    name: string;
+    file_name: string;
+    mime_type: string;
+    size: number;
+    url: string;
+    expires_at: string;
+    created_at: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Payee detail types (mirrors BudgetRequestEntry)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,6 +106,9 @@ interface PayeeDetailRecord {
 }
 
 const PAYEE_VIEW_REQUIRED_FORMS = ['Payment for Supplier/Water', 'Reimbursement/Replenishment'];
+
+const RS_FILES_ENDPOINT = (rsId: number) => `abms/budget-request-entry/${rsId}/files`;
+const RS_FILE_URL_ENDPOINT = (rsId: number, mediaId: number) => `abms/budget-request-entry/${rsId}/files/${mediaId}/url`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Role action configs — what buttons each role sees
@@ -489,7 +504,7 @@ function ActionButton({
 }
 
 function ToolbarButton({
-    label, icon: Icon, t, isDark, onClick, tone = 'neutral',
+    label, icon: Icon, t, isDark, onClick, tone = 'neutral', disabled = false, title,
 }: {
     label: string;
     icon: React.ElementType;
@@ -497,6 +512,8 @@ function ToolbarButton({
     isDark: boolean;
     onClick?: () => void;
     tone?: 'neutral' | 'accent' | 'danger' | 'success';
+    disabled?: boolean;
+    title?: string;
 }) {
     const palette = {
         neutral: { icon: t.accentColor, bg: t.dropdownSelected, border: t.cardBorder, label: t.cellMuted },
@@ -507,14 +524,19 @@ function ToolbarButton({
 
     return (
         <button
-            onClick={onClick}
+            onClick={disabled ? undefined : onClick}
+            title={title}
+            disabled={disabled}
             style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 gap: 4, padding: '6px 7px', minWidth: 52,
                 border: 'none', background: 'transparent',
-                borderRadius: 8, cursor: 'pointer', transition: 'background .12s ease',
+                borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', transition: 'background .12s ease',
+                opacity: disabled ? 0.45 : 1,
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)')}
+            onMouseEnter={e => {
+                if (!disabled) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)';
+            }}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
             <span style={{
@@ -559,6 +581,11 @@ export function RSProcessModal({
 }: RSProcessModalProps) {
     const [itemsExpanded, setItemsExpanded] = useState(true);
     const [pendingAction, setPendingAction] = useState<RoleAction | null>(null);
+    const [showRSFiles, setShowRSFiles] = useState(false);
+    const [uploadedFiles, setUploadedFiles] = useState<RSMediaFile[]>([]);
+    const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+    const [openingFileId, setOpeningFileId] = useState<number | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
 
     // ── Notes editing state ──────────────────────────────────────────────────
     const [isEditingNote, setIsEditingNote] = useState(false);
@@ -570,6 +597,12 @@ export function RSProcessModal({
     useEffect(() => {
         if (!isEditingNote) setNoteDraft(row.note ?? '');
     }, [row.id, row.note, isEditingNote]);
+
+    useEffect(() => {
+        setShowRSFiles(false);
+        setUploadedFiles([]);
+        setFileError(null);
+    }, [row.id]);
 
     // ── Payee detail state ───────────────────────────────────────────────────
     const [payeeDetail, setPayeeDetail] = useState<PayeeDetailRecord | null>(null);
@@ -605,12 +638,14 @@ export function RSProcessModal({
     // ── Quoted price entry (logistics-only) ──────────────────────────────────
     // Logistics checks supplier prices and records a quoted price per line
     // item while the entry sits at the pricing stage reached via the
-    // 'For Pricing' action (DB status 'for pricing', location 'logistics').
+    // 'For Pricing' action, or while logistics is handling a purchase whose
+    // supplier prices changed (DB status 'for pricing'/'for purchase',
+    // location 'logistics').
     // This never touches quantity/unit_cost/total_cost or any account
     // balance — quoted_price is a reference column for whoever reviews the
     // RS afterward. Saving forwards the RS on to the Budget Office.
     const canPriceItems = roleKey === 'logistics-access'
-        && (row.status ?? '').toLowerCase() === 'for pricing'
+        && ['for pricing', 'for purchase'].includes((row.status ?? '').toLowerCase())
         && (row.location ?? '').toLowerCase() === 'logistics';
     const [isPricingItems, setIsPricingItems] = useState(false);
     const [priceDrafts, setPriceDrafts] = useState<Record<number, number>>({});
@@ -640,6 +675,7 @@ export function RSProcessModal({
         account_balance: number | null;
         balance_after: number | null;
         sufficient: boolean | null;
+        isreviewed: boolean;
     }
 
     const [acceptPreviewOpen, setAcceptPreviewOpen] = useState(false);
@@ -647,6 +683,7 @@ export function RSProcessModal({
     const [acceptPreviewAllSufficient, setAcceptPreviewAllSufficient] = useState(false);
     const [acceptPreviewLoading, setAcceptPreviewLoading] = useState(false);
     const [acceptPreviewError, setAcceptPreviewError] = useState<string | null>(null);
+    const [reviewingItemId, setReviewingItemId] = useState<number | null>(null);
     const [isAccepting, setIsAccepting] = useState(false);
     const [acceptError, setAcceptError] = useState<string | null>(null);
 
@@ -662,6 +699,30 @@ export function RSProcessModal({
             setAcceptPreviewError(err?.response?.data?.message ?? 'Failed to load preview. Please try again.');
         } finally {
             setAcceptPreviewLoading(false);
+        }
+    }
+
+    async function handleToggleReviewed(itemId: number, isreviewed: boolean) {
+        if (reviewingItemId !== null) return;
+
+        const previousItems = acceptPreviewItems;
+        setReviewingItemId(itemId);
+        setAcceptError(null);
+        setAcceptPreviewItems(items => items.map(item =>
+            item.id === itemId ? { ...item, isreviewed } : item
+        ));
+
+        try {
+            const res = await financeSvc.patch(`/abms/requisition-process/${row.id}/items/${itemId}/reviewed`, { isreviewed });
+            const savedReviewed = !!res.data?.data?.isreviewed;
+            setAcceptPreviewItems(items => items.map(item =>
+                item.id === itemId ? { ...item, isreviewed: savedReviewed } : item
+            ));
+        } catch (err: any) {
+            setAcceptPreviewItems(previousItems);
+            setAcceptError(err?.response?.data?.message ?? 'Failed to update review status. Please try again.');
+        } finally {
+            setReviewingItemId(null);
         }
     }
 
@@ -771,6 +832,60 @@ export function RSProcessModal({
     function confirmPendingAction() {
         if (pendingAction) onAction?.(pendingAction.label, row);
         setPendingAction(null);
+    }
+
+    function formatBytes(bytes: number) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    async function fetchRSFiles() {
+        if (!row.id) return;
+        setIsLoadingFiles(true);
+        setFileError(null);
+        try {
+            const res = await financeSvc.get(RS_FILES_ENDPOINT(row.id));
+            setUploadedFiles(res.data.data ?? []);
+        } catch (err: any) {
+            setFileError(err?.response?.data?.message ?? 'Failed to load RS files.');
+        } finally {
+            setIsLoadingFiles(false);
+        }
+    }
+
+    function toggleRSFiles() {
+        setShowRSFiles(prev => {
+            const next = !prev;
+            if (next && uploadedFiles.length === 0 && !isLoadingFiles) {
+                void fetchRSFiles();
+            }
+            return next;
+        });
+    }
+
+    async function openRSFile(file: RSMediaFile) {
+        if (new Date(file.expires_at) > new Date()) {
+            window.open(file.url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        setOpeningFileId(file.id);
+        try {
+            const res = await financeSvc.get(RS_FILE_URL_ENDPOINT(row.id, file.id));
+            const freshUrl: string = res.data.url;
+            setUploadedFiles(prev =>
+                prev.map(uploaded => uploaded.id === file.id
+                    ? { ...uploaded, url: freshUrl, expires_at: res.data.expires_at }
+                    : uploaded,
+                ),
+            );
+            window.open(freshUrl, '_blank', 'noopener,noreferrer');
+        } catch (err: any) {
+            setFileError(err?.response?.data?.message ?? 'Failed to open file.');
+        } finally {
+            setOpeningFileId(null);
+        }
     }
 
     async function handleSaveNote() {
@@ -934,6 +1049,11 @@ export function RSProcessModal({
 
     // Mock line items if not provided
     const lineItems: RSLineItem[] = row.items ?? [];
+    const quotedPricesAccepted = lineItems.length > 0
+        && lineItems.some(item => item.quoted_price != null)
+        && lineItems
+            .filter(item => item.quoted_price != null)
+            .every(item => Math.abs(Number(item.unit_cost) - Number(item.quoted_price)) < 0.005);
 
     // Column count for the Requested Items table — 7 when the Quoted Price
     // column is visible (see showQuotedPriceColumn above), 6 otherwise.
@@ -1126,16 +1246,24 @@ export function RSProcessModal({
                             borderRadius: 10, padding: '3px',
                         }}>
                             {rightToolbarActions.map(action => (
-                                <ToolbarButton
-                                    key={action.label}
-                                    label={action.label}
-                                    icon={action.icon!}
-                                    t={t}
-                                    isDark={isDark}
-                                    tone={toolbarTone(action)}
-                                    onClick={() => triggerAction(action)}
-                                />
+                                (() => {
+                                    const forPurchaseBlocked = action.label === 'For Purchase' && !quotedPricesAccepted;
+                                    return (
+                                        <ToolbarButton
+                                            key={action.label}
+                                            label={action.label}
+                                            icon={action.icon!}
+                                            t={t}
+                                            isDark={isDark}
+                                            tone={toolbarTone(action)}
+                                            disabled={forPurchaseBlocked}
+                                            title={forPurchaseBlocked ? 'Accept quoted prices before marking this RS for purchase.' : undefined}
+                                            onClick={() => triggerAction(action)}
+                                        />
+                                    );
+                                })()
                             ))}
+                            <ToolbarButton label="View Files" icon={Paperclip} t={t} isDark={isDark} tone={showRSFiles ? 'accent' : 'neutral'} onClick={toggleRSFiles} />
                             <div style={{ width: 1, height: 28, background: t.dividerColor, margin: '0 2px', flexShrink: 0 }} />
                             <ToolbarButton label="Close" icon={X} t={t} isDark={isDark} tone="danger" onClick={onClose} />
                         </div>
@@ -2058,17 +2186,17 @@ export function RSProcessModal({
 
                                         {/* Items table */}
                                         <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${t.cardBorder}` }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
                                                 <thead>
                                                     <tr style={{ background: t.tableHeadBg }}>
-                                                        {['Account', 'Description', 'Qty', 'Current Cost', 'Quoted Price', 'Delta', 'Acct. Balance', 'Balance After'].map((col, i, arr) => (
+                                                        {['Review', 'Account', 'Description', 'Qty', 'Current Cost', 'Quoted Price', 'Delta', 'Acct. Balance', 'Balance After'].map((col, i, arr) => (
                                                             <th key={col} style={{
                                                                 padding: '9px 12px', fontSize: 9, fontWeight: 700,
                                                                 textTransform: 'uppercase', letterSpacing: '0.08em',
                                                                 color: t.tableHeadText,
                                                                 borderBottom: `2px solid ${t.tableHeadBorder}`,
                                                                 borderRight: i < arr.length - 1 ? `1px solid ${t.tableHeadBorder}` : 'none',
-                                                                textAlign: i >= 2 ? 'right' : 'left',
+                                                                textAlign: i >= 3 ? 'right' : 'left',
                                                                 whiteSpace: 'nowrap',
                                                             }}>
                                                                 {col}
@@ -2081,8 +2209,39 @@ export function RSProcessModal({
                                                         const rowBg = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg;
                                                         const noChange = item.quoted_price === null || item.delta === 0;
                                                         const insufficient = item.sufficient === false;
+                                                        const isReviewing = reviewingItemId === item.id;
                                                         return (
                                                             <tr key={item.id} style={{ background: insufficient ? (isDark ? 'rgba(239,68,68,0.07)' : 'rgba(254,242,242,0.70)') : rowBg }}>
+                                                                <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap' }}>
+                                                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: isReviewing ? 'wait' : 'pointer' }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={!!item.isreviewed}
+                                                                            disabled={isReviewing}
+                                                                            onChange={e => handleToggleReviewed(item.id, e.target.checked)}
+                                                                            style={{ width: 14, height: 14, cursor: isReviewing ? 'wait' : 'pointer', accentColor: '#059669' }}
+                                                                        />
+                                                                        <span style={{
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: 4,
+                                                                            fontSize: 10,
+                                                                            fontWeight: 700,
+                                                                            color: item.isreviewed
+                                                                                ? (isDark ? '#6ee7b7' : '#047857')
+                                                                                : t.cellMuted,
+                                                                        }}>
+                                                                            {isReviewing ? (
+                                                                                <RefreshCw style={{ width: 11, height: 11, animation: 'spin 1s linear infinite' }} />
+                                                                            ) : item.isreviewed ? (
+                                                                                <CheckCircle2 style={{ width: 11, height: 11 }} />
+                                                                            ) : (
+                                                                                <XCircle style={{ width: 11, height: 11 }} />
+                                                                            )}
+                                                                            {item.isreviewed ? 'Verified' : 'Not reviewed'}
+                                                                        </span>
+                                                                    </label>
+                                                                </td>
                                                                 <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap' }}>
                                                                     {item.account_code}
                                                                 </td>
@@ -2197,6 +2356,139 @@ export function RSProcessModal({
                     onCancel={() => setPendingAction(null)}
                     onConfirm={confirmPendingAction}
                 />
+            )}
+
+            {showRSFiles && (
+                <>
+                    <div
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 1000000,
+                            background: 'rgba(0,0,0,0.52)',
+                            backdropFilter: 'blur(2px)',
+                        }}
+                        onClick={() => setShowRSFiles(false)}
+                    />
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%,-50%)',
+                            zIndex: 1000001,
+                            width: 'min(560px, calc(100vw - 32px))',
+                            maxHeight: '76vh',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            background: t.cardBg,
+                            border: `1px solid ${t.cardBorder}`,
+                            borderRadius: 14,
+                            boxShadow: t.cardShadow,
+                            overflow: 'hidden',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '14px 18px',
+                                background: t.cardHeaderBg,
+                                borderBottom: `1px solid ${t.cardHeaderBorder}`,
+                                flexShrink: 0,
+                            }}
+                        >
+                            <Paperclip style={{ width: 16, height: 16, color: t.accentColor }} />
+                            <span style={{ fontSize: 13, fontWeight: 800, color: t.titleColor }}>
+                                Attached Files
+                            </span>
+                            {isLoadingFiles && <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite', color: t.cellMuted }} />}
+                            <button
+                                onClick={() => setShowRSFiles(false)}
+                                style={{
+                                    marginLeft: 'auto',
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 8,
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: t.cellMuted,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <X style={{ width: 16, height: 16 }} />
+                            </button>
+                        </div>
+
+                        <div style={{ padding: 16, overflowY: 'auto' }}>
+                            {fileError && (
+                                <div style={{
+                                    marginBottom: 10,
+                                    padding: '8px 10px',
+                                    borderRadius: 8,
+                                    background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.70)',
+                                    border: `1px solid ${isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.30)'}`,
+                                    color: isDark ? '#fca5a5' : '#991b1b',
+                                    fontSize: 11,
+                                }}>
+                                    {fileError}
+                                </div>
+                            )}
+
+                            {isLoadingFiles ? (
+                                <div style={{ padding: '32px 10px', fontSize: 12, color: t.cellMuted, textAlign: 'center' }}>
+                                    Loading files…
+                                </div>
+                            ) : uploadedFiles.length === 0 ? (
+                                <div style={{ padding: '32px 10px', fontSize: 12, color: t.cellMuted, textAlign: 'center' }}>
+                                    No attached files.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gap: 8 }}>
+                                    {uploadedFiles.map(file => (
+                                        <button
+                                            key={file.id}
+                                            onClick={() => openRSFile(file)}
+                                            disabled={openingFileId === file.id}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                width: '100%',
+                                                padding: '9px 10px',
+                                                borderRadius: 8,
+                                                border: `1px solid ${t.cardBorder}`,
+                                                background: isDark ? 'rgba(10,22,50,0.55)' : 'rgba(255,255,255,0.70)',
+                                                color: t.cellText,
+                                                cursor: openingFileId === file.id ? 'wait' : 'pointer',
+                                                textAlign: 'left',
+                                            }}
+                                        >
+                                            <Paperclip style={{ width: 13, height: 13, color: t.cellMuted, flexShrink: 0 }} />
+                                            <span style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>
+                                                    {file.file_name}
+                                                </span>
+                                                <span style={{ display: 'block', marginTop: 2, fontSize: 10, color: t.cellMuted }}>
+                                                    {file.mime_type} · {formatBytes(file.size)}
+                                                </span>
+                                            </span>
+                                            {openingFileId === file.id
+                                                ? <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite', color: t.cellMuted }} />
+                                                : <ExternalLink style={{ width: 13, height: 13, color: t.cellMuted }} />
+                                            }
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
             )}
 
             {/* ── Chat modal ─────────────────────────────────────────────────── */}
