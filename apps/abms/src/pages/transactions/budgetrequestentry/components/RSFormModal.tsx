@@ -54,6 +54,14 @@ export function formatCurrentDate(): string {
 
 export const fmtCurrency = (n: number) =>
     n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+interface UploadedAttachment {
+    id: number;
+    file_name: string;
+    mime_type: string;
+    size: number;
+}
+
 export function AttachmentsModal({
     open,
     onClose,
@@ -68,9 +76,12 @@ export function AttachmentsModal({
     rsHeaderId: number | null;
 }) {
     const [attachments, setAttachments] = useState<File[]>([]);
+    const [uploadedFiles, setUploadedFiles] = useState<UploadedAttachment[]>([]);
     const [isDragActive, setIsDragActive] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
+    const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.csv';
     const ALLOWED_MIME_TYPES = new Set([
@@ -87,9 +98,37 @@ export function AttachmentsModal({
     ]);
     const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
+    useEffect(() => {
+        setAttachments([]);
+        setUploadedFiles([]);
+        setFileError(null);
+        setUploadSuccess(null);
+    }, [rsHeaderId]);
+
+    useEffect(() => {
+        if (!open || !rsHeaderId) return;
+
+        let active = true;
+        financeSvc.get(`abms/budget-request-entry/${rsHeaderId}/files`)
+            .then(res => {
+                if (active) setUploadedFiles(res.data?.data ?? []);
+            })
+            .catch((err: unknown) => {
+                if (!active) return;
+                const message = typeof err === 'object' && err !== null && 'response' in err
+                    ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+                    : null;
+                setFileError(message ?? 'Failed to load uploaded files.');
+            });
+
+        return () => { active = false; };
+    }, [open, rsHeaderId]);
+
     const handleDropzoneClick = () => fileInputRef.current?.click();
     const handleFilesSelected = (files: FileList | null) => {
         if (!files) return;
+
+        setUploadSuccess(null);
 
         const rejected: string[] = [];
         const accepted: File[] = [];
@@ -122,14 +161,18 @@ export function AttachmentsModal({
 
         setIsUploading(true);
         setFileError(null);
+        setUploadSuccess(null);
         try {
             const formData = new FormData();
             attachments.forEach(file => formData.append('files[]', file));
             await financeSvc.post(`abms/budget-request-entry/${rsHeaderId}/files`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+            const uploadedCount = attachments.length;
+            const filesResponse = await financeSvc.get(`abms/budget-request-entry/${rsHeaderId}/files`);
+            setUploadedFiles(filesResponse.data?.data ?? []);
             setAttachments([]);
-            onClose();
+            setUploadSuccess(`${uploadedCount} file${uploadedCount === 1 ? '' : 's'} uploaded successfully.`);
         } catch (err: unknown) {
             const message = typeof err === 'object' && err !== null && 'response' in err
                 ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -137,6 +180,26 @@ export function AttachmentsModal({
             setFileError(message ?? 'Upload failed. Please try again.');
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleDeleteUploadedFile = async (file: UploadedAttachment) => {
+        if (!rsHeaderId || deletingFileId !== null) return;
+
+        setDeletingFileId(file.id);
+        setFileError(null);
+        setUploadSuccess(null);
+        try {
+            await financeSvc.delete(`abms/budget-request-entry/${rsHeaderId}/files/${file.id}`);
+            setUploadedFiles(prev => prev.filter(item => item.id !== file.id));
+            setUploadSuccess(`"${file.file_name}" was removed successfully.`);
+        } catch (err: unknown) {
+            const message = typeof err === 'object' && err !== null && 'response' in err
+                ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+                : null;
+            setFileError(message ?? `Failed to remove "${file.file_name}". Please try again.`);
+        } finally {
+            setDeletingFileId(null);
         }
     };
 
@@ -234,6 +297,68 @@ export function AttachmentsModal({
                             }}
                         >
                             {fileError}
+                        </div>
+                    )}
+
+                    {uploadSuccess && (
+                        <div
+                            role="status"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 7,
+                                marginTop: 10, padding: '8px 10px', borderRadius: 8,
+                                background: isDark ? 'rgba(34,197,94,0.10)' : 'rgba(240,253,244,0.95)',
+                                border: `1px solid ${isDark ? 'rgba(74,222,128,0.30)' : 'rgba(22,163,74,0.25)'}`,
+                                color: isDark ? '#86efac' : '#166534', fontSize: 11,
+                            }}
+                        >
+                            <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0 }} />
+                            {uploadSuccess}
+                        </div>
+                    )}
+
+                    {uploadedFiles.length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                            <div style={{ marginBottom: 6, color: t.cellMuted, fontSize: 10, fontWeight: 700 }}>
+                                Uploaded files ({uploadedFiles.length})
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {uploadedFiles.map(file => (
+                                    <div
+                                        key={file.id}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                            padding: '6px 10px', borderRadius: 8,
+                                            background: isDark ? 'rgba(34,197,94,0.08)' : 'rgba(240,253,244,0.80)',
+                                            border: `1px solid ${isDark ? 'rgba(74,222,128,0.22)' : 'rgba(22,163,74,0.20)'}`,
+                                            fontSize: 11, color: t.cellText,
+                                        }}
+                                    >
+                                        <CheckCircle2 style={{ width: 13, height: 13, flexShrink: 0, color: isDark ? '#4ade80' : '#16a34a' }} />
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {file.file_name}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleDeleteUploadedFile(file)}
+                                            disabled={deletingFileId !== null}
+                                            aria-label={`Remove ${file.file_name}`}
+                                            title="Remove uploaded file"
+                                            style={{
+                                                marginLeft: 'auto', width: 24, height: 24, borderRadius: 6,
+                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                background: 'transparent', border: 'none',
+                                                cursor: deletingFileId !== null ? 'not-allowed' : 'pointer',
+                                                color: isDark ? '#fca5a5' : '#b91c1c',
+                                                opacity: deletingFileId !== null && deletingFileId !== file.id ? 0.45 : 1,
+                                            }}
+                                        >
+                                            {deletingFileId === file.id
+                                                ? <RefreshCw style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} />
+                                                : <Trash2 style={{ width: 12, height: 12 }} />}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -348,13 +473,6 @@ export function RSFormModal({
     const [payeeInput, setPayeeInput] = useState('');
     const [showChat, setShowChat] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [attachments, setAttachments] = useState<File[]>([]);
-    const [isDragActive, setIsDragActive] = useState(false);
-    const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.csv';
-    const handleDropzoneClick = () => { /* TODO: trigger hidden file input */ };
-    const handleFilesSelected = (_files: FileList | null) => { /* TODO: filter + append to attachments */ };
-    const handleRemoveAttachment = (_index: number) => { /* TODO: remove from attachments */ };
-
     useEffect(() => {
         if (open) {
             setItems([]);
