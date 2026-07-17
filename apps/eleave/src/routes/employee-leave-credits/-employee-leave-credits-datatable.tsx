@@ -18,6 +18,7 @@ import {
   getEmployeeDepartment,
   getInitialsFromDisplayName,
 } from "@/lib/employee-teacher-display"
+import { groupLeaveBalanceRowsByCode } from "@/lib/group-leave-balance-rows"
 
 import { ViewEmployeeLeaveCreditsSheet } from "./-view-employee-leave-credits-sheet"
 
@@ -50,7 +51,9 @@ function mapToRecordPagination(
 }
 
 function countActiveLeaveTypes(row: EmployeeLeaveCreditsRow): number {
-  return row.leave_credits.filter((credit) => credit.credits > 0).length
+  return groupLeaveBalanceRowsByCode(row.leave_credits).filter(
+    (credit) => credit.credits > 0,
+  ).length
 }
 
 function hasActiveCredits(row: EmployeeLeaveCreditsRow): boolean {

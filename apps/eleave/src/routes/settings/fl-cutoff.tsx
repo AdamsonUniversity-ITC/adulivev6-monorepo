@@ -78,7 +78,7 @@ function FlCutoffSettingsPage() {
           </h1>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base">
             Configure the forced leave school year and computation window used for
-            balance deductions and after-cutoff reporting.
+            balance deductions
           </p>
         </div>
       </div>
