@@ -24,6 +24,7 @@ import { Route as HrApprovalIndexRouteImport } from './routes/hr-approval/index'
 import { Route as ForApprovalIndexRouteImport } from './routes/for-approval/index'
 import { Route as EmployeeLeaveCreditsIndexRouteImport } from './routes/employee-leave-credits/index'
 import { Route as BeginningBalancesIndexRouteImport } from './routes/beginning-balances/index'
+import { Route as SettingsFlCutoffRouteImport } from './routes/settings/fl-cutoff'
 import { Route as ReportsFiledLeaveAfterCutoffRouteImport } from './routes/reports/filed-leave-after-cutoff'
 import { Route as ReportsFiledLeaveRouteImport } from './routes/reports/filed-leave'
 import { Route as HrApprovalViewHrApprovalSheetRouteImport } from './routes/hr-approval/view-hr-approval-sheet'
@@ -108,6 +109,11 @@ const BeginningBalancesIndexRoute = BeginningBalancesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => BeginningBalancesRouteRoute,
 } as any)
+const SettingsFlCutoffRoute = SettingsFlCutoffRouteImport.update({
+  id: '/settings/fl-cutoff',
+  path: '/settings/fl-cutoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsFiledLeaveAfterCutoffRoute =
   ReportsFiledLeaveAfterCutoffRouteImport.update({
     id: '/reports/filed-leave-after-cutoff',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/reports/filed-leave-after-cutoff': typeof ReportsFiledLeaveAfterCutoffRoute
+  '/settings/fl-cutoff': typeof SettingsFlCutoffRoute
   '/beginning-balances/': typeof BeginningBalancesIndexRoute
   '/employee-leave-credits/': typeof EmployeeLeaveCreditsIndexRoute
   '/for-approval/': typeof ForApprovalIndexRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/reports/filed-leave-after-cutoff': typeof ReportsFiledLeaveAfterCutoffRoute
+  '/settings/fl-cutoff': typeof SettingsFlCutoffRoute
   '/beginning-balances': typeof BeginningBalancesIndexRoute
   '/employee-leave-credits': typeof EmployeeLeaveCreditsIndexRoute
   '/for-approval': typeof ForApprovalIndexRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/reports/filed-leave-after-cutoff': typeof ReportsFiledLeaveAfterCutoffRoute
+  '/settings/fl-cutoff': typeof SettingsFlCutoffRoute
   '/beginning-balances/': typeof BeginningBalancesIndexRoute
   '/employee-leave-credits/': typeof EmployeeLeaveCreditsIndexRoute
   '/for-approval/': typeof ForApprovalIndexRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/reports/filed-leave-after-cutoff'
+    | '/settings/fl-cutoff'
     | '/beginning-balances/'
     | '/employee-leave-credits/'
     | '/for-approval/'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/reports/filed-leave-after-cutoff'
+    | '/settings/fl-cutoff'
     | '/beginning-balances'
     | '/employee-leave-credits'
     | '/for-approval'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/reports/filed-leave-after-cutoff'
+    | '/settings/fl-cutoff'
     | '/beginning-balances/'
     | '/employee-leave-credits/'
     | '/for-approval/'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   TestRoute: typeof TestRoute
   ReportsFiledLeaveRoute: typeof ReportsFiledLeaveRoute
   ReportsFiledLeaveAfterCutoffRoute: typeof ReportsFiledLeaveAfterCutoffRoute
+  SettingsFlCutoffRoute: typeof SettingsFlCutoffRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -396,6 +409,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/beginning-balances/'
       preLoaderRoute: typeof BeginningBalancesIndexRouteImport
       parentRoute: typeof BeginningBalancesRouteRoute
+    }
+    '/settings/fl-cutoff': {
+      id: '/settings/fl-cutoff'
+      path: '/settings/fl-cutoff'
+      fullPath: '/settings/fl-cutoff'
+      preLoaderRoute: typeof SettingsFlCutoffRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/reports/filed-leave-after-cutoff': {
       id: '/reports/filed-leave-after-cutoff'
@@ -527,6 +547,7 @@ const rootRouteChildren: RootRouteChildren = {
   TestRoute: TestRoute,
   ReportsFiledLeaveRoute: ReportsFiledLeaveRoute,
   ReportsFiledLeaveAfterCutoffRoute: ReportsFiledLeaveAfterCutoffRoute,
+  SettingsFlCutoffRoute: SettingsFlCutoffRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
