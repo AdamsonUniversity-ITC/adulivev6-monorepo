@@ -662,19 +662,12 @@ export function RSChatBadge({
             <button
                 onClick={onClick}
                 title={active ? 'Close chat' : 'Open chat'}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
                 style={{
-                    height: 32,
-                    paddingLeft: 10,
-                    paddingRight: 12,
-                    borderRadius: 20,          // pill shape
                     border: `1px solid ${active ? paleBlue.activeBorder : paleBlue.idleBorder}`,
                     background: active ? paleBlue.activeBg : paleBlue.idleBg,
                     color: active ? paleBlue.activeText : paleBlue.idleText,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
                     cursor: 'pointer',
-                    transition: 'all .15s ease',
                     flexShrink: 0,
                     boxShadow: active
                         ? (isDark
@@ -695,13 +688,9 @@ export function RSChatBadge({
                     }
                 }}
             >
-                <MessageSquare style={{ width: 13, height: 13, flexShrink: 0 }} />
+                <MessageSquare style={{ width: 14, height: 14, flexShrink: 0 }} />
                 <span style={{
-                    fontSize: 11,
-                    fontWeight: 700,
                     letterSpacing: '0.01em',
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
                 }}>
                     Chat
                 </span>
@@ -736,4 +725,3 @@ export function RSChatBadge({
         </div>
     );
 }
-

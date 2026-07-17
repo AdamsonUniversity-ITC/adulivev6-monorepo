@@ -8,41 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@repo/ui/components/select";
-
-const T = {
-    dark: {
-        titleColor: '#f1f5f9',
-        subColor: '#94a3b8',
-        cardBg: 'rgba(11, 20, 38, 0.70)',
-        cardBorder: 'rgba(59, 130, 246, 0.18)',
-        cardShadow: '0 4px 32px rgba(37, 99, 235, 0.10)',
-        footerBg: 'rgba(8, 14, 26, 0.60)',
-        footerBorder: 'rgba(59, 130, 246, 0.12)',
-        labelColor: '#22d3ee',
-        inputBg: 'rgba(15, 23, 42, 0.90)',
-        inputBorder: 'rgba(59, 130, 246, 0.22)',
-        inputText: '#e2e8f0',
-        inputPlaceholder: '#475569',
-        cancelColor: '#94a3b8',
-        cancelHover: '#e2e8f0',
-    },
-    light: {
-        titleColor: '#00082E',
-        subColor: '#2C4A72',
-        cardBg: 'rgba(240, 247, 255, 0.96)',
-        cardBorder: 'rgba(59, 130, 246, 0.26)',
-        cardShadow: '0 4px 32px rgba(0, 48, 135, 0.16)',
-        footerBg: 'rgba(210, 228, 255, 0.70)',
-        footerBorder: 'rgba(59, 130, 246, 0.22)',
-        labelColor: '#1740C0',
-        inputBg: '#ffffff',
-        inputBorder: 'rgba(59, 130, 246, 0.32)',
-        inputText: '#00082E',
-        inputPlaceholder: '#5272A0',
-        cancelColor: '#2C4A72',
-        cancelHover: '#00082E',
-    },
-};
+import { Page, PageHeader, PageSurface } from "../../components/ui/Page";
 
 const SCHOOL_YEARS = [
     '2021-2022',
@@ -71,54 +37,30 @@ const DEPARTMENTS = [
 export default function BudgetPerformanceDepartment() {
     return (
         <AdamsonBudgetLayout>
-            {(isDark: boolean) => {
-                const t = isDark ? T.dark : T.light;
-
-                return (
-                    <div className="max-w-4xl mx-auto space-y-6">
+            <Page width="narrow">
 
                         {/* Page Header */}
-                        <div>
-                            <h1
-                                className="text-2xl font-bold tracking-tight"
-                                style={{ color: t.titleColor }}
-                            >
-                                Budget Performance Per Department
-                            </h1>
-                            <p
-                                className="text-sm mt-0.5"
-                                style={{ color: t.subColor }}
-                            >
-                                Track spending, remaining balances, and budget consumption rates per department.
-                            </p>
-                        </div>
+                        <PageHeader
+                            title="Budget Performance Per Department"
+                            description="Track spending, remaining balances, and budget consumption rates per department."
+                        />
 
                         {/* Filters Card */}
-                        <Card
-                            style={{
-                                background: t.cardBg,
-                                border: `1px solid ${t.cardBorder}`,
-                                boxShadow: t.cardShadow,
-                            }}
-                        >
+                        <PageSurface>
+                        <Card className="border-0 bg-transparent shadow-none">
                             <CardContent className="pt-5 pb-5">
                                 <div className="flex flex-col sm:flex-row gap-5">
 
                                     {/* School Year */}
                                     <div className="flex flex-col gap-1.5 sm:w-48">
                                         <Label
-                                            className="text-xs font-semibold"
-                                            style={{ color: t.labelColor }}
+                                            className="text-xs font-semibold text-[var(--abms-primary)]"
                                         >
                                             School Year
                                         </Label>
                                         <Select>
                                             <SelectTrigger
-                                                style={{
-                                                    background: t.inputBg,
-                                                    border: `1px solid ${t.inputBorder}`,
-                                                    color: t.inputText,
-                                                }}
+                                                className="border-[var(--abms-border)] bg-[var(--abms-surface)] text-[var(--abms-text)]"
                                             >
                                                 <SelectValue placeholder="Select school year" />
                                             </SelectTrigger>
@@ -138,18 +80,13 @@ export default function BudgetPerformanceDepartment() {
                                     {/* Department / Section */}
                                     <div className="flex flex-col gap-1.5 flex-1">
                                         <Label
-                                            className="text-xs font-semibold"
-                                            style={{ color: t.labelColor }}
+                                            className="text-xs font-semibold text-[var(--abms-primary)]"
                                         >
                                             Department / Section
                                         </Label>
                                         <Select>
                                             <SelectTrigger
-                                                style={{
-                                                    background: t.inputBg,
-                                                    border: `1px solid ${t.inputBorder}`,
-                                                    color: t.inputText,
-                                                }}
+                                                className="border-[var(--abms-border)] bg-[var(--abms-surface)] text-[var(--abms-text)]"
                                             >
                                                 <SelectValue placeholder="Select department or section" />
                                             </SelectTrigger>
@@ -169,10 +106,9 @@ export default function BudgetPerformanceDepartment() {
                                 </div>
                             </CardContent>
                         </Card>
+                        </PageSurface>
 
-                    </div>
-                );
-            }}
+                    </Page>
         </AdamsonBudgetLayout>
     );
 }
