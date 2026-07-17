@@ -12,6 +12,7 @@ import type { AuthUser } from "@/lib/fetch-auth-user"
 export const ELEAVE_ROUTE_ACCESS = {
   "/beginning-balances": "admin",
   "/employee-leave-credits": "admin",
+  "/settings/fl-cutoff": "admin",
   "/reports/filed-leave": "admin",
   "/reports/filed-leave-after-cutoff": "admin",
   "/hr-approval": "hrApproval",

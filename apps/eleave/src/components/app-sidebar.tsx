@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   CreditCard,
   FolderOpen,
+  Settings2,
   UserCheck,
   Wallet,
 } from "lucide-react";
@@ -56,6 +57,7 @@ const mainNavItems = [
 const adminNavItems = [
   { title: "Beginning Balances", url: "/beginning-balances", icon: Wallet },
   { title: "Employee Leave Credits", url: "/employee-leave-credits", icon: CreditCard },
+  { title: "FL Cutoff Settings", url: "/settings/fl-cutoff", icon: Settings2 },
 ] as const;
 
 const reportNavItems = [
@@ -69,7 +71,8 @@ function isNavItemActive(pathname: string, url: string) {
     url === "/for-approval" ||
     url === "/hr-approval" ||
     url === "/beginning-balances" ||
-    url === "/employee-leave-credits"
+    url === "/employee-leave-credits" ||
+    url === "/settings/fl-cutoff"
   ) {
     return pathname === url || pathname.startsWith(`${url}/`);
   }
