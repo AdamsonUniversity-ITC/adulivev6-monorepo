@@ -18,6 +18,7 @@ import { useAdminLeaveTypes } from "@/hooks/use-admin-leave-types"
 import { fetchFiledLeaveReport, isPaginatedFiledLeaveResponse } from "@/lib/filed-leave-report-api"
 import {
   mapLeaveApplicationsToFiledLeaveReportRows,
+  sortFiledLeaveReportRowsByEmployeeName,
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
 import type { HrApprovalRow } from "@/lib/map-hr-approval-row"
@@ -145,7 +146,9 @@ function FiledLeavePage() {
       })
 
       const records = response.data ?? []
-      const rows = mapLeaveApplicationsToFiledLeaveReportRows(records, leaveTypeNames)
+      const rows = sortFiledLeaveReportRowsByEmployeeName(
+        mapLeaveApplicationsToFiledLeaveReportRows(records, leaveTypeNames),
+      )
 
       setPrintRows(rows)
       setPrintedAt(new Date())

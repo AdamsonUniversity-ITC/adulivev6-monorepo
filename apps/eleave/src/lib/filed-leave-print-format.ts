@@ -1,5 +1,8 @@
 import { getDayPortionWeight } from "@/lib/day-portion"
-import type { EmployeeTeacherRecord } from "@/lib/employee-teacher-display"
+import {
+  formatEmployeeNameLastFirst,
+  type EmployeeTeacherRecord,
+} from "@/lib/employee-teacher-display"
 import {
   getHrApprovalStatusMeta,
   type HrApprovalStatus,
@@ -130,7 +133,9 @@ export function formatPrintEmployeeName(
     return `${lastName}, ${firstName}`.toUpperCase()
   }
 
-  return fallback.trim().toUpperCase() || "—"
+  const formattedFallback = formatEmployeeNameLastFirst(teacher, fallback)
+
+  return formattedFallback.trim().toUpperCase() || "—"
 }
 
 export function getPrintLeaveDetailSegments(

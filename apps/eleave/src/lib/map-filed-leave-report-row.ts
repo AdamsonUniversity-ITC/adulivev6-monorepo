@@ -49,3 +49,53 @@ export function mapLeaveApplicationsToFiledLeaveReportRows(
     mapLeaveApplicationToFiledLeaveReportRow(record, leaveTypeNames),
   )
 }
+
+function compareFiledLeaveReportRowsByEmployeeName(
+  a: FiledLeaveReportRow,
+  b: FiledLeaveReportRow,
+): number {
+  const aTeacher = a.record.employee_teacher
+  const bTeacher = b.record.employee_teacher
+
+  const lastNameCompare = (aTeacher?.last_name?.trim() ?? "").localeCompare(
+    bTeacher?.last_name?.trim() ?? "",
+    undefined,
+    { sensitivity: "base" },
+  )
+
+  if (lastNameCompare !== 0) {
+    return lastNameCompare
+  }
+
+  const firstNameCompare = (aTeacher?.first_name?.trim() ?? "").localeCompare(
+    bTeacher?.first_name?.trim() ?? "",
+    undefined,
+    { sensitivity: "base" },
+  )
+
+  if (firstNameCompare !== 0) {
+    return firstNameCompare
+  }
+
+  const employeeNoCompare = a.employeeNo.localeCompare(b.employeeNo, undefined, {
+    sensitivity: "base",
+  })
+
+  if (employeeNoCompare !== 0) {
+    return employeeNoCompare
+  }
+
+  const dateFromCompare = a.record.date_from.localeCompare(b.record.date_from)
+
+  if (dateFromCompare !== 0) {
+    return dateFromCompare
+  }
+
+  return Number(a.id) - Number(b.id)
+}
+
+export function sortFiledLeaveReportRowsByEmployeeName(
+  rows: FiledLeaveReportRow[],
+): FiledLeaveReportRow[] {
+  return [...rows].sort(compareFiledLeaveReportRowsByEmployeeName)
+}

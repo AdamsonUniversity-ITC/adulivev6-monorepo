@@ -98,6 +98,24 @@ export function formatEmployeeName(
   return teacher.emp_no || fallback
 }
 
+export function formatEmployeeNameLastFirst(
+  teacher: EmployeeTeacherRecord | null | undefined,
+  fallback = "Unassigned",
+): string {
+  if (!teacher) {
+    return fallback
+  }
+
+  const lastName = teacher.last_name?.trim()
+  const firstName = teacher.first_name?.trim()
+
+  if (lastName && firstName) {
+    return `${lastName}, ${firstName}`
+  }
+
+  return formatEmployeeName(teacher, fallback)
+}
+
 export function getEmployeeInitials(
   teacher: EmployeeTeacherRecord | null | undefined,
   fallback = "?",

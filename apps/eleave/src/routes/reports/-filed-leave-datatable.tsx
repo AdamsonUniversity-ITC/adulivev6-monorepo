@@ -19,8 +19,9 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { FiledLeaveReportDepartment } from "@/lib/filed-leave-report-api"
 import {
+  formatEmployeeNameLastFirst,
   getAvatarUrlFromEmpNo,
-  getInitialsFromDisplayName,
+  getEmployeeInitials,
 } from "@/lib/employee-teacher-display"
 import type { PaginatedLeaveApplicationsResponse } from "@/lib/leave-applications-api"
 import {
@@ -113,24 +114,18 @@ export function FiledLeaveDataTable({
           const item = row.original
           const teacher = item.record.employee_teacher
           const avatarUrl = getAvatarUrlFromEmpNo(item.employeeNo)
+          const displayName = formatEmployeeNameLastFirst(teacher, item.employee)
 
           return (
             <div className="flex items-center gap-3 py-1">
               <Avatar className="size-10 shrink-0">
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt={item.employee} /> : null}
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
                 <AvatarFallback className="bg-slate-100 text-xs font-semibold text-slate-700">
-                  {teacher
-                    ? getInitialsFromDisplayName(
-                        [teacher.first_name, teacher.last_name]
-                          .filter(Boolean)
-                          .join(" "),
-                        item.employeeNo,
-                      )
-                    : getInitialsFromDisplayName(null, item.employeeNo)}
+                  {getEmployeeInitials(teacher, item.employeeNo)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{item.employee}</p>
+                <p className="text-sm font-semibold">{displayName}</p>
                 <p className="text-muted-foreground text-xs tabular-nums">
                   {item.employeeNo}
                 </p>

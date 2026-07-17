@@ -23,6 +23,7 @@ import {
 } from "@/lib/filed-leave-after-cutoff-report-api"
 import {
   mapLeaveApplicationsToFiledLeaveReportRows,
+  sortFiledLeaveReportRowsByEmployeeName,
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
 import type { HrApprovalRow } from "@/lib/map-hr-approval-row"
@@ -125,9 +126,8 @@ function FiledLeaveAfterCutoffPage() {
         })
 
         const records = response.data ?? []
-        const rows = mapLeaveApplicationsToFiledLeaveReportRows(
-          records,
-          leaveTypeNames,
+        const rows = sortFiledLeaveReportRowsByEmployeeName(
+          mapLeaveApplicationsToFiledLeaveReportRows(records, leaveTypeNames),
         )
 
         if (rows.length === 0) {
