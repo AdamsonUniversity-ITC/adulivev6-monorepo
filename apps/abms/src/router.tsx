@@ -20,7 +20,12 @@ import BudgetAdjustmentEntry from './pages/administration/BudgetAdjustmentEntry.
 import BudgetRequestEntry from './pages/transactions/budgetrequestentry';
 import RequisitionProcess from './pages/transactions/requisition-process/index.tsx';
 import BudgetPerformanceDepartment from './pages/reports/BudgetPerformanceDepartment.tsx';
-import LiquidationSubmission from './pages/transactions/LiquidationSubmission.tsx';
+import BudgetPerformanceAccount from './pages/reports/BudgetPerformanceAccount.tsx';
+import BudgetPerformanceUniversity from './pages/reports/BudgetPerformanceUniversity.tsx';
+import ItemRequestedPerAccount from './pages/reports/ItemRequestedPerAccount.tsx';
+import ItemsRequestedByPayee from './pages/reports/ItemsRequestedByPayee.tsx';
+import AdjustmentsPerDepartment from './pages/reports/AdjustmentsPerDepartment.tsx';
+import LiquidationSubmission from './pages/transactions/liquidationsubmission';
 import UnauthorizedScreen from './components/UnauthorizedScreen.tsx';
 
 const rootRoute = new RootRoute({
@@ -387,6 +392,61 @@ export const budgetperformancedepartmentRoute = new Route({
     },
     component: BudgetPerformanceDepartment,
 });
+export const budgetperformanceaccountRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/budget-performance-account',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
+    loader: async () => {
+        const data = await financeSvc.get('abms/budget-performance-per-account');
+
+        return { data };
+    },
+    component: BudgetPerformanceAccount,
+});
+export const budgetperformanceuniversityRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/budget-performance-university',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
+    loader: async () => {
+        const data = await financeSvc.get('abms/budget-performance-university');
+
+        return { data };
+    },
+    component: BudgetPerformanceUniversity,
+});
+export const itemrequestedperaccountRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/item-requested-per-account',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
+    loader: async () => {
+        const data = await financeSvc.get('abms/item-requested-per-account');
+
+        return { data };
+    },
+    component: ItemRequestedPerAccount,
+});
+export const itemsrequestedbypayeeRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/items-requested-by-payee',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
+    loader: async () => {
+        const data = await financeSvc.get('abms/items-requested-by-payee');
+
+        return { data };
+    },
+    component: ItemsRequestedByPayee,
+});
+export const adjustmentsperdepartmentRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/adjustments-per-department',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access']),
+    loader: async () => {
+        const data = await financeSvc.get('abms/adjustments-per-department');
+
+        return { data };
+    },
+    component: AdjustmentsPerDepartment,
+});
 export const liquidationsubmissionRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/liquidation-submission',
@@ -440,7 +500,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute, budgetperformancedepartmentRoute, liquidationsubmissionRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute, budgetperformancedepartmentRoute, budgetperformanceaccountRoute, budgetperformanceuniversityRoute, itemrequestedperaccountRoute, itemsrequestedbypayeeRoute, adjustmentsperdepartmentRoute, liquidationsubmissionRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);

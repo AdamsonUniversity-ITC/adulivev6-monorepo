@@ -62,7 +62,7 @@ export function FilterPanel(props: FilterPanelProps) {
                 </div>
                 <div className="min-w-0 space-y-1.5">
                     <label className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Main Account</label>
-                    <StyledSelect value={selectedMain} onChange={onMainChange} options={mainAccountOptions} placeholder="Select main account..." t={t} />
+                    <StyledSelect value={selectedMain} onChange={onMainChange} options={mainAccountOptions} placeholder="Select main account..." t={t} isDark={isDark} />
                 </div>
                 <div className="min-w-0 space-y-1.5">
                     <label className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Sub Account</label>
@@ -73,6 +73,7 @@ export function FilterPanel(props: FilterPanelProps) {
                         placeholder={selectedMain ? 'Select sub account...' : 'Select main account first...'}
                         disabled={!selectedMain}
                         t={t}
+                        isDark={isDark}
                     />
                 </div>
             </div>
