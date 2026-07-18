@@ -1887,6 +1887,18 @@ export default function UserAccess() {
                           {/* Departments / Sections */}
                           <TableCell className="px-6 py-3">
                             <div className="flex flex-wrap gap-1.5">
+                              {(user.departments ?? []).length === 0 && (
+                                <span
+                                  className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full"
+                                  style={{
+                                    background: t.badgeBg,
+                                    color: t.badgeText,
+                                    border: `1px solid ${t.badgeBorder}`,
+                                  }}
+                                >
+                                  User-level access only
+                                </span>
+                              )}
                               {(user.departments ?? []).map((dept) => {
                                 const match = dept.kind === 'Department'
                                   ? deptData?.departments.find((d) => String(d.id) === String(dept.id))

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { isAxiosError } from 'axios';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import {
     Table, TableBody, TableCell, TableHead,
@@ -51,7 +52,7 @@ interface CursorPage {
     prev_cursor: string | null;
 }
 
-const ACCOUNT_GROUPS = ['assets', 'liability', 'capital', 'expenses'] as const;
+const ACCOUNT_GROUPS = ['assets', 'liability', 'capital', 'expenses', 'Cmb1'] as const;
 type AccountGroup = typeof ACCOUNT_GROUPS[number];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,9 +240,12 @@ export default function SubAccounts() {
             }
             setDialogOpen(false);
             fetchPage(cursors[cursorIdx], search);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const description = isAxiosError<{ message?: string }>(err)
+                ? err.response?.data?.message ?? 'Please try again or contact support.'
+                : 'Please try again or contact support.';
             toast.error(editTarget ? 'Failed to update' : 'Failed to create', {
-                description: err?.response?.data?.message ?? 'Please try again or contact support.',
+                description,
             });
         }
     };
@@ -393,6 +397,7 @@ export default function SubAccounts() {
                                                             liability: <Badge variant="outline" className="capitalize border-yellow-400/40 bg-yellow-400/10 text-yellow-400">liability</Badge>,
                                                             capital: <Badge variant="outline" className="capitalize border-emerald-400/40 bg-emerald-400/10 text-emerald-400">capital</Badge>,
                                                             expenses: <Badge variant="outline" className="capitalize border-red-400/40 bg-red-400/10 text-red-400">expenses</Badge>,
+                                                            Cmb1: <Badge className="bg-violet-600 hover:bg-violet-600 text-white font-semibold text-xs px-2.5 py-1 border-0 shadow-sm">Cmb1</Badge>,
                                                         }[account.account_group as AccountGroup] ?? <Badge variant="outline">{account.account_group}</Badge>}
                                                     </TableCell>
                                                     <TableCell className="px-6 py-3.5">
@@ -498,7 +503,9 @@ export default function SubAccounts() {
                                         ] as { label: string; value: string }[]).map(({ label, value }) => (
                                             <div key={label} className="space-y-1">
                                                 <p className="text-xs font-bold uppercase tracking-widest" style={{ color: t.labelColor }}>{label}</p>
-                                                <p className="text-sm capitalize" style={{ color: t.cellText }}>{value}</p>
+                                                {label === 'Account Group' && value === 'Cmb1'
+                                                    ? <Badge className="bg-violet-600 hover:bg-violet-600 text-white font-semibold text-xs px-2.5 py-1 border-0 shadow-sm">Cmb1</Badge>
+                                                    : <p className="text-sm capitalize" style={{ color: t.cellText }}>{value}</p>}
                                             </div>
                                         ))}
                                         <div className="space-y-1">

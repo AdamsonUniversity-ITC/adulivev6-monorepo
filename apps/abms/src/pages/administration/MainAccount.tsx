@@ -2,6 +2,7 @@ import React, { useState, type JSX } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { isAxiosError } from 'axios';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import {
     Table, TableBody, TableCell, TableHead,
@@ -68,7 +69,7 @@ type ViewTarget =
     | { type: 'main'; account: MainAccount }
     | { type: 'sub'; account: SubAccount };
 
-const ACCOUNT_GROUPS = ['assets', 'liability', 'capital', 'expenses'] as const;
+const ACCOUNT_GROUPS = ['assets', 'liability', 'capital', 'expenses', 'Cmb1'] as const;
 type AccountGroup = typeof ACCOUNT_GROUPS[number];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ const GROUP_BADGE: Record<AccountGroup, JSX.Element> = {
     liability: <Badge className="bg-amber-500  hover:bg-amber-500  text-white font-semibold text-xs px-2.5 py-1 border-0 shadow-sm">Liability</Badge>,
     capital: <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-semibold text-xs px-2.5 py-1 border-0 shadow-sm">Capital</Badge>,
     expenses: <Badge className="bg-rose-600   hover:bg-rose-600   text-white font-semibold text-xs px-2.5 py-1 border-0 shadow-sm">Expenses</Badge>,
+    Cmb1: <Badge className="bg-violet-600 hover:bg-violet-600 text-white font-semibold text-xs px-2.5 py-1 border-0 shadow-sm">Cmb1</Badge>,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -291,8 +293,11 @@ export default function MainAccount() {
                 toast.success('Account created', { description: `"${formData.account_name}" has been added.` });
             }
             setMainDialogOpen(false); fetchPage(cursors[cursorIdx], search);
-        } catch (err: any) {
-            toast.error(mainEditTarget ? 'Failed to update' : 'Failed to create', { description: err?.response?.data?.message ?? 'Please try again.' });
+        } catch (err: unknown) {
+            const description = isAxiosError<{ message?: string }>(err)
+                ? err.response?.data?.message ?? 'Please try again.'
+                : 'Please try again.';
+            toast.error(mainEditTarget ? 'Failed to update' : 'Failed to create', { description });
         }
     };
     const handleMainDelete = async () => {
@@ -331,8 +336,11 @@ export default function MainAccount() {
                 toast.success('Sub-account created', { description: `"${formData.account_name}" has been added.` });
             }
             setSubDialogOpen(false); fetchSubs(parentId);
-        } catch (err: any) {
-            toast.error(editTarget ? 'Failed to update' : 'Failed to create', { description: err?.response?.data?.message ?? 'Please try again.' });
+        } catch (err: unknown) {
+            const description = isAxiosError<{ message?: string }>(err)
+                ? err.response?.data?.message ?? 'Please try again.'
+                : 'Please try again.';
+            toast.error(editTarget ? 'Failed to update' : 'Failed to create', { description });
         }
     };
     const handleSubDelete = async () => {
