@@ -169,7 +169,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: FileText,
     label: 'Reports',
     children: [
-      { label: 'Department Performance', href: '/reports/budget-performance-department', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Department Performance Per Department', href: '/reports/budget-performance-department', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Performance Per Account', href: '/reports/budget-performance-account', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Performance University', href: '/reports/budget-performance-university', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Item Requested Per Account', href: '/reports/item-requested-per-account', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Items Requested by Payee', href: '/reports/items-requested-by-payee', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Adjustments Per Department', href: '/reports/adjustments-per-department', permissions: ['admin-access', 'budget-access'] },
 
     ],
   },

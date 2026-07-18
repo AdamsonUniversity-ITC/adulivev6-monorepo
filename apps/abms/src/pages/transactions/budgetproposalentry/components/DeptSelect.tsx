@@ -94,7 +94,7 @@ export function DeptSelect({ value, valueKind, onChange, departments, sections, 
                                     <button
                                         key={`${item.kind}-${item.id}`}
                                         type="button"
-                                        className="w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-center justify-between gap-3"
+                                        className="group w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-start justify-between gap-3"
                                         style={{
                                             color: isSelected ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#e2e8f0' : '#0f172a'),
                                             background: isSelected ? (isDark ? 'rgba(37,99,235,0.20)' : 'rgba(219,234,254,0.80)') : 'transparent',
@@ -109,7 +109,7 @@ export function DeptSelect({ value, valueKind, onChange, departments, sections, 
                                             if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent';
                                         }}
                                     >
-                                        <span className="truncate hover:whitespace-normal hover:overflow-visible">{item.name}</span>
+                                        <span className="min-w-0 flex-1 truncate whitespace-nowrap group-hover:whitespace-normal group-hover:overflow-visible">{item.name}</span>
                                         <DeptKindBadge kind={item.kind} isDark={isDark} />
                                     </button>
                                 );
