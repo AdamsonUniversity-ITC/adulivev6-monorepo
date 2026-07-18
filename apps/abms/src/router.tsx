@@ -32,6 +32,16 @@ const rootRoute = new RootRoute({
     component: App,
 });
 
+const resolveLoginUrl = () => {
+    const productionBaseUrl = import.meta.env.VITE_ADU_LIVE_PRODUCTION_URL?.trim()
+        || 'https://live.adamson.edu.ph';
+    const baseUrl = (import.meta.env.PROD
+        ? productionBaseUrl
+        : 'http://localhost.test:8081').replace(/\/+$/, '');
+
+    return `${baseUrl}/login`;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission helpers — mirrors the logic in Sidebar.tsx (canShowItem/buildPermissionSet)
 // so that route access matches what's shown in the nav.
@@ -94,7 +104,7 @@ const protectedRoute = new Route({
             await financeSvc.get('/abms/protected-test');
         } catch (error: any) {
             if (error.response?.status === 401) {
-                window.location.href = 'http://localhost.test:8081/login';
+                window.location.assign(resolveLoginUrl());
                 await new Promise(() => { });
             }
             if (error.response?.status === 503) {
