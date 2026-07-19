@@ -13,6 +13,8 @@ import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import { budgetperformancedepartmentRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox, type ReportFilterOption } from './shared/ReportFilterCombobox';
+import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import './shared/report-print.css';
 
 type OrgKind = 'Department' | 'Section';
 type PreviewType = 'departmental' | 'grand' | 'detailed';
@@ -273,7 +275,7 @@ function PrintPreview({ preview, onClose }: {
     };
   }, [onClose]);
   return (
-    <div className="report-preview fixed inset-0 z-[100] overflow-auto bg-slate-600/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Budget performance print preview">
+    <ReportPrintPortal><div className="report-preview fixed inset-0 z-[100] overflow-auto bg-slate-600/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Budget performance print preview">
       <div className="report-preview-actions mx-auto mb-3 flex max-w-[1200px] justify-end gap-2">
         <Button ref={closeButtonRef} variant="outline" onClick={onClose}><X className="mr-2 h-4 w-4" />Close</Button>
         <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
@@ -282,7 +284,6 @@ function PrintPreview({ preview, onClose }: {
         <header>
           <div className="flex items-start justify-between gap-4">
           <div><h1>ADAMSON UNIVERSITY</h1><h2>BUDGET PERFORMANCE ({preview.report.preview_type === 'grand' ? 'GRAND' : preview.report.preview_type === 'detailed' ? 'DETAILED' : 'DEPARTMENTAL'}) - {preview.report.preview_type === 'detailed' ? 'Breakdown' : 'Summary'} (Period: {formatDate(preview.report.from)} - {formatDate(preview.report.to)})</h2></div>
-            <span>Page 1 of 1</span>
           </div>
           <p><b>School Year:</b><strong>{preview.report.school_year}</strong></p>
           <p><b>Office/College:</b><strong>{preview.report.division.name}</strong></p>
@@ -295,9 +296,9 @@ function PrintPreview({ preview, onClose }: {
       </article>
       <style>{`
         .budget-report{font-family:Arial,sans-serif;font-size:11px}.budget-report h1{font-size:20px;font-weight:800;margin:0}.budget-report h2{font-size:12px;font-weight:700;margin:2px 0 10px}.budget-report header p{margin:3px 0;display:grid;grid-template-columns:130px 1fr}.budget-report-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}.budget-report-table thead{display:table-header-group;border-top:2px dashed #555;border-bottom:2px dashed #555}.budget-report-table th{font-weight:400;padding:5px 4px}.budget-report-table th:first-child,.budget-report-table td:first-child{width:31%;text-align:left}.budget-report-table th:not(:first-child),.budget-report-table td:not(:first-child){text-align:right}.budget-report-table td{padding:3px 4px;font-variant-numeric:tabular-nums}.report-classification{font-weight:800;border-top:1px solid #777}.report-classification td{padding-top:7px!important}.report-account td:first-child{padding-left:12px}.report-parent{font-weight:700;background:#f1f5f9}.report-child td:first-child{padding-left:28px}.report-child{color:#334155}.report-subtotal{font-weight:700;border-top:1px dashed #777;border-bottom:2px dashed #777;break-inside:avoid}.report-subtotal td:first-child,.report-total td:first-child{text-align:right}.report-total{font-weight:800;border-top:2px solid #555;border-bottom:2px double #555;break-inside:avoid}.report-total td{padding-top:6px;padding-bottom:6px}.report-empty td{text-align:center!important;padding:18px;color:#555}.budget-report footer{margin-top:20px;border-top:2px dashed #555;padding-top:4px}
-        @page{size:landscape;margin:10mm}@media print{body *{visibility:hidden!important}.report-preview,.report-preview *{visibility:visible!important}.report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:white!important;padding:0!important}.report-preview-actions{display:none!important}.budget-report{box-shadow:none!important;max-width:none!important;min-height:0!important;padding:0!important}.budget-report-table thead{display:table-header-group}.report-classification,.report-account,.report-subtotal,.report-total{break-inside:avoid}}
+        @page{size:letter landscape;margin:0.35in}@media print{body *{visibility:hidden!important}.report-preview,.report-preview *{visibility:visible!important}.report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:white!important;padding:0!important}.report-preview-actions{display:none!important}.budget-report{box-shadow:none!important;max-width:none!important;min-height:0!important;padding:0!important}.budget-report-table thead{display:table-header-group}.report-classification,.report-account,.report-subtotal,.report-total{break-inside:avoid}}
       `}</style>
-    </div>
+    </div></ReportPrintPortal>
   );
 }
 

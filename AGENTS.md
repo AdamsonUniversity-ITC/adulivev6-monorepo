@@ -179,3 +179,27 @@ Rules:
 - Agents MUST request clarification if any section is unclear
 - Agents MUST reject tasks missing acceptance criteria
 - Agents MUST ensure tasks are implementable without assumptions
+
+---
+
+# ABMS Continuity Protocol
+
+The ABMS frontend is a React/Vite application in `apps/abms`. Its Laravel API is the sibling repository at `../finance_service`, primarily under `app-modules/abms`.
+
+For any work involving ABMS accounts, proposals, requisitions, adjustments, permissions, reports, database schema, or `finance_service`:
+
+1. Read `skills/abms-system-knowledge/SKILL.md` before inspecting or changing code.
+2. Load the task-specific documents that skill routes to under `docs/abms/`.
+3. Treat source code and migrations as authoritative when they conflict with documentation, then update the documentation in the same task.
+4. Preserve ID-based account identity and typed organizational identity (`department:{id}` or `section:{id}`). Names and account codes are display values and are not unique identifiers.
+5. Keep financial history reconstruction read-only and surface incomplete evidence through structured data-quality warnings.
+
+ABMS work may use these roles when a task explicitly delegates work:
+
+- `backend_agent`: `finance_service` controllers, services, models, requests, routes, and migrations
+- `frontend_agent`: `apps/abms` pages, routes, shared components, and API contracts
+- `qa_agent`: automated tests, validation, builds, and regression evidence
+- `reviewer_agent`: architecture, authorization, precision, query performance, and balance-integrity review
+- `project_manager`: requirements, business rules, task records, and continuity documentation
+
+Subagents are recreated per chat and must not be treated as the source of system knowledge. The canonical continuity sources are this file, `skills/abms-system-knowledge/`, `docs/abms/`, and the applicable task specification.

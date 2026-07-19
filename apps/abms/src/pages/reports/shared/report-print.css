@@ -1,0 +1,107 @@
+.abms-letter-actions,
+.report-preview-actions,
+.report-actions,
+.abms-letter-sheet,
+.budget-report,
+.account-report,
+.university-report,
+.requested-report,
+.payee-report,
+.adjustment-report,
+.liquidation-report,
+.proposal-report {
+  width: 100% !important;
+  max-width: 11in !important;
+}
+
+.abms-letter-sheet,
+.budget-report,
+.account-report,
+.university-report,
+.requested-report,
+.payee-report,
+.adjustment-report,
+.liquidation-report,
+.proposal-report {
+  min-height: 8.5in !important;
+  box-sizing: border-box;
+}
+
+@page {
+  size: letter landscape;
+  margin: 0.35in;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .abms-letter-preview,
+  .report-preview,
+  .account-report-preview,
+  .university-report-preview,
+  .requested-report-preview,
+  .payee-report-preview,
+  .adjustment-report-preview,
+  .liquidation-report-preview,
+  .proposal-report-preview {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .abms-letter-actions,
+  .report-preview-actions,
+  .report-actions {
+    display: none !important;
+  }
+
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  :is(.abms-letter-sheet, .budget-report, .account-report, .university-report, .requested-report, .payee-report, .adjustment-report, .liquidation-report, .proposal-report) table {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :is(.abms-letter-sheet, .budget-report, .account-report, .university-report, .requested-report, .payee-report, .adjustment-report, .liquidation-report, .proposal-report) thead {
+    display: table-header-group;
+  }
+
+  :is(.abms-letter-sheet, .budget-report, .account-report, .university-report, .requested-report, .payee-report, .adjustment-report, .liquidation-report, .proposal-report) tfoot {
+    display: table-footer-group;
+  }
+
+  :is(.abms-letter-sheet, .budget-report, .account-report, .university-report, .requested-report, .payee-report, .adjustment-report, .liquidation-report, .proposal-report) :is(tr, img, svg, footer) {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
