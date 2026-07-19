@@ -12,6 +12,8 @@ import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import { itemsrequestedbypayeeRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
+import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import './shared/report-print.css';
 
 type Identifier = string | number;
 type LoaderPayload = { school_years?: string[] };
@@ -74,10 +76,10 @@ function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => v
     document.body.style.overflow = 'hidden'; document.addEventListener('keydown', keydown); closeRef.current?.focus();
     return () => { document.body.style.overflow = overflow; document.removeEventListener('keydown', keydown); };
   }, [onClose]);
-  return <div className="payee-report-preview fixed inset-0 z-[100] overflow-auto bg-slate-600/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Items requested by payee print preview">
-    <div className="report-actions mx-auto mb-3 flex max-w-[1200px] justify-end gap-2"><Button ref={closeRef} variant="outline" onClick={onClose}><X className="mr-2 h-4 w-4" />Close</Button><Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button></div>
-    <article className="payee-report mx-auto min-h-[700px] max-w-[1200px] bg-white p-7 text-black shadow-2xl sm:p-10">
-      <header><div className="flex items-start justify-between gap-4"><div><h1>ADAMSON UNIVERSITY</h1><h2>ITEMS REQUESTED BY PAYEE (Period: {formatDate(preview.report.from)} - {formatDate(preview.report.to)})</h2></div><span>Page 1 of 1</span></div><p><b>School Year:</b><strong>{preview.report.school_year}</strong></p></header>
+  return <ReportPrintPortal><div className="payee-report-preview abms-letter-preview fixed inset-0 z-[100] overflow-auto bg-slate-600/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Items requested by payee print preview">
+    <div className="report-actions abms-letter-actions mx-auto mb-3 flex justify-end gap-2"><Button ref={closeRef} variant="outline" onClick={onClose}><X className="mr-2 h-4 w-4" />Close</Button><Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button></div>
+    <article className="payee-report abms-letter-sheet mx-auto bg-white p-7 text-black shadow-2xl sm:p-10">
+      <header><div><h1>ADAMSON UNIVERSITY</h1><h2>ITEMS REQUESTED BY PAYEE (Period: {formatDate(preview.report.from)} - {formatDate(preview.report.to)})</h2></div><p><b>School Year:</b><strong>{preview.report.school_year}</strong></p></header>
       <table className="payee-report-table"><thead><tr><th>Payee</th><th>Description</th><th>Requisition No.</th><th>Date</th><th>Unit Cost</th><th>Quantity</th><th>Amount</th></tr></thead><tbody>
         {!preview.rows.length && <tr className="report-empty"><td colSpan={7}>No requested items were found for this period.</td></tr>}
         {preview.rows.map(row => <tr key={String(row.id)}><td>{row.payee}</td><td>{row.description}</td><td>{row.requisition_number}</td><td>{formatDate(row.requisition_date)}</td><td>{row.unit_cost}</td><td>{row.quantity}</td><td>{row.amount}</td></tr>)}
@@ -85,8 +87,8 @@ function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => v
       </tbody></table>
       <footer>-=xxx=- | Source: ABMS | Print Date: {new Date().toLocaleDateString()} | Printed By: {preview.report.printed_by}</footer>
     </article>
-    <style>{`.payee-report{font-family:Arial,sans-serif;font-size:11px}.payee-report h1{font-size:20px;font-weight:800;margin:0}.payee-report h2{font-size:12px;margin:2px 0 10px}.payee-report header p{margin:3px 0;display:grid;grid-template-columns:100px 1fr}.payee-report-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}.payee-report-table thead{display:table-header-group;border-top:2px dashed #555;border-bottom:2px dashed #555}.payee-report-table th,.payee-report-table td{padding:4px;text-align:left;font-variant-numeric:tabular-nums}.payee-report-table th:nth-child(1){width:19%}.payee-report-table th:nth-child(2){width:28%}.payee-report-table th:nth-child(3){width:14%}.payee-report-table th:nth-child(4){width:11%}.payee-report-table th:nth-last-child(-n+3),.payee-report-table td:nth-last-child(-n+3){text-align:right}.report-total{font-weight:800;border-top:2px solid #555;border-bottom:2px double #555}.report-total td:first-child{text-align:right}.report-empty td{text-align:center!important;padding:20px;color:#555}.payee-report footer{margin-top:20px;border-top:2px dashed #555;padding-top:4px}@page{size:landscape;margin:10mm}@media print{body *{visibility:hidden!important}.payee-report-preview,.payee-report-preview *{visibility:visible!important}.payee-report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:white!important;padding:0!important}.report-actions{display:none!important}.payee-report{box-shadow:none!important;max-width:none!important;min-height:0!important;padding:0!important}.report-total{break-inside:avoid}}`}</style>
-  </div>;
+    <style>{`.payee-report{font-family:Arial,sans-serif;font-size:11px}.payee-report h1{font-size:20px;font-weight:800;margin:0}.payee-report h2{font-size:12px;margin:2px 0 10px}.payee-report header p{margin:3px 0;display:grid;grid-template-columns:100px 1fr}.payee-report-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}.payee-report-table thead{display:table-header-group;border-top:2px dashed #555;border-bottom:2px dashed #555}.payee-report-table th,.payee-report-table td{padding:4px;text-align:left;font-variant-numeric:tabular-nums}.payee-report-table th:nth-child(1){width:19%}.payee-report-table th:nth-child(2){width:28%}.payee-report-table th:nth-child(3){width:14%}.payee-report-table th:nth-child(4){width:11%}.payee-report-table th:nth-last-child(-n+3),.payee-report-table td:nth-last-child(-n+3){text-align:right}.report-total{font-weight:800;border-top:2px solid #555;border-bottom:2px double #555}.report-total td:first-child{text-align:right}.report-empty td{text-align:center!important;padding:20px;color:#555}.payee-report footer{margin-top:20px;border-top:2px dashed #555;padding-top:4px}@page{size:letter landscape;margin:0.35in}@media print{body *{visibility:hidden!important}.payee-report-preview,.payee-report-preview *{visibility:visible!important}.payee-report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:white!important;padding:0!important}.report-actions{display:none!important}.payee-report{box-shadow:none!important;max-width:none!important;min-height:0!important;padding:0!important}.report-total{break-inside:avoid}}`}</style>
+  </div></ReportPrintPortal>;
 }
 
 export default function ItemsRequestedByPayee() {

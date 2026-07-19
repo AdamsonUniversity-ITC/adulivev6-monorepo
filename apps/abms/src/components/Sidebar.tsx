@@ -175,6 +175,8 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Item Requested Per Account', href: '/reports/item-requested-per-account', permissions: ['admin-access', 'budget-access'] },
       { label: 'Items Requested by Payee', href: '/reports/items-requested-by-payee', permissions: ['admin-access', 'budget-access'] },
       { label: 'Adjustments Per Department', href: '/reports/adjustments-per-department', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Liquidation', href: '/reports/budget-liquidation', permissions: ['admin-access', 'budget-access'] },
+      { label: 'Budget Proposal Reports', href: '/reports/budget-proposal-reports', permissions: ['admin-access', 'budget-access'] },
 
     ],
   },

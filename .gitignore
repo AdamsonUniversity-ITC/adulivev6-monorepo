@@ -42,5 +42,18 @@ yarn-error.log*
 
 AGENTS.md
 agents/
+!skills/abms-system-knowledge/agents/
+!skills/abms-system-knowledge/agents/openai.yaml
 docs/
+!/docs/
+/docs/*
+!/docs/abms/
+!/docs/abms/**
 tasks/
+!/tasks/
+/tasks/*
+!/tasks/20260719-abms-continuity-knowledge.md
+!/tasks/20260719-persist-liquidation-summary.md
+!/tasks/20260719-budget-liquidation-report.md
+!/tasks/20260719-budget-proposal-reports.md
+!/tasks/20260719-uniform-report-printing.md

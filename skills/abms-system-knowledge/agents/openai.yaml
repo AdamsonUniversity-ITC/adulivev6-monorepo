@@ -1,0 +1,4 @@
+interface:
+  display_name: "ABMS System Knowledge"
+  short_description: "ABMS architecture, schema, rules, and workflows"
+  default_prompt: "Use $abms-system-knowledge to inspect and safely modify the ABMS frontend and finance_service."
