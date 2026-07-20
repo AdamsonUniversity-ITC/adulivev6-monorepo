@@ -1,4 +1,6 @@
 import { Badge } from '@repo/ui/components/badge';
+import { Button } from '@repo/ui/components/button';
+import { Input } from '@repo/ui/components/input';
 import { DataTable } from '@repo/ui/custom/datatable/datatable';
 import { DataTableColumnHeader } from '@repo/ui/custom/datatable/datatable-column-header';
 import { useQuery } from '@tanstack/react-query';
@@ -8,10 +10,15 @@ import type {
   PaginationState,
   SortingState,
 } from '@tanstack/react-table';
+import { ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 import { fetchApplications } from './-lib/api/fetchApplications.ts';
-import type { DRSApplicationRow as ApplicationRow } from './-lib/types/applications.ts';
+import {
+  displayApplicationRef,
+  type DRSApplicationRow as ApplicationRow,
+} from './-lib/types/applications.ts';
+import { LoadingIndicator } from './-loading-indicator.tsx';
 
 const submittedAtFormatter = new Intl.DateTimeFormat('en-PH', {
   dateStyle: 'medium',
@@ -26,9 +33,7 @@ function formatSubmittedAt(iso: string | null): string {
 }
 
 function formatReceiveMode(mode: ApplicationRow['receive_mode']): string {
-  if (mode === 'pickup') return 'Pickup';
-  if (mode === 'delivery') return 'Delivery';
-  return 'Email';
+  return mode === 'pickup' ? 'Pickup' : 'Delivery';
 }
 
 /** Turn workflow slug / snake_case status into readable label. */
@@ -64,9 +69,7 @@ const columns: ColumnDef<ApplicationRow>[] = [
     meta: { label: 'Student no.' },
     cell: ({ getValue }) => {
       const v = getValue() as string;
-      return (
-        <span className="text-sm tabular-nums">{v.trim() ? v : '—'}</span>
-      );
+      return <span className="text-sm tabular-nums">{v.trim() ? v : '—'}</span>;
     },
   },
   {
@@ -163,14 +166,12 @@ const columns: ColumnDef<ApplicationRow>[] = [
         getValue() as string | null | undefined,
       );
       if (empty) {
-        return (
-          <span className="text-muted-foreground text-sm">{label}</span>
-        );
+        return <span className="text-muted-foreground text-sm">{label}</span>;
       }
       return (
         <Badge
           variant="secondary"
-          className="max-w-48 whitespace-normal py-1 text-left font-normal leading-snug wrap-break-word"
+          className="max-w-48 py-1 text-left leading-snug font-normal wrap-break-word whitespace-normal"
           title={label}
         >
           {label}
@@ -226,39 +227,157 @@ export function ApplicationsDataTable() {
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / pagination.pageSize));
+  const canPrev = pagination.pageIndex > 0;
+  const canNext = pagination.pageIndex + 1 < pageCount;
+
+  const openApplication = (id: string) => {
+    void navigate({
+      to: '/applications/$applicationId',
+      params: { applicationId: id },
+    });
+  };
 
   return (
-    <DataTable<ApplicationRow>
-      columns={columns}
-      data={rows}
-      getRowId={(row) => row.id}
-      onRowClick={(row) =>
-        void navigate({
-          to: '/applications/$applicationId',
-          params: { applicationId: row.original.id },
-        })
-      }
-      server={{
-        pagination: {
-          rowCount: total,
-          state: pagination,
-          onChange: setPagination,
-          pageSizeOptions: [10, 20, 30, 50],
-        },
-        sorting: {
-          state: sorting,
-          onChange: setSorting,
-        },
-        search: { value: search, onChange: setSearch },
-      }}
-      toolbar={{
-        searchPlaceholder: 'Search documents, status, course, email…',
-      }}
-      status={{
-        loading: isLoading || isFetching,
-        error: isError,
-        emptyMessage: 'No applications yet. Request a document from Apply.',
-      }}
-    />
+    <>
+      <div className="space-y-3 md:hidden">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search documents, status, course…"
+          aria-label="Search applications"
+          className="h-11"
+        />
+
+        {isLoading && rows.length === 0 ? (
+          <div className="flex justify-center py-10">
+            <LoadingIndicator label="Loading applications…" size="md" />
+          </div>
+        ) : isError ? (
+          <p className="text-destructive text-sm">
+            Could not load applications.
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="text-muted-foreground py-8 text-center text-sm">
+            No applications yet. Request a document from Apply.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((row) => {
+              const { label: statusLabel, empty: statusEmpty } =
+                formatApplicationStatus(row.status);
+              return (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => openApplication(row.id)}
+                    className="border-border bg-card hover:border-primary/30 hover:bg-muted/30 flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition-colors"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold tabular-nums">
+                          #{displayApplicationRef(row)}
+                        </span>
+                        {!statusEmpty ? (
+                          <Badge variant="secondary" className="font-normal">
+                            {statusLabel}
+                          </Badge>
+                        ) : null}
+                        {row.is_paid ? (
+                          <Badge className="font-normal">Paid</Badge>
+                        ) : (
+                          <Badge variant="outline" className="font-normal">
+                            Unpaid
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        Submitted {formatSubmittedAt(row.created_at)}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      className="text-muted-foreground size-5 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">Open application</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {total > pagination.pageSize ? (
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <p className="text-muted-foreground text-xs tabular-nums">
+              Page {pagination.pageIndex + 1} of {pageCount}
+              {isFetching ? ' · Updating…' : ''}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9"
+                disabled={!canPrev}
+                onClick={() =>
+                  setPagination((p) => ({
+                    ...p,
+                    pageIndex: Math.max(0, p.pageIndex - 1),
+                  }))
+                }
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9"
+                disabled={!canNext}
+                onClick={() =>
+                  setPagination((p) => ({
+                    ...p,
+                    pageIndex: p.pageIndex + 1,
+                  }))
+                }
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="hidden md:block">
+        <DataTable<ApplicationRow>
+          columns={columns}
+          data={rows}
+          getRowId={(row) => row.id}
+          onRowClick={(row) => openApplication(row.original.id)}
+          server={{
+            pagination: {
+              rowCount: total,
+              state: pagination,
+              onChange: setPagination,
+              pageSizeOptions: [10, 20, 30, 50],
+            },
+            sorting: {
+              state: sorting,
+              onChange: setSorting,
+            },
+            search: { value: search, onChange: setSearch },
+          }}
+          toolbar={{
+            searchPlaceholder: 'Search documents, status, course, email…',
+          }}
+          status={{
+            loading: isLoading || isFetching,
+            error: isError,
+            emptyMessage: 'No applications yet. Request a document from Apply.',
+          }}
+        />
+      </div>
+    </>
   );
 }

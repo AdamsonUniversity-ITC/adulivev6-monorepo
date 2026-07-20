@@ -8,7 +8,6 @@ import { Spinner } from '@repo/ui/components/spinner';
 import { toast } from '@repo/ui/exports';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
-import { downloadReportPdf } from './-report-pdf-document.tsx';
 
 type ReportExportActionsProps = {
   reportType: ReportType;
@@ -34,6 +33,7 @@ export function ReportExportActions({
     setIsPdfExporting(true);
 
     try {
+      const { downloadReportPdf } = await import('./-report-pdf-document.tsx');
       await downloadReportPdf({
         reportType,
         title: reportTitle,

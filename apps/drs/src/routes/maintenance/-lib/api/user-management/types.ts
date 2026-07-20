@@ -72,7 +72,7 @@ export type AssignmentPayload = {
     | 'clearance_department'
     | 'assessment'
     | 'assessment_foreigner';
-  target_key?: string | number | null;
+  target_key?: string | null;
   clearance_id?: string | number | null;
   assessment_setting_id?: string | number | null;
   kind?: string | null;

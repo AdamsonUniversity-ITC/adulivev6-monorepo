@@ -17,11 +17,20 @@ const SUBDOMAIN_TO_TENANT_ADMIN_ACCESS: Record<string, string> = {
 const SUBDOMAIN_TO_MAINTENANCE = SUBDOMAIN_TO_TENANT_ADMIN_ACCESS;
 const SUBDOMAIN_TO_ADMIN = SUBDOMAIN_TO_TENANT_ADMIN_ACCESS;
 
+/** Bare dev hosts map to college tenant so `pnpm dev` on 127.0.0.1 still resolves permissions. */
+const DEV_LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost']);
+const DEV_DEFAULT_TENANT = 'college-drs';
+
 /**
  * First hostname label (e.g. college-drs from college-drs.localhost.test).
+ * In dev, 127.0.0.1 / localhost default to college-drs for maintenance permission checks.
  */
 export function getDrSubdomain(hostname: string): string {
-  return hostname.split('.')[0] ?? '';
+  const normalized = hostname.toLowerCase();
+  if (import.meta.env.DEV && DEV_LOCAL_HOSTS.has(normalized)) {
+    return DEV_DEFAULT_TENANT;
+  }
+  return normalized.split('.')[0] ?? '';
 }
 
 /**

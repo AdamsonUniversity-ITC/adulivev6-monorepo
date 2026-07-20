@@ -1,23 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-
-const authApi = 'http://auth-api.localhost.test:8002/api/user';
-const registrarApi = 'http://registrar-api.localhost.test:8001/api';
-const appOrigin = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5173';
-const corsHeaders = {
-  'access-control-allow-credentials': 'true',
-  'access-control-allow-headers':
-    'accept, content-type, x-requested-with, x-xsrf-token',
-  'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-  'access-control-allow-origin': appOrigin,
-};
-
-async function fulfillOptions(
-  route: Parameters<Page['route']>[1] extends (route: infer R) => unknown
-    ? R
-    : never,
-) {
-  await route.fulfill({ headers: corsHeaders, status: 204 });
-}
+import {
+  authApi,
+  corsHeaders,
+  fulfillOptions,
+  registrarApi,
+} from './helpers.ts';
 
 type MockHomeRedirectOptions = {
   permissions: string[];
@@ -121,7 +108,7 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByRole('heading', { name: 'No DRS access' }),
+      page.getByText('No DRS access', { exact: true }),
     ).toBeVisible();
   });
 
@@ -156,7 +143,7 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByRole('heading', { name: 'No DRS access' }),
+      page.getByText('No DRS access', { exact: true }),
     ).toBeVisible();
   });
 
@@ -172,7 +159,7 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByRole('heading', { name: 'Your registrar requests' }),
+      page.getByText('Your registrar requests, clearly organized.'),
     ).toBeVisible();
   });
 
@@ -207,7 +194,7 @@ test.describe('DRS home staff queue redirect', () => {
       new RegExp(`/staff/applications/${applicationId}$`),
     );
     await expect(
-      page.getByRole('heading', { name: 'Could not load this application' }),
+      page.getByText('Could not load this application', { exact: true }),
     ).toBeVisible();
     await expect(page.getByText('Request #')).not.toBeVisible();
   });

@@ -6,6 +6,13 @@ import { Textarea } from '@repo/ui/components/textarea';
 import { Plus, Trash2 } from 'lucide-react';
 import { Controller, type UseFormReturn, useFieldArray } from 'react-hook-form';
 
+import {
+  ALLOWED_FILE_TYPE_OPTIONS,
+  selectedOptionIdsFromMimes,
+  toggleMimeOption,
+  unknownMimeTypes,
+} from '../-lib/allowed-file-types.ts';
+
 export type SupportingRequirementFormValue = {
   id?: number | string | null;
   name: string;
@@ -148,12 +155,12 @@ export function SupportingRequirementsFields({
                 )}
               />
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3">
                 <Controller
                   control={form.control}
                   name={`${name}.${index}.max_file_size_kb`}
                   render={({ field: input }) => (
-                    <div className="space-y-1">
+                    <div className="space-y-1 sm:max-w-xs">
                       <Label>Max size (KB)</Label>
                       <Input
                         type="number"
@@ -173,30 +180,66 @@ export function SupportingRequirementsFields({
                     </div>
                   )}
                 />
-
-                <Controller
-                  control={form.control}
-                  name={`${name}.${index}.allowed_mime_types`}
-                  render={({ field: input }) => (
-                    <div className="space-y-1">
-                      <Label>Allowed MIME types</Label>
-                      <Input
-                        disabled={disabled}
-                        value={(input.value ?? []).join(', ')}
-                        placeholder="e.g. application/pdf, image/jpeg"
-                        onChange={(event) =>
-                          input.onChange(
-                            event.target.value
-                              .split(',')
-                              .map((item) => item.trim())
-                              .filter(Boolean),
-                          )
-                        }
-                      />
-                    </div>
-                  )}
-                />
               </div>
+
+              <Controller
+                control={form.control}
+                name={`${name}.${index}.allowed_mime_types`}
+                render={({ field: input }) => {
+                  const current = (input.value ?? []) as string[];
+                  const selectedIds = selectedOptionIdsFromMimes(current);
+                  const unknown = unknownMimeTypes(current);
+
+                  return (
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <Label>Allowed file types</Label>
+                        <p className="text-muted-foreground text-xs">
+                          Leave all unchecked to allow any file type.
+                        </p>
+                      </div>
+                      <ul className="border-border grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
+                        {ALLOWED_FILE_TYPE_OPTIONS.map((option) => {
+                          const inputId = `${name}-${index}-mime-${option.id}`;
+                          const checked = selectedIds.includes(option.id);
+                          return (
+                            <li
+                              key={option.id}
+                              className="flex items-start gap-2"
+                            >
+                              <Checkbox
+                                id={inputId}
+                                checked={checked}
+                                disabled={disabled}
+                                onCheckedChange={(value) =>
+                                  input.onChange(
+                                    toggleMimeOption(
+                                      current,
+                                      option.id,
+                                      value === true,
+                                    ),
+                                  )
+                                }
+                              />
+                              <Label
+                                htmlFor={inputId}
+                                className="cursor-pointer leading-snug font-normal"
+                              >
+                                {option.label}
+                              </Label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {unknown.length > 0 ? (
+                        <p className="text-muted-foreground text-xs">
+                          Also kept from previous settings: {unknown.join(', ')}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                }}
+              />
 
               <div className="mt-3 flex flex-wrap gap-4">
                 <Controller

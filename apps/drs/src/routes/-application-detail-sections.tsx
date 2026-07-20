@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/card';
+import { Checkbox } from '@repo/ui/components/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -47,8 +48,8 @@ import {
 } from './-lib/types/applications.ts';
 import { LoadingIndicator } from './-loading-indicator.tsx';
 import {
+  eligibilityFromApiMeta,
   itemVisibleForRules,
-  PLACEHOLDER_STUDENT_CONTEXT,
 } from './apply/-lib/evaluateDocumentRules.ts';
 import { fetchDocumentCatalog } from './apply/-lib/fetchDocumentCatalog.ts';
 import type { CatalogGroup } from './apply/-lib/types.ts';
@@ -97,7 +98,7 @@ function formatMoney(amount: number): string {
 function paymentBreakdownFor(app: DRSApplicationDetail) {
   const lines =
     app.lines
-      ?.filter((line) => line.assessed_unit_price != null)
+      ?.filter((line) => line.assessed_unit_price != null && !line.is_cancelled)
       .map((line) => {
         const unitPrice = line.assessed_unit_price ?? 0;
         return {
@@ -145,7 +146,6 @@ export function AddCatalogLinesDialog({
     allow_multiple_per_request: boolean;
   }) => void;
 }) {
-  const ctx = PLACEHOLDER_STUDENT_CONTEXT;
   const [search, setSearch] = React.useState('');
 
   React.useEffect(() => {
@@ -159,9 +159,10 @@ export function AddCatalogLinesDialog({
     staleTime: 60_000,
   });
 
+  const ctx = eligibilityFromApiMeta(catalogQuery.data?.eligibility);
   const q = search.trim().toLowerCase();
   const pickRows = React.useMemo(() => {
-    const groups: CatalogGroup[] = catalogQuery.data ?? [];
+    const groups: CatalogGroup[] = catalogQuery.data?.groups ?? [];
     const out: CatalogPickRow[] = [];
     for (const g of groups) {
       const docs = (g.documents ?? []).filter(
@@ -268,13 +269,24 @@ export function AddCatalogLinesDialog({
   );
 }
 
+function formatPickupDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 export function RequestDetailsCard({ app }: { app: DRSApplicationDetail }) {
   return (
     <Card className="drs-card">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-lg">Request details</CardTitle>
+            <CardTitle className="text-base">Request details</CardTitle>
             <CardDescription>
               Reference #{displayApplicationRef(app)} - Submitted{' '}
               {app.created_at ? new Date(app.created_at).toLocaleString() : '-'}
@@ -313,6 +325,42 @@ export function RequestDetailsCard({ app }: { app: DRSApplicationDetail }) {
               {app.school_year || '-'} - {app.semester || '-'}
             </p>
           </div>
+          <div>
+            <p className="text-muted-foreground text-xs font-medium">
+              Receive mode
+            </p>
+            <p className="font-medium">
+              {formatStatusLabel(app.receive_mode)}
+              {app.secure_email_requested ? ' + Secure email (PDF)' : ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs font-medium">
+              Mode of payment
+            </p>
+            <p className="font-medium">{app.payment_method?.name || '-'}</p>
+            {app.payment_method?.description ? (
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                {app.payment_method.description}
+              </p>
+            ) : null}
+          </div>
+          {app.delivery_tracking_number ? (
+            <div>
+              <p className="text-muted-foreground text-xs font-medium">
+                Tracking number
+              </p>
+              <p className="font-medium">{app.delivery_tracking_number}</p>
+            </div>
+          ) : null}
+          {app.pickup_date ? (
+            <div>
+              <p className="text-muted-foreground text-xs font-medium">
+                Pickup date
+              </p>
+              <p className="font-medium">{formatPickupDate(app.pickup_date)}</p>
+            </div>
+          ) : null}
         </div>
         <RequestedLinesList app={app} />
         <SupportingDocumentsSection app={app} />
@@ -332,10 +380,18 @@ function RequestedLinesList({ app }: { app: DRSApplicationDetail }) {
               key={line.id}
               className="bg-background/70 flex justify-between gap-3 rounded-xl px-3 py-2"
             >
-              <span className="min-w-0 flex-1 truncate">
+              <span
+                className={`min-w-0 flex-1 truncate ${
+                  line.is_cancelled ? 'text-muted-foreground line-through' : ''
+                }`}
+              >
                 {line.request_name}
               </span>
-              <span className="text-muted-foreground shrink-0">
+              <span
+                className={`text-muted-foreground shrink-0 ${
+                  line.is_cancelled ? 'line-through' : ''
+                }`}
+              >
                 x {line.quantity}
               </span>
             </li>
@@ -518,20 +574,20 @@ function SupportingRequirementRow({
 
 export function PaymentStepCard({
   app,
-  referenceNumber,
+  uploads,
   remarks,
   isSubmitting,
   hasSubmitError,
-  onReferenceNumberChange,
+  onUploadsChange,
   onRemarksChange,
   onSubmit,
 }: {
   app: DRSApplicationDetail;
-  referenceNumber: string;
+  uploads: TempUpload[];
   remarks: string;
   isSubmitting: boolean;
   hasSubmitError?: boolean;
-  onReferenceNumberChange: (value: string) => void;
+  onUploadsChange: (uploads: TempUpload[]) => void;
   onRemarksChange: (value: string) => void;
   onSubmit: () => void;
 }) {
@@ -542,20 +598,39 @@ export function PaymentStepCard({
       <CardHeader>
         <CardTitle className="text-base">Payment</CardTitle>
         <CardDescription>
-          Enter your payment reference number to continue this request.
+          Upload your payment receipt so staff can verify your payment.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="payment-reference-number">Reference number</Label>
-          <Input
-            id="payment-reference-number"
-            value={referenceNumber}
-            onChange={(event) => onReferenceNumberChange(event.target.value)}
-            placeholder="Payment reference number"
-            autoComplete="off"
-          />
-        </div>
+        {app.payment_method ? (
+          <div className="bg-muted/20 rounded-2xl border p-3 text-sm">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Mode of payment
+            </p>
+            <p className="mt-1 font-medium">{app.payment_method.name}</p>
+            {app.payment_method.description ? (
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                {app.payment_method.description}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        <SupportingDocumentDropzone
+          label="Payment receipt"
+          description="PDF or image of your transaction receipt (max 3 files, 10 MB each)."
+          required
+          value={uploads}
+          onChange={onUploadsChange}
+          maxFiles={3}
+          maxSizeKb={10240}
+          allowedMimeTypes={[
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/webp',
+          ]}
+          disabled={isSubmitting}
+        />
         <div className="space-y-2">
           <Label htmlFor="payment-remarks">Remarks</Label>
           <Textarea
@@ -567,16 +642,16 @@ export function PaymentStepCard({
         </div>
         <Button
           type="button"
-          disabled={isSubmitting}
+          disabled={isSubmitting || uploads.length === 0}
           onClick={onSubmit}
           className="rounded-full"
         >
-          Submit payment reference
+          Submit payment proof
         </Button>
         {hasSubmitError ? (
           <p className="text-destructive text-sm" role="alert">
-            Payment reference was not submitted. Confirm the reference number
-            and try again.
+            Payment proof was not submitted. Check your receipt file and try
+            again.
           </p>
         ) : null}
       </CardContent>
@@ -635,25 +710,81 @@ export function PaymentBreakdownCard({ app }: { app: DRSApplicationDetail }) {
 export function PaymentReferencesCard({ app }: { app: DRSApplicationDetail }) {
   if (!app.payment_submission && !app.payment_verification) return null;
 
+  const receipts = app.payment_submission?.receipts ?? [];
+
   return (
     <Card className="drs-card">
       <CardHeader>
-        <CardTitle className="text-base">Payment references</CardTitle>
+        <CardTitle className="text-base">Payment proof</CardTitle>
         <CardDescription>
-          Reference numbers recorded for this request.
+          Receipt and verification details for this request.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {app.payment_submission ? (
-          <PaymentReferenceBlock
-            label="Payment reference no."
-            reference={app.payment_submission.reference_number}
-            remarks={app.payment_submission.remarks}
-          />
+          <div className="bg-muted/20 space-y-2 rounded-2xl border p-3">
+            <p className="text-muted-foreground text-xs font-medium">
+              Student payment proof
+            </p>
+            {app.payment_submission.submitted_at ? (
+              <p className="text-muted-foreground text-xs">
+                Uploaded{' '}
+                {new Date(app.payment_submission.submitted_at).toLocaleString()}
+              </p>
+            ) : null}
+            {receipts.length > 0 ? (
+              <ul className="space-y-1">
+                {receipts.map((file) => (
+                  <li
+                    key={file.id}
+                    className="flex flex-wrap items-baseline gap-2"
+                  >
+                    <a
+                      href={file.url}
+                      className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
+                      onClick={(event) =>
+                        handlePrivateFileDownloadClick(
+                          event,
+                          file.url,
+                          file.file_name,
+                          file.expires_at,
+                          () => {
+                            toast.error(
+                              'Failed to download receipt. Please refresh and try again.',
+                            );
+                          },
+                        )
+                      }
+                    >
+                      <span className="min-w-0 wrap-anywhere">
+                        {file.file_name}
+                      </span>
+                    </a>
+                    <span className="text-muted-foreground text-xs">
+                      {formatFileSize(file.size)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : app.payment_submission.reference_number ? (
+              <p className="font-medium">
+                Reference: {app.payment_submission.reference_number}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                No receipt on file.
+              </p>
+            )}
+            {app.payment_submission.remarks ? (
+              <p className="text-muted-foreground whitespace-pre-wrap">
+                {app.payment_submission.remarks}
+              </p>
+            ) : null}
+          </div>
         ) : null}
         {app.payment_verification ? (
           <PaymentReferenceBlock
-            label="Verification reference no."
+            label="Verification notes"
             reference={app.payment_verification.reference_number}
             remarks={app.payment_verification.remarks}
             timestampLabel="Verified"
@@ -768,14 +899,21 @@ export function EditRequestCard({
   email,
   contactNumber,
   receiveMode,
+  paymentMethodId,
+  paymentMethods,
+  secureEmail,
   deliveryAddress,
   purpose,
   lines,
+  lockedCompanionIds = [],
+  lockedCompanionLabels = {},
   canSubmitEdit,
   hasSaveError,
   onEmailChange,
   onContactNumberChange,
   onReceiveModeChange,
+  onPaymentMethodChange,
+  onSecureEmailChange,
   onDeliveryAddressChange,
   onPurposeChange,
   onLinesChange,
@@ -785,21 +923,36 @@ export function EditRequestCard({
   editable: boolean;
   email: string;
   contactNumber: string;
-  receiveMode: 'email' | 'delivery' | 'pickup';
+  receiveMode: 'delivery' | 'pickup';
+  paymentMethodId: string;
+  paymentMethods: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+  }>;
+  secureEmail: boolean;
   deliveryAddress: string;
   purpose: string;
   lines: DraftLine[];
+  lockedCompanionIds?: number[];
+  lockedCompanionLabels?: Record<number, string>;
   canSubmitEdit: boolean;
   hasSaveError?: boolean;
   onEmailChange: (value: string) => void;
   onContactNumberChange: (value: string) => void;
-  onReceiveModeChange: (value: 'email' | 'delivery' | 'pickup') => void;
+  onReceiveModeChange: (value: 'delivery' | 'pickup') => void;
+  onPaymentMethodChange: (value: string) => void;
+  onSecureEmailChange: (value: boolean) => void;
   onDeliveryAddressChange: (value: string) => void;
   onPurposeChange: (value: string) => void;
   onLinesChange: React.Dispatch<React.SetStateAction<DraftLine[]>>;
   onOpenCatalog: () => void;
   onSave: () => void;
 }) {
+  const selectedPaymentMethod = paymentMethods.find(
+    (method) => method.id === paymentMethodId,
+  );
+
   if (!editable) {
     return (
       <Card className="drs-card">
@@ -830,7 +983,18 @@ export function EditRequestCard({
               <p className="text-muted-foreground text-xs font-medium">
                 Receive mode
               </p>
-              <p className="font-medium">{formatStatusLabel(receiveMode)}</p>
+              <p className="font-medium">
+                {formatStatusLabel(receiveMode)}
+                {secureEmail ? ' + Secure email (PDF)' : ''}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs font-medium">
+                Mode of payment
+              </p>
+              <p className="font-medium">
+                {selectedPaymentMethod?.name || '-'}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -873,7 +1037,7 @@ export function EditRequestCard({
           <Select
             value={receiveMode}
             onValueChange={(v) =>
-              onReceiveModeChange(v as 'email' | 'delivery' | 'pickup')
+              onReceiveModeChange(v as 'delivery' | 'pickup')
             }
             disabled={!editable}
           >
@@ -883,9 +1047,54 @@ export function EditRequestCard({
             <SelectContent>
               <SelectItem value="pickup">Pickup</SelectItem>
               <SelectItem value="delivery">Delivery</SelectItem>
-              <SelectItem value="email">Email</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Mode of payment</Label>
+          <Select
+            value={paymentMethodId || undefined}
+            onValueChange={onPaymentMethodChange}
+            disabled={!editable || paymentMethods.length === 0}
+          >
+            <SelectTrigger className="w-full sm:max-w-xs">
+              <SelectValue
+                placeholder={
+                  paymentMethods.length === 0
+                    ? 'No payment methods available'
+                    : 'Select payment method'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {paymentMethods.map((method) => (
+                <SelectItem key={method.id} value={method.id}>
+                  {method.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedPaymentMethod?.description ? (
+            <p className="text-muted-foreground text-xs leading-5">
+              {selectedPaymentMethod.description}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="edit-secure-email"
+            checked={secureEmail}
+            onCheckedChange={(checked) => onSecureEmailChange(checked === true)}
+            disabled={!editable}
+          />
+          <div className="space-y-1">
+            <Label htmlFor="edit-secure-email">
+              Also receive a secure email (PDF) copy
+            </Label>
+            <p className="text-muted-foreground text-xs">
+              A protected PDF copy will be sent to your email address.
+            </p>
+          </div>
         </div>
         {receiveMode === 'delivery' ? (
           <div className="space-y-2">
@@ -910,6 +1119,8 @@ export function EditRequestCard({
         <RequestedItemsEditor
           editable={editable}
           lines={lines}
+          lockedCompanionIds={lockedCompanionIds}
+          lockedCompanionLabels={lockedCompanionLabels}
           onLinesChange={onLinesChange}
           onOpenCatalog={onOpenCatalog}
         />
@@ -934,11 +1145,15 @@ export function EditRequestCard({
 function RequestedItemsEditor({
   editable,
   lines,
+  lockedCompanionIds = [],
+  lockedCompanionLabels = {},
   onLinesChange,
   onOpenCatalog,
 }: {
   editable: boolean;
   lines: DraftLine[];
+  lockedCompanionIds?: number[];
+  lockedCompanionLabels?: Record<number, string>;
   onLinesChange: React.Dispatch<React.SetStateAction<DraftLine[]>>;
   onOpenCatalog: () => void;
 }) {
@@ -964,58 +1179,71 @@ function RequestedItemsEditor({
             No items yet. Add at least one document or package to save.
           </p>
         ) : null}
-        {lines.map((line, index) => (
-          <div
-            key={`${line.requestable_type}-${line.requestable_id}-${index}`}
-            className="bg-background/80 flex flex-col gap-2 rounded-xl p-3 sm:flex-row sm:items-center"
-          >
-            <p className="min-w-0 flex-1 truncate text-sm font-medium">
-              {line.label}
-            </p>
-            <div className="flex items-center gap-2 sm:w-auto">
-              <div className="flex items-center gap-2 sm:w-40">
-                <Label className="text-muted-foreground text-xs">Qty</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={MAX_LINE_QTY}
-                  value={line.quantity}
-                  disabled={!editable}
-                  onChange={(e) => {
-                    const n = Number.parseInt(e.target.value, 10);
-                    onLinesChange((prev) =>
-                      prev.map((row, rowIndex) =>
-                        rowIndex === index
-                          ? {
-                              ...row,
-                              quantity: Number.isFinite(n)
-                                ? Math.min(MAX_LINE_QTY, Math.max(1, n))
-                                : 1,
-                            }
-                          : row,
-                      ),
-                    );
-                  }}
-                />
+        {lines.map((line, index) => {
+          const isLockedCompanion =
+            line.requestable_type === 'document' &&
+            lockedCompanionIds.includes(line.requestable_id);
+          const lockedBy = lockedCompanionLabels[line.requestable_id];
+
+          return (
+            <div
+              key={`${line.requestable_type}-${line.requestable_id}-${index}`}
+              className="bg-background/80 flex flex-col gap-2 rounded-xl p-3 sm:flex-row sm:items-center"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{line.label}</p>
+                {isLockedCompanion && lockedBy ? (
+                  <p className="text-muted-foreground text-xs">
+                    Required with {lockedBy}. Cannot remove while that document
+                    is selected.
+                  </p>
+                ) : null}
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-destructive hover:text-destructive shrink-0"
-                disabled={!editable}
-                aria-label={`Remove ${line.label}`}
-                onClick={() =>
-                  onLinesChange((prev) =>
-                    prev.filter((_, rowIndex) => rowIndex !== index),
-                  )
-                }
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </Button>
+              <div className="flex items-center gap-2 sm:w-auto">
+                <div className="flex items-center gap-2 sm:w-40">
+                  <Label className="text-muted-foreground text-xs">Qty</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={MAX_LINE_QTY}
+                    value={line.quantity}
+                    disabled={!editable}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      onLinesChange((prev) =>
+                        prev.map((row, rowIndex) =>
+                          rowIndex === index
+                            ? {
+                                ...row,
+                                quantity: Number.isFinite(n)
+                                  ? Math.min(MAX_LINE_QTY, Math.max(1, n))
+                                  : 1,
+                              }
+                            : row,
+                        ),
+                      );
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive shrink-0"
+                  disabled={!editable || isLockedCompanion}
+                  aria-label={`Remove ${line.label}`}
+                  onClick={() =>
+                    onLinesChange((prev) =>
+                      prev.filter((_, rowIndex) => rowIndex !== index),
+                    )
+                  }
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

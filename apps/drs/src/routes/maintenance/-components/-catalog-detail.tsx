@@ -26,6 +26,7 @@ import {
 } from '../-lib/api/fetchDocument.ts';
 import { type PackageDetail, fetchPackage } from '../-lib/api/fetchPackage.ts';
 import { LoadingIndicator } from '../../-loading-indicator.tsx';
+import { RequiredCompanionsFields } from './-required-companions-fields.tsx';
 import {
   type SupportingRequirementFormValue,
   SupportingRequirementsFields,
@@ -35,8 +36,13 @@ import { type CatalogKind, EMPTY_CATALOG_RULES } from './-types.ts';
 const detailFormSchema = z.object({
   name: z.string().min(1, { message: 'This field is required.' }).max(255),
   price: z.coerce.number().min(0).max(999999999),
+  account_code: z
+    .string()
+    .min(1, { message: 'Account code is required.' })
+    .max(50),
   is_active: z.boolean(),
   allow_multiple_per_request: z.boolean(),
+  once_per_student: z.boolean(),
   rules: z.object({
     graduate: z.boolean(),
     undergraduate: z.boolean(),
@@ -56,6 +62,7 @@ const detailFormSchema = z.object({
       max_files: z.number().min(1).max(20).nullable().optional(),
     }),
   ),
+  required_companion_ids: z.array(z.number().int().positive()),
 });
 
 type DetailFormValues = z.infer<typeof detailFormSchema>;
@@ -85,8 +92,10 @@ const detailToForm = (
   return {
     name,
     price: Number(detail.price ?? 0),
+    account_code: String(detail.account_code ?? ''),
     is_active: Boolean(detail.is_active),
     allow_multiple_per_request: detail.allow_multiple_per_request !== false,
+    once_per_student: Boolean(detail.once_per_student),
     rules,
     supporting_document_requirements:
       kind === 'document'
@@ -103,6 +112,10 @@ const detailToForm = (
             max_file_size_kb: requirement.max_file_size_kb ?? null,
             max_files: requirement.max_files ?? 1,
           }))
+        : [],
+    required_companion_ids:
+      kind === 'document'
+        ? ((detail as DocumentDetail).required_companion_ids ?? []).map(Number)
         : [],
   };
 };
@@ -123,19 +136,31 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
     defaultValues: {
       name: '',
       price: 0,
+      account_code: '',
       is_active: true,
       allow_multiple_per_request: true,
+      once_per_student: false,
       rules: { ...EMPTY_CATALOG_RULES },
       supporting_document_requirements: [],
+      required_companion_ids: [],
     },
   });
 
   const isActive = useWatch({ control: form.control, name: 'is_active' });
+  const oncePerStudent = useWatch({
+    control: form.control,
+    name: 'once_per_student',
+  });
 
   useEffect(() => {
     if (!detailQuery.data) return;
     form.reset(detailToForm(kind, detailQuery.data));
   }, [detailQuery.data, kind, form]);
+
+  useEffect(() => {
+    if (!oncePerStudent) return;
+    form.setValue('allow_multiple_per_request', false);
+  }, [oncePerStudent, form]);
 
   const mutation = useMutation({
     mutationFn: (values: DetailFormValues) => {
@@ -143,22 +168,31 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
         return editDocument(itemId, {
           document_name: values.name,
           price: values.price,
+          account_code: values.account_code,
           is_active: values.is_active,
-          allow_multiple_per_request: values.allow_multiple_per_request,
+          allow_multiple_per_request: values.once_per_student
+            ? false
+            : values.allow_multiple_per_request,
+          once_per_student: values.once_per_student,
           rules: values.rules,
           supporting_document_requirements:
             values.supporting_document_requirements.map((item, index) => ({
               ...item,
               sort_order: index,
             })) as SupportingRequirementFormValue[],
+          required_companion_ids: values.required_companion_ids,
         });
       }
 
       return editPackage(itemId, {
         package_name: values.name,
         price: values.price,
+        account_code: values.account_code,
         is_active: values.is_active,
-        allow_multiple_per_request: values.allow_multiple_per_request,
+        allow_multiple_per_request: values.once_per_student
+          ? false
+          : values.allow_multiple_per_request,
+        once_per_student: values.once_per_student,
         package_rules: values.rules,
       });
     },
@@ -216,6 +250,12 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
               type="number"
               label="Price (per copy)"
             />
+            <FormInput
+              form={form}
+              name="account_code"
+              label="Account code"
+              placeholder="e.g. REG-DOC-01"
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -229,6 +269,12 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
               form={form}
               name="allow_multiple_per_request"
               label="Allow multiple in one request"
+              disabled={oncePerStudent}
+            />
+            <FormCheckbox
+              form={form}
+              name="once_per_student"
+              label="Can only be requested once"
             />
           </div>
 
@@ -268,6 +314,12 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
               <Separator />
               <SupportingRequirementsFields
                 form={form}
+                disabled={mutation.isPending}
+              />
+              <Separator />
+              <RequiredCompanionsFields
+                form={form}
+                currentDocumentId={itemId}
                 disabled={mutation.isPending}
               />
             </>

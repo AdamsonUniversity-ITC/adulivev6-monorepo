@@ -3,8 +3,6 @@ import {
   DrsPageHeader,
   DrsPageShell,
   DrsSectionCard,
-  DrsStatCard,
-  DrsStatusBadge,
 } from '@/components/drs-ui.tsx';
 import {
   DRS_STUDENT_APPLY_PERMISSION,
@@ -15,14 +13,7 @@ import { checkPermission, usePermission } from '@repo/hooks';
 import { Button } from '@repo/ui/components/button';
 import { Spinner } from '@repo/ui/components/spinner';
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
-import {
-  ClipboardCheck,
-  FileText,
-  MessageSquareText,
-  ShieldCheck,
-  Sparkles,
-  Wrench,
-} from 'lucide-react';
+import { FileText, ShieldCheck, Wrench } from 'lucide-react';
 import { ApplicationsDataTable } from './-applications-datatable.tsx';
 import { fetchWorkflowStageAccess } from './-lib/api/fetchWorkflowStageAccess.ts';
 import { loadMaintenanceAccess } from './maintenance/-lib/loadMaintenanceAccess.ts';
@@ -82,17 +73,17 @@ function Index() {
 
   if (hasCollege) {
     return (
-      <DrsPageShell maxWidth="xl" contentClassName="space-y-6">
+      <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
         <DrsPageHeader
           eyebrow="Document Request System"
-          title="Your registrar requests, clearly organized."
-          description="Request documents, follow every workflow stage, upload payment references, and keep conversations with the registrar in one secure workspace."
+          title="My applications"
+          description="Request documents, track stages, and message the registrar."
           actions={
             <>
-              <Button asChild size="lg" className="rounded-full">
+              <Button asChild size="sm" className="rounded-full">
                 <Link to="/apply">
                   <FileText className="size-4" />
-                  Apply for documents
+                  Apply
                 </Link>
               </Button>
 
@@ -100,7 +91,7 @@ function Index() {
                 <Button
                   variant="outline"
                   asChild
-                  size="lg"
+                  size="sm"
                   className="rounded-full"
                 >
                   <Link to="/maintenance">
@@ -111,45 +102,11 @@ function Index() {
               ) : null}
             </>
           }
-          badges={
-            <>
-              <DrsStatusBadge tone="info">Online requests</DrsStatusBadge>
-              <DrsStatusBadge tone="success">Status tracking</DrsStatusBadge>
-              <DrsStatusBadge tone="warning">Payment updates</DrsStatusBadge>
-            </>
-          }
         />
-
-        <section
-          aria-label="DRS service highlights"
-          className="grid gap-4 md:grid-cols-3"
-        >
-          <DrsStatCard
-            label="Request"
-            value="24/7"
-            description="Build document requests anytime from the live catalog."
-            icon={Sparkles}
-            tone="blue"
-          />
-          <DrsStatCard
-            label="Workflow"
-            value="Live"
-            description="Track stage movement, clearances, and payment state."
-            icon={ClipboardCheck}
-            tone="emerald"
-          />
-          <DrsStatCard
-            label="Support"
-            value="Threaded"
-            description="Keep registrar messages attached to each application."
-            icon={MessageSquareText}
-            tone="amber"
-          />
-        </section>
 
         <DrsSectionCard
           title="Applications"
-          description="Click a row to open request details, messages, payment references, and edits when the workflow allows them."
+          description="Open a row for details, messages, payment, and edits when allowed."
           icon={FileText}
         >
           <section className="flex flex-col gap-2">

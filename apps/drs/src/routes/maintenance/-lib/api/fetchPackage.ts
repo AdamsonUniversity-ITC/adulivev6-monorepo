@@ -11,8 +11,10 @@ export type PackageDetail = {
   id: string | number;
   package_name: string;
   price: number;
+  account_code?: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;
+  once_per_student?: boolean;
   rules?: PackageRule[];
 };
 

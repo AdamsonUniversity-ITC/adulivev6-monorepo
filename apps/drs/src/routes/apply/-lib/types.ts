@@ -27,8 +27,20 @@ export type CatalogDocument = {
   price: string | number;
   is_active: boolean;
   allow_multiple_per_request?: boolean;
+  once_per_student?: boolean;
+  already_requested?: boolean;
   rules?: DocumentRuleRow[] | null;
   supporting_document_requirements?: SupportingDocumentRequirement[] | null;
+  required_companion_ids?: number[] | null;
+  required_companions?: Array<{
+    id?: number | string;
+    required_document_id: number | string;
+    required_document?: {
+      id: number | string;
+      document_name: string;
+      is_active?: boolean;
+    } | null;
+  }> | null;
 };
 
 export type CatalogPackage = {
@@ -37,6 +49,8 @@ export type CatalogPackage = {
   price: string | number;
   is_active: boolean;
   allow_multiple_per_request?: boolean;
+  once_per_student?: boolean;
+  already_requested?: boolean;
   rules?: DocumentRuleRow[] | null;
 };
 

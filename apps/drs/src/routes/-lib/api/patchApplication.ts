@@ -5,7 +5,9 @@ import type { DRSApplicationDetail } from '../types/applications.ts';
 export type PatchApplicationPayload = {
   email: string;
   contact_number: string;
-  receive_mode: 'email' | 'delivery' | 'pickup';
+  receive_mode: 'delivery' | 'pickup';
+  payment_method_id: number;
+  secure_email_requested: boolean;
   delivery_address?: string | null;
   purpose?: string | null;
   lines: Array<{

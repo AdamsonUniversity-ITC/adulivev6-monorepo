@@ -3,7 +3,7 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 import type { DRSApplicationDetail } from '../types/applications.ts';
 
 export type StudentPaymentProofPayload = {
-  reference_number: string;
+  temp_upload_ids: number[];
   remarks?: string | null;
 };
 
@@ -16,15 +16,9 @@ export async function postStudentPaymentProof(
     payload,
   );
 
-  if (!body || typeof body !== 'object') {
-    throw new Error('Empty payment response');
+  if (!body || typeof body !== 'object' || !('data' in body)) {
+    throw new Error('Invalid application response');
   }
 
-  const record = body as Record<string, unknown>;
-  const detail = record.data as DRSApplicationDetail | undefined;
-  if (!detail) {
-    throw new Error('Missing application data');
-  }
-
-  return detail;
+  return (body as { data: DRSApplicationDetail }).data;
 }

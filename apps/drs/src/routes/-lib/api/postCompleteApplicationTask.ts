@@ -8,11 +8,18 @@ export type CompleteApplicationTaskPayload = {
   transition_id?: number | string | null;
   outcome_key?: string | null;
   tracking_number?: string | null;
+  pickup_date?: string | null;
   amount?: number | null;
   extra?: Record<string, unknown> | null;
   line_prices?: Array<{
     application_document_id: string | number;
     amount: number;
+  }> | null;
+  line_updates?: Array<{
+    application_document_id: string | number;
+    quantity: number;
+    amount: number;
+    is_cancelled?: boolean;
   }> | null;
 };
 

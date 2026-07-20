@@ -1,23 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-
-const authApi = 'http://auth-api.localhost.test:8002/api/user';
-const registrarApi = 'http://registrar-api.localhost.test:8001/api';
-const appOrigin = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5173';
-const corsHeaders = {
-  'access-control-allow-credentials': 'true',
-  'access-control-allow-headers':
-    'accept, content-type, x-requested-with, x-xsrf-token',
-  'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-  'access-control-allow-origin': appOrigin,
-};
-
-async function fulfillOptions(
-  route: Parameters<Page['route']>[1] extends (route: infer R) => unknown
-    ? R
-    : never,
-) {
-  await route.fulfill({ headers: corsHeaders, status: 204 });
-}
+import {
+  authApi,
+  corsHeaders,
+  fulfillOptions,
+  registrarApi,
+} from './helpers.ts';
 
 async function mockMaintenanceUser(page: Page) {
   await page.route(authApi, async (route) => {
@@ -101,7 +88,7 @@ test.describe('DRS reports page', () => {
     await mockMaintenanceUser(page);
     await mockSummaryReport(page);
 
-    await page.goto(`${appOrigin}/maintenance/reports`);
+    await page.goto('/maintenance/reports');
 
     await expect(
       page.getByRole('heading', { name: 'Statistical reports' }),
@@ -115,7 +102,7 @@ test.describe('DRS reports page', () => {
   }) => {
     await mockStudentUser(page);
 
-    await page.goto(`${appOrigin}/maintenance/reports`);
+    await page.goto('/maintenance/reports');
 
     await expect(page).not.toHaveURL(/\/maintenance\/reports$/);
   });

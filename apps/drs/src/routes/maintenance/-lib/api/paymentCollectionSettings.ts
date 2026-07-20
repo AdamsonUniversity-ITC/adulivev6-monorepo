@@ -1,9 +1,9 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
-export type PaymentCollectionBankAccount = {
+export type PaymentCollectionPaymentMethod = {
   id: string;
-  bank_name: string;
-  account_number: string;
+  name: string;
+  description: string | null;
 };
 
 export type PaymentCollectionOtherFee = {
@@ -14,13 +14,13 @@ export type PaymentCollectionOtherFee = {
 
 export type PaymentCollectionSettings = {
   id: number | string;
-  bank_accounts: PaymentCollectionBankAccount[];
+  payment_methods: PaymentCollectionPaymentMethod[];
   other_fees: PaymentCollectionOtherFee[];
 };
 
-export type CreatePaymentCollectionBankAccountPayload = {
-  bank_name: string;
-  account_number: string;
+export type CreatePaymentCollectionPaymentMethodPayload = {
+  name: string;
+  description?: string | null;
 };
 
 export type CreatePaymentCollectionOtherFeePayload = {
@@ -30,7 +30,7 @@ export type CreatePaymentCollectionOtherFeePayload = {
 
 const emptySettings: PaymentCollectionSettings = {
   id: '',
-  bank_accounts: [],
+  payment_methods: [],
   other_fees: [],
 };
 
@@ -46,8 +46,8 @@ const unwrap = (body: unknown): PaymentCollectionSettings | null => {
 
   return {
     id: payload.id ?? emptySettings.id,
-    bank_accounts: Array.isArray(payload.bank_accounts)
-      ? payload.bank_accounts
+    payment_methods: Array.isArray(payload.payment_methods)
+      ? payload.payment_methods
       : [],
     other_fees: Array.isArray(payload.other_fees) ? payload.other_fees : [],
   };
@@ -62,20 +62,20 @@ export const fetchPaymentCollectionSettings =
     return unwrap(data);
   };
 
-export const createPaymentCollectionBankAccount = async (
-  payload: CreatePaymentCollectionBankAccountPayload,
+export const createPaymentCollectionPaymentMethod = async (
+  payload: CreatePaymentCollectionPaymentMethodPayload,
 ): Promise<void> => {
   await registrarSvc.post(
-    `v1/drs/payment-collection-settings/bank-accounts`,
+    `v1/drs/payment-collection-settings/payment-methods`,
     payload,
   );
 };
 
-export const deletePaymentCollectionBankAccount = async (
-  bankAccountId: string,
+export const deletePaymentCollectionPaymentMethod = async (
+  paymentMethodId: string,
 ): Promise<void> => {
   await registrarSvc.delete(
-    `v1/drs/payment-collection-settings/bank-accounts/${encodeURIComponent(bankAccountId)}`,
+    `v1/drs/payment-collection-settings/payment-methods/${encodeURIComponent(paymentMethodId)}`,
   );
 };
 

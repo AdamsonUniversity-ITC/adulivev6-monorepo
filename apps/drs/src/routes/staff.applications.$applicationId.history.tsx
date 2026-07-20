@@ -110,11 +110,7 @@ function HistoryCard({
 }) {
   const lines = summarize(row.summary);
   const restoreEnabled = canRestore && row.can_restore && !isLatest;
-  const restoreTitle = !canRestore
-    ? 'Only DRS admins can rollback applications.'
-    : isLatest
-      ? 'This is the current version.'
-      : undefined;
+  const restoreTitle = isLatest ? 'This is the current version.' : undefined;
 
   return (
     <DrsSectionCard>
@@ -134,40 +130,42 @@ function HistoryCard({
           </p>
         </div>
 
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!restoreEnabled || isRestoring}
-              className="gap-1"
-              title={restoreTitle}
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Rollback
-            </Button>
-          </AlertDialogTrigger>
-          {restoreEnabled ? (
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Restore version {row.version}?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will replace the application runtime state with the
-                  selected snapshot. Messages will not be changed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onRestore(row.id)}>
-                  Rollback to version
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          ) : null}
-        </AlertDialog>
+        {canRestore ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!restoreEnabled || isRestoring}
+                className="gap-1"
+                title={restoreTitle}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Rollback
+              </Button>
+            </AlertDialogTrigger>
+            {restoreEnabled ? (
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Restore version {row.version}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will replace the application runtime state with the
+                    selected snapshot. Messages will not be changed.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onRestore(row.id)}>
+                    Rollback to version
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            ) : null}
+          </AlertDialog>
+        ) : null}
       </div>
       <div className="mt-4 space-y-4 text-sm">
         <div className="bg-muted/20 grid gap-2 rounded-2xl border p-3 sm:grid-cols-2">
@@ -264,7 +262,7 @@ export function ApplicationHistoryContent({
   );
 
   return (
-    <DrsPageShell maxWidth="lg" contentClassName="space-y-5">
+    <DrsPageShell maxWidth="lg" contentClassName="space-y-3">
       <DrsPageHeader
         eyebrow="Audit trail"
         title="Edit history"

@@ -21,6 +21,7 @@ export type ReportType =
   | 'revenue'
   | 'release-mode'
   | 'turnaround'
+  | 'tat-by-status'
   | 'payment-status'
   | 'clearance-bottlenecks'
   | 'by-course'
@@ -74,6 +75,16 @@ export type TurnaroundReport = {
   average_days: number | null;
   median_days: number | null;
   p90_days: number | null;
+};
+
+export type TatByStatusReport = {
+  rows: Array<{
+    status: string;
+    status_label: string;
+    sample_size: number;
+    average_days: number | null;
+    median_days: number | null;
+  }>;
 };
 
 export type PaymentStatusReport = {
@@ -177,6 +188,9 @@ export const fetchReleaseModeReport = (filters: ReportFilters) =>
 export const fetchTurnaroundReport = (filters: ReportFilters) =>
   fetchReport<TurnaroundReport>('/v1/drs/reports/turnaround', filters);
 
+export const fetchTatByStatusReport = (filters: ReportFilters) =>
+  fetchReport<TatByStatusReport>('/v1/drs/reports/tat-by-status', filters);
+
 export const fetchPaymentStatusReport = (filters: ReportFilters) =>
   fetchReport<PaymentStatusReport>('/v1/drs/reports/payment-status', filters);
 
@@ -219,9 +233,50 @@ export const REPORT_TABS: Array<{ id: ReportType; label: string }> = [
   { id: 'revenue', label: 'Revenue' },
   { id: 'release-mode', label: 'Release mode' },
   { id: 'turnaround', label: 'Turnaround' },
+  { id: 'tat-by-status', label: 'TAT by status' },
   { id: 'payment-status', label: 'Payment' },
   { id: 'clearance-bottlenecks', label: 'Clearances' },
   { id: 'by-course', label: 'By course' },
   { id: 'trends', label: 'Trends' },
   { id: 'foreigner-split', label: 'Foreigner split' },
 ];
+
+export type ReportGroupId = 'volume' | 'operations' | 'finance';
+
+export const REPORT_GROUPS: Array<{
+  id: ReportGroupId;
+  label: string;
+  tabs: ReportType[];
+}> = [
+  {
+    id: 'volume',
+    label: 'Volume',
+    tabs: [
+      'summary',
+      'status-breakdown',
+      'trends',
+      'by-course',
+      'foreigner-split',
+    ],
+  },
+  {
+    id: 'operations',
+    label: 'Operations',
+    tabs: [
+      'document-demand',
+      'turnaround',
+      'tat-by-status',
+      'clearance-bottlenecks',
+    ],
+  },
+  {
+    id: 'finance',
+    label: 'Finance',
+    tabs: ['revenue', 'payment-status', 'release-mode'],
+  },
+];
+
+export function reportGroupForType(reportType: ReportType): ReportGroupId {
+  const group = REPORT_GROUPS.find((entry) => entry.tabs.includes(reportType));
+  return group?.id ?? 'volume';
+}

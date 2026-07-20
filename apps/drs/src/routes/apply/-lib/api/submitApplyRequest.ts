@@ -19,6 +19,8 @@ export type ApplyRequestPayload = {
   email: string;
   contact_number: string;
   receive_mode: string;
+  payment_method_id: number;
+  secure_email_requested: boolean;
   delivery_address: string | null;
   purpose: string | null;
   lines: ApplyRequestLine[];
@@ -119,6 +121,8 @@ export function buildApplyRequestPayload(
     email: values.email.trim(),
     contact_number: values.contactNumber.trim(),
     receive_mode: values.receiveMode,
+    payment_method_id: Number(values.paymentMethodId),
+    secure_email_requested: values.secureEmail,
     delivery_address: values.deliveryAddress?.trim() || null,
     purpose: values.purpose?.trim() || null,
     lines,
@@ -130,6 +134,15 @@ export function buildApplyRequestPayload(
 
 export async function submitApplyRequest(
   payload: ApplyRequestPayload,
-): Promise<void> {
-  await registrarSvc.post('v1/drs/apply/applications', payload);
+): Promise<{ id: string }> {
+  const { data } = await registrarSvc.post<{
+    data?: { id?: string | number };
+  }>('v1/drs/apply/applications', payload);
+
+  const id = data?.data?.id;
+  if (id === undefined || id === null || String(id).trim() === '') {
+    throw new Error('Application was created but no id was returned.');
+  }
+
+  return { id: String(id) };
 }

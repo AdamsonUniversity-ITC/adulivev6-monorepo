@@ -38,10 +38,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
 import { type JSX, useMemo, useState } from 'react';
 import {
+  DRS_ADMIN_ACCESS_PERMISSION,
   DRS_CANCEL_APPLICATIONS_PERMISSION,
   DRS_USER_MANAGEMENT_MANAGE_PERMISSION,
   formatRolePermissionName,
 } from './-lib/api/access/permissionLabels.ts';
+import { detachAssessmentUser } from './-lib/api/detachAssessmentUser.ts';
+import { detachClearanceDepartmentUser } from './-lib/api/detachClearanceDepartmentUser.ts';
+import { detachForeignerAssessmentUser } from './-lib/api/detachForeignerAssessmentUser.ts';
 import { fetchAssessmentSettings } from './-lib/api/fetchAssessmentSettings.ts';
 import { fetchClearanceDepartments } from './-lib/api/fetchClearanceDepartments.ts';
 import { assignWorkflowUser } from './-lib/api/user-management/assignWorkflowUser.ts';
@@ -212,20 +216,82 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   });
 
   const detachMutation = useMutation({
-    mutationFn: detachWorkflowUser,
-    onSuccess: () => {
+    mutationFn: async (item: WorkflowResponsibility) => {
+      // Numeric ids are workflow assignment_user rows; detach by primary key.
+      if (/^\d+$/.test(item.id)) {
+        await detachWorkflowUser({ assignmentUserId: item.id });
+        return item.id;
+      }
+
+      if (item.assignment_id) {
+        await detachWorkflowUser({
+          assignmentId: item.assignment_id,
+          empNo,
+          assignmentRole: item.assignment_role,
+        });
+        return item.id;
+      }
+
+      if (item.target_type === 'clearance_department' && item.target_key) {
+        const userId = Number(item.metadata.user_id);
+        if (Number.isFinite(userId) && userId > 0) {
+          await detachClearanceDepartmentUser(item.target_key, userId);
+          return item.id;
+        }
+      }
+
+      if (item.target_type === 'assessment') {
+        await detachAssessmentUser(empNo);
+        return item.id;
+      }
+
+      if (item.target_type === 'assessment_foreigner') {
+        await detachForeignerAssessmentUser(empNo);
+        return item.id;
+      }
+
+      throw new Error(
+        'This responsibility cannot be removed from user management.',
+      );
+    },
+    onSuccess: (removedId) => {
       toast.success('Assignment removed.');
-      queryClient.invalidateQueries({ queryKey: profileKey(empNo) });
-      queryClient.invalidateQueries({ queryKey: historyKey(empNo) });
+      queryClient.setQueryData(
+        profileKey(empNo),
+        (current: UserManagementProfile | undefined) => {
+          if (!current) return current;
+          const responsibilities = current.responsibilities.filter(
+            (row) => row.id !== removedId,
+          );
+          return {
+            ...current,
+            responsibilities,
+            responsibility_summary: {
+              ...current.responsibility_summary,
+              total: responsibilities.length,
+            },
+          };
+        },
+      );
+      void queryClient.invalidateQueries({ queryKey: profileKey(empNo) });
+      void queryClient.invalidateQueries({ queryKey: historyKey(empNo) });
+      void queryClient.invalidateQueries({
+        queryKey: ['drs', 'user-management', 'users'],
+      });
     },
     onError: () => toast.error('Failed to remove assignment.'),
   });
 
   const permissionMutation = useMutation({
-    mutationFn: (enabled: boolean) =>
+    mutationFn: (vars: {
+      permission:
+        | typeof DRS_CANCEL_APPLICATIONS_PERMISSION
+        | typeof DRS_ADMIN_ACCESS_PERMISSION;
+      enabled: boolean;
+    }) =>
       patchUserManagementPermissions(empNo, {
         permissions: {
-          [DRS_CANCEL_APPLICATIONS_PERMISSION]: enabled,
+          [vars.permission]: vars.enabled,
         },
       }),
     onSuccess: (updated) => {
@@ -259,8 +325,15 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   const canCancelApplications = profile.permissions.includes(
     DRS_CANCEL_APPLICATIONS_PERMISSION,
   );
+  const hasAdminAccess = profile.permissions.includes(
+    DRS_ADMIN_ACCESS_PERMISSION,
+  );
+  const managedPermissionNames = [
+    DRS_CANCEL_APPLICATIONS_PERMISSION,
+    DRS_ADMIN_ACCESS_PERMISSION,
+  ];
   const otherPermissions = profile.permissions.filter(
-    (permission) => permission !== DRS_CANCEL_APPLICATIONS_PERMISSION,
+    (permission) => !managedPermissionNames.includes(permission),
   );
 
   return (
@@ -288,23 +361,52 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Permissions</h3>
           {canManagePermissions ? (
-            <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3">
-              <div>
-                <p className="text-sm font-medium">
-                  {formatRolePermissionName(DRS_CANCEL_APPLICATIONS_PERMISSION)}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Allow this user to cancel applications from the staff queue.
-                </p>
+            <div className="space-y-2">
+              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    {formatRolePermissionName(
+                      DRS_CANCEL_APPLICATIONS_PERMISSION,
+                    )}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Allow this user to cancel applications from the staff queue.
+                  </p>
+                </div>
+                <Switch
+                  checked={canCancelApplications}
+                  disabled={permissionMutation.isPending}
+                  onCheckedChange={(checked) =>
+                    permissionMutation.mutate({
+                      permission: DRS_CANCEL_APPLICATIONS_PERMISSION,
+                      enabled: checked === true,
+                    })
+                  }
+                  aria-label="Can cancel applications"
+                />
               </div>
-              <Switch
-                checked={canCancelApplications}
-                disabled={permissionMutation.isPending}
-                onCheckedChange={(checked) =>
-                  permissionMutation.mutate(checked === true)
-                }
-                aria-label="Can cancel applications"
-              />
+              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    {formatRolePermissionName(DRS_ADMIN_ACCESS_PERMISSION)}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Bypass staff queue, course, foreigner, and roster
+                    restrictions for monitoring and support.
+                  </p>
+                </div>
+                <Switch
+                  checked={hasAdminAccess}
+                  disabled={permissionMutation.isPending}
+                  onCheckedChange={(checked) =>
+                    permissionMutation.mutate({
+                      permission: DRS_ADMIN_ACCESS_PERMISSION,
+                      enabled: checked === true,
+                    })
+                  }
+                  aria-label="DRS admin access"
+                />
+              </div>
             </div>
           ) : null}
           <ChipList
@@ -333,14 +435,8 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
                 <ResponsibilityRow
                   key={item.id}
                   item={item}
-                  onRemove={() => {
-                    if (!item.assignment_id) return;
-                    detachMutation.mutate({
-                      assignmentId: item.assignment_id,
-                      empNo,
-                      assignmentRole: item.assignment_role,
-                    });
-                  }}
+                  isRemoving={detachMutation.isPending}
+                  onRemove={() => detachMutation.mutate(item)}
                 />
               ))}
             </div>
@@ -401,9 +497,11 @@ function ChipList({
 function ResponsibilityRow({
   item,
   onRemove,
+  isRemoving,
 }: {
   item: WorkflowResponsibility;
   onRemove: () => void;
+  isRemoving?: boolean;
 }): JSX.Element {
   const label = useMemo(() => {
     if (item.stage) return item.stage.name;
@@ -421,7 +519,13 @@ function ResponsibilityRow({
           {item.target_type} · {item.assignment_role}
         </div>
       </div>
-      <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={isRemoving}
+        onClick={onRemove}
+      >
         Remove
       </Button>
     </div>
@@ -546,7 +650,6 @@ function AssignDialog({
         ...base,
         target_type: targetType,
         assessment_setting_id: assessmentQuery.data?.id ?? null,
-        target_key: assessmentQuery.data?.id ?? null,
       };
     }
 

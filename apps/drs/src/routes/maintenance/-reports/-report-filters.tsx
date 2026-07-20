@@ -10,6 +10,11 @@ import {
   SelectValue,
 } from '@repo/ui/components/select';
 import { Switch } from '@repo/ui/components/switch';
+import {
+  ReportDatePicker,
+  parseReportDate,
+  startOfReportDay,
+} from './-report-date-picker.tsx';
 
 type ReportFiltersBarProps = {
   filters: ReportFilters;
@@ -32,25 +37,35 @@ export function ReportFiltersBar({
     <div className="drs-card grid gap-4 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-4">
       <div className="space-y-2">
         <Label htmlFor="date_from">Date from</Label>
-        <Input
+        <ReportDatePicker
           id="date_from"
-          type="date"
-          value={filters.date_from ?? ''}
-          max={filters.date_to || undefined}
-          onChange={(event) =>
-            onChange({ ...filters, date_from: event.target.value || undefined })
+          value={filters.date_from}
+          placeholder="Start date"
+          disabledDate={(date) => {
+            const maxDate = parseReportDate(filters.date_to);
+            return maxDate
+              ? startOfReportDay(date) > startOfReportDay(maxDate)
+              : false;
+          }}
+          onChange={(value) =>
+            onChange({ ...filters, date_from: value || undefined })
           }
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="date_to">Date to</Label>
-        <Input
+        <ReportDatePicker
           id="date_to"
-          type="date"
-          value={filters.date_to ?? ''}
-          min={filters.date_from || undefined}
-          onChange={(event) =>
-            onChange({ ...filters, date_to: event.target.value || undefined })
+          value={filters.date_to}
+          placeholder="End date"
+          disabledDate={(date) => {
+            const minDate = parseReportDate(filters.date_from);
+            return minDate
+              ? startOfReportDay(date) < startOfReportDay(minDate)
+              : false;
+          }}
+          onChange={(value) =>
+            onChange({ ...filters, date_to: value || undefined })
           }
         />
       </div>

@@ -20,19 +20,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-
-const CHART_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
-
-type ChartDatum = {
-  label: string;
-  value: number;
-};
+import {
+  buildChartConfig,
+  enrichChartData,
+  type ChartDatum,
+} from './-report-chart-utils.ts';
 
 type ReportBarChartProps = {
   title: string;
@@ -40,12 +32,8 @@ type ReportBarChartProps = {
 };
 
 export function ReportBarChart({ title, data }: ReportBarChartProps) {
-  const config = Object.fromEntries(
-    data.map((item, index) => [
-      item.label,
-      { label: item.label, color: CHART_COLORS[index % CHART_COLORS.length] },
-    ]),
-  );
+  const chartData = enrichChartData(data);
+  const config = buildChartConfig(data);
 
   return (
     <Card className="drs-card overflow-hidden">
@@ -65,7 +53,7 @@ export function ReportBarChart({ title, data }: ReportBarChartProps) {
             className="aspect-[16/9] min-h-[280px] w-full"
             aria-label={title}
           >
-            <BarChart data={data}>
+            <BarChart data={chartData}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="label"
@@ -77,13 +65,12 @@ export function ReportBarChart({ title, data }: ReportBarChartProps) {
                 height={72}
               />
               <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={<ChartTooltipContent nameKey="seriesKey" />}
+              />
               <Bar dataKey="value" radius={4}>
-                {data.map((item, index) => (
-                  <Cell
-                    key={item.label}
-                    fill={CHART_COLORS[index % CHART_COLORS.length]}
-                  />
+                {chartData.map((item) => (
+                  <Cell key={item.seriesKey} fill={item.fill} />
                 ))}
               </Bar>
             </BarChart>
@@ -100,12 +87,8 @@ type ReportPieChartProps = {
 };
 
 export function ReportPieChart({ title, data }: ReportPieChartProps) {
-  const config = Object.fromEntries(
-    data.map((item, index) => [
-      item.label,
-      { label: item.label, color: CHART_COLORS[index % CHART_COLORS.length] },
-    ]),
-  );
+  const chartData = enrichChartData(data);
+  const config = buildChartConfig(data);
 
   return (
     <Card className="drs-card overflow-hidden">
@@ -126,19 +109,18 @@ export function ReportPieChart({ title, data }: ReportPieChartProps) {
             aria-label={title}
           >
             <PieChart>
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={<ChartTooltipContent nameKey="seriesKey" />}
+              />
               <Pie
-                data={data}
+                data={chartData}
                 dataKey="value"
-                nameKey="label"
+                nameKey="seriesKey"
                 innerRadius={60}
                 outerRadius={100}
               >
-                {data.map((item, index) => (
-                  <Cell
-                    key={item.label}
-                    fill={CHART_COLORS[index % CHART_COLORS.length]}
-                  />
+                {chartData.map((item) => (
+                  <Cell key={item.seriesKey} fill={item.fill} />
                 ))}
               </Pie>
             </PieChart>

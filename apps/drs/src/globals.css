@@ -33,8 +33,21 @@
     background:
       linear-gradient(180deg, color-mix(in oklch, var(--card) 94%, transparent), color-mix(in oklch, var(--card) 88%, transparent));
     box-shadow:
-      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-      0 18px 60px color-mix(in oklch, var(--foreground) 4%, transparent);
+      0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent),
+      0 8px 24px color-mix(in oklch, var(--foreground) 3%, transparent);
+    gap: 0.75rem;
+    padding-block: 0.75rem;
+  }
+
+  .drs-card > [data-slot="card-header"],
+  .drs-card > [data-slot="card-content"],
+  .drs-card > [data-slot="card-footer"] {
+    padding-inline: 1rem;
+  }
+
+  .drs-card > [data-slot="card-header"] {
+    gap: 0.5rem;
+    padding-bottom: 0;
   }
 
   .drs-card-hover {
@@ -46,11 +59,21 @@
   }
 
   .drs-card-hover:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
     box-shadow:
-      0 2px 6px color-mix(in oklch, var(--foreground) 8%, transparent),
-      0 24px 80px color-mix(in oklch, var(--primary) 9%, transparent);
+      0 2px 6px color-mix(in oklch, var(--foreground) 7%, transparent),
+      0 12px 32px color-mix(in oklch, var(--primary) 8%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drs-card-hover {
+      transition: border-color 180ms ease, background-color 180ms ease;
+    }
+
+    .drs-card-hover:hover {
+      transform: none;
+    }
   }
 
   .drs-focus-ring {

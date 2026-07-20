@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-export const receiveModes = ['email', 'delivery', 'pickup'] as const;
+export const receiveModes = ['delivery', 'pickup'] as const;
 
 export const applyRequestFormSchema = z
   .object({
     email: z.string().trim().email('Enter a valid email'),
     contactNumber: z.string().trim().min(7, 'Contact number is too short'),
     receiveMode: z.enum(receiveModes),
+    paymentMethodId: z.string().trim().min(1, 'Select a mode of payment'),
+    secureEmail: z.boolean(),
     deliveryAddress: z.string().optional(),
     purpose: z.string().max(2000).optional(),
   })
@@ -29,6 +31,8 @@ export const applyRequestFormDefaults: ApplyRequestFormValues = {
   email: '',
   contactNumber: '',
   receiveMode: 'pickup',
+  paymentMethodId: '',
+  secureEmail: false,
   deliveryAddress: '',
   purpose: '',
 };

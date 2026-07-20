@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { env } from './env';
-import { buildLoginUrl } from './login-url';
+import { redirectOnUnauthorized } from './unauthorized-redirect';
 
 export const hrmdoSvc = axios.create({
   baseURL: env.hrmdoService,
@@ -11,10 +11,9 @@ export const hrmdoSvc = axios.create({
 
 hrmdoSvc.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      console.log('401 error', error.response.data);
-      window.location.assign(buildLoginUrl({ returnTo: window.location.href }));
+      await redirectOnUnauthorized(window.location.href);
     }
 
     return Promise.reject(error);

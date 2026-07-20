@@ -35,10 +35,22 @@ function formatDateTime(value: Date | string | null | undefined): string {
   return date.toLocaleString();
 }
 
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '-';
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 function formatReceiveMode(mode: DRSApplicationDetail['receive_mode']): string {
   const labels: Record<DRSApplicationDetail['receive_mode'], string> = {
     delivery: 'Delivery',
-    email: 'Email',
     pickup: 'Pickup',
   };
 
@@ -47,16 +59,18 @@ function formatReceiveMode(mode: DRSApplicationDetail['receive_mode']): string {
 
 function receiptLinesFor(app: DRSApplicationDetail): ReceiptLine[] {
   return (
-    app.lines?.map((line) => {
-      const unitPrice = line.assessed_unit_price ?? null;
-      return {
-        id: line.id,
-        label: line.request_name,
-        quantity: line.quantity,
-        unitPrice,
-        amount: unitPrice == null ? null : unitPrice * line.quantity,
-      };
-    }) ?? []
+    app.lines
+      ?.filter((line) => !line.is_cancelled)
+      .map((line) => {
+        const unitPrice = line.assessed_unit_price ?? null;
+        return {
+          id: line.id,
+          label: line.request_name,
+          quantity: line.quantity,
+          unitPrice,
+          amount: unitPrice == null ? null : unitPrice * line.quantity,
+        };
+      }) ?? []
   );
 }
 
@@ -157,6 +171,10 @@ export function ApplicationReceiptPrint({
             label="Receive mode"
             value={formatReceiveMode(app.receive_mode)}
           />
+          <ReceiptField
+            label="Secure email (PDF)"
+            value={app.secure_email_requested ? 'Yes' : 'No'}
+          />
         </dl>
 
         <section className="drs-receipt-section">
@@ -164,7 +182,10 @@ export function ApplicationReceiptPrint({
           <dl className="drs-receipt-grid">
             <ReceiptField label="Student no." value={app.student_no} />
             <ReceiptField label="Student name" value={app.student_name} />
-            <ReceiptField label="Course" value={app.course_id} />
+            <ReceiptField
+              label="Course"
+              value={app.course_name ?? app.course_id}
+            />
             <ReceiptField
               label="School year / Semester"
               value={`${app.school_year || '-'} / ${app.semester || '-'}`}
@@ -181,6 +202,12 @@ export function ApplicationReceiptPrint({
               <ReceiptField
                 label="Delivery tracking no."
                 value={app.delivery_tracking_number}
+              />
+            ) : null}
+            {app.pickup_date ? (
+              <ReceiptField
+                label="Pickup date"
+                value={formatDate(app.pickup_date)}
               />
             ) : null}
           </dl>
@@ -266,10 +293,13 @@ export function ApplicationReceiptPrint({
               label="Payment submitted"
               value={formatDateTime(paymentSubmission?.submitted_at)}
             />
-            <ReceiptField label="Bank" value={paymentSubmission?.bank_name} />
             <ReceiptField
-              label="Account no."
-              value={paymentSubmission?.account_number}
+              label="Mode of payment"
+              value={app.payment_method?.name}
+            />
+            <ReceiptField
+              label="Payment notes"
+              value={app.payment_method?.description}
             />
             <ReceiptField
               label="Registrar reference / OR no."

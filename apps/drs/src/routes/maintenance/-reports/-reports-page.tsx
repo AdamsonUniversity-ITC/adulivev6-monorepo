@@ -8,13 +8,21 @@ import {
   fetchRevenueReport,
   fetchStatusBreakdownReport,
   fetchSummaryReport,
+  fetchTatByStatusReport,
   fetchTrendsReport,
   fetchTurnaroundReport,
+  REPORT_GROUPS,
   REPORT_TABS,
+  reportGroupForType,
   type ReportFilters,
+  type ReportGroupId,
   type ReportType,
 } from '@/api/reports.ts';
-import { DrsPageHeader, DrsPageShell } from '@/components/drs-ui.tsx';
+import {
+  DrsLoadingState,
+  DrsPageHeader,
+  DrsPageShell,
+} from '@/components/drs-ui.tsx';
 import { Label } from '@repo/ui/components/label';
 import { ScrollArea, ScrollBar } from '@repo/ui/components/scroll-area';
 import {
@@ -40,9 +48,8 @@ import {
   PackageCheck,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { ReportAppliedFilters } from './-report-applied-filters.tsx';
-import { ReportBarChart, ReportPieChart } from './-report-chart-card.tsx';
 import { ReportExportActions } from './-report-export-actions.tsx';
 import { ReportFiltersBar } from './-report-filters.tsx';
 import { ReportKpiCards } from './-report-kpi-cards.tsx';
@@ -56,6 +63,27 @@ import {
   formatReportPercent,
 } from './-report-utils.ts';
 
+const ReportBarChart = lazy(() =>
+  import('./-report-chart-card.tsx').then((module) => ({
+    default: module.ReportBarChart,
+  })),
+);
+const ReportPieChart = lazy(() =>
+  import('./-report-chart-card.tsx').then((module) => ({
+    default: module.ReportPieChart,
+  })),
+);
+
+function ReportChartSuspense({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={<DrsLoadingState label="Loading chart..." className="py-8" />}
+    >
+      {children}
+    </Suspense>
+  );
+}
+
 const defaultFilters: ReportFilters = {};
 
 export function ReportsPage() {
@@ -64,7 +92,32 @@ export function ReportsPage() {
   const [appliedFilters, setAppliedFilters] =
     useState<ReportFilters>(defaultFilters);
   const [activeTab, setActiveTab] = useState<ReportType>('summary');
+  const [activeGroup, setActiveGroup] = useState<ReportGroupId>(() =>
+    reportGroupForType('summary'),
+  );
 
+  const groupTabs = useMemo(() => {
+    const group = REPORT_GROUPS.find((entry) => entry.id === activeGroup);
+    const tabs = group?.tabs ?? REPORT_GROUPS[0]?.tabs ?? [];
+    return tabs
+      .map((id) => REPORT_TABS.find((tab) => tab.id === id))
+      .filter((tab): tab is (typeof REPORT_TABS)[number] => tab != null);
+  }, [activeGroup]);
+
+  const handleGroupChange = (groupId: ReportGroupId) => {
+    setActiveGroup(groupId);
+    const group = REPORT_GROUPS.find((entry) => entry.id === groupId);
+    const nextTab = group?.tabs[0];
+    if (nextTab) {
+      setActiveTab(nextTab);
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    const next = value as ReportType;
+    setActiveTab(next);
+    setActiveGroup(reportGroupForType(next));
+  };
   const summaryQuery = useQuery({
     queryKey: ['drs-report', 'summary', appliedFilters],
     queryFn: () => fetchSummaryReport(appliedFilters),
@@ -88,6 +141,10 @@ export function ReportsPage() {
   const turnaroundQuery = useQuery({
     queryKey: ['drs-report', 'turnaround', appliedFilters],
     queryFn: () => fetchTurnaroundReport(appliedFilters),
+  });
+  const tatByStatusQuery = useQuery({
+    queryKey: ['drs-report', 'tat-by-status', appliedFilters],
+    queryFn: () => fetchTatByStatusReport(appliedFilters),
   });
   const paymentQuery = useQuery({
     queryKey: ['drs-report', 'payment-status', appliedFilters],
@@ -118,12 +175,13 @@ export function ReportsPage() {
       revenue: revenueQuery,
       'release-mode': releaseModeQuery,
       turnaround: turnaroundQuery,
+      'tat-by-status': tatByStatusQuery,
       'payment-status': paymentQuery,
       'clearance-bottlenecks': clearanceQuery,
       'by-course': courseQuery,
       trends: trendsQuery,
       'foreigner-split': foreignerQuery,
-    } satisfies Record<ReportType, typeof summaryQuery>;
+    };
 
     return map[activeTab];
   }, [
@@ -134,6 +192,7 @@ export function ReportsPage() {
     revenueQuery,
     releaseModeQuery,
     turnaroundQuery,
+    tatByStatusQuery,
     paymentQuery,
     clearanceQuery,
     courseQuery,
@@ -158,6 +217,8 @@ export function ReportsPage() {
         return { releaseMode: releaseModeQuery.data ?? {} };
       case 'turnaround':
         return { turnaround: turnaroundQuery.data ?? {} };
+      case 'tat-by-status':
+        return { tatByStatus: tatByStatusQuery.data ?? {} };
       case 'payment-status':
         return { paymentStatus: paymentQuery.data ?? {} };
       case 'clearance-bottlenecks':
@@ -179,6 +240,7 @@ export function ReportsPage() {
     revenueQuery.data,
     releaseModeQuery.data,
     turnaroundQuery.data,
+    tatByStatusQuery.data,
     paymentQuery.data,
     clearanceQuery.data,
     courseQuery.data,
@@ -196,7 +258,7 @@ export function ReportsPage() {
     describeAppliedFilters(appliedFilters).length > 0;
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-6">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
       <DrsPageHeader
         eyebrow="DRS administration"
         title="Statistical reports"
@@ -224,393 +286,472 @@ export function ReportsPage() {
 
       <ReportAppliedFilters filters={appliedFilters} />
 
-      <div className="space-y-4 lg:hidden">
-        <div className="space-y-2">
+      <div className="space-y-3">
+        <div className="space-y-2 lg:hidden">
           <Label htmlFor="report-type-select">Report type</Label>
-          <Select
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as ReportType)}
-          >
+          <Select value={activeTab} onValueChange={handleTabChange}>
             <SelectTrigger id="report-type-select">
               <SelectValue placeholder="Select report" />
             </SelectTrigger>
             <SelectContent>
-              {REPORT_TABS.map((tab) => (
-                <SelectItem key={tab.id} value={tab.id}>
-                  {tab.label}
-                </SelectItem>
+              {REPORT_GROUPS.map((group) => (
+                <div key={group.id}>
+                  <div className="text-muted-foreground px-2 py-1.5 text-[11px] font-semibold tracking-wide uppercase">
+                    {group.label}
+                  </div>
+                  {group.tabs.map((tabId) => {
+                    const tab = REPORT_TABS.find((entry) => entry.id === tabId);
+                    if (!tab) return null;
+                    return (
+                      <SelectItem key={tab.id} value={tab.id}>
+                        {tab.label}
+                      </SelectItem>
+                    );
+                  })}
+                </div>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <div className="hidden space-y-2 lg:block">
+            <div
+              role="tablist"
+              aria-label="Report groups"
+              className="bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]"
+            >
+              {REPORT_GROUPS.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeGroup === group.id}
+                  className={
+                    activeGroup === group.id
+                      ? 'bg-background text-foreground inline-flex h-[calc(100%-1px)] items-center justify-center rounded-md border border-transparent px-3 py-1 text-sm font-medium shadow-sm'
+                      : 'inline-flex h-[calc(100%-1px)] items-center justify-center rounded-md px-3 py-1 text-sm font-medium'
+                  }
+                  onClick={() => handleGroupChange(group.id)}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </div>
+            <ScrollArea className="w-full">
+              <TabsList className="h-auto w-max min-w-full justify-start">
+                {groupTabs.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+
+          <TabsContent value="summary" className="space-y-4">
+            <ReportTabPanel
+              isLoading={summaryQuery.isLoading}
+              isError={summaryQuery.isError}
+              loadingLabel="Loading volume summary..."
+              onRetry={() => void summaryQuery.refetch()}
+            >
+              <ReportKpiCards
+                aria-label="Volume summary"
+                items={[
+                  {
+                    label: 'Total',
+                    value: formatReportCount(summaryQuery.data?.total ?? 0),
+                    icon: FileStack,
+                    tone: 'blue',
+                  },
+                  {
+                    label: 'Active',
+                    value: formatReportCount(summaryQuery.data?.active ?? 0),
+                    icon: Clock3,
+                    tone: 'amber',
+                  },
+                  {
+                    label: 'Released',
+                    value: formatReportCount(summaryQuery.data?.released ?? 0),
+                    icon: PackageCheck,
+                    tone: 'emerald',
+                  },
+                  {
+                    label: 'Cancelled',
+                    value: formatReportCount(summaryQuery.data?.cancelled ?? 0),
+                    icon: Ban,
+                    tone: 'slate',
+                  },
+                  {
+                    label: 'Disposed',
+                    value: formatReportCount(summaryQuery.data?.disposed ?? 0),
+                    icon: Trash2,
+                    tone: 'slate',
+                  },
+                ]}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="status-breakdown" className="space-y-4">
+            <ReportTabPanel
+              isLoading={statusQuery.isLoading}
+              isError={statusQuery.isError}
+              loadingLabel="Loading status breakdown..."
+              onRetry={() => void statusQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportPieChart
+                  title="Applications by status"
+                  data={(statusQuery.data?.rows ?? []).map((row) => ({
+                    label: row.status,
+                    value: row.count,
+                  }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Status', 'Count', '%']}
+                rows={(statusQuery.data?.rows ?? []).map((row) => [
+                  row.status,
+                  formatReportCount(row.count),
+                  formatReportPercent(row.percentage),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="document-demand" className="space-y-4">
+            <ReportTabPanel
+              isLoading={documentQuery.isLoading}
+              isError={documentQuery.isError}
+              loadingLabel="Loading document demand..."
+              onRetry={() => void documentQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportBarChart
+                  title="Top requested documents"
+                  data={(documentQuery.data?.rows ?? [])
+                    .slice(0, 8)
+                    .map((row) => ({
+                      label: row.name,
+                      value: row.application_count,
+                    }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Document', 'Applications', 'Quantity', 'Share %']}
+                rows={(documentQuery.data?.rows ?? []).map((row) => [
+                  row.name,
+                  formatReportCount(row.application_count),
+                  formatReportCount(row.total_quantity),
+                  formatReportPercent(row.share_percent),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="revenue" className="space-y-4">
+            <ReportTabPanel
+              isLoading={revenueQuery.isLoading}
+              isError={revenueQuery.isError}
+              loadingLabel="Loading revenue report..."
+              onRetry={() => void revenueQuery.refetch()}
+            >
+              <ReportKpiCards
+                aria-label="Revenue summary"
+                items={[
+                  {
+                    label: 'Grand total',
+                    value: formatReportCurrency(
+                      revenueQuery.data?.grand_total ?? 0,
+                    ),
+                    icon: CircleDollarSign,
+                    tone: 'blue',
+                  },
+                  {
+                    label: 'Paid',
+                    value: formatReportCurrency(
+                      revenueQuery.data?.paid_total ?? 0,
+                    ),
+                    icon: CheckCircle2,
+                    tone: 'emerald',
+                  },
+                  {
+                    label: 'Unpaid',
+                    value: formatReportCurrency(
+                      revenueQuery.data?.unpaid_total ?? 0,
+                    ),
+                    tone: 'amber',
+                  },
+                ]}
+              />
+              <SimpleReportTable
+                columns={['Document', 'Qty', 'Amount', 'Share %']}
+                rows={(revenueQuery.data?.rows ?? []).map((row) => [
+                  row.name,
+                  formatReportCount(row.total_quantity),
+                  formatReportCurrency(row.total_amount),
+                  formatReportPercent(row.share_percent),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="release-mode" className="space-y-4">
+            <ReportTabPanel
+              isLoading={releaseModeQuery.isLoading}
+              isError={releaseModeQuery.isError}
+              loadingLabel="Loading release mode distribution..."
+              onRetry={() => void releaseModeQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportPieChart
+                  title="Release method distribution"
+                  data={(releaseModeQuery.data?.rows ?? []).map((row) => ({
+                    label: row.receive_mode,
+                    value: row.count,
+                  }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Mode', 'Count', '%']}
+                rows={(releaseModeQuery.data?.rows ?? []).map((row) => [
+                  row.receive_mode,
+                  formatReportCount(row.count),
+                  formatReportPercent(row.percentage),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="turnaround" className="space-y-4">
+            <ReportTabPanel
+              isLoading={turnaroundQuery.isLoading}
+              isError={turnaroundQuery.isError}
+              loadingLabel="Loading turnaround metrics..."
+              onRetry={() => void turnaroundQuery.refetch()}
+            >
+              <ReportKpiCards
+                aria-label="Turnaround metrics"
+                items={[
+                  {
+                    label: 'Sample size',
+                    value: formatReportCount(
+                      turnaroundQuery.data?.sample_size ?? 0,
+                    ),
+                    tone: 'blue',
+                  },
+                  {
+                    label: 'Average days',
+                    value: formatReportDays(turnaroundQuery.data?.average_days),
+                    tone: 'amber',
+                  },
+                  {
+                    label: 'Median days',
+                    value: formatReportDays(turnaroundQuery.data?.median_days),
+                    tone: 'emerald',
+                  },
+                  {
+                    label: 'P90 days',
+                    value: formatReportDays(turnaroundQuery.data?.p90_days),
+                    tone: 'slate',
+                  },
+                ]}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="tat-by-status" className="space-y-4">
+            <ReportTabPanel
+              isLoading={tatByStatusQuery.isLoading}
+              isError={tatByStatusQuery.isError}
+              loadingLabel="Loading TAT by status..."
+              onRetry={() => void tatByStatusQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportBarChart
+                  title="Average days by status"
+                  data={(tatByStatusQuery.data?.rows ?? []).map((row) => ({
+                    label: row.status_label,
+                    value: row.average_days ?? 0,
+                  }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Status', 'Sample', 'Avg days', 'Median days']}
+                rows={(tatByStatusQuery.data?.rows ?? []).map((row) => [
+                  row.status_label,
+                  formatReportCount(row.sample_size),
+                  formatReportDays(row.average_days),
+                  formatReportDays(row.median_days),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="payment-status" className="space-y-4">
+            <ReportTabPanel
+              isLoading={paymentQuery.isLoading}
+              isError={paymentQuery.isError}
+              loadingLabel="Loading payment status..."
+              onRetry={() => void paymentQuery.refetch()}
+            >
+              <ReportKpiCards
+                aria-label="Payment status summary"
+                items={[
+                  {
+                    label: 'Total',
+                    value: formatReportCount(paymentQuery.data?.total ?? 0),
+                    tone: 'blue',
+                  },
+                  {
+                    label: 'Paid',
+                    value: formatReportCount(paymentQuery.data?.paid ?? 0),
+                    icon: CheckCircle2,
+                    tone: 'emerald',
+                  },
+                  {
+                    label: 'Unpaid',
+                    value: formatReportCount(paymentQuery.data?.unpaid ?? 0),
+                    tone: 'amber',
+                  },
+                  {
+                    label: 'Conversion %',
+                    value: formatReportPercent(
+                      paymentQuery.data?.conversion_rate ?? 0,
+                    ),
+                    tone: 'slate',
+                  },
+                ]}
+              />
+              <ReportChartSuspense>
+                <ReportPieChart
+                  title="Paid vs unpaid"
+                  data={[
+                    { label: 'Paid', value: paymentQuery.data?.paid ?? 0 },
+                    { label: 'Unpaid', value: paymentQuery.data?.unpaid ?? 0 },
+                  ]}
+                />
+              </ReportChartSuspense>
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="clearance-bottlenecks" className="space-y-4">
+            <ReportTabPanel
+              isLoading={clearanceQuery.isLoading}
+              isError={clearanceQuery.isError}
+              loadingLabel="Loading clearance bottlenecks..."
+              onRetry={() => void clearanceQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportBarChart
+                  title="Pending clearances by department"
+                  data={(clearanceQuery.data?.rows ?? []).map((row) => ({
+                    label: row.clearance_name,
+                    value: row.pending_count,
+                  }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Department', 'Pending', 'Avg days pending']}
+                rows={(clearanceQuery.data?.rows ?? []).map((row) => [
+                  row.clearance_name,
+                  formatReportCount(row.pending_count),
+                  formatReportDays(row.avg_days_pending),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="by-course" className="space-y-4">
+            <ReportTabPanel
+              isLoading={courseQuery.isLoading}
+              isError={courseQuery.isError}
+              loadingLabel="Loading course breakdown..."
+              onRetry={() => void courseQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportBarChart
+                  title="Applications by course"
+                  data={(courseQuery.data?.rows ?? [])
+                    .slice(0, 10)
+                    .map((row) => ({
+                      label: row.course_id,
+                      value: row.count,
+                    }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Course', 'Count', '%']}
+                rows={(courseQuery.data?.rows ?? []).map((row) => [
+                  row.course_id,
+                  formatReportCount(row.count),
+                  formatReportPercent(row.percentage),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="trends" className="space-y-4">
+            <ReportTabPanel
+              isLoading={trendsQuery.isLoading}
+              isError={trendsQuery.isError}
+              loadingLabel="Loading trends..."
+              onRetry={() => void trendsQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportBarChart
+                  title="Applications over time"
+                  data={(trendsQuery.data?.rows ?? []).map((row) => ({
+                    label: row.period,
+                    value: row.count,
+                  }))}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['School year', 'Semester', 'Period', 'Count']}
+                rows={(trendsQuery.data?.rows ?? []).map((row) => [
+                  row.school_year,
+                  row.semester,
+                  row.period,
+                  formatReportCount(row.count),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="foreigner-split" className="space-y-4">
+            <ReportTabPanel
+              isLoading={foreignerQuery.isLoading}
+              isError={foreignerQuery.isError}
+              loadingLabel="Loading foreigner split..."
+              onRetry={() => void foreignerQuery.refetch()}
+            >
+              <ReportChartSuspense>
+                <ReportPieChart
+                  title="Local vs foreigner volume"
+                  data={(foreignerQuery.data?.segments ?? []).map(
+                    (segment) => ({
+                      label: segment.segment,
+                      value: segment.count,
+                    }),
+                  )}
+                />
+              </ReportChartSuspense>
+              <SimpleReportTable
+                columns={['Segment', 'Count', 'Revenue']}
+                rows={(foreignerQuery.data?.segments ?? []).map((segment) => [
+                  segment.segment,
+                  formatReportCount(segment.count),
+                  formatReportCurrency(segment.revenue),
+                ])}
+              />
+            </ReportTabPanel>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as ReportType)}
-      >
-        <ScrollArea className="hidden w-full lg:block">
-          <TabsList className="h-auto w-max min-w-full justify-start">
-            {REPORT_TABS.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-
-        <TabsContent value="summary" className="space-y-4">
-          <ReportTabPanel
-            isLoading={summaryQuery.isLoading}
-            isError={summaryQuery.isError}
-            loadingLabel="Loading volume summary..."
-            onRetry={() => void summaryQuery.refetch()}
-          >
-            <ReportKpiCards
-              aria-label="Volume summary"
-              items={[
-                {
-                  label: 'Total',
-                  value: formatReportCount(summaryQuery.data?.total ?? 0),
-                  icon: FileStack,
-                  tone: 'blue',
-                },
-                {
-                  label: 'Active',
-                  value: formatReportCount(summaryQuery.data?.active ?? 0),
-                  icon: Clock3,
-                  tone: 'amber',
-                },
-                {
-                  label: 'Released',
-                  value: formatReportCount(summaryQuery.data?.released ?? 0),
-                  icon: PackageCheck,
-                  tone: 'emerald',
-                },
-                {
-                  label: 'Cancelled',
-                  value: formatReportCount(summaryQuery.data?.cancelled ?? 0),
-                  icon: Ban,
-                  tone: 'slate',
-                },
-                {
-                  label: 'Disposed',
-                  value: formatReportCount(summaryQuery.data?.disposed ?? 0),
-                  icon: Trash2,
-                  tone: 'slate',
-                },
-              ]}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="status-breakdown" className="space-y-4">
-          <ReportTabPanel
-            isLoading={statusQuery.isLoading}
-            isError={statusQuery.isError}
-            loadingLabel="Loading status breakdown..."
-            onRetry={() => void statusQuery.refetch()}
-          >
-            <ReportPieChart
-              title="Applications by status"
-              data={(statusQuery.data?.rows ?? []).map((row) => ({
-                label: row.status,
-                value: row.count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['Status', 'Count', '%']}
-              rows={(statusQuery.data?.rows ?? []).map((row) => [
-                row.status,
-                formatReportCount(row.count),
-                formatReportPercent(row.percentage),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="document-demand" className="space-y-4">
-          <ReportTabPanel
-            isLoading={documentQuery.isLoading}
-            isError={documentQuery.isError}
-            loadingLabel="Loading document demand..."
-            onRetry={() => void documentQuery.refetch()}
-          >
-            <ReportBarChart
-              title="Top requested documents"
-              data={(documentQuery.data?.rows ?? []).slice(0, 8).map((row) => ({
-                label: row.name,
-                value: row.application_count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['Document', 'Applications', 'Quantity', 'Share %']}
-              rows={(documentQuery.data?.rows ?? []).map((row) => [
-                row.name,
-                formatReportCount(row.application_count),
-                formatReportCount(row.total_quantity),
-                formatReportPercent(row.share_percent),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="revenue" className="space-y-4">
-          <ReportTabPanel
-            isLoading={revenueQuery.isLoading}
-            isError={revenueQuery.isError}
-            loadingLabel="Loading revenue report..."
-            onRetry={() => void revenueQuery.refetch()}
-          >
-            <ReportKpiCards
-              aria-label="Revenue summary"
-              items={[
-                {
-                  label: 'Grand total',
-                  value: formatReportCurrency(
-                    revenueQuery.data?.grand_total ?? 0,
-                  ),
-                  icon: CircleDollarSign,
-                  tone: 'blue',
-                },
-                {
-                  label: 'Paid',
-                  value: formatReportCurrency(
-                    revenueQuery.data?.paid_total ?? 0,
-                  ),
-                  icon: CheckCircle2,
-                  tone: 'emerald',
-                },
-                {
-                  label: 'Unpaid',
-                  value: formatReportCurrency(
-                    revenueQuery.data?.unpaid_total ?? 0,
-                  ),
-                  tone: 'amber',
-                },
-              ]}
-            />
-            <SimpleReportTable
-              columns={['Document', 'Qty', 'Amount', 'Share %']}
-              rows={(revenueQuery.data?.rows ?? []).map((row) => [
-                row.name,
-                formatReportCount(row.total_quantity),
-                formatReportCurrency(row.total_amount),
-                formatReportPercent(row.share_percent),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="release-mode" className="space-y-4">
-          <ReportTabPanel
-            isLoading={releaseModeQuery.isLoading}
-            isError={releaseModeQuery.isError}
-            loadingLabel="Loading release mode distribution..."
-            onRetry={() => void releaseModeQuery.refetch()}
-          >
-            <ReportPieChart
-              title="Release method distribution"
-              data={(releaseModeQuery.data?.rows ?? []).map((row) => ({
-                label: row.receive_mode,
-                value: row.count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['Mode', 'Count', '%']}
-              rows={(releaseModeQuery.data?.rows ?? []).map((row) => [
-                row.receive_mode,
-                formatReportCount(row.count),
-                formatReportPercent(row.percentage),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="turnaround" className="space-y-4">
-          <ReportTabPanel
-            isLoading={turnaroundQuery.isLoading}
-            isError={turnaroundQuery.isError}
-            loadingLabel="Loading turnaround metrics..."
-            onRetry={() => void turnaroundQuery.refetch()}
-          >
-            <ReportKpiCards
-              aria-label="Turnaround metrics"
-              items={[
-                {
-                  label: 'Sample size',
-                  value: formatReportCount(
-                    turnaroundQuery.data?.sample_size ?? 0,
-                  ),
-                  tone: 'blue',
-                },
-                {
-                  label: 'Average days',
-                  value: formatReportDays(turnaroundQuery.data?.average_days),
-                  tone: 'amber',
-                },
-                {
-                  label: 'Median days',
-                  value: formatReportDays(turnaroundQuery.data?.median_days),
-                  tone: 'emerald',
-                },
-                {
-                  label: 'P90 days',
-                  value: formatReportDays(turnaroundQuery.data?.p90_days),
-                  tone: 'slate',
-                },
-              ]}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="payment-status" className="space-y-4">
-          <ReportTabPanel
-            isLoading={paymentQuery.isLoading}
-            isError={paymentQuery.isError}
-            loadingLabel="Loading payment status..."
-            onRetry={() => void paymentQuery.refetch()}
-          >
-            <ReportKpiCards
-              aria-label="Payment status summary"
-              items={[
-                {
-                  label: 'Total',
-                  value: formatReportCount(paymentQuery.data?.total ?? 0),
-                  tone: 'blue',
-                },
-                {
-                  label: 'Paid',
-                  value: formatReportCount(paymentQuery.data?.paid ?? 0),
-                  icon: CheckCircle2,
-                  tone: 'emerald',
-                },
-                {
-                  label: 'Unpaid',
-                  value: formatReportCount(paymentQuery.data?.unpaid ?? 0),
-                  tone: 'amber',
-                },
-                {
-                  label: 'Conversion %',
-                  value: formatReportPercent(
-                    paymentQuery.data?.conversion_rate ?? 0,
-                  ),
-                  tone: 'slate',
-                },
-              ]}
-            />
-            <ReportPieChart
-              title="Paid vs unpaid"
-              data={[
-                { label: 'Paid', value: paymentQuery.data?.paid ?? 0 },
-                { label: 'Unpaid', value: paymentQuery.data?.unpaid ?? 0 },
-              ]}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="clearance-bottlenecks" className="space-y-4">
-          <ReportTabPanel
-            isLoading={clearanceQuery.isLoading}
-            isError={clearanceQuery.isError}
-            loadingLabel="Loading clearance bottlenecks..."
-            onRetry={() => void clearanceQuery.refetch()}
-          >
-            <ReportBarChart
-              title="Pending clearances by department"
-              data={(clearanceQuery.data?.rows ?? []).map((row) => ({
-                label: row.clearance_name,
-                value: row.pending_count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['Department', 'Pending', 'Avg days pending']}
-              rows={(clearanceQuery.data?.rows ?? []).map((row) => [
-                row.clearance_name,
-                formatReportCount(row.pending_count),
-                formatReportDays(row.avg_days_pending),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="by-course" className="space-y-4">
-          <ReportTabPanel
-            isLoading={courseQuery.isLoading}
-            isError={courseQuery.isError}
-            loadingLabel="Loading course breakdown..."
-            onRetry={() => void courseQuery.refetch()}
-          >
-            <ReportBarChart
-              title="Applications by course"
-              data={(courseQuery.data?.rows ?? []).slice(0, 10).map((row) => ({
-                label: row.course_id,
-                value: row.count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['Course', 'Count', '%']}
-              rows={(courseQuery.data?.rows ?? []).map((row) => [
-                row.course_id,
-                formatReportCount(row.count),
-                formatReportPercent(row.percentage),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="trends" className="space-y-4">
-          <ReportTabPanel
-            isLoading={trendsQuery.isLoading}
-            isError={trendsQuery.isError}
-            loadingLabel="Loading trends..."
-            onRetry={() => void trendsQuery.refetch()}
-          >
-            <ReportBarChart
-              title="Applications over time"
-              data={(trendsQuery.data?.rows ?? []).map((row) => ({
-                label: row.period,
-                value: row.count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['School year', 'Semester', 'Period', 'Count']}
-              rows={(trendsQuery.data?.rows ?? []).map((row) => [
-                row.school_year,
-                row.semester,
-                row.period,
-                formatReportCount(row.count),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-
-        <TabsContent value="foreigner-split" className="space-y-4">
-          <ReportTabPanel
-            isLoading={foreignerQuery.isLoading}
-            isError={foreignerQuery.isError}
-            loadingLabel="Loading foreigner split..."
-            onRetry={() => void foreignerQuery.refetch()}
-          >
-            <ReportPieChart
-              title="Local vs foreigner volume"
-              data={(foreignerQuery.data?.segments ?? []).map((segment) => ({
-                label: segment.segment,
-                value: segment.count,
-              }))}
-            />
-            <SimpleReportTable
-              columns={['Segment', 'Count', 'Revenue']}
-              rows={(foreignerQuery.data?.segments ?? []).map((segment) => [
-                segment.segment,
-                formatReportCount(segment.count),
-                formatReportCurrency(segment.revenue),
-              ])}
-            />
-          </ReportTabPanel>
-        </TabsContent>
-      </Tabs>
     </DrsPageShell>
   );
 }

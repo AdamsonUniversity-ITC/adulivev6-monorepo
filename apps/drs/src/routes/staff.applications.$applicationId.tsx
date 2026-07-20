@@ -8,6 +8,8 @@ import {
   DrsStatusBadge,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
+import { hasDrAdminAccessForHost } from '@/lib/drsPermissions.ts';
+import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { isNotFoundError } from '@/lib/isNotFoundError.ts';
 import { Button } from '@repo/ui/components/button';
 import {
@@ -38,6 +40,8 @@ import {
 import { ClipboardCheck, History, Plus, Trash2, XCircle } from 'lucide-react';
 import * as React from 'react';
 
+import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
+import { formatFileSize } from '@/lib/tempUploads.ts';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
 import { fetchEmployeeApplication } from './-lib/api/fetchEmployeeApplication.ts';
 import {
@@ -50,6 +54,7 @@ import { assertStaffPortalAccess } from './-lib/assertStaffPortalAccess.ts';
 import {
   type DRSActiveStageTask,
   type DRSApplicationDetail,
+  type DRSApplicationSupportingFile,
   displayApplicationRef,
 } from './-lib/types/applications.ts';
 import { ConfirmActionDialog } from './maintenance/-clearance/-confirm-action-dialog.tsx';
@@ -60,6 +65,75 @@ function formatMoney(amount: number): string {
     currency: 'PHP',
     minimumFractionDigits: 2,
   }).format(amount);
+}
+
+function formatStageTat(
+  startedAt: string | null | undefined,
+  completedAt: string | null | undefined,
+): string {
+  if (!startedAt) return '—';
+  const startMs = new Date(startedAt).getTime();
+  const endMs = completedAt ? new Date(completedAt).getTime() : Date.now();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
+    return '—';
+  }
+
+  const totalSeconds = Math.floor((endMs - startMs) / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function PaymentReceiptLinks({
+  receipts,
+}: {
+  receipts: DRSApplicationSupportingFile[];
+}) {
+  if (receipts.length === 0) {
+    return (
+      <p className="text-muted-foreground text-xs">No receipt uploaded yet.</p>
+    );
+  }
+
+  return (
+    <ul className="space-y-1">
+      {receipts.map((file) => (
+        <li key={file.id} className="flex flex-wrap items-baseline gap-2">
+          <a
+            href={file.url}
+            className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
+            onClick={(event) =>
+              handlePrivateFileDownloadClick(
+                event,
+                file.url,
+                file.file_name,
+                file.expires_at,
+                () => {
+                  toast.error(
+                    'Failed to download receipt. Please refresh and try again.',
+                  );
+                },
+              )
+            }
+          >
+            <span className="min-w-0 wrap-anywhere">{file.file_name}</span>
+          </a>
+          <span className="text-muted-foreground text-xs">
+            {formatFileSize(file.size)}
+            {file.created_at
+              ? ` · ${new Date(file.created_at).toLocaleString()}`
+              : ''}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 type OtherFeeDraft = {
@@ -124,8 +198,6 @@ function PaymentVerificationTaskPanel({
   app,
   remarkByTask,
   setRemarkByTask,
-  referenceByTask,
-  setReferenceByTask,
   saveRemarksMutation,
   completeMutation,
 }: {
@@ -133,10 +205,6 @@ function PaymentVerificationTaskPanel({
   app: DRSApplicationDetail;
   remarkByTask: Record<string, string>;
   setRemarkByTask: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  referenceByTask: Record<string, string>;
-  setReferenceByTask: React.Dispatch<
-    React.SetStateAction<Record<string, string>>
-  >;
   saveRemarksMutation: {
     isPending: boolean;
     mutate: (vars: {
@@ -153,53 +221,52 @@ function PaymentVerificationTaskPanel({
     }) => void;
   };
 }) {
-  const requireReference = task.config?.require_reference_number !== false;
   const submission = app.payment_submission;
   const verification = app.payment_verification;
   const total =
     typeof app.payment_total === 'number' ? app.payment_total : null;
+  const receipts = submission?.receipts ?? [];
 
   return (
     <div className="space-y-4">
       <div className="bg-muted/40 space-y-2 rounded-md border p-3 text-sm">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          Student payment
+          Student payment proof
         </p>
         {submission ? (
-          <dl className="grid gap-1">
-            {submission.reference_number ? (
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">
-                  Payment collection reference no.
-                </dt>
-                <dd className="font-medium">{submission.reference_number}</dd>
-              </div>
+          <div className="space-y-2">
+            {submission.submitted_at ? (
+              <p className="text-muted-foreground text-xs">
+                Uploaded {new Date(submission.submitted_at).toLocaleString()}
+              </p>
             ) : null}
-            {submission.bank_name ? (
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Bank</dt>
-                <dd className="text-right">
-                  {submission.bank_name}
-                  {submission.account_number
-                    ? ` · ${submission.account_number}`
-                    : ''}
-                </dd>
-              </div>
+            <PaymentReceiptLinks receipts={receipts} />
+            {app.payment_method ? (
+              <p>
+                <span className="text-muted-foreground">Mode of payment: </span>
+                {app.payment_method.name}
+                {app.payment_method.description
+                  ? ` — ${app.payment_method.description}`
+                  : ''}
+              </p>
+            ) : null}
+            {submission.reference_number ? (
+              <p>
+                <span className="text-muted-foreground">
+                  Legacy reference:{' '}
+                </span>
+                {submission.reference_number}
+              </p>
             ) : null}
             {submission.remarks ? (
               <div>
-                <dt className="text-muted-foreground">Student remarks</dt>
-                <dd className="mt-0.5">{submission.remarks}</dd>
+                <p className="text-muted-foreground text-xs">Student remarks</p>
+                <p className="mt-0.5 whitespace-pre-wrap">
+                  {submission.remarks}
+                </p>
               </div>
             ) : null}
-            {!submission.reference_number &&
-            !submission.bank_name &&
-            !submission.remarks ? (
-              <p className="text-muted-foreground">
-                No payment details recorded.
-              </p>
-            ) : null}
-          </dl>
+          </div>
         ) : (
           <p className="text-muted-foreground">No payment proof on file yet.</p>
         )}
@@ -208,22 +275,41 @@ function PaymentVerificationTaskPanel({
             Amount due: {formatMoney(total)}
           </p>
         ) : null}
-        {verification?.reference_number ? (
+        {verification?.verified_at ? (
           <p className="border-t pt-2 text-xs">
-            Previous verifier reference no.:{' '}
-            <span className="font-medium">{verification.reference_number}</span>
+            Previously verified{' '}
+            {new Date(verification.verified_at).toLocaleString()}
           </p>
         ) : null}
       </div>
 
-      {app.lines?.some((l) => l.assessed_unit_price != null) ? (
+      {app.lines?.some(
+        (l) => l.assessed_unit_price != null || l.is_cancelled,
+      ) ? (
         <ul className="text-muted-foreground space-y-1 text-xs">
           {app.lines.map((line) =>
-            line.assessed_unit_price != null ? (
-              <li key={line.id} className="flex justify-between gap-2">
-                <span className="min-w-0 truncate">{line.request_name}</span>
-                <span className="shrink-0">
-                  {formatMoney(line.assessed_unit_price * line.quantity)}
+            line.assessed_unit_price != null || line.is_cancelled ? (
+              <li
+                key={line.id}
+                className={`flex justify-between gap-2 ${
+                  line.is_cancelled ? 'opacity-60' : ''
+                }`}
+              >
+                <span
+                  className={`min-w-0 truncate ${
+                    line.is_cancelled ? 'line-through' : ''
+                  }`}
+                >
+                  {line.request_name}
+                </span>
+                <span
+                  className={`shrink-0 ${line.is_cancelled ? 'line-through' : ''}`}
+                >
+                  {line.is_cancelled
+                    ? 'Cancelled'
+                    : formatMoney(
+                        (line.assessed_unit_price ?? 0) * line.quantity,
+                      )}
                 </span>
               </li>
             ) : null,
@@ -231,25 +317,10 @@ function PaymentVerificationTaskPanel({
         </ul>
       ) : null}
 
-      {requireReference ? (
-        <div className="space-y-2">
-          <Label htmlFor={`reference-${task.id}`}>
-            Verifier reference number
-          </Label>
-          <Input
-            id={`reference-${task.id}`}
-            value={referenceByTask[task.id] ?? ''}
-            onChange={(e) =>
-              setReferenceByTask((prev) => ({
-                ...prev,
-                [task.id]: e.target.value,
-              }))
-            }
-            placeholder="Receipt or OR number"
-            autoComplete="off"
-          />
-        </div>
-      ) : null}
+      <p className="text-muted-foreground text-xs">
+        Review the student receipt above, then verify. Do not upload a receipt
+        here.
+      </p>
 
       <div className="space-y-2">
         <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
@@ -286,15 +357,9 @@ function PaymentVerificationTaskPanel({
           type="button"
           disabled={completeMutation.isPending}
           onClick={() => {
-            const reference = referenceByTask[task.id]?.trim() ?? '';
-            if (requireReference && !reference) {
-              toast.error('Enter a verifier reference number.');
-              return;
-            }
             completeMutation.mutate({
               taskId: task.id,
               payload: {
-                reference_number: reference || null,
                 remarks: remarkByTask[task.id]?.trim() || null,
               },
             });
@@ -444,6 +509,10 @@ function AssessmentTaskPanel({
   setRemarkByTask,
   linePriceByTask,
   setLinePriceByTask,
+  lineQuantityByTask,
+  setLineQuantityByTask,
+  lineCancelledByTask,
+  setLineCancelledByTask,
   otherFeesByTask,
   setOtherFeesByTask,
   saveRemarksMutation,
@@ -456,6 +525,14 @@ function AssessmentTaskPanel({
   linePriceByTask: Record<string, Record<string, string>>;
   setLinePriceByTask: React.Dispatch<
     React.SetStateAction<Record<string, Record<string, string>>>
+  >;
+  lineQuantityByTask: Record<string, Record<string, string>>;
+  setLineQuantityByTask: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, string>>>
+  >;
+  lineCancelledByTask: Record<string, Record<string, boolean>>;
+  setLineCancelledByTask: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, boolean>>>
   >;
   otherFeesByTask: Record<string, OtherFeeDraft[]>;
   setOtherFeesByTask: React.Dispatch<
@@ -478,12 +555,15 @@ function AssessmentTaskPanel({
   };
 }) {
   const linePrices = linePriceByTask[task.id] ?? {};
+  const lineQuantities = lineQuantityByTask[task.id] ?? {};
+  const lineCancelled = lineCancelledByTask[task.id] ?? {};
   const otherFees = otherFeesByTask[task.id] ?? [];
 
   const lineTotal =
     app.lines?.reduce((sum, line) => {
+      if (lineCancelled[line.id]) return sum;
       const amount = parseMoneyInput(linePrices[line.id] ?? '');
-      return sum + (amount ?? 0) * line.quantity;
+      return sum + (amount ?? 0);
     }, 0) ?? 0;
   const otherFeesTotal = otherFees.reduce(
     (sum, fee) => sum + (parseMoneyInput(fee.amount) ?? 0),
@@ -503,16 +583,26 @@ function AssessmentTaskPanel({
   };
 
   const completeAssessment = () => {
-    const line_prices =
+    const line_updates =
       app.lines?.map((line) => {
+        const cancelled = Boolean(lineCancelled[line.id]);
+        const quantityRaw = Number.parseInt(
+          lineQuantities[line.id] ?? String(line.quantity),
+          10,
+        );
+        const quantity = Number.isFinite(quantityRaw)
+          ? Math.max(1, quantityRaw)
+          : line.quantity;
         const amount = parseMoneyInput(linePrices[line.id] ?? '');
-        if (amount === null) {
-          throw new Error(`Enter a valid amount for ${line.request_name}.`);
+        if (!cancelled && amount === null) {
+          throw new Error(`Enter a valid total for ${line.request_name}.`);
         }
 
         return {
           application_document_id: line.id,
-          amount,
+          quantity,
+          amount: amount ?? 0,
+          is_cancelled: cancelled,
         };
       }) ?? [];
 
@@ -540,7 +630,7 @@ function AssessmentTaskPanel({
       taskId: task.id,
       payload: {
         remarks: remarkByTask[task.id]?.trim() || null,
-        line_prices,
+        line_updates,
         extra: {
           other_fees: normalizedOtherFees,
         },
@@ -557,29 +647,59 @@ function AssessmentTaskPanel({
         <div className="space-y-2 rounded-md border p-3">
           {app.lines?.length ? (
             app.lines.map((line) => {
+              const cancelled = Boolean(lineCancelled[line.id]);
               const amount = parseMoneyInput(linePrices[line.id] ?? '');
               return (
                 <div
                   key={line.id}
-                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]"
+                  className={`grid gap-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_7rem_auto] ${
+                    cancelled ? 'opacity-60' : ''
+                  }`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
+                    <p
+                      className={`truncate text-sm font-medium ${
+                        cancelled ? 'text-muted-foreground line-through' : ''
+                      }`}
+                    >
                       {line.request_name}
                     </p>
-                    <p className="text-muted-foreground text-xs">
-                      Quantity: {line.quantity}
-                    </p>
+                    {cancelled ? (
+                      <p className="text-muted-foreground text-xs">Cancelled</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`line-qty-${task.id}-${line.id}`}>
+                      Qty
+                    </Label>
+                    <Input
+                      id={`line-qty-${task.id}-${line.id}`}
+                      type="number"
+                      min="1"
+                      step="1"
+                      disabled={cancelled}
+                      value={lineQuantities[line.id] ?? String(line.quantity)}
+                      onChange={(event) =>
+                        setLineQuantityByTask((prev) => ({
+                          ...prev,
+                          [task.id]: {
+                            ...(prev[task.id] ?? {}),
+                            [line.id]: event.target.value,
+                          },
+                        }))
+                      }
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor={`line-price-${task.id}-${line.id}`}>
-                      Unit price
+                      Line total
                     </Label>
                     <Input
                       id={`line-price-${task.id}-${line.id}`}
                       type="number"
                       min="0"
                       step="0.01"
+                      disabled={cancelled}
                       value={linePrices[line.id] ?? ''}
                       onChange={(event) =>
                         setLinePriceByTask((prev) => ({
@@ -593,8 +713,30 @@ function AssessmentTaskPanel({
                       placeholder="0.00"
                     />
                   </div>
-                  <div className="text-muted-foreground flex items-end text-sm">
-                    {formatMoney((amount ?? 0) * line.quantity)}
+                  <div className="flex items-end gap-2">
+                    <span
+                      className={`text-muted-foreground hidden text-sm sm:inline ${
+                        cancelled ? 'line-through' : ''
+                      }`}
+                    >
+                      {formatMoney(amount ?? 0)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setLineCancelledByTask((prev) => ({
+                          ...prev,
+                          [task.id]: {
+                            ...(prev[task.id] ?? {}),
+                            [line.id]: !cancelled,
+                          },
+                        }))
+                      }
+                    >
+                      {cancelled ? 'Restore' : 'Cancel'}
+                    </Button>
                   </div>
                 </div>
               );
@@ -748,11 +890,22 @@ function AssessmentTaskPanel({
 
 export const Route = createFileRoute('/staff/applications/$applicationId')({
   beforeLoad: assertStaffPortalAccess,
+  loader: async () => {
+    const { data } = await fetchAuthUser();
+    const permissions = normalizePermissions(data);
+
+    return {
+      canRestore:
+        typeof window !== 'undefined' &&
+        hasDrAdminAccessForHost(permissions, window.location.hostname),
+    };
+  },
   component: StaffApplicationWorkPage,
 });
 
 function StaffApplicationWorkPage() {
   const { applicationId } = Route.useParams();
+  const { canRestore } = Route.useLoaderData();
   const queryClient = useQueryClient();
   const isHistoryRoute = useRouterState({
     select: (state) =>
@@ -775,8 +928,17 @@ function StaffApplicationWorkPage() {
   const [trackingNumberByTask, setTrackingNumberByTask] = React.useState<
     Record<string, string>
   >({});
+  const [pickupDateByTask, setPickupDateByTask] = React.useState<
+    Record<string, string>
+  >({});
   const [linePriceByTask, setLinePriceByTask] = React.useState<
     Record<string, Record<string, string>>
+  >({});
+  const [lineQuantityByTask, setLineQuantityByTask] = React.useState<
+    Record<string, Record<string, string>>
+  >({});
+  const [lineCancelledByTask, setLineCancelledByTask] = React.useState<
+    Record<string, Record<string, boolean>>
   >({});
   const [otherFeesByTask, setOtherFeesByTask] = React.useState<
     Record<string, OtherFeeDraft[]>
@@ -809,6 +971,13 @@ function StaffApplicationWorkPage() {
       }
       return next;
     });
+    setPickupDateByTask((prev) => {
+      const next = { ...prev };
+      for (const t of query.data.active_stage_tasks ?? []) {
+        if (next[t.id] === undefined) next[t.id] = '';
+      }
+      return next;
+    });
     setLinePriceByTask((prev) => {
       const next = { ...prev };
       for (const t of query.data.active_stage_tasks ?? []) {
@@ -817,8 +986,37 @@ function StaffApplicationWorkPage() {
           (query.data.lines ?? []).map((line) => [
             line.id,
             line.assessed_unit_price != null
-              ? String(line.assessed_unit_price)
+              ? String(
+                  Math.round(line.assessed_unit_price * line.quantity * 100) /
+                    100,
+                )
               : '',
+          ]),
+        );
+      }
+      return next;
+    });
+    setLineQuantityByTask((prev) => {
+      const next = { ...prev };
+      for (const t of query.data.active_stage_tasks ?? []) {
+        if (t.kind !== 'assessment' || next[t.id] !== undefined) continue;
+        next[t.id] = Object.fromEntries(
+          (query.data.lines ?? []).map((line) => [
+            line.id,
+            String(line.quantity),
+          ]),
+        );
+      }
+      return next;
+    });
+    setLineCancelledByTask((prev) => {
+      const next = { ...prev };
+      for (const t of query.data.active_stage_tasks ?? []) {
+        if (t.kind !== 'assessment' || next[t.id] !== undefined) continue;
+        next[t.id] = Object.fromEntries(
+          (query.data.lines ?? []).map((line) => [
+            line.id,
+            Boolean(line.is_cancelled),
           ]),
         );
       }
@@ -872,6 +1070,10 @@ function StaffApplicationWorkPage() {
       ) {
         throw new Error('Enter a delivery number before dispatching.');
       }
+      const pickupDate = pickupDateByTask[vars.taskId]?.trim() ?? '';
+      if (selectedTransition?.outcome_key === 'pickup_handoff' && !pickupDate) {
+        throw new Error('Enter a pickup date before releasing for pickup.');
+      }
 
       return postCompleteApplicationTask(applicationId, vars.taskId, {
         ...vars.payload,
@@ -880,6 +1082,10 @@ function StaffApplicationWorkPage() {
           selectedTransition?.outcome_key === 'delivery_dispatch'
             ? trackingNumber
             : vars.payload.tracking_number,
+        pickup_date:
+          selectedTransition?.outcome_key === 'pickup_handoff'
+            ? pickupDate
+            : vars.payload.pickup_date,
       });
     },
     onSuccess: (updated) => {
@@ -1006,12 +1212,12 @@ function StaffApplicationWorkPage() {
   }
 
   return (
-    <DrsPageShell maxWidth="lg" contentClassName="space-y-5">
+    <DrsPageShell maxWidth="lg" contentClassName="space-y-3">
       <DrsPageHeader
         backTo="/staff/queue"
         backLabel="Staff queue"
         eyebrow="Staff workbench"
-        title={`Request #${displayApplicationRef(app)}`}
+        title={`#${displayApplicationRef(app)}`}
         description={
           <>
             {app.student_no ? `Student no. ${app.student_no}` : 'Staff view'}
@@ -1040,44 +1246,48 @@ function StaffApplicationWorkPage() {
         }
         actions={
           <>
-            {app.may_cancel_as_staff && !app.is_cancelled ? (
+            {canRestore ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="text-destructive gap-1 rounded-full"
+                className="gap-1 rounded-full"
+                asChild
+              >
+                <Link
+                  to="/staff/applications/$applicationId/history"
+                  params={{ applicationId }}
+                >
+                  <History className="h-4 w-4" aria-hidden="true" />
+                  Rollback
+                </Link>
+              </Button>
+            ) : null}
+            {app.may_cancel_as_staff && !app.is_cancelled ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive gap-1"
                 onClick={() => setCancelDialogOpen(true)}
               >
                 <XCircle className="h-4 w-4" aria-hidden="true" />
-                Cancel application
+                Cancel
               </Button>
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1 rounded-full"
-              asChild
-            >
-              <Link
-                to="/staff/applications/$applicationId/history"
-                params={{ applicationId }}
-              >
-                <History className="h-4 w-4" />
-                Rollback
-              </Link>
-            </Button>
           </>
         }
       />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <div className="space-y-5">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        <div className="space-y-3">
           <Card className="drs-card">
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <CardTitle className="text-lg">Requested documents</CardTitle>
+                  <CardTitle className="text-base">
+                    Requested documents
+                  </CardTitle>
                   <CardDescription>
                     Request #{displayApplicationRef(app)}
                   </CardDescription>
@@ -1102,11 +1312,21 @@ function StaffApplicationWorkPage() {
                       key={l.id}
                       className="bg-background/80 flex justify-between gap-3 rounded-xl px-3 py-2"
                     >
-                      <span className="min-w-0 flex-1 truncate">
+                      <span
+                        className={`min-w-0 flex-1 truncate ${
+                          l.is_cancelled
+                            ? 'text-muted-foreground line-through'
+                            : ''
+                        }`}
+                      >
                         {l.request_name}
                       </span>
-                      <span className="text-muted-foreground shrink-0">
-                        x {l.quantity}
+                      <span
+                        className={`text-muted-foreground shrink-0 ${
+                          l.is_cancelled ? 'line-through' : ''
+                        }`}
+                      >
+                        {l.is_cancelled ? 'Cancelled' : `x ${l.quantity}`}
                       </span>
                     </li>
                   ))
@@ -1120,23 +1340,49 @@ function StaffApplicationWorkPage() {
           {app.payment_submission || app.payment_verification ? (
             <Card className="drs-card">
               <CardHeader>
-                <CardTitle className="text-base">Payment references</CardTitle>
+                <CardTitle className="text-base">Payment proof</CardTitle>
                 <CardDescription>
-                  Payment collection and verification details recorded for this
-                  request.
+                  Student receipt and verification details for this request.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {app.payment_submission ? (
-                  <div className="bg-muted/20 rounded-2xl border p-3">
+                  <div className="bg-muted/20 space-y-2 rounded-2xl border p-3">
                     <p className="text-muted-foreground text-xs font-medium">
-                      Payment collection reference no.
+                      Student payment proof
                     </p>
-                    <p className="mt-1 font-medium">
-                      {app.payment_submission.reference_number ?? '—'}
-                    </p>
+                    {app.payment_submission.submitted_at ? (
+                      <p className="text-muted-foreground text-xs">
+                        Uploaded{' '}
+                        {new Date(
+                          app.payment_submission.submitted_at,
+                        ).toLocaleString()}
+                      </p>
+                    ) : null}
+                    <PaymentReceiptLinks
+                      receipts={app.payment_submission.receipts ?? []}
+                    />
+                    {app.payment_method ? (
+                      <p className="text-xs">
+                        Mode of payment:{' '}
+                        <span className="font-medium">
+                          {app.payment_method.name}
+                        </span>
+                        {app.payment_method.description
+                          ? ` — ${app.payment_method.description}`
+                          : ''}
+                      </p>
+                    ) : null}
+                    {app.payment_submission.reference_number ? (
+                      <p className="text-xs">
+                        Legacy reference:{' '}
+                        <span className="font-medium">
+                          {app.payment_submission.reference_number}
+                        </span>
+                      </p>
+                    ) : null}
                     {app.payment_submission.remarks ? (
-                      <p className="text-muted-foreground mt-2 whitespace-pre-wrap">
+                      <p className="text-muted-foreground whitespace-pre-wrap">
                         {app.payment_submission.remarks}
                       </p>
                     ) : null}
@@ -1145,10 +1391,7 @@ function StaffApplicationWorkPage() {
                 {app.payment_verification ? (
                   <div className="bg-muted/20 rounded-2xl border p-3">
                     <p className="text-muted-foreground text-xs font-medium">
-                      Payment verification reference no.
-                    </p>
-                    <p className="mt-1 font-medium">
-                      {app.payment_verification.reference_number ?? '—'}
+                      Verification
                     </p>
                     {app.payment_verification.verified_at ? (
                       <p className="text-muted-foreground mt-1 text-xs">
@@ -1158,6 +1401,14 @@ function StaffApplicationWorkPage() {
                         ).toLocaleString()}
                       </p>
                     ) : null}
+                    {app.payment_verification.reference_number ? (
+                      <p className="mt-1 text-xs">
+                        Notes ref:{' '}
+                        <span className="font-medium">
+                          {app.payment_verification.reference_number}
+                        </span>
+                      </p>
+                    ) : null}
                     {app.payment_verification.remarks ? (
                       <p className="text-muted-foreground mt-2 whitespace-pre-wrap">
                         {app.payment_verification.remarks}
@@ -1165,6 +1416,57 @@ function StaffApplicationWorkPage() {
                     ) : null}
                   </div>
                 ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {(app.stage_runs?.length ?? 0) > 0 ? (
+            <Card className="drs-card">
+              <CardHeader>
+                <CardTitle className="text-base">Stage timeline</CardTitle>
+                <CardDescription>
+                  Turnaround time for each stage this request passed through.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm">
+                  {[...(app.stage_runs ?? [])]
+                    .sort((a, b) => {
+                      const aMs = a.started_at
+                        ? new Date(a.started_at).getTime()
+                        : 0;
+                      const bMs = b.started_at
+                        ? new Date(b.started_at).getTime()
+                        : 0;
+                      return aMs - bMs;
+                    })
+                    .map((run) => (
+                      <li
+                        key={run.id}
+                        className="bg-muted/20 space-y-1 rounded-2xl border p-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="font-medium">
+                            {run.stage_name ?? run.stage_slug ?? 'Stage'}
+                          </p>
+                          <p className="text-muted-foreground shrink-0 text-xs font-medium">
+                            TAT{' '}
+                            {formatStageTat(run.started_at, run.completed_at)}
+                            {!run.completed_at ? ' (ongoing)' : ''}
+                          </p>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          Started{' '}
+                          {run.started_at
+                            ? new Date(run.started_at).toLocaleString()
+                            : '—'}
+                          {run.completed_at
+                            ? ` · Completed ${new Date(run.completed_at).toLocaleString()}`
+                            : ''}
+                        </p>
+                      </li>
+                    ))}
+                </ul>
               </CardContent>
             </Card>
           ) : null}
@@ -1232,14 +1534,36 @@ function StaffApplicationWorkPage() {
                         </p>
                       </div>
                     ) : null}
+                    {task.branch_options?.find(
+                      (option) => option.id === transitionByTask[task.id],
+                    )?.outcome_key === 'pickup_handoff' ? (
+                      <div className="bg-background/80 space-y-2 rounded-2xl border p-3">
+                        <Label htmlFor={`pickup-date-${task.id}`}>
+                          Pickup date
+                        </Label>
+                        <Input
+                          id={`pickup-date-${task.id}`}
+                          type="date"
+                          value={pickupDateByTask[task.id] ?? ''}
+                          onChange={(event) =>
+                            setPickupDateByTask((prev) => ({
+                              ...prev,
+                              [task.id]: event.target.value,
+                            }))
+                          }
+                        />
+                        <p className="text-muted-foreground text-xs">
+                          Required when releasing the application for pickup.
+                          The student will see this date.
+                        </p>
+                      </div>
+                    ) : null}
                     {task.kind === 'payment_verification' ? (
                       <PaymentVerificationTaskPanel
                         task={task}
                         app={app}
                         remarkByTask={remarkByTask}
                         setRemarkByTask={setRemarkByTask}
-                        referenceByTask={referenceByTask}
-                        setReferenceByTask={setReferenceByTask}
                         saveRemarksMutation={saveRemarksMutation}
                         completeMutation={completeMutation}
                       />
@@ -1262,6 +1586,10 @@ function StaffApplicationWorkPage() {
                         setRemarkByTask={setRemarkByTask}
                         linePriceByTask={linePriceByTask}
                         setLinePriceByTask={setLinePriceByTask}
+                        lineQuantityByTask={lineQuantityByTask}
+                        setLineQuantityByTask={setLineQuantityByTask}
+                        lineCancelledByTask={lineCancelledByTask}
+                        setLineCancelledByTask={setLineCancelledByTask}
                         otherFeesByTask={otherFeesByTask}
                         setOtherFeesByTask={setOtherFeesByTask}
                         saveRemarksMutation={saveRemarksMutation}
@@ -1269,6 +1597,42 @@ function StaffApplicationWorkPage() {
                       />
                     ) : task.kind === 'clearance_signoff' ? (
                       <div className="space-y-3">
+                        {Array.isArray(task.modules) &&
+                        task.modules.length > 0 ? (
+                          <div className="border-border space-y-2 rounded-lg border p-3">
+                            <p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
+                              Clearance modules
+                            </p>
+                            <ul className="space-y-2">
+                              {task.modules.map((mod) => (
+                                <li key={mod.key} className="space-y-1 text-sm">
+                                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <span className="text-muted-foreground">
+                                      {mod.label}
+                                    </span>
+                                    <span className="font-medium tabular-nums">
+                                      {mod.value}
+                                      {typeof mod.count === 'number' &&
+                                      mod.count > 0
+                                        ? ` (${mod.count})`
+                                        : ''}
+                                    </span>
+                                  </div>
+                                  {Array.isArray(mod.items) &&
+                                  mod.items.length > 0 ? (
+                                    <ul className="text-muted-foreground list-inside list-disc pl-1 text-xs">
+                                      {mod.items.map((item, idx) => (
+                                        <li key={`${mod.key}-${idx}`}>
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                         <div className="space-y-2">
                           <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
                           <Textarea
@@ -1373,7 +1737,7 @@ function StaffApplicationWorkPage() {
           </Card>
         </div>
 
-        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+        <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start">
           <Card className="drs-card">
             <CardHeader>
               <CardTitle className="text-base">Messages</CardTitle>

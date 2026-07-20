@@ -12,6 +12,8 @@ export type EmployeeApplicationsMeta = {
 export async function fetchEmployeeApplications(params: {
   page: number;
   perPage: number;
+  search?: string;
+  status?: string;
 }): Promise<{ rows: DRSApplicationRow[]; meta: EmployeeApplicationsMeta }> {
   const { data: body } = await registrarSvc.get<unknown>(
     'v1/drs/employee/applications',
@@ -19,6 +21,8 @@ export async function fetchEmployeeApplications(params: {
       params: {
         page: params.page,
         per_page: params.perPage,
+        ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+        ...(params.status?.trim() ? { status: params.status.trim() } : {}),
       },
     },
   );
@@ -45,9 +49,7 @@ export async function fetchEmployeeApplications(params: {
     last_page:
       typeof metaRaw.last_page === 'number' ? metaRaw.last_page : undefined,
     per_page:
-      typeof metaRaw.per_page === 'number'
-        ? metaRaw.per_page
-        : params.perPage,
+      typeof metaRaw.per_page === 'number' ? metaRaw.per_page : params.perPage,
     total: typeof metaRaw.total === 'number' ? metaRaw.total : rows.length,
   };
 
