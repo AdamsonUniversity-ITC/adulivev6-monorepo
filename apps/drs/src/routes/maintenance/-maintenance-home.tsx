@@ -101,7 +101,7 @@ const steps: Step[] = [
   })),
   {
     label: 'Payment collection',
-    description: 'Manage payment accounts and extra collection fees.',
+    description: 'Manage payment methods and extra collection fees.',
     accessCode: 'payment-collection',
     component: <PaymentCollectionSheet />,
     icon: WalletCards,
@@ -150,7 +150,7 @@ export function MaintenanceHome({
   return (
     <MaintenanceLoaderDataProvider access={access}>
       <MaintenanceNavigationProvider value={{ openUserManagement }}>
-        <DrsPageShell maxWidth="xl" contentClassName="space-y-6">
+        <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
           <DrsPageHeader
             eyebrow="DRS administration"
             title="Maintenance command center"

@@ -22,6 +22,9 @@ async function ensureAuthCsrfCookie() {
 
 function getReturnTo() {
   const params = new URLSearchParams(window.location.search);
+  if (params.get('loggedOut') === '1') {
+    return null;
+  }
   const returnTo = params.get('returnTo');
   return returnTo && returnTo.trim().length > 0 ? returnTo : env.aduLive;
 }
@@ -64,7 +67,7 @@ const App = () => {
         idno: username,
         password,
       });
-      window.location.assign(returnTo);
+      window.location.assign(returnTo ?? env.aduLive);
     } catch (err: unknown) {
       const message =
         typeof err === 'object' && err && 'response' in err
@@ -83,8 +86,14 @@ const App = () => {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Sign in</CardTitle>
           <CardDescription className="wrap-break-word">
-            You’ll be returned to{' '}
-            <span className="font-medium">{returnTo}</span>
+            {returnTo ? (
+              <>
+                You’ll be returned to{' '}
+                <span className="font-medium">{returnTo}</span>
+              </>
+            ) : (
+              'Sign in to continue.'
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

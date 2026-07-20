@@ -1,15 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-const authApi = 'http://auth-api.localhost.test:8002/api/user';
-const registrarApi = 'http://registrar-api.localhost.test:8001/api';
-const appOrigin = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5173';
-const corsHeaders = {
-  'access-control-allow-credentials': 'true',
-  'access-control-allow-headers':
-    'accept, content-type, x-requested-with, x-xsrf-token',
-  'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-  'access-control-allow-origin': appOrigin,
-};
+import { authApi, corsHeaders, registrarApi } from './helpers.ts';
 
 type SubmittedApplyPayload = {
   email: string;
@@ -96,6 +86,13 @@ async function mockStudentDrsApis(
             ],
           },
         ],
+        meta: {
+          eligibility: {
+            is_enrolled: true,
+            is_undergraduate: true,
+            is_graduate: false,
+          },
+        },
       },
     });
   });
@@ -166,7 +163,7 @@ test.describe('DRS student request simulation', () => {
     const api = await mockStudentDrsApis(page);
 
     await page.goto('/');
-    await expect(page.getByText('Your applications')).toBeVisible();
+    await expect(page.getByText('Applications', { exact: true })).toBeVisible();
 
     await page.getByRole('link', { name: 'Apply for documents' }).click();
     await expect(

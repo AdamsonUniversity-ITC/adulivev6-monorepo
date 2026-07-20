@@ -3,8 +3,10 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 export type EditDocumentPayload = {
   document_name: string;
   price: number;
+  account_code: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;
+  once_per_student?: boolean;
   rules?: {
     graduate?: boolean;
     undergraduate?: boolean;
@@ -22,6 +24,7 @@ export type EditDocumentPayload = {
     max_file_size_kb?: number | null;
     max_files?: number | null;
   }>;
+  required_companion_ids?: number[];
 };
 
 export const editDocument = async (

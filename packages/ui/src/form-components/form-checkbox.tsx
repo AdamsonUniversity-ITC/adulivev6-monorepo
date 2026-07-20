@@ -7,6 +7,7 @@ type FormCheckboxProps = {
   form: UseFormReturn;
   label?: string;
   name: string;
+  disabled?: boolean;
   styles?: {
     group?: string;
     checkbox?: string;
@@ -18,6 +19,7 @@ export const FormCheckbox = ({
   form,
   label,
   name,
+  disabled,
   styles,
 }: FormCheckboxProps): JSX.Element => {
   return (
@@ -31,6 +33,7 @@ export const FormCheckbox = ({
             onCheckedChange={(val) => field.onChange(!!val)}
             className={styles?.checkbox}
             id={name}
+            disabled={disabled}
           />
           <FieldLabel className={styles?.label} htmlFor={name}>
             {label}

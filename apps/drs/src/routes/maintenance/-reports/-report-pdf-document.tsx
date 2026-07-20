@@ -10,6 +10,7 @@ import type {
   RevenueReport,
   StatusBreakdownReport,
   SummaryReport,
+  TatByStatusReport,
   TrendsReport,
   TurnaroundReport,
 } from '@/api/reports.ts';
@@ -313,6 +314,23 @@ function renderReportBody(
             { label: 'P90 days', value: formatReportDays(data?.p90_days) },
           ]}
         />
+      );
+    }
+    case 'tat-by-status': {
+      const data = payload.tatByStatus as TatByStatusReport | undefined;
+      return (
+        <>
+          <Text style={styles.sectionTitle}>Average TAT by status</Text>
+          <DataTable
+            columns={['Status', 'Sample', 'Avg days', 'Median days']}
+            rows={(data?.rows ?? []).map((row) => [
+              row.status_label,
+              formatReportCount(row.sample_size),
+              formatReportDays(row.average_days),
+              formatReportDays(row.median_days),
+            ])}
+          />
+        </>
       );
     }
     case 'payment-status': {

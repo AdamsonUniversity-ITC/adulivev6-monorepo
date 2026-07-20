@@ -1,0 +1,1 @@
+{"root":["./src/axios.ts","./src/main.tsx","./src/routeTree.gen.ts","./src/vite-env.d.ts","./src/lib/aduts-api.ts","./src/lib/adutsHost.test.ts","./src/lib/adutsHost.ts","./src/lib/api.ts","./src/routes/__root.tsx","./src/routes/index.tsx","./src/routes/tickets/$ticketNumber.tsx","./src/routes/tickets/index.tsx","./src/routes/tickets/new.tsx"],"errors":true,"version":"5.9.3"}

@@ -17,7 +17,7 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    allowedHosts: ['college-drs.localhost.test'],
+    allowedHosts: ['college-drs.localhost.test', 'shs-drs.localhost.test'],
     fs: {
       allow: ['..'],
     },

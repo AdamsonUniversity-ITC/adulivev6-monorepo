@@ -11,6 +11,7 @@ export type DRSApplicationLineRow = {
   request_name: string;
   quantity: number;
   assessed_unit_price?: number | null;
+  is_cancelled?: boolean;
   supporting_document_requirements?: DRSApplicationSupportingRequirement[];
 };
 
@@ -83,16 +84,28 @@ export type DRSPaymentVerificationTaskConfig = {
 export type DRSPaymentSubmission = {
   reference_number: string | null;
   remarks: string | null;
-  bank_account_id: string | null;
-  bank_name: string | null;
-  account_number: string | null;
   submitted_at: string | null;
+  receipts?: DRSApplicationSupportingFile[];
+};
+
+export type DRSPaymentMethod = {
+  id: string;
+  name: string;
+  description: string | null;
 };
 
 export type DRSPaymentVerification = {
   reference_number: string | null;
   remarks: string | null;
   verified_at: string | null;
+};
+
+export type DRSClearanceTaskModule = {
+  key: string;
+  label: string;
+  value: string;
+  count?: number | null;
+  items?: string[];
 };
 
 export type DRSActiveStageTask = {
@@ -110,6 +123,7 @@ export type DRSActiveStageTask = {
   due_at?: string | null;
   may_complete?: boolean;
   config?: DRSPaymentVerificationTaskConfig | null;
+  modules?: DRSClearanceTaskModule[];
   branch_options?: Array<{
     id: string;
     label: string;
@@ -126,13 +140,19 @@ export type DRSApplicationRow = {
   /** Present when API eager-loads `student` (e.g. list + detail). */
   student_name?: string;
   course_id: string;
+  /** Present when API eager-loads `course`; program name from aduollms.courses.descript. */
+  course_name?: string;
   school_year: string;
   semester: string;
   contact_no: string;
   email: string;
-  receive_mode: 'email' | 'delivery' | 'pickup';
+  receive_mode: 'delivery' | 'pickup';
+  payment_method_id?: string | null;
+  payment_method?: DRSPaymentMethod | null;
+  secure_email_requested: boolean;
   delivery_address: string | null;
   delivery_tracking_number: string | null;
+  pickup_date: string | null;
   purpose: string | null;
   remarks: string | null;
   is_paid: boolean;

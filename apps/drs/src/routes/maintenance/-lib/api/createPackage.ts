@@ -3,8 +3,10 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 export type CreatePackagePayload = {
   package_name: string;
   price: number;
+  account_code: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;
+  once_per_student?: boolean;
 };
 
 export const createPackage = async (

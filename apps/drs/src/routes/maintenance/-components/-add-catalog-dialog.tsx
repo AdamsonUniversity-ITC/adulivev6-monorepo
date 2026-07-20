@@ -15,8 +15,8 @@ import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { createDocument } from '../-lib/api/createDocument.ts';
 import { createPackage } from '../-lib/api/createPackage.ts';
@@ -29,8 +29,13 @@ import type { CatalogKind } from './-types.ts';
 const catalogFormSchema = z.object({
   name: z.string().min(1, { message: 'Name is required.' }).max(255),
   price: z.coerce.number().min(0).max(999999999),
+  account_code: z
+    .string()
+    .min(1, { message: 'Account code is required.' })
+    .max(50),
   is_active: z.boolean(),
   allow_multiple_per_request: z.boolean(),
+  once_per_student: z.boolean(),
   supporting_document_requirements: z.array(
     z.object({
       name: z.string().min(1, { message: 'Name is required.' }).max(255),
@@ -70,11 +75,23 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
     defaultValues: {
       name: '',
       price: 0,
+      account_code: '',
       is_active: true,
       allow_multiple_per_request: true,
+      once_per_student: false,
       supporting_document_requirements: [],
     },
   });
+
+  const oncePerStudent = useWatch({
+    control: form.control,
+    name: 'once_per_student',
+  });
+
+  useEffect(() => {
+    if (!oncePerStudent) return;
+    form.setValue('allow_multiple_per_request', false);
+  }, [oncePerStudent, form]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -83,8 +100,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
           {
             document_name: values.name,
             price: values.price,
+            account_code: values.account_code,
             is_active: values.is_active,
-            allow_multiple_per_request: values.allow_multiple_per_request,
+            allow_multiple_per_request: values.once_per_student
+              ? false
+              : values.allow_multiple_per_request,
+            once_per_student: values.once_per_student,
             supporting_document_requirements:
               values.supporting_document_requirements.map((item, index) => ({
                 ...item,
@@ -99,8 +120,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
         {
           package_name: values.name,
           price: values.price,
+          account_code: values.account_code,
           is_active: values.is_active,
-          allow_multiple_per_request: values.allow_multiple_per_request,
+          allow_multiple_per_request: values.once_per_student
+            ? false
+            : values.allow_multiple_per_request,
+          once_per_student: values.once_per_student,
         },
         selectedGroup,
       );
@@ -150,6 +175,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             placeholder={copy.placeholder}
           />
           <FormInput form={form} name="price" type="number" label="Price" />
+          <FormInput
+            form={form}
+            name="account_code"
+            label="Account code"
+            placeholder="e.g. REG-DOC-01"
+          />
           <FormSwitch
             form={form}
             name="is_active"
@@ -160,6 +191,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             form={form}
             name="allow_multiple_per_request"
             label="Allow multiple in one request"
+            disabled={oncePerStudent}
+          />
+          <FormCheckbox
+            form={form}
+            name="once_per_student"
+            label="Can only be requested once"
           />
 
           {kind === 'document' ? (

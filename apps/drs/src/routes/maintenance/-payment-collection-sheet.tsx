@@ -17,19 +17,20 @@ import {
 } from '@repo/ui/components/dialog';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
+import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Plus, ReceiptText, Trash2 } from 'lucide-react';
 import { FormEvent, JSX, useState } from 'react';
 import { ConfirmActionDialog } from './-clearance/-confirm-action-dialog.tsx';
 import {
-  createPaymentCollectionBankAccount,
   createPaymentCollectionOtherFee,
-  deletePaymentCollectionBankAccount,
+  createPaymentCollectionPaymentMethod,
   deletePaymentCollectionOtherFee,
+  deletePaymentCollectionPaymentMethod,
   fetchPaymentCollectionSettings,
-  type PaymentCollectionBankAccount,
   type PaymentCollectionOtherFee,
+  type PaymentCollectionPaymentMethod,
 } from './-lib/api/paymentCollectionSettings.ts';
 
 const SETTINGS_QUERY_KEY = ['payment_collection_settings'] as const;
@@ -49,14 +50,14 @@ const formatAmount = (amount: string): string => {
 
 export const PaymentCollectionSheet = (): JSX.Element => {
   const queryClient = useQueryClient();
-  const [isBankAccountOpen, setIsBankAccountOpen] = useState(false);
+  const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
   const [isOtherFeeOpen, setIsOtherFeeOpen] = useState(false);
-  const [bankName, setBankName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
+  const [methodName, setMethodName] = useState('');
+  const [methodDescription, setMethodDescription] = useState('');
   const [feeName, setFeeName] = useState('');
   const [amount, setAmount] = useState('');
-  const [pendingBankAccount, setPendingBankAccount] =
-    useState<PaymentCollectionBankAccount | null>(null);
+  const [pendingPaymentMethod, setPendingPaymentMethod] =
+    useState<PaymentCollectionPaymentMethod | null>(null);
   const [pendingOtherFee, setPendingOtherFee] =
     useState<PaymentCollectionOtherFee | null>(null);
 
@@ -69,26 +70,26 @@ export const PaymentCollectionSheet = (): JSX.Element => {
   const invalidateSettings = () =>
     queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
 
-  const createBankAccountMutation = useMutation({
-    mutationFn: createPaymentCollectionBankAccount,
+  const createPaymentMethodMutation = useMutation({
+    mutationFn: createPaymentCollectionPaymentMethod,
     onSuccess: () => {
-      toast.success('Bank account added.');
-      setBankName('');
-      setAccountNumber('');
-      setIsBankAccountOpen(false);
+      toast.success('Payment method added.');
+      setMethodName('');
+      setMethodDescription('');
+      setIsPaymentMethodOpen(false);
       invalidateSettings();
     },
-    onError: () => toast.error('Failed to add bank account.'),
+    onError: () => toast.error('Failed to add payment method.'),
   });
 
-  const deleteBankAccountMutation = useMutation({
-    mutationFn: deletePaymentCollectionBankAccount,
+  const deletePaymentMethodMutation = useMutation({
+    mutationFn: deletePaymentCollectionPaymentMethod,
     onSuccess: () => {
-      toast.success('Bank account removed.');
-      setPendingBankAccount(null);
+      toast.success('Payment method removed.');
+      setPendingPaymentMethod(null);
       invalidateSettings();
     },
-    onError: () => toast.error('Failed to remove bank account.'),
+    onError: () => toast.error('Failed to remove payment method.'),
   });
 
   const createOtherFeeMutation = useMutation({
@@ -114,23 +115,23 @@ export const PaymentCollectionSheet = (): JSX.Element => {
   });
 
   const settings = settingsQuery.data;
-  const bankAccounts = settings?.bank_accounts ?? [];
+  const paymentMethods = settings?.payment_methods ?? [];
   const otherFees = settings?.other_fees ?? [];
 
-  const handleBankAccountSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handlePaymentMethodSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const trimmedBankName = bankName.trim();
-    const trimmedAccountNumber = accountNumber.trim();
+    const trimmedName = methodName.trim();
+    const trimmedDescription = methodDescription.trim();
 
-    if (!trimmedBankName || !trimmedAccountNumber) {
-      toast.error('Bank name and account number are required.');
+    if (!trimmedName) {
+      toast.error('Payment method name is required.');
       return;
     }
 
-    createBankAccountMutation.mutate({
-      bank_name: trimmedBankName,
-      account_number: trimmedAccountNumber,
+    createPaymentMethodMutation.mutate({
+      name: trimmedName,
+      description: trimmedDescription || null,
     });
   };
 
@@ -158,7 +159,8 @@ export const PaymentCollectionSheet = (): JSX.Element => {
           Payment collection
         </h2>
         <p className="text-muted-foreground text-sm">
-          Manage the bank accounts and extra fees shown during student payment.
+          Manage payment methods and extra fees shown when students apply and
+          pay.
         </p>
       </div>
 
@@ -176,20 +178,21 @@ export const PaymentCollectionSheet = (): JSX.Element => {
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <CreditCard className="h-4 w-4" />
-                  Bank accounts
+                  Payment methods
                 </CardTitle>
                 <CardDescription>
-                  Students can choose one of these accounts when submitting
-                  payment proof.
+                  Students choose one of these methods when submitting a
+                  request. Use the description for service fees or payment
+                  instructions.
                 </CardDescription>
               </div>
               <Dialog
-                open={isBankAccountOpen}
+                open={isPaymentMethodOpen}
                 onOpenChange={(open) => {
-                  setIsBankAccountOpen(open);
+                  setIsPaymentMethodOpen(open);
                   if (!open) {
-                    setBankName('');
-                    setAccountNumber('');
+                    setMethodName('');
+                    setMethodDescription('');
                   }
                 }}
               >
@@ -200,62 +203,61 @@ export const PaymentCollectionSheet = (): JSX.Element => {
                     variant="outline"
                   >
                     <Plus className="h-4 w-4" />
-                    Add account
+                    Add method
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Add bank account</DialogTitle>
+                    <DialogTitle>Add payment method</DialogTitle>
                     <DialogDescription>
-                      Add an account students may use when paying assessed
-                      document fees.
+                      Examples: Cashier, GCash, bank transfer. Description is
+                      shown when a student selects the method.
                     </DialogDescription>
                   </DialogHeader>
                   <form
                     className="space-y-4"
-                    onSubmit={handleBankAccountSubmit}
+                    onSubmit={handlePaymentMethodSubmit}
                   >
                     <div>
-                      <Label htmlFor="payment-bank-name">Bank name</Label>
+                      <Label htmlFor="payment-method-name">Name</Label>
                       <Input
-                        id="payment-bank-name"
+                        id="payment-method-name"
                         className="mt-1"
-                        value={bankName}
-                        onChange={(event) => setBankName(event.target.value)}
-                        placeholder="e.g. BDO"
+                        value={methodName}
+                        onChange={(event) => setMethodName(event.target.value)}
+                        placeholder="e.g. GCash"
                         autoComplete="off"
                         required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="payment-account-number">
-                        Account number
+                      <Label htmlFor="payment-method-description">
+                        Description
                       </Label>
-                      <Input
-                        id="payment-account-number"
+                      <Textarea
+                        id="payment-method-description"
                         className="mt-1"
-                        value={accountNumber}
+                        value={methodDescription}
                         onChange={(event) =>
-                          setAccountNumber(event.target.value)
+                          setMethodDescription(event.target.value)
                         }
-                        placeholder="Account number"
-                        autoComplete="off"
-                        required
+                        placeholder="e.g. Service fee may apply. Send payment to…"
+                        rows={3}
                       />
                     </div>
                     <DialogFooter>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsBankAccountOpen(false)}
+                        onClick={() => setIsPaymentMethodOpen(false)}
                       >
                         Cancel
                       </Button>
                       <Button
                         type="submit"
-                        disabled={createBankAccountMutation.isPending}
+                        disabled={createPaymentMethodMutation.isPending}
                       >
-                        Add account
+                        Add method
                       </Button>
                     </DialogFooter>
                   </form>
@@ -263,33 +265,35 @@ export const PaymentCollectionSheet = (): JSX.Element => {
               </Dialog>
             </CardHeader>
             <CardContent>
-              {bankAccounts.length === 0 ? (
+              {paymentMethods.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
-                  No bank accounts yet.
+                  No payment methods yet.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {bankAccounts.map((account) => (
+                  {paymentMethods.map((method) => (
                     <div
-                      key={account.id}
+                      key={method.id}
                       className="bg-accent border-border flex items-center justify-between gap-3 rounded-lg border p-3"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
-                          {account.bank_name}
+                          {method.name}
                         </p>
-                        <p className="text-muted-foreground truncate text-xs">
-                          {account.account_number}
-                        </p>
+                        {method.description ? (
+                          <p className="text-muted-foreground line-clamp-2 text-xs">
+                            {method.description}
+                          </p>
+                        ) : null}
                       </div>
                       <Button
                         type="button"
                         size="sm"
                         variant="ghost"
                         className="shrink-0"
-                        onClick={() => setPendingBankAccount(account)}
-                        disabled={deleteBankAccountMutation.isPending}
-                        aria-label="Remove bank account"
+                        onClick={() => setPendingPaymentMethod(method)}
+                        disabled={deletePaymentMethodMutation.isPending}
+                        aria-label="Remove payment method"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -424,27 +428,27 @@ export const PaymentCollectionSheet = (): JSX.Element => {
           </Card>
 
           <ConfirmActionDialog
-            open={pendingBankAccount !== null}
+            open={pendingPaymentMethod !== null}
             onOpenChange={(open) => {
-              if (!open) setPendingBankAccount(null);
+              if (!open) setPendingPaymentMethod(null);
             }}
-            title="Remove bank account?"
+            title="Remove payment method?"
             description={
-              pendingBankAccount ? (
+              pendingPaymentMethod ? (
                 <>
                   Remove{' '}
                   <span className="font-medium">
-                    {pendingBankAccount.bank_name}
+                    {pendingPaymentMethod.name}
                   </span>{' '}
                   from payment collection?
                 </>
               ) : null
             }
-            confirmLabel="Remove account"
-            pending={deleteBankAccountMutation.isPending}
+            confirmLabel="Remove method"
+            pending={deletePaymentMethodMutation.isPending}
             onConfirm={() => {
-              if (pendingBankAccount) {
-                deleteBankAccountMutation.mutate(pendingBankAccount.id);
+              if (pendingPaymentMethod) {
+                deletePaymentMethodMutation.mutate(pendingPaymentMethod.id);
               }
             }}
           />

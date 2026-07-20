@@ -1,0 +1,4 @@
+@import "@repo/tailwind-config";
+
+@source "./**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";

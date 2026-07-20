@@ -1,31 +1,74 @@
 import {
+  DrsMetricsStrip,
   DrsPageHeader,
   DrsPageShell,
   DrsSectionCard,
-  DrsStatCard,
   DrsStatusBadge,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
-import { Button } from '@repo/ui/components/button';
+import { getDrSubdomain } from '@/lib/drsPermissions.ts';
+import { Label } from '@repo/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/select';
 import { DataTable } from '@repo/ui/custom/datatable/datatable';
 import { DataTableColumnHeader } from '@repo/ui/custom/datatable/datatable-column-header';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
-import { ClipboardList, FileClock, TimerReset } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import * as React from 'react';
 
 import { fetchEmployeeApplications } from './-lib/api/fetchEmployeeApplications.ts';
+import { fetchWorkflowStageAccess } from './-lib/api/fetchWorkflowStageAccess.ts';
 import { assertStaffPortalAccess } from './-lib/assertStaffPortalAccess.ts';
 import {
   displayApplicationRef,
   type DRSApplicationRow,
 } from './-lib/types/applications.ts';
+import { useDebouncedValue } from './maintenance/-lib/hooks/useDebouncedValue.ts';
 
 export const Route = createFileRoute('/staff/queue')({
   beforeLoad: assertStaffPortalAccess,
   component: StaffQueuePage,
 });
+
+const QUEUE_STATUS_STORAGE_PREFIX = 'drs.staff-queue.status';
+
+function queueStatusStorageKey(): string {
+  const subdomain =
+    typeof window !== 'undefined'
+      ? getDrSubdomain(window.location.hostname)
+      : '';
+  return `${QUEUE_STATUS_STORAGE_PREFIX}:${subdomain || 'default'}`;
+}
+
+function readStoredQueueStatus(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(queueStatusStorageKey()) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeStoredQueueStatus(status: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = queueStatusStorageKey();
+    if (status === '') {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, status);
+    }
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
+}
 
 const formatStatus = (raw: string) =>
   raw
@@ -99,38 +142,54 @@ const columns: ColumnDef<DRSApplicationRow>[] = [
     },
     enableSorting: false,
   },
-  {
-    id: 'open',
-    enableSorting: false,
-    enableHiding: false,
-    header: () => <span className="sr-only">Open</span>,
-    cell: ({ row }) => (
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" className="rounded-full" asChild>
-          <Link
-            params={{ applicationId: row.original.id }}
-            to="/staff/applications/$applicationId"
-          >
-            Open
-          </Link>
-        </Button>
-      </div>
-    ),
-  },
 ];
 
 function StaffQueuePage() {
+  const navigate = useNavigate();
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize: 15,
   });
+  const [search, setSearch] = React.useState('');
+  const [status, setStatus] = React.useState(() => readStoredQueueStatus());
+  const [statusHydrated, setStatusHydrated] = React.useState(false);
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
+
+  React.useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  }, [debouncedSearch, status]);
+
+  const stageAccessQuery = useQuery({
+    queryKey: ['drs-employee-workflow-stage-access'],
+    queryFn: fetchWorkflowStageAccess,
+  });
+
+  const stageSlugs = stageAccessQuery.data?.stageSlugs ?? [];
+
+  React.useEffect(() => {
+    if (!stageAccessQuery.isSuccess || statusHydrated) return;
+
+    if (status !== '' && !stageSlugs.includes(status)) {
+      setStatus('');
+      writeStoredQueueStatus('');
+    }
+    setStatusHydrated(true);
+  }, [stageAccessQuery.isSuccess, stageSlugs, status, statusHydrated]);
+
+  const handleStatusChange = React.useCallback((value: string) => {
+    const next = value === 'all' ? '' : value;
+    setStatus(next);
+    writeStoredQueueStatus(next);
+  }, []);
 
   const query = useQuery({
-    queryKey: ['drs-employee-queue', pagination],
+    queryKey: ['drs-employee-queue', pagination, debouncedSearch, status],
     queryFn: () =>
       fetchEmployeeApplications({
         page: pagination.pageIndex + 1,
         perPage: Math.min(pagination.pageSize, 100),
+        search: debouncedSearch,
+        status,
       }),
     placeholderData: (prev) => prev,
   });
@@ -141,56 +200,45 @@ function StaffQueuePage() {
   const lastPage = meta?.last_page ?? 1;
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-6">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
       <DrsPageHeader
         backTo="/"
         backLabel="Home"
         eyebrow="Staff workspace"
         title="Workflow queue"
-        description="Applications in your workflow stage where you can complete at least one pending task."
-        badges={
-          <>
-            <DrsStatusBadge tone="warning">Action required</DrsStatusBadge>
-            <DrsStatusBadge tone="info">
-              Page {meta?.current_page ?? 1}
-            </DrsStatusBadge>
-          </>
-        }
+        description="Applications on — or previously through — your assigned stages."
       />
 
-      <section className="grid gap-4 md:grid-cols-3" aria-label="Queue summary">
-        <DrsStatCard
-          label="Queued tasks"
-          value={total}
-          description="Applications currently visible to your account."
-          icon={ClipboardList}
-          tone="blue"
-        />
-        <DrsStatCard
-          label="Current page"
-          value={`${meta?.current_page ?? 1}/${lastPage}`}
-          description="Use the table controls to move through your queue."
-          icon={FileClock}
-          tone="amber"
-        />
-        <DrsStatCard
-          label="Refresh state"
-          value={query.isFetching ? 'Syncing' : 'Current'}
-          description="Queue data updates when pagination changes."
-          icon={TimerReset}
-          tone="emerald"
-        />
-      </section>
+      <DrsMetricsStrip
+        aria-label="Queue summary"
+        items={[
+          { label: 'Total', value: total },
+          {
+            label: 'Page',
+            value: `${meta?.current_page ?? 1}/${lastPage}`,
+          },
+          {
+            label: 'Sync',
+            value: query.isFetching ? 'Syncing' : 'Current',
+          },
+        ]}
+      />
 
       <DrsSectionCard
         title="Assigned applications"
-        description="Open a request to complete available stage tasks, save remarks, verify payment, or continue dispatch work."
+        description="Select a request to complete stage tasks, remarks, payment, or dispatch."
         icon={ClipboardList}
       >
         <DataTable<DRSApplicationRow>
           columns={columns}
           data={rows}
           getRowId={(row) => row.id}
+          onRowClick={(row) =>
+            void navigate({
+              to: '/staff/applications/$applicationId',
+              params: { applicationId: row.original.id },
+            })
+          }
           server={{
             pagination: {
               rowCount: total,
@@ -198,8 +246,34 @@ function StaffQueuePage() {
               onChange: setPagination,
               pageSizeOptions: [15, 30, 50, 100],
             },
+            search: { value: search, onChange: setSearch },
           }}
-          toolbar={{ show: false }}
+          toolbar={{
+            searchPlaceholder: 'Search name, student no., or reference…',
+            slot: (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="queue-status" className="sr-only">
+                  Status
+                </Label>
+                <Select
+                  value={status || 'all'}
+                  onValueChange={handleStatusChange}
+                >
+                  <SelectTrigger id="queue-status" className="w-[200px]">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {stageSlugs.map((slug) => (
+                      <SelectItem key={slug} value={slug}>
+                        {formatStatus(slug)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ),
+          }}
           status={{
             loading: query.isLoading || query.isFetching,
             error: query.isError,

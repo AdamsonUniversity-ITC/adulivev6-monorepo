@@ -23,10 +23,22 @@ export type DocumentDetail = {
   id: string | number;
   document_name: string;
   price: number;
+  account_code?: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;
+  once_per_student?: boolean;
   rules?: DocumentRule[];
   supporting_document_requirements?: SupportingDocumentRequirement[];
+  required_companion_ids?: number[];
+  required_companions?: Array<{
+    id: string | number;
+    required_document_id: string | number;
+    required_document?: {
+      id: string | number;
+      document_name: string;
+      is_active: boolean;
+    } | null;
+  }>;
 };
 
 export const fetchDocument = async (
@@ -34,7 +46,11 @@ export const fetchDocument = async (
 ): Promise<DocumentDetail> => {
   const { data } = await registrarSvc.get<DocumentDetail>(
     `v1/drs/documents/${documentId}`,
-    { params: { with: 'rules.rule,supportingDocumentRequirements' } },
+    {
+      params: {
+        with: 'rules.rule,supportingDocumentRequirements,requiredCompanions.requiredDocument',
+      },
+    },
   );
   return data;
 };

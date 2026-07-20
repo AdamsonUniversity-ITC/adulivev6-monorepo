@@ -137,7 +137,7 @@ export function AccessDebugPage(): JSX.Element {
   };
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-6">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
       <DrsPageHeader
         eyebrow="DRS administration"
         title="Access debugger"

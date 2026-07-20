@@ -152,9 +152,24 @@ export const TaskDialog = ({
     });
   };
 
+  const autoClearEnabled = Boolean(config.auto_clear_enabled);
+
+  const visibleConfigEntries = useMemo(() => {
+    if (!kindMeta) return [];
+    return Object.entries(kindMeta.config_schema).filter(([fieldKey]) => {
+      if (
+        fieldKey === 'auto_clear_operator' ||
+        fieldKey === 'auto_clear_conditions'
+      ) {
+        return autoClearEnabled;
+      }
+      return true;
+    });
+  }, [kindMeta, autoClearEnabled]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {task
@@ -254,22 +269,20 @@ export const TaskDialog = ({
             </Label>
           </div>
 
-          {kindMeta && Object.keys(kindMeta.config_schema).length > 0 ? (
+          {kindMeta && visibleConfigEntries.length > 0 ? (
             <div className="border-border space-y-3 rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                 {kindMeta.label} settings
               </p>
-              {Object.entries(kindMeta.config_schema).map(
-                ([fieldKey, schema]) => (
-                  <ConfigField
-                    key={fieldKey}
-                    fieldKey={fieldKey}
-                    schema={schema}
-                    value={config[fieldKey]}
-                    onChange={(value) => updateConfigField(fieldKey, value)}
-                  />
-                ),
-              )}
+              {visibleConfigEntries.map(([fieldKey, schema]) => (
+                <ConfigField
+                  key={fieldKey}
+                  fieldKey={fieldKey}
+                  schema={schema}
+                  value={config[fieldKey]}
+                  onChange={(value) => updateConfigField(fieldKey, value)}
+                />
+              ))}
             </div>
           ) : null}
 

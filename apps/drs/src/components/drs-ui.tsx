@@ -73,7 +73,7 @@ export function DrsPageShell({
         className={cx(
           'mx-auto w-full',
           maxWidthClass[maxWidth],
-          flush ? '' : 'px-4 py-5 sm:px-6 sm:py-8 lg:px-8',
+          flush ? '' : 'px-4 py-3 sm:px-6 sm:py-4 lg:px-8',
           contentClassName,
         )}
       >
@@ -114,81 +114,82 @@ export function DrsPageHeader({
   return (
     <header
       className={cx(
-        'drs-panel relative overflow-hidden rounded-4xl border p-5 shadow-sm sm:p-7',
+        'border-border/80 bg-background/70 relative rounded-xl border px-3 py-2.5 shadow-xs sm:px-4',
         className,
       )}
     >
-      <div className="from-primary/10 pointer-events-none absolute inset-x-0 top-0 h-24 bg-linear-to-b to-transparent" />
-      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-3">
-          {backTo || breadcrumbs?.length ? (
-            <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-              {backTo ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2 h-8 gap-1 rounded-full px-2"
-                  asChild
-                >
-                  <Link to={backTo as never}>
-                    <ArrowLeft className="size-4" />
-                    {backLabel}
-                  </Link>
-                </Button>
-              ) : null}
-              {breadcrumbs?.length ? (
-                <nav aria-label="Breadcrumb" className="flex min-w-0">
-                  <ol className="flex flex-wrap items-center gap-1.5">
-                    {breadcrumbs.map((crumb, index) => {
-                      const isLast = index === breadcrumbs.length - 1;
-                      return (
-                        <li key={`${crumb.label}-${index}`} className="flex">
-                          {index > 0 ? (
-                            <span className="text-border mx-1">/</span>
-                          ) : null}
-                          {crumb.to && !isLast ? (
-                            <Link
-                              to={crumb.to as never}
-                              className="hover:text-foreground transition-colors"
-                            >
-                              {crumb.label}
-                            </Link>
-                          ) : (
-                            <span
-                              aria-current={isLast ? 'page' : undefined}
-                              className={isLast ? 'text-foreground' : ''}
-                            >
-                              {crumb.label}
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </nav>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 items-start gap-2 sm:items-center">
+          {backTo ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground -ml-1 h-8 shrink-0 gap-1 px-2"
+              asChild
+            >
+              <Link to={backTo as never}>
+                <ArrowLeft className="size-4" />
+                <span className="sr-only sm:not-sr-only">{backLabel}</span>
+              </Link>
+            </Button>
+          ) : null}
+          <div className="min-w-0 space-y-0.5">
+            {breadcrumbs?.length ? (
+              <nav aria-label="Breadcrumb" className="flex min-w-0">
+                <ol className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
+                  {breadcrumbs.map((crumb, index) => {
+                    const isLast = index === breadcrumbs.length - 1;
+                    return (
+                      <li key={`${crumb.label}-${index}`} className="flex">
+                        {index > 0 ? (
+                          <span className="text-border mx-1">/</span>
+                        ) : null}
+                        {crumb.to && !isLast ? (
+                          <Link
+                            to={crumb.to as never}
+                            className="hover:text-foreground transition-colors"
+                          >
+                            {crumb.label}
+                          </Link>
+                        ) : (
+                          <span
+                            aria-current={isLast ? 'page' : undefined}
+                            className={isLast ? 'text-foreground' : ''}
+                          >
+                            {crumb.label}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </nav>
+            ) : null}
+            {eyebrow ? (
+              <p className="text-primary text-[10px] font-semibold tracking-[0.16em] uppercase">
+                {eyebrow}
+              </p>
+            ) : null}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <h1 className="text-xl font-semibold tracking-tight text-balance">
+                {title}
+              </h1>
+              {badges ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {badges}
+                </div>
               ) : null}
             </div>
-          ) : null}
-          {eyebrow ? (
-            <p className="text-primary text-xs font-semibold tracking-[0.24em] uppercase">
-              {eyebrow}
-            </p>
-          ) : null}
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-              {title}
-            </h1>
             {description ? (
-              <p className="text-muted-foreground max-w-3xl text-sm leading-6 text-pretty sm:text-base">
+              <p className="text-muted-foreground max-w-3xl text-xs leading-5 text-pretty sm:text-sm">
                 {description}
               </p>
             ) : null}
           </div>
-          {badges ? <div className="flex flex-wrap gap-2">{badges}</div> : null}
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:justify-end">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
             {actions}
           </div>
         ) : null}
@@ -218,24 +219,27 @@ export function DrsSectionCard({
   const hasHeader = title || description || action || Icon;
 
   return (
-    <Card className={cx('drs-card overflow-hidden', className)} {...props}>
+    <Card
+      className={cx('drs-card gap-3 overflow-hidden py-3', className)}
+      {...props}
+    >
       {hasHeader ? (
-        <CardHeader className="gap-3 pb-3">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 gap-3">
+        <CardHeader className="gap-2 px-4 pb-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-2.5">
               {Icon ? (
-                <div className="bg-primary/10 text-primary ring-primary/10 mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl ring-1">
-                  <Icon className="size-5" aria-hidden="true" />
+                <div className="bg-primary/10 text-primary ring-primary/10 mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg ring-1">
+                  <Icon className="size-4" aria-hidden="true" />
                 </div>
               ) : null}
-              <div className="min-w-0 space-y-1">
+              <div className="min-w-0 space-y-0.5">
                 {title ? (
-                  <CardTitle className="text-lg tracking-tight">
+                  <CardTitle className="text-base tracking-tight">
                     {title}
                   </CardTitle>
                 ) : null}
                 {description ? (
-                  <CardDescription className="leading-6 text-pretty">
+                  <CardDescription className="text-xs leading-5 text-pretty sm:text-sm">
                     {description}
                   </CardDescription>
                 ) : null}
@@ -245,7 +249,9 @@ export function DrsSectionCard({
           </div>
         </CardHeader>
       ) : null}
-      <CardContent className={cx(contentClassName)}>{children}</CardContent>
+      <CardContent className={cx('px-4', contentClassName)}>
+        {children}
+      </CardContent>
     </Card>
   );
 }
@@ -261,9 +267,11 @@ type DrsStatCardProps = {
 
 const statToneClass: Record<NonNullable<DrsStatCardProps['tone']>, string> = {
   blue: 'from-primary/15 text-primary ring-primary/15',
-  amber: 'from-amber-500/15 text-amber-700 ring-amber-500/20',
-  emerald: 'from-emerald-500/15 text-emerald-700 ring-emerald-500/20',
-  slate: 'from-slate-500/10 text-slate-700 ring-slate-500/15',
+  amber:
+    'from-amber-500/15 text-amber-700 ring-amber-500/20 dark:text-amber-300',
+  emerald:
+    'from-emerald-500/15 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+  slate: 'from-muted text-muted-foreground ring-border/60 dark:from-muted/40',
 };
 
 export function DrsStatCard({
@@ -275,18 +283,18 @@ export function DrsStatCard({
   className,
 }: DrsStatCardProps) {
   return (
-    <Card className={cx('drs-card overflow-hidden p-0', className)}>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
+    <Card className={cx('drs-card gap-0 overflow-hidden py-0', className)}>
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-semibold tracking-[0.18em] uppercase">
+            <p className="text-muted-foreground text-[10px] font-semibold tracking-[0.14em] uppercase">
               {label}
             </p>
-            <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+            <div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
               {value}
             </div>
             {description ? (
-              <p className="text-muted-foreground mt-2 text-sm leading-5">
+              <p className="text-muted-foreground mt-1 text-xs leading-4">
                 {description}
               </p>
             ) : null}
@@ -294,16 +302,62 @@ export function DrsStatCard({
           {Icon ? (
             <div
               className={cx(
-                'flex size-12 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br to-transparent ring-1',
+                'flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br to-transparent ring-1',
                 statToneClass[tone],
               )}
             >
-              <Icon className="size-5" aria-hidden="true" />
+              <Icon className="size-4" aria-hidden="true" />
             </div>
           ) : null}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type DrsMetricsStripItem = {
+  label: React.ReactNode;
+  value: React.ReactNode;
+};
+
+type DrsMetricsStripProps = {
+  items: DrsMetricsStripItem[];
+  className?: string;
+  'aria-label'?: string;
+};
+
+/** Slim horizontal metrics bar for list pages (replaces tall stat card grids). */
+export function DrsMetricsStrip({
+  items,
+  className,
+  'aria-label': ariaLabel = 'Summary',
+}: DrsMetricsStripProps) {
+  if (items.length === 0) return null;
+
+  return (
+    <div
+      aria-label={ariaLabel}
+      className={cx(
+        'border-border/80 bg-background/70 text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-3 py-2 text-xs shadow-xs',
+        className,
+      )}
+    >
+      {items.map((item, index) => (
+        <React.Fragment key={`${String(item.label)}-${index}`}>
+          {index > 0 ? (
+            <span className="bg-border hidden h-3 w-px sm:block" aria-hidden />
+          ) : null}
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="font-medium tracking-wide uppercase">
+              {item.label}
+            </span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {item.value}
+            </span>
+          </span>
+        </React.Fragment>
+      ))}
+    </div>
   );
 }
 
@@ -316,12 +370,12 @@ type DrsStatusTone =
   | 'purple';
 
 const statusToneClass: Record<DrsStatusTone, string> = {
-  neutral: 'border-slate-200 bg-slate-50 text-slate-700',
-  info: 'border-blue-200 bg-blue-50 text-blue-700',
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800',
-  danger: 'border-red-200 bg-red-50 text-red-700',
-  purple: 'border-violet-200 bg-violet-50 text-violet-700',
+  neutral: 'border-border bg-muted/70 text-muted-foreground',
+  info: 'border-primary/25 bg-primary/10 text-primary',
+  success: 'border-chart-2/40 bg-chart-2/15 text-chart-2',
+  warning: 'border-chart-4/40 bg-chart-4/15 text-chart-4',
+  danger: 'border-destructive/30 bg-destructive/10 text-destructive',
+  purple: 'border-chart-3/40 bg-chart-3/15 text-chart-3',
 };
 
 export function DrsStatusBadge({
@@ -333,7 +387,7 @@ export function DrsStatusBadge({
     <Badge
       variant="outline"
       className={cx(
-        'rounded-full px-2.5 py-1 text-xs font-medium shadow-xs',
+        'rounded-full px-2 py-0.5 text-[11px] font-medium shadow-xs',
         statusToneClass[tone],
         className,
       )}
@@ -433,7 +487,7 @@ export function DrsLoadingState({
       role="status"
       aria-live="polite"
       className={cx(
-        'drs-card text-muted-foreground flex min-h-44 items-center justify-center gap-3 rounded-3xl border p-8 text-sm',
+        'drs-card text-muted-foreground flex min-h-28 items-center justify-center gap-3 rounded-xl border p-5 text-sm',
         className,
       )}
     >
@@ -510,10 +564,7 @@ export function DrsSearchField({
       />
       <Input
         id={inputId}
-        className={cx(
-          'bg-background/80 h-11 rounded-2xl pl-10',
-          inputClassName,
-        )}
+        className={cx('bg-background/80 h-9 rounded-xl pl-9', inputClassName)}
         {...props}
       />
     </div>

@@ -42,11 +42,17 @@ import {
 import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useQuery } from '@tanstack/react-query';
-import { Link, createFileRoute, redirect } from '@tanstack/react-router';
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router';
 import { ChevronLeft, Minus, Plus } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { LoadingIndicator } from '../-loading-indicator.tsx';
+import { fetchPaymentCollectionSettings } from '../maintenance/-lib/api/paymentCollectionSettings.ts';
 import {
   buildApplyRequestPayload,
   submitApplyRequest,
@@ -59,7 +65,7 @@ import {
   type ApplyRequestFormValues,
 } from './-lib/applyRequestSchema.ts';
 import {
-  PLACEHOLDER_STUDENT_CONTEXT,
+  eligibilityFromApiMeta,
   itemVisibleForRules,
 } from './-lib/evaluateDocumentRules.ts';
 import { fetchDocumentCatalog } from './-lib/fetchDocumentCatalog.ts';
@@ -190,7 +196,7 @@ type ProcessedGroup = {
 };
 
 function ApplyDocumentsPage() {
-  const ctx = PLACEHOLDER_STUDENT_CONTEXT;
+  const navigate = useNavigate();
   const [search, setSearch] = React.useState('');
   const [quantities, setQuantities] = React.useState<Record<string, number>>(
     {},
@@ -217,9 +223,10 @@ function ApplyDocumentsPage() {
   } = form;
 
   const receiveMode = watch('receiveMode');
+  const paymentMethodId = watch('paymentMethodId');
 
   const {
-    data: groups = [],
+    data: catalog,
     isError,
     isLoading,
   } = useQuery({
@@ -227,6 +234,20 @@ function ApplyDocumentsPage() {
     queryFn: fetchDocumentCatalog,
     refetchOnWindowFocus: false,
   });
+
+  const groups = catalog?.groups ?? [];
+  const ctx = eligibilityFromApiMeta(catalog?.eligibility);
+
+  const paymentSettingsQuery = useQuery({
+    queryKey: ['payment_collection_settings'],
+    queryFn: fetchPaymentCollectionSettings,
+    refetchOnWindowFocus: false,
+  });
+
+  const paymentMethods = paymentSettingsQuery.data?.payment_methods ?? [];
+  const selectedPaymentMethod = paymentMethods.find(
+    (method) => method.id === paymentMethodId,
+  );
 
   const sortedGroups = React.useMemo(
     () =>
@@ -308,12 +329,22 @@ function ApplyDocumentsPage() {
     for (const g of sortedGroups) {
       for (const d of g.documents ?? []) {
         if (!itemVisibleForRules(d.rules, ctx)) continue;
-        const allowMulti = d.allow_multiple_per_request !== false;
+        if (d.once_per_student && d.already_requested) {
+          m.set(docKey(d.id), 0);
+          continue;
+        }
+        const allowMulti =
+          !d.once_per_student && d.allow_multiple_per_request !== false;
         m.set(docKey(d.id), allowMulti ? MAX_LINE_QTY : 1);
       }
       for (const p of g.packages ?? []) {
         if (!itemVisibleForRules(p.rules, ctx)) continue;
-        const allowMulti = p.allow_multiple_per_request !== false;
+        if (p.once_per_student && p.already_requested) {
+          m.set(pkgKey(p.id), 0);
+          continue;
+        }
+        const allowMulti =
+          !p.once_per_student && p.allow_multiple_per_request !== false;
         m.set(pkgKey(p.id), allowMulti ? MAX_LINE_QTY : 1);
       }
     }
@@ -335,6 +366,46 @@ function ApplyDocumentsPage() {
     }
     return m;
   }, [sortedGroups]);
+
+  const companionIdsByDocId = React.useMemo(() => {
+    const m = new Map<number, number[]>();
+    for (const g of sortedGroups) {
+      for (const d of g.documents ?? []) {
+        const ids = (d.required_companion_ids ?? [])
+          .map(Number)
+          .filter((id) => Number.isFinite(id) && id > 0 && id !== d.id);
+        if (ids.length > 0) m.set(d.id, ids);
+      }
+    }
+    return m;
+  }, [sortedGroups]);
+
+  const documentNameById = React.useMemo(() => {
+    const m = new Map<number, string>();
+    for (const g of sortedGroups) {
+      for (const d of g.documents ?? []) {
+        m.set(d.id, d.document_name);
+      }
+    }
+    return m;
+  }, [sortedGroups]);
+
+  const lockedCompanionMeta = React.useMemo(() => {
+    const locked = new Map<string, string[]>();
+    for (const [key, qty] of Object.entries(quantities)) {
+      if (qty <= 0 || !key.startsWith('d:')) continue;
+      const parentId = Number(key.slice(2));
+      const companions = companionIdsByDocId.get(parentId) ?? [];
+      const parentName = documentNameById.get(parentId) ?? 'another document';
+      for (const companionId of companions) {
+        const companionKey = docKey(companionId);
+        const names = locked.get(companionKey) ?? [];
+        if (!names.includes(parentName)) names.push(parentName);
+        locked.set(companionKey, names);
+      }
+    }
+    return locked;
+  }, [quantities, companionIdsByDocId, documentNameById]);
 
   const summaryLines = React.useMemo((): SummaryLine[] => {
     const rows: SummaryLine[] = [];
@@ -428,17 +499,47 @@ function ApplyDocumentsPage() {
         0,
         Math.min(max, Math.floor(Number.isFinite(qty) ? qty : 0)),
       );
+
       setQuantities((prev) => {
+        const isLocked = (lockedCompanionMeta.get(key)?.length ?? 0) > 0;
+        if (clamped <= 0 && isLocked) {
+          toast.error(
+            `This document is required with ${lockedCompanionMeta.get(key)?.join(', ')}.`,
+          );
+          return prev;
+        }
+
         const next = { ...prev };
         if (clamped <= 0) {
           delete next[key];
         } else {
           next[key] = clamped;
         }
+
+        if (key.startsWith('d:') && clamped > 0) {
+          const parentId = Number(key.slice(2));
+          const queue = [...(companionIdsByDocId.get(parentId) ?? [])];
+          const seen = new Set<number>();
+          while (queue.length > 0) {
+            const companionId = queue.shift();
+            if (companionId == null || seen.has(companionId)) continue;
+            seen.add(companionId);
+            const companionKey = docKey(companionId);
+            const companionMax = maxQtyByKey.get(companionKey) ?? 1;
+            const current = next[companionKey] ?? 0;
+            if (current < 1) {
+              next[companionKey] = Math.min(companionMax, 1);
+            }
+            for (const nested of companionIdsByDocId.get(companionId) ?? []) {
+              queue.push(nested);
+            }
+          }
+        }
+
         return next;
       });
     },
-    [maxQtyByKey],
+    [maxQtyByKey, companionIdsByDocId, lockedCompanionMeta],
   );
 
   const clearSelection = () => {
@@ -506,11 +607,13 @@ function ApplyDocumentsPage() {
         validated.lines,
         uploadRows,
       );
-      await submitApplyRequest(payload);
+      const { id } = await submitApplyRequest(payload);
       toast.success('Request submitted successfully.');
       setConfirmOpen(false);
-      clearSelection();
-      reset(applyRequestFormDefaults);
+      void navigate({
+        to: '/applications/$applicationId',
+        params: { applicationId: id },
+      });
     } catch (err: unknown) {
       toast.error(getSubmitErrorMessage(err));
     } finally {
@@ -523,76 +626,81 @@ function ApplyDocumentsPage() {
   return (
     <div className="drs-surface text-foreground relative min-h-screen">
       <header className="border-border/80 bg-background/90 sticky top-14 z-30 border-b backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2.5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 space-y-0.5">
             <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link to="/">
-                  <ChevronLeft />
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-8"
+              >
+                <Link to="/" aria-label="Back to applications">
+                  <ChevronLeft className="size-4" aria-hidden="true" />
                 </Link>
               </Button>
-              <p className="text-primary text-xs font-semibold tracking-wider uppercase">
-                Document requests
-              </p>
+              <div className="min-w-0">
+                <p className="text-primary text-[10px] font-semibold tracking-[0.16em] uppercase">
+                  Document requests
+                </p>
+                <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
+                  Build your request
+                </h1>
+              </div>
             </div>
-
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Build your request
-            </h1>
-            <p className="text-muted-foreground max-w-xl text-sm leading-relaxed">
-              Search the catalog, set quantities, fill in your contact details,
-              then review and confirm. <strong>Estimated</strong> total uses
-              unit price × copies.
+            <p className="text-muted-foreground hidden max-w-xl pl-11 text-xs leading-5 sm:block">
+              Search the catalog, set quantities, fill contact details, then
+              review. <strong>Estimated</strong> total uses unit price × copies.
             </p>
           </div>
 
-          <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:items-end">
-            <div className="border-border bg-card/80 flex flex-col rounded-2xl border px-4 py-3 shadow-sm sm:min-w-[200px]">
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <span className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+          <div className="flex w-full shrink-0 flex-col items-stretch gap-1 md:w-auto md:items-end">
+            <div className="border-border bg-card/80 flex flex-row items-center justify-between gap-3 rounded-xl border px-3 py-2 shadow-xs md:min-w-[180px] md:flex-col md:items-stretch">
+              <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3">
+                <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
                   Est. total
                 </span>
-                <Badge variant="secondary" className="tabular-nums">
+                <Badge
+                  variant="secondary"
+                  className="mt-0.5 text-[10px] tabular-nums md:mt-0"
+                >
                   {lineCount} line{lineCount === 1 ? '' : 's'} · {unitCount}
                   &nbsp;
                   {unitCount === 1 ? 'copy' : 'copies'}
                 </Badge>
               </div>
-              <p className="text-primary mt-1 text-right text-3xl font-semibold tabular-nums">
-                PHP {formatPrice(totalSelected)}
-              </p>
-              <p className="text-muted-foreground mt-1 text-right text-xs">
-                {unitCount === 0
-                  ? 'Use + / checkboxes below to add copies.'
-                  : 'Review before submitting.'}
-              </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground mt-2 h-8 self-end text-xs"
-                onClick={clearSelection}
-                disabled={unitCount === 0}
-              >
-                Clear selection
-              </Button>
+              <div className="flex flex-col items-end gap-0.5">
+                <p className="text-primary text-lg font-semibold tabular-nums sm:text-xl">
+                  PHP {formatPrice(totalSelected)}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground h-8 px-2 text-xs md:h-7"
+                  onClick={clearSelection}
+                  disabled={unitCount === 0}
+                >
+                  Clear selection
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-        <div className="mb-4 flex items-center justify-center">
-          <div className="w-full max-w-6xl px-4">
+        <div className="border-border/60 border-t py-1.5 sm:py-2">
+          <div className="mx-auto w-full max-w-6xl px-3 sm:px-4">
             <DrsSearchField
               label="Filter catalog"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter by document or package name…"
-              inputClassName="bg-card/80 border-border/80 shadow-sm"
+              inputClassName="bg-card/80 border-border/80 h-11 shadow-sm sm:h-9"
             />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+      <main className="mx-auto max-w-6xl space-y-3 px-4 py-3 sm:py-4">
         <Card className="drs-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Contact & delivery</CardTitle>
@@ -659,9 +767,6 @@ function ApplyDocumentsPage() {
                         <SelectItem value="pickup">
                           Pickup at registrar
                         </SelectItem>
-                        <SelectItem value="email">
-                          Secure email (PDF)
-                        </SelectItem>
                         <SelectItem value="delivery">
                           Courier delivery
                         </SelectItem>
@@ -672,6 +777,87 @@ function ApplyDocumentsPage() {
                         {errors.receiveMode.message}
                       </p>
                     ) : null}
+                  </div>
+                )}
+              />
+
+              <Controller
+                name="paymentMethodId"
+                control={control}
+                render={({ field }) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-method">Mode of payment</Label>
+                    <Select
+                      value={field.value || undefined}
+                      onValueChange={field.onChange}
+                      disabled={
+                        paymentSettingsQuery.isLoading ||
+                        paymentMethods.length === 0
+                      }
+                    >
+                      <SelectTrigger
+                        id="payment-method"
+                        className="w-full sm:max-w-md"
+                      >
+                        <SelectValue
+                          placeholder={
+                            paymentSettingsQuery.isLoading
+                              ? 'Loading payment methods…'
+                              : paymentMethods.length === 0
+                                ? 'No payment methods available'
+                                : 'Select payment method'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentMethods.map((method) => (
+                          <SelectItem key={method.id} value={method.id}>
+                            {method.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedPaymentMethod?.description ? (
+                      <p className="text-muted-foreground text-xs leading-5">
+                        {selectedPaymentMethod.description}
+                      </p>
+                    ) : null}
+                    {errors.paymentMethodId ? (
+                      <p className="text-destructive text-xs">
+                        {errors.paymentMethodId.message}
+                      </p>
+                    ) : null}
+                    {!paymentSettingsQuery.isLoading &&
+                    paymentMethods.length === 0 ? (
+                      <p className="text-destructive text-xs">
+                        Payment methods are not configured yet. Contact the
+                        registrar.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              />
+
+              <Controller
+                name="secureEmail"
+                control={control}
+                render={({ field }) => (
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="apply-secure-email"
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="apply-secure-email">
+                        Also receive a secure email (PDF) copy
+                      </Label>
+                      <p className="text-muted-foreground text-xs">
+                        A protected PDF copy will be sent to your email address.
+                      </p>
+                    </div>
                   </div>
                 )}
               />
@@ -776,8 +962,20 @@ function ApplyDocumentsPage() {
                                         quantity={qty}
                                         maxQuantity={maxQtyByKey.get(key) ?? 0}
                                         allowMultiple={
+                                          !doc.once_per_student &&
                                           doc.allow_multiple_per_request !==
-                                          false
+                                            false
+                                        }
+                                        alreadyRequested={Boolean(
+                                          doc.once_per_student &&
+                                          doc.already_requested,
+                                        )}
+                                        locked={
+                                          (lockedCompanionMeta.get(key)
+                                            ?.length ?? 0) > 0
+                                        }
+                                        lockedByNames={
+                                          lockedCompanionMeta.get(key) ?? []
                                         }
                                         onQuantityChange={(q) =>
                                           setLineQuantity(key, q)
@@ -808,9 +1006,14 @@ function ApplyDocumentsPage() {
                                         quantity={qty}
                                         maxQuantity={maxQtyByKey.get(key) ?? 0}
                                         allowMultiple={
+                                          !pkg.once_per_student &&
                                           pkg.allow_multiple_per_request !==
-                                          false
+                                            false
                                         }
+                                        alreadyRequested={Boolean(
+                                          pkg.once_per_student &&
+                                          pkg.already_requested,
+                                        )}
                                         onQuantityChange={(q) =>
                                           setLineQuantity(key, q)
                                         }
@@ -878,6 +1081,33 @@ function ApplyDocumentsPage() {
                         {formSnapshot.receiveMode}
                       </dd>
                     </div>
+                    <div className="flex justify-between gap-3 px-3 py-2">
+                      <dt className="text-muted-foreground shrink-0">
+                        Mode of payment
+                      </dt>
+                      <dd className="text-right">
+                        {selectedPaymentMethod?.name ??
+                          formSnapshot.paymentMethodId}
+                      </dd>
+                    </div>
+                    {selectedPaymentMethod?.description ? (
+                      <div className="flex justify-between gap-3 px-3 py-2">
+                        <dt className="text-muted-foreground shrink-0">
+                          Payment notes
+                        </dt>
+                        <dd className="max-w-[60%] text-right whitespace-pre-wrap">
+                          {selectedPaymentMethod.description}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {formSnapshot.secureEmail ? (
+                      <div className="flex justify-between gap-3 px-3 py-2">
+                        <dt className="text-muted-foreground shrink-0">
+                          Secure email (PDF)
+                        </dt>
+                        <dd className="text-right">Yes</dd>
+                      </div>
+                    ) : null}
                     {formSnapshot.receiveMode === 'delivery' &&
                     formSnapshot.deliveryAddress?.trim() ? (
                       <div className="flex justify-between gap-3 px-3 py-2">
@@ -1024,24 +1254,43 @@ function CatalogLineRow({
   quantity,
   maxQuantity,
   allowMultiple,
+  alreadyRequested = false,
   onQuantityChange,
   title,
   unitPrice,
   rules,
+  locked = false,
+  lockedByNames = [],
 }: {
   quantity: number;
   maxQuantity: number;
   allowMultiple: boolean;
+  alreadyRequested?: boolean;
   onQuantityChange: (qty: number) => void;
   title: string;
   unitPrice: string | number;
   rules: CatalogDocument['rules'];
+  locked?: boolean;
+  lockedByNames?: string[];
 }) {
   const unit = parsePriceNumber(unitPrice);
   const lineTotal = unit * quantity;
   const inCart = quantity > 0;
+  const unavailable = alreadyRequested || maxQuantity <= 0;
 
   const setInCart = (checked: boolean) => {
+    if (unavailable) {
+      toast.error(
+        'This item can only be requested once and was already requested.',
+      );
+      return;
+    }
+    if (!checked && locked) {
+      toast.error(
+        `This document is required with ${lockedByNames.join(', ') || 'another document'}.`,
+      );
+      return;
+    }
     if (checked) {
       onQuantityChange(Math.min(maxQuantity, Math.max(1, quantity)));
     } else {
@@ -1050,6 +1299,12 @@ function CatalogLineRow({
   };
 
   const toggleInCart = () => {
+    if (unavailable) {
+      toast.error(
+        'This item can only be requested once and was already requested.',
+      );
+      return;
+    }
     setInCart(!inCart);
   };
 
@@ -1057,48 +1312,64 @@ function CatalogLineRow({
     <div
       role="presentation"
       onClick={toggleInCart}
-      className={`border-border flex cursor-pointer flex-wrap items-stretch gap-3 rounded-xl border p-3 transition-all sm:flex-nowrap ${
-        inCart
-          ? 'border-primary/40 bg-primary/5 ring-primary/15 shadow-sm ring-1'
-          : 'hover:border-primary/20 hover:bg-muted/25'
+      className={`border-border flex cursor-pointer flex-col gap-3 rounded-xl border p-3.5 transition-all sm:flex-row sm:flex-nowrap sm:items-stretch sm:p-3 ${
+        unavailable
+          ? 'cursor-not-allowed opacity-60'
+          : inCart
+            ? 'border-primary/40 bg-primary/5 ring-primary/15 shadow-sm ring-1'
+            : 'hover:border-primary/20 hover:bg-muted/25'
       }`}
     >
-      <div
-        className="pt-0.5"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        <Checkbox
-          checked={inCart}
-          onCheckedChange={(v) => setInCart(v === true)}
-          aria-label={`Include ${title} in request`}
-        />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="leading-snug font-medium">{title}</p>
-        <div className="text-muted-foreground mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums">
-          <span>PHP {formatPrice(unit)} each</span>
-          {inCart ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>
-                {quantity} x PHP {formatPrice(unit)} ={' '}
-                <span className="text-foreground font-semibold">
-                  PHP {formatPrice(lineTotal)}
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <div
+          className="pt-0.5"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={inCart}
+            disabled={unavailable || (locked && inCart)}
+            onCheckedChange={(v) => setInCart(v === true)}
+            aria-label={`Include ${title} in request`}
+            className="size-5 sm:size-4"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="leading-snug font-medium">{title}</p>
+          <div className="text-muted-foreground mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums">
+            <span>PHP {formatPrice(unit)} each</span>
+            {inCart ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {quantity} x PHP {formatPrice(unit)} ={' '}
+                  <span className="text-foreground font-semibold">
+                    PHP {formatPrice(lineTotal)}
+                  </span>
                 </span>
-              </span>
-            </>
+              </>
+            ) : null}
+          </div>
+          <RuleChips rules={rules} />
+          {locked ? (
+            <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
+              Required with {lockedByNames.join(', ')}. Locked while that
+              document is selected.
+            </p>
+          ) : null}
+          {alreadyRequested ? (
+            <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
+              Already requested. This item can only be requested once.
+            </p>
+          ) : !allowMultiple ? (
+            <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
+              One copy per request.
+            </p>
           ) : null}
         </div>
-        <RuleChips rules={rules} />
-        {!allowMultiple ? (
-          <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
-            One copy per request.
-          </p>
-        ) : null}
       </div>
       <div
-        className="border-border/60 bg-background/80 flex shrink-0 items-center gap-1 self-center rounded-lg border px-1 py-0.5"
+        className="border-border/60 bg-background/80 flex shrink-0 items-center justify-end gap-1 self-stretch rounded-lg border px-1.5 py-1 sm:self-center sm:py-0.5"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -1106,15 +1377,15 @@ function CatalogLineRow({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="size-8"
-          disabled={quantity <= 0}
+          className="size-10 sm:size-8"
+          disabled={unavailable || quantity <= 0 || (locked && quantity <= 1)}
           aria-label={`Decrease quantity of ${title}`}
           onClick={() => onQuantityChange(quantity - 1)}
         >
           <Minus className="size-3.5" />
         </Button>
         <span
-          className="text-foreground min-w-8 px-1 text-center text-sm font-semibold tabular-nums"
+          className="text-foreground min-w-10 px-1 text-center text-sm font-semibold tabular-nums sm:min-w-8"
           aria-live="polite"
         >
           {quantity}
@@ -1123,8 +1394,8 @@ function CatalogLineRow({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="size-8"
-          disabled={quantity >= maxQuantity}
+          className="size-10 sm:size-8"
+          disabled={unavailable || quantity >= maxQuantity}
           aria-label={`Increase quantity of ${title}`}
           onClick={() => onQuantityChange(quantity + 1)}
         >
