@@ -386,6 +386,7 @@ export function StatusBadge({ status, t }: { status: Status; t: ThemeTokens }) {
             case 'for budget director': return t.statusForBudgetDir;
             case 'for purchase': return t.statusForPurchase;
             case 'po on process': return t.statusPOOnProcess;
+            case 'on process': return t.statusOnProcess;
             case 'for approval': return t.statusForApproval;
             default: return t.statusForReview;
         }

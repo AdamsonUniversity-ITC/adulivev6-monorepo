@@ -351,21 +351,41 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
     const handleModalAction = useCallback(async (action: string, row: RSProcessRow) => {
         if (action === 'View Accounts') {
             setAccountsModalOpen(true);
+            setAccounts([]);
             setAccountsError(null);
             setAccountsLoading(true);
+
             try {
-                const res = await financeSvc.get('/abms/budget-request-entry/accounts', {
-                    params: {
-                        departmentId: row.kind === 'Department' ? row.department_id : null,
-                        sectionId: row.kind === 'Section' ? row.section_id : null,
-                    },
-                });
-                setAccounts(res.data.accounts ?? []);
+                const res = await financeSvc.get(
+                    '/abms/budget-request-entry/accounts',
+                    {
+                        params: {
+                            requisitionId: row.id,
+                        },
+                    }
+                );
+
+                setAccounts(res.data?.accounts ?? []);
             } catch (err: any) {
-                setAccountsError(err?.response?.data?.message ?? 'Failed to load accounts.');
+                const validationErrors = err?.response?.data?.errors;
+
+                const firstValidationError = validationErrors
+                    ? Object.values(validationErrors)
+                        .flat()
+                        .find((message): message is string =>
+                            typeof message === 'string'
+                        )
+                    : null;
+
+                setAccountsError(
+                    firstValidationError ??
+                    err?.response?.data?.message ??
+                    'Failed to load the requisition accounts.'
+                );
             } finally {
                 setAccountsLoading(false);
             }
+
             return;
         }
 
@@ -459,162 +479,162 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
                 onFilterChange={handleFilterChange}
                 filterConfigOverride={wiredFilterCfg}
             >
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
-                <thead>
-                    <tr style={{ background: t.tableHeadBg }}>
-                        {COLUMNS.map((col, i) => (
-                            <th key={col} style={{
-                                padding: '11px 16px',
-                                fontSize: 11, fontWeight: 700,
-                                textTransform: 'uppercase', letterSpacing: '0.08em',
-                                color: t.tableHeadText,
-                                borderBottom: `2px solid ${t.tableHeadBorder}`,
-                                borderRight: i < COLUMNS.length - 1 ? `1px solid ${t.tableHeadBorder}` : 'none',
-                                textAlign: 'left', whiteSpace: 'nowrap',
-                            }}>
-                                {col}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {loading && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
-                                Loading…
-                            </td>
-                        </tr>
-                    )}
-
-                    {!loading && error && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '32px 24px', textAlign: 'center' }}>
-                                <span style={{
-                                    fontSize: 13, color: '#b91c1c', fontWeight: 600,
-                                    background: 'rgba(248,113,113,0.10)',
-                                    border: '1px solid rgba(248,113,113,0.30)',
-                                    borderRadius: 8, padding: '8px 18px', display: 'inline-block',
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                    <thead>
+                        <tr style={{ background: t.tableHeadBg }}>
+                            {COLUMNS.map((col, i) => (
+                                <th key={col} style={{
+                                    padding: '11px 16px',
+                                    fontSize: 11, fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                                    color: t.tableHeadText,
+                                    borderBottom: `2px solid ${t.tableHeadBorder}`,
+                                    borderRight: i < COLUMNS.length - 1 ? `1px solid ${t.tableHeadBorder}` : 'none',
+                                    textAlign: 'left', whiteSpace: 'nowrap',
                                 }}>
-                                    {error}
-                                </span>
-                            </td>
+                                    {col}
+                                </th>
+                            ))}
                         </tr>
-                    )}
+                    </thead>
+                    <tbody>
+                        {loading && (
+                            <tr>
+                                <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
+                                    Loading…
+                                </td>
+                            </tr>
+                        )}
 
-                    {!loading && !error && queried && rows.length === 0 && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
-                                No records found.
-                            </td>
-                        </tr>
-                    )}
+                        {!loading && error && (
+                            <tr>
+                                <td colSpan={COLUMNS.length} style={{ padding: '32px 24px', textAlign: 'center' }}>
+                                    <span style={{
+                                        fontSize: 13, color: '#b91c1c', fontWeight: 600,
+                                        background: 'rgba(248,113,113,0.10)',
+                                        border: '1px solid rgba(248,113,113,0.30)',
+                                        borderRadius: 8, padding: '8px 18px', display: 'inline-block',
+                                    }}>
+                                        {error}
+                                    </span>
+                                </td>
+                            </tr>
+                        )}
 
-                    {!loading && !error && !queried && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
-                                Set your filters and press <strong>Requery</strong> to load records.
-                            </td>
-                        </tr>
-                    )}
+                        {!loading && !error && queried && rows.length === 0 && (
+                            <tr>
+                                <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
+                                    No records found.
+                                </td>
+                            </tr>
+                        )}
 
-                    {!loading && !error && rows.map((row, idx) => {
-                        const tagged = !!row.for_liquidation;
-                        const baseBg = tagged
-                            ? liquidationRowBg(isDark)
-                            : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
-                        const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
-                        return (
-                        <tr
-                            key={`${row.requisition_no}-${idx}`}
-                            onClick={() => handleRowClick(row)}
-                            style={{
-                                background: baseBg,
-                                cursor: 'pointer',
-                                transition: 'background .1s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                            onMouseLeave={e => (e.currentTarget.style.background = baseBg)}
-                        >
-                            <td style={cellStyle(t, COLUMNS.length, 0)}>
-                                <span style={{ fontSize: 12, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
-                                    {row.date}
-                                </span>
-                            </td>
-                            <td style={cellStyle(t, COLUMNS.length, 1)}>
-                                <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.03em', color: t.cellBlue }}>
-                                    {row.requisition_no}
-                                </span>
-                            </td>
-                            <td style={cellStyle(t, COLUMNS.length, 2)}>
-                                {row.department_section}
-                            </td>
-                            <td style={cellStyle(t, COLUMNS.length, 3)}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <img
-                                        src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
-                                        alt={row.requested_by}
-                                        style={{
-                                            width: 32, height: 32, borderRadius: '50%',
-                                            objectFit: 'cover', flexShrink: 0,
-                                            border: `1px solid ${t.rowBorder}`,
-                                        }}
-                                        onError={e => {
-                                            (e.currentTarget as HTMLImageElement).src =
-                                                `https://ui-avatars.com/api/?name=${encodeURIComponent(row.requested_by)}&size=32&background=random`;
-                                        }}
-                                    />
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                        <span style={{ fontSize: 13, color: t.cellText, fontWeight: 500 }}>
-                                            {row.requested_by}
-                                        </span>
-                                        <span style={{ fontSize: 11, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
-                                            {row.requested_by_empno}
-                                        </span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td style={{ ...cellStyle(t, COLUMNS.length, 4), fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                                {formatAmount(row.total_amount)}
-                            </td>
-                            <td style={cellStyle(t, COLUMNS.length, 5)}>
-                                <StatusBadge status={row.status} t={t} isDark={isDark} />
-                            </td>
-                            <td style={cellStyle(t, COLUMNS.length, 6)}>
-                                <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.location ?? '—'}</span>
-                            </td>
-                            <td style={{ ...cellStyle(t, COLUMNS.length, 7), borderRight: 'none' }}>
-                                <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.from ?? '—'}</span>
-                            </td>
-                        </tr>
-                        );
-                    })}
+                        {!loading && !error && !queried && (
+                            <tr>
+                                <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
+                                    Set your filters and press <strong>Requery</strong> to load records.
+                                </td>
+                            </tr>
+                        )}
 
-                    {!loading && !error && hasMore && rows.length > 0 && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center' }}>
-                                <button
-                                    onClick={handleLoadMore}
+                        {!loading && !error && rows.map((row, idx) => {
+                            const tagged = !!row.for_liquidation;
+                            const baseBg = tagged
+                                ? liquidationRowBg(isDark)
+                                : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
+                            const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
+                            return (
+                                <tr
+                                    key={`${row.requisition_no}-${idx}`}
+                                    onClick={() => handleRowClick(row)}
                                     style={{
-                                        padding: '8px 20px', fontSize: 13, fontWeight: 600,
-                                        color: t.cellBlue, background: 'transparent',
-                                        border: `1px solid ${t.cellBlue}66`, borderRadius: 6,
+                                        background: baseBg,
                                         cursor: 'pointer',
+                                        transition: 'background .1s',
                                     }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+                                    onMouseLeave={e => (e.currentTarget.style.background = baseBg)}
                                 >
-                                    Load More
-                                </button>
-                            </td>
-                        </tr>
-                    )}
-                    {loading && rows.length > 0 && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: t.cellMuted }}>
-                                Loading more…
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+                                    <td style={cellStyle(t, COLUMNS.length, 0)}>
+                                        <span style={{ fontSize: 12, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
+                                            {row.date}
+                                        </span>
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 1)}>
+                                        <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.03em', color: t.cellBlue }}>
+                                            {row.requisition_no}
+                                        </span>
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 2)}>
+                                        {row.department_section}
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 3)}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <img
+                                                src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
+                                                alt={row.requested_by}
+                                                style={{
+                                                    width: 32, height: 32, borderRadius: '50%',
+                                                    objectFit: 'cover', flexShrink: 0,
+                                                    border: `1px solid ${t.rowBorder}`,
+                                                }}
+                                                onError={e => {
+                                                    (e.currentTarget as HTMLImageElement).src =
+                                                        `https://ui-avatars.com/api/?name=${encodeURIComponent(row.requested_by)}&size=32&background=random`;
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                <span style={{ fontSize: 13, color: t.cellText, fontWeight: 500 }}>
+                                                    {row.requested_by}
+                                                </span>
+                                                <span style={{ fontSize: 11, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
+                                                    {row.requested_by_empno}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style={{ ...cellStyle(t, COLUMNS.length, 4), fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                                        {formatAmount(row.total_amount)}
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 5)}>
+                                        <StatusBadge status={row.status} t={t} isDark={isDark} />
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 6)}>
+                                        <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.location ?? '—'}</span>
+                                    </td>
+                                    <td style={{ ...cellStyle(t, COLUMNS.length, 7), borderRight: 'none' }}>
+                                        <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.from ?? '—'}</span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+
+                        {!loading && !error && hasMore && rows.length > 0 && (
+                            <tr>
+                                <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center' }}>
+                                    <button
+                                        onClick={handleLoadMore}
+                                        style={{
+                                            padding: '8px 20px', fontSize: 13, fontWeight: 600,
+                                            color: t.cellBlue, background: 'transparent',
+                                            border: `1px solid ${t.cellBlue}66`, borderRadius: 6,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Load More
+                                    </button>
+                                </td>
+                            </tr>
+                        )}
+                        {loading && rows.length > 0 && (
+                            <tr>
+                                <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: t.cellMuted }}>
+                                    Loading more…
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </RolePage>
 
             {/* ── RS Process Modal ───────────────────────────────────── */}

@@ -15,6 +15,7 @@ export type Status =
     | 'for budget director'
     | 'for purchase'
     | 'po on process'
+    | 'on process'
     | 'for approval';
 
 export interface DeptOption { id: string; name: string; kind: 'Department' | 'Section' }
@@ -117,6 +118,47 @@ export interface RSFormItem {
     quantity: string;
     unitOfMeasurement: string;
     totalCost: number;
+}
+
+export type QuotationStatus = 'none' | 'pending' | 'accepted';
+
+export interface QuotedPricePreviewItem {
+    id: number;
+    sub_account_id: number | null;
+    account_id: number | null;
+    account_code: string;
+    description: string;
+    quantity: number;
+    unit_of_measurement: string;
+    unit_cost: number;
+    quoted_price: number | null;
+    current_total: number;
+    quoted_total: number;
+    delta: number;
+    account_balance: number | null;
+    balance_after: number | null;
+    sufficient: boolean | null;
+}
+
+export interface QuotedPricePreviewAccount {
+    sub_account_id: number;
+    account_id: number;
+    account_code: string;
+    current_balance: number;
+    net_delta: number;
+    balance_after: number;
+    sufficient: boolean;
+}
+
+export interface QuotedPricePreview {
+    has_quoted_prices: boolean;
+    quotation_status: QuotationStatus;
+    current_total: number;
+    quoted_total: number;
+    total_delta: number;
+    all_sufficient: boolean;
+    items: QuotedPricePreviewItem[];
+    accounts: QuotedPricePreviewAccount[];
 }
 
 export interface PayeeDetailRecord {

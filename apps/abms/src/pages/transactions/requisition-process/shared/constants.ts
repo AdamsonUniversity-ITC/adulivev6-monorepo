@@ -1,24 +1,26 @@
-import { DollarSign, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, Eye } from 'lucide-react';
+import { DollarSign, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, Eye, BadgeCheck } from 'lucide-react';
 import { FilterPanelConfig } from './types';
 
 export const ROLES = [
-    { key: 'budget-access',     label: 'Budget Office',  icon: DollarSign  },
-    { key: 'admin-access',      label: 'Administration', icon: ShieldCheck },
-    { key: 'logistics-access',  label: 'Logistics',      icon: Truck       },
-    { key: 'accounting-access', label: 'Accounting',     icon: Calculator  },
-    { key: 'stockroom-access',  label: 'Stockroom',      icon: Package     },
-    { key: 'cashier-access',    label: 'Cashier',        icon: CreditCard  },
+    { key: 'budget-access', label: 'Budget Office', icon: DollarSign },
+    { key: 'admin-access', label: 'Administration', icon: ShieldCheck },
+    { key: 'controller-access', label: 'Controller', icon: BadgeCheck },
+    { key: 'logistics-access', label: 'Purchasing', icon: Truck },
+    { key: 'accounting-access', label: 'Accounting', icon: Calculator },
+    { key: 'stockroom-access', label: 'Stockroom', icon: Package },
+    { key: 'cashier-access', label: 'Cashier', icon: CreditCard },
 ] as const;
 
 export type PermissionKey = typeof ROLES[number]['key'];
 
 export const ROLE_COLUMNS: Record<PermissionKey, string[]> = {
-    'budget-access':     ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
-    'admin-access':      ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
-    'logistics-access':  ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'budget-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'admin-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
+    'controller-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
+    'logistics-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'accounting-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
-    'stockroom-access':  ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
-    'cashier-access':    ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'stockroom-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'cashier-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
 };
 
 export const ALL_DEPARTMENTS = [
@@ -33,17 +35,37 @@ export const ALL_DEPARTMENTS = [
     'Psychology', 'Social Work', 'Sociology', 'Tourism',
 ];
 
-// Shared status options used by all roles
+// Budget Office and Administration status filters
 const COMMON_STATUS_OPTIONS = [
     { label: 'All' },
     { label: 'For Review' },
     { label: 'For Certification' },
     { label: 'Certified RS' },
+    { label: 'On Process' },
     { label: 'Unserved RS' },
+    { label: 'Served RS' },
+];
+
+// Logistics / Purchasing-specific status filters
+const LOGISTICS_STATUS_OPTIONS = [
+    { label: 'All' },
+    { label: 'For Purchase' },
+    { label: 'For Pricing' },
+    { label: 'For Approval' },
+    { label: 'PO On Process' },
     { label: 'Served' },
 ];
 
-// Stockroom-specific status options (simpler workflow)
+// Controller-specific status filters
+const CONTROLLER_STATUS_OPTIONS = [
+    { label: 'All' },
+    { label: 'For Controller' },
+    { label: 'On Process' },
+    { label: 'Certified' },
+    { label: 'Served' },
+];
+
+// Stockroom-specific status filters
 const STOCKROOM_STATUS_OPTIONS = [
     { label: 'All' },
     { label: 'To Process RS' },
@@ -80,62 +102,89 @@ const COMMON_SORT_COLUMNS = ['Date', 'Requisition No.', 'Department/Section', 'R
 // Shared action buttons (onClick wired at runtime in each view)
 const COMMON_ACTIONS = [
     { label: 'Requery', icon: RefreshCw, variant: 'secondary' as const },
-    { label: 'View RS',  icon: Eye,       variant: 'primary'   as const },
+    { label: 'View RS', icon: Eye, variant: 'primary' as const },
 ];
+
+const PAYMENT_FORM_OPTIONS = [
+    'Payment for Supplier/Water',
+    'Reimbursement/Replenishment',
+    'Payment for Honorarium',
+    'Payment for Employee Benefits(Maternal Leave, Magna Carta, etc.)',
+    'Request for Cash Advance',
+    'PNB Credit Card Payment',
+];
+
+const COMMON_PAYMENT_FORM_CONFIG = {
+    checkboxLabel: 'Filter by Payment Form',
+    placeholder: 'Select payment form…',
+    options: PAYMENT_FORM_OPTIONS,
+};
 
 export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
     'budget-access': {
-        status:      { options: COMMON_STATUS_OPTIONS },
-        department:  COMMON_DEPT_CONFIG,
+        status: { options: COMMON_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
-        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange:   COMMON_DATE_RANGE_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
+        paymentForm: COMMON_PAYMENT_FORM_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
-        actions:     COMMON_ACTIONS,
+        actions: COMMON_ACTIONS,
     },
     'admin-access': {
-        status:      { options: COMMON_STATUS_OPTIONS },
-        department:  COMMON_DEPT_CONFIG,
+        status: { options: COMMON_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
-        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange:   COMMON_DATE_RANGE_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        paymentForm: COMMON_PAYMENT_FORM_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
-        actions:     COMMON_ACTIONS,
+        actions: COMMON_ACTIONS,
+    },
+    'controller-access': {
+        status: { options: CONTROLLER_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
+        paymentForm: COMMON_PAYMENT_FORM_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions: COMMON_ACTIONS,
     },
     'logistics-access': {
-        status:      { options: COMMON_STATUS_OPTIONS },
-        department:  COMMON_DEPT_CONFIG,
+        status: { options: LOGISTICS_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
-        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange:   COMMON_DATE_RANGE_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
-        actions:     COMMON_ACTIONS,
+        actions: COMMON_ACTIONS,
     },
     'accounting-access': {
-        status:      { options: COMMON_STATUS_OPTIONS },
-        department:  COMMON_DEPT_CONFIG,
+        status: { options: COMMON_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
-        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange:   COMMON_DATE_RANGE_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
-        actions:     COMMON_ACTIONS,
+        actions: COMMON_ACTIONS,
     },
     'stockroom-access': {
-        status:      { options: STOCKROOM_STATUS_OPTIONS },
-        department:  COMMON_DEPT_CONFIG,
+        status: { options: STOCKROOM_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
-        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange:   COMMON_DATE_RANGE_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
-        actions:     COMMON_ACTIONS,
+        actions: COMMON_ACTIONS,
     },
     'cashier-access': {
-        status:      { options: COMMON_STATUS_OPTIONS },
-        department:  COMMON_DEPT_CONFIG,
+        status: { options: COMMON_STATUS_OPTIONS },
+        department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
-        schoolYear:  COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange:   COMMON_DATE_RANGE_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
-        actions:     COMMON_ACTIONS,
+        actions: COMMON_ACTIONS,
     },
 };

@@ -40,6 +40,12 @@ export interface SchoolYearFilterConfig {
     options?: string[];
 }
 
+export interface PaymentFormFilterConfig {
+    checkboxLabel?: string;
+    placeholder?: string;
+    options: string[];
+}
+
 export interface DateRangeFilterConfig {
     checkboxLabel?: string;
 }
@@ -56,6 +62,7 @@ export interface FilterPanelConfig {
     department?: DeptFilterConfig;
     searchField?: SearchFieldConfig;
     schoolYear?: SchoolYearFilterConfig;
+    paymentForm?: PaymentFormFilterConfig;
     dateRange?: DateRangeFilterConfig;
     sortColumns?: string[];
     actions?: ActionButtonConfig[];
@@ -63,21 +70,26 @@ export interface FilterPanelConfig {
 
 export interface FilterState {
     activeStatuses: string[];
-    /** The dept/section name string — used as display label and for plain-string consumers */
+
     selectedDept: string | null;
-    /** The dept/section id — used when the dropdown is in DeptOption mode */
     selectedDeptId: string | null;
-    /** 'Department' | 'Section' | null — set alongside selectedDeptId */
     selectedDeptKind: 'Department' | 'Section' | null;
     allDepts: boolean;
     deptQuery: string;
+
     searchEnabled: boolean;
     searchValue: string;
+
     schoolYearEnabled: boolean;
     schoolYear: string | null;
+
+    paymentFormEnabled: boolean;
+    paymentForm: string | null;
+
     dateRangeEnabled: boolean;
     dateFrom: string;
     dateTo: string;
+
     sortBy: string;
     sortDir: 'asc' | 'desc';
 }
@@ -85,22 +97,34 @@ export interface FilterState {
 export function makeDefaultFilterState(
     config: FilterPanelConfig,
 ): FilterState {
-    const allSentinel = config.status?.options?.[0]?.label ?? 'All';
-    const firstSortCol = config.sortColumns?.[0] ?? '';
+    const allSentinel =
+        config.status?.options?.[0]?.label ?? 'All';
+
+    const firstSortCol =
+        config.sortColumns?.[0] ?? '';
+
     return {
         activeStatuses: [allSentinel],
+
         selectedDept: null,
         selectedDeptId: null,
         selectedDeptKind: null,
         allDepts: false,
         deptQuery: '',
+
         searchEnabled: false,
         searchValue: '',
+
         schoolYearEnabled: false,
         schoolYear: null,
+
+        paymentFormEnabled: false,
+        paymentForm: null,
+
         dateRangeEnabled: false,
         dateFrom: '',
         dateTo: '',
+
         sortBy: firstSortCol,
         sortDir: 'desc',
     };

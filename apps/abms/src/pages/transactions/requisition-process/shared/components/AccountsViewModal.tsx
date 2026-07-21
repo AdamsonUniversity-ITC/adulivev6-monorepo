@@ -6,6 +6,8 @@ import { Theme } from '../types.ts';
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 export interface AccountRow {
+    account_id: number;
+    account_parent_id: number;
     account_code: string;
     account_name: string;
     balance: number;
@@ -150,7 +152,14 @@ export function AccountsViewModal({
                             </thead>
                             <tbody>
                                 {accounts.map((acc, idx) => (
-                                    <tr key={`${acc.account_code}-${idx}`} style={{ background: idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg }}>
+                                    <tr
+                                        key={acc.account_id}
+                                        style={{
+                                            background: idx % 2 === 0
+                                                ? t.rowEvenBg
+                                                : t.rowOddBg,
+                                        }}
+                                    >
                                         <td style={{
                                             padding: '10px 16px', fontSize: 13, color: t.cellBlue,
                                             fontWeight: 700, fontVariantNumeric: 'tabular-nums',

@@ -25,6 +25,7 @@ const BudgetQuerySchema = z.object({
         .regex(/^\d{10}$/, 'Requisition No. must be exactly 10 digits')
         .nullable(),
     schoolYear: z.string().nullable(),
+    paymentForm: z.string().nullable(),
     dateFrom: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date From must be a valid date')
@@ -137,6 +138,11 @@ function buildQuery(fs: FilterState): BudgetQuery {
             ? fs.searchValue
             : null,
         schoolYear: fs.schoolYearEnabled && fs.schoolYear ? fs.schoolYear : null,
+        paymentForm:
+            fs.paymentFormEnabled
+                && fs.paymentForm
+                ? fs.paymentForm
+                : null,
         dateFrom: fs.dateRangeEnabled && fs.dateFrom ? fs.dateFrom : null,
         dateTo: fs.dateRangeEnabled && fs.dateTo ? fs.dateTo : null,
     };
@@ -531,58 +537,58 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                                 : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
                             const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
                             return (
-                            <tr
-                                key={`${row.requisition_no}-${idx}`}
-                                onClick={() => handleRowClick(row)}
-                                style={{
-                                    background: baseBg,
-                                    cursor: 'pointer',
-                                    transition: 'background .1s',
-                                }}
-                                onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                                onMouseLeave={e => (e.currentTarget.style.background = baseBg)}
-                            >
-                                <td style={cellStyle(t, COLUMNS.length, 0)}>
-                                    <span style={{ fontSize: 12, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
-                                        {row.date}
-                                    </span>
-                                </td>
-                                <td style={cellStyle(t, COLUMNS.length, 1)}>
-                                    <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.03em', color: t.cellBlue }}>
-                                        {row.requisition_no}
-                                    </span>
-                                </td>
-                                <td style={cellStyle(t, COLUMNS.length, 2)}>{row.department_section}</td>
-                                <td style={cellStyle(t, COLUMNS.length, 3)}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <img
-                                            src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
-                                            alt={row.requested_by}
-                                            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: `1px solid ${t.rowBorder}` }}
-                                            onError={e => {
-                                                (e.currentTarget as HTMLImageElement).src =
-                                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(row.requested_by)}&size=32&background=random`;
-                                            }}
-                                        />
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                            <span style={{ fontSize: 13, color: t.cellText, fontWeight: 500 }}>{row.requested_by}</span>
-                                            <span style={{ fontSize: 11, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>{row.requested_by_empno}</span>
+                                <tr
+                                    key={`${row.requisition_no}-${idx}`}
+                                    onClick={() => handleRowClick(row)}
+                                    style={{
+                                        background: baseBg,
+                                        cursor: 'pointer',
+                                        transition: 'background .1s',
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+                                    onMouseLeave={e => (e.currentTarget.style.background = baseBg)}
+                                >
+                                    <td style={cellStyle(t, COLUMNS.length, 0)}>
+                                        <span style={{ fontSize: 12, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>
+                                            {row.date}
+                                        </span>
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 1)}>
+                                        <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.03em', color: t.cellBlue }}>
+                                            {row.requisition_no}
+                                        </span>
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 2)}>{row.department_section}</td>
+                                    <td style={cellStyle(t, COLUMNS.length, 3)}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <img
+                                                src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
+                                                alt={row.requested_by}
+                                                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: `1px solid ${t.rowBorder}` }}
+                                                onError={e => {
+                                                    (e.currentTarget as HTMLImageElement).src =
+                                                        `https://ui-avatars.com/api/?name=${encodeURIComponent(row.requested_by)}&size=32&background=random`;
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                <span style={{ fontSize: 13, color: t.cellText, fontWeight: 500 }}>{row.requested_by}</span>
+                                                <span style={{ fontSize: 11, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>{row.requested_by_empno}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td style={{ ...cellStyle(t, COLUMNS.length, 4), fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                                    {formatAmount(row.total_amount)}
-                                </td>
-                                <td style={cellStyle(t, COLUMNS.length, 5)}>
-                                    <StatusBadge status={row.status} t={t} isDark={isDark} />
-                                </td>
-                                <td style={cellStyle(t, COLUMNS.length, 6)}>
-                                    <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.location ?? '—'}</span>
-                                </td>
-                                <td style={{ ...cellStyle(t, COLUMNS.length, 7), borderRight: 'none' }}>
-                                    <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.from ?? '—'}</span>
-                                </td>
-                            </tr>
+                                    </td>
+                                    <td style={{ ...cellStyle(t, COLUMNS.length, 4), fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                                        {formatAmount(row.total_amount)}
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 5)}>
+                                        <StatusBadge status={row.status} t={t} isDark={isDark} />
+                                    </td>
+                                    <td style={cellStyle(t, COLUMNS.length, 6)}>
+                                        <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.location ?? '—'}</span>
+                                    </td>
+                                    <td style={{ ...cellStyle(t, COLUMNS.length, 7), borderRight: 'none' }}>
+                                        <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.from ?? '—'}</span>
+                                    </td>
+                                </tr>
                             );
                         })}
 

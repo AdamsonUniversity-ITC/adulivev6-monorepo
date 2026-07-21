@@ -1,3 +1,4 @@
+
 # ABMS Finance Domain ERD
 
 Last verified: 2026-07-19
