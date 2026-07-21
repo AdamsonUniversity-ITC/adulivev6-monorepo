@@ -110,10 +110,10 @@ function FiledLeavePage() {
     ],
   )
 
-  const { data, isPending, isError } = useFiledLeaveReport(listParams)
+  const { data, isPending, isFetching, isError } = useFiledLeaveReport(listParams)
 
   const paginatedResponse = isPaginatedFiledLeaveResponse(data) ? data : undefined
-  const isInitialLoading = isPending && !paginatedResponse
+  const isListLoading = isPending || isFetching
 
   const departmentLabel =
     departmentFilter === "all"
@@ -202,7 +202,7 @@ function FiledLeavePage() {
             tanstack={{ hook: tanstackHook }}
             response={paginatedResponse}
             leaveTypeNames={leaveTypeNames}
-            isLoading={isInitialLoading}
+            isLoading={isListLoading}
             isError={isError && !paginatedResponse}
             dateFrom={dateFrom}
             dateTo={dateTo}

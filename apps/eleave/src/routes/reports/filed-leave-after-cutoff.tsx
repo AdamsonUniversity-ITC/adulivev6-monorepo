@@ -86,12 +86,12 @@ function FiledLeaveAfterCutoffPage() {
     [tanstackHook.page, tanstackHook.rows, tanstackHook.keyword, dateFrom, dateTo],
   )
 
-  const { data, isPending, isError } = useFiledLeaveAfterCutoffReport(listParams)
+  const { data, isPending, isFetching, isError } = useFiledLeaveAfterCutoffReport(listParams)
 
   const paginatedResponse = isPaginatedFiledLeaveAfterCutoffResponse(data)
     ? data
     : undefined
-  const isInitialLoading = isPending && !paginatedResponse
+  const isListLoading = isPending || isFetching
 
   const printedApplicationIds = React.useMemo(
     () => new Set(printStatus?.printed_application_ids ?? []),
@@ -271,7 +271,7 @@ function FiledLeaveAfterCutoffPage() {
             tanstack={{ hook: tanstackHook }}
             response={paginatedResponse}
             leaveTypeNames={leaveTypeNames}
-            isLoading={isInitialLoading}
+            isLoading={isListLoading}
             isError={isError && !paginatedResponse}
             dateFrom={dateFrom}
             dateTo={dateTo}
