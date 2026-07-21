@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils";
 import { type ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type VisibilityState, type SortingState } from "@tanstack/react-table";
 import React, { type ReactNode } from "react";
@@ -177,13 +178,13 @@ function DataTable<TData = unknown>({
         </TableHeader>
         <TableBody>
           {states.isFetching ? (
-            <TableRow>
-              <TableCell
-                colSpan={columnCount}
-                className="text-center">
-                Loading data...
-              </TableCell>
-            </TableRow>
+            Array.from({ length: 4 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell colSpan={columnCount} className="py-2">
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                </TableCell>
+              </TableRow>
+            ))
           ) : table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row, index) => {
               const customRowClassName = config?.fn?.getRowClassName?.(row);

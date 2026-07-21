@@ -95,10 +95,11 @@ function HrApprovalPage() {
   const {
     data: response,
     isPending,
+    isFetching,
     isError,
   } = useHrApprovalLeaveApplications(listParams)
 
-  const isInitialLoading = isPending && !response
+  const isListLoading = isPending || isFetching
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -228,7 +229,7 @@ function HrApprovalPage() {
             tanstack={{ hook: tanstackHook }}
             response={response}
             leaveTypeNames={leaveTypeNames}
-            isLoading={isInitialLoading}
+            isLoading={isListLoading}
             isError={isError && !response}
             onViewDetails={openDetails}
           />
