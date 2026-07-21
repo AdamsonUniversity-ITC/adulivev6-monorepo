@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import {
   fetchHrApprovalLeaveApplications,
@@ -9,5 +9,6 @@ export function useHrApprovalLeaveApplications(params: HrApprovalListParams) {
   return useQuery({
     queryKey: ["hr-approval-leave-applications", params],
     queryFn: () => fetchHrApprovalLeaveApplications(params),
+    placeholderData: keepPreviousData,
   })
 }
