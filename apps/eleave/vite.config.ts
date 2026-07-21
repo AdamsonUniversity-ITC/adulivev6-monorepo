@@ -19,13 +19,6 @@ export default defineConfig({
   server: {
     host: true,
     allowedHosts: ["eleave.localhost.test"],
-    proxy: {
-      "/hrmdo-api": {
-        target: "http://hrmdo.api.localhost.test:8003",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/hrmdo-api/, "/api"),
-      },
-    },
     fs: {
       allow: [".."],
     },

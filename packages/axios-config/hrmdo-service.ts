@@ -7,6 +7,10 @@ export const hrmdoSvc = axios.create({
   timeout: 5000,
   withCredentials: true,
   withXSRFToken: true,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+},
 });
 
 hrmdoSvc.interceptors.response.use(
