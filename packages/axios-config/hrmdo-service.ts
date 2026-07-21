@@ -4,7 +4,7 @@ import { redirectOnUnauthorized } from './unauthorized-redirect';
 
 export const hrmdoSvc = axios.create({
   baseURL: env.hrmdoService,
-  timeout: 5000,
+  timeout: 30000,
   withCredentials: true,
   withXSRFToken: true,
   headers: {

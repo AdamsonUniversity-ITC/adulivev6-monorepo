@@ -288,9 +288,8 @@ export function FiledLeaveAfterCutoffDataTable({
         config={{
           search: true,
           pagination: true,
-          searchMode: "debounce",
-          searchDebounceMs: 300,
-          searchPlaceholder: "Search by name or employee number...",
+          searchMode: "enter",
+          searchPlaceholder: "Search by name or employee number (press Enter)...",
           fn: {
             onClick: handleRowClick,
             getRowClassName,

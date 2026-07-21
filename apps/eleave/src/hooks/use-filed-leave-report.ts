@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import {
   fetchFiledLeaveReport,
@@ -12,6 +12,7 @@ export function useFiledLeaveReport(params: FiledLeaveReportListParams) {
     queryKey: ["filed-leave-report", params],
     queryFn: () => fetchFiledLeaveReport(params),
     enabled: !params.all,
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -21,5 +22,6 @@ export function useFiledLeaveReportDepartments(
   return useQuery({
     queryKey: ["filed-leave-report-departments", params],
     queryFn: () => fetchFiledLeaveReportDepartments(params),
+    placeholderData: keepPreviousData,
   })
 }

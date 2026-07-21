@@ -87,9 +87,10 @@ export function HrApprovalDataTable({
     <div className="space-y-3">
       <DataTableSearchBar
         tanstack={tanstack}
-        mode="debounce"
-        debounceMs={300}
-        data={{ placeholder: "Search by employee name or number..." }}
+        mode="enter"
+        data={{
+          placeholder: "Search by employee name or number (press Enter)...",
+        }}
         styles={{ input: "h-9 pl-8 text-sm" }}
       />
 
