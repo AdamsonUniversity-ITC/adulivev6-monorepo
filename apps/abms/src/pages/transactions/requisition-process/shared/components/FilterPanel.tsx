@@ -42,7 +42,7 @@ function InlineDeptSelect({
     const kindBadgeStyle = (kind: 'Department' | 'Section') => ({
         background: kind === 'Department'
             ? (isDark ? 'rgba(37,99,235,0.25)' : 'rgba(219,234,254,0.90)')
-            : (isDark ? 'rgba(5,150,105,0.25)'  : 'rgba(209,250,229,0.90)'),
+            : (isDark ? 'rgba(5,150,105,0.25)' : 'rgba(209,250,229,0.90)'),
         color: kind === 'Department'
             ? (isDark ? '#93c5fd' : '#1d4ed8')
             : (isDark ? '#6ee7b7' : '#047857'),
@@ -166,15 +166,15 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelProps) {
-    const [deptOpen, setDeptOpen]       = useState(false);
-    const [sortOpen, setSortOpen]       = useState(false);
+    const [deptOpen, setDeptOpen] = useState(false);
+    const [sortOpen, setSortOpen] = useState(false);
     const [searchFocused, setSearchFocused] = useState(false);
 
     const statusOptions = config.status?.options ?? [];
-    const allSentinel   = statusOptions[0]?.label ?? 'All';
-    const deptItems     = config.department?.items ?? [];
-    const deptOptions   = config.department?.deptOptions; 
-    const sortColumns   = config.sortColumns ?? [];
+    const allSentinel = statusOptions[0]?.label ?? 'All';
+    const deptItems = config.department?.items ?? [];
+    const deptOptions = config.department?.deptOptions;
+    const sortColumns = config.sortColumns ?? [];
 
     const filteredDepts = deptItems.filter(d =>
         d.toLowerCase().includes(state.deptQuery.toLowerCase())
@@ -230,17 +230,18 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
         background: t.inputBg,
     };
 
-    const hasDept        = !!config.department;
-    const hasSearch      = !!config.searchField;
-    const hasSchoolYear  = !!config.schoolYear;
-    const hasDateRange   = !!config.dateRange;
-    const hasSort        = sortColumns.length > 0;
-    const hasActions     = (config.actions?.length ?? 0) > 0;
-    const hasLeftCluster = hasDept || hasSort || hasActions || hasSchoolYear || hasDateRange;
-    const hasRow2        = hasLeftCluster || hasSearch;
+    const hasDept = !!config.department;
+    const hasSearch = !!config.searchField;
+    const hasSchoolYear = !!config.schoolYear;
+    const hasPaymentForm = !!config.paymentForm;
+    const hasDateRange = !!config.dateRange;
+    const hasSort = sortColumns.length > 0;
+    const hasActions = (config.actions?.length ?? 0) > 0;
+    const hasLeftCluster = hasDept || hasSort || hasActions || hasSchoolYear || hasPaymentForm || hasDateRange;
+    const hasRow2 = hasLeftCluster || hasSearch;
 
     const rsAccent = isDark ? '#60a5fa' : '#1d4ed8';
-    const rsGlow   = isDark
+    const rsGlow = isDark
         ? '0 0 0 3px rgba(96,165,250,0.18), 0 0 18px rgba(96,165,250,0.12)'
         : '0 0 0 3px rgba(29,78,216,0.12), 0 0 12px rgba(29,78,216,0.08)';
 
@@ -430,6 +431,74 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                 </>
                             )}
 
+                            {/* Payment Form */}
+                            {hasPaymentForm && (
+                                <div style={filterCard}>
+                                    <span style={sectionLabel}>
+                                        Payment Form
+                                    </span>
+
+                                    <FilterCheckbox
+                                        id="payment-form-toggle"
+                                        checked={state.paymentFormEnabled}
+                                        onChange={enabled =>
+                                            onChange({
+                                                paymentFormEnabled: enabled,
+                                                ...(enabled
+                                                    ? {}
+                                                    : { paymentForm: null }),
+                                            })
+                                        }
+                                        label={
+                                            config.paymentForm?.checkboxLabel
+                                            ?? 'Filter by Payment Form'
+                                        }
+                                        t={t}
+                                    />
+
+                                    <select
+                                        value={state.paymentForm ?? ''}
+                                        onChange={event =>
+                                            onChange({
+                                                paymentForm:
+                                                    event.target.value || null,
+                                            })
+                                        }
+                                        disabled={!state.paymentFormEnabled}
+                                        style={{
+                                            width: '100%',
+                                            background: t.inputBg,
+                                            border: `1px solid ${t.inputBorder}`,
+                                            borderRadius: 7,
+                                            padding: '6px 8px',
+                                            fontSize: 11,
+                                            color: t.inputText,
+                                            outline: 'none',
+                                            opacity: state.paymentFormEnabled ? 1 : 0.4,
+                                            cursor: state.paymentFormEnabled
+                                                ? 'pointer'
+                                                : 'not-allowed',
+                                        }}
+                                    >
+                                        <option value="">
+                                            {config.paymentForm?.placeholder
+                                                ?? 'Select payment form…'}
+                                        </option>
+
+                                        {(config.paymentForm?.options ?? []).map(
+                                            paymentForm => (
+                                                <option
+                                                    key={paymentForm}
+                                                    value={paymentForm}
+                                                >
+                                                    {paymentForm}
+                                                </option>
+                                            )
+                                        )}
+                                    </select>
+                                </div>
+                            )}
+
                             {/* Date Range filter — own bounded column, same reasoning as
                                 School Year above. Checkbox gates the from/to inputs; only
                                 contributes to the requery query when checked. */}
@@ -560,12 +629,11 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                         background: state.searchEnabled
                                             ? (isDark ? 'rgba(13,26,58,0.95)' : 'rgba(224,236,255,0.95)')
                                             : t.inputBg,
-                                        border: `2px solid ${
-                                            searchFocused && state.searchEnabled ? rsAccent
-                                            : state.searchEnabled
-                                                ? (isDark ? 'rgba(96,165,250,0.55)' : 'rgba(29,78,216,0.45)')
-                                                : t.inputBorder
-                                        }`,
+                                        border: `2px solid ${searchFocused && state.searchEnabled ? rsAccent
+                                                : state.searchEnabled
+                                                    ? (isDark ? 'rgba(96,165,250,0.55)' : 'rgba(29,78,216,0.45)')
+                                                    : t.inputBorder
+                                            }`,
                                         borderRadius: 10, padding: '12px 16px 12px 44px',
                                         fontSize: 16, fontWeight: 700, letterSpacing: '0.08em',
                                         color: t.inputText, outline: 'none', width: '100%',

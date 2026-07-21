@@ -23,6 +23,7 @@ import { PageHeader } from '../../components/ui/Page';
 const GENERAL_PERMISSION_NAMES = [
   'budget-access',
   'admin-access',
+  'controller-access',
   'logistics-access',
   'stockroom-access',
   'cashier-access',

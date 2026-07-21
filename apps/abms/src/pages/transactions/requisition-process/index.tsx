@@ -9,6 +9,7 @@ import { DeptOption } from './shared/types';
 import { RolePickerModal } from './shared/components/RolePickerModal';
 import { BudgetView } from './roles/BudgetView';
 import { AdminView } from './roles/AdminView';
+import { ControllerView } from './roles/ControllerView';
 import { LogisticsView } from './roles/LogisticsView';
 import { AccountingView } from './roles/AccountingView';
 import { StockroomView } from './roles/StockroomView';
@@ -44,6 +45,7 @@ function RoleView({
     switch (roleKey) {
         case 'budget-access': return <BudgetView     {...props} />;
         case 'admin-access': return <AdminView      {...props} />;
+        case 'controller-access': return <ControllerView {...props} />;
         case 'logistics-access': return <LogisticsView  {...props} />;
         case 'accounting-access': return <AccountingView {...props} />;
         case 'stockroom-access': return <StockroomView  {...props} />;

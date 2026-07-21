@@ -504,9 +504,12 @@ export function RSFormModal({
     }
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
+    const CASHIER_MINIMUM_AMOUNT = 1000;
+    const isBelowCashierMinimum = rsType === 'cashier' && grandTotal < CASHIER_MINIMUM_AMOUNT;
+    const isSaveDisabled = isSavingRS || isSaved || items.length === 0 || isBelowCashierMinimum;
 
     async function handleSaveRS() {
-        if (!rsHeaderId || isSavingRS || isSaved || items.length === 0) return;
+        if (!rsHeaderId || isSaveDisabled) return;
         setIsSavingRS(true);
         try {
             const res = await financeSvc.patch(`/abms/budget-request-entry/${rsHeaderId}/save`, {
@@ -695,29 +698,29 @@ export function RSFormModal({
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14 }}>
                         <button
                             onClick={handleSaveRS}
-                            disabled={isSavingRS || isSaved || items.length === 0}
+                            disabled={isSaveDisabled}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
                             style={{
                                 background: isSaved
                                     ? (isDark ? 'rgba(34,197,94,0.15)' : 'rgba(220,252,231,0.80)')
-                                    : items.length === 0
+                                    : (items.length === 0 || isBelowCashierMinimum)
                                         ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
                                         : t.btnNew.bg,
                                 borderColor: isSaved
                                     ? (isDark ? 'rgba(34,197,94,0.40)' : 'rgba(22,163,74,0.35)')
-                                    : items.length === 0
+                                    : (items.length === 0 || isBelowCashierMinimum)
                                         ? (isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)')
                                         : t.btnNew.border,
                                 color: isSaved
                                     ? (isDark ? '#4ade80' : '#15803d')
-                                    : items.length === 0
+                                    : (items.length === 0 || isBelowCashierMinimum)
                                         ? (isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')
                                         : t.btnNew.text,
                                 opacity: isSavingRS ? 0.6 : 1,
-                                cursor: (isSavingRS || isSaved || items.length === 0) ? 'not-allowed' : 'pointer',
+                                cursor: isSaveDisabled ? 'not-allowed' : 'pointer',
                             }}
-                            onMouseEnter={e => { if (!isSavingRS && !isSaved && items.length > 0) (e.currentTarget as HTMLElement).style.background = t.btnNew.hover; }}
-                            onMouseLeave={e => { if (!isSavingRS && !isSaved && items.length > 0) (e.currentTarget as HTMLElement).style.background = isSaved ? (isDark ? 'rgba(34,197,94,0.15)' : 'rgba(220,252,231,0.80)') : t.btnNew.bg; }}
+                            onMouseEnter={e => { if (!isSaveDisabled) (e.currentTarget as HTMLElement).style.background = t.btnNew.hover; }}
+                            onMouseLeave={e => { if (!isSaveDisabled) (e.currentTarget as HTMLElement).style.background = t.btnNew.bg; }}
                         >
                             {isSavingRS
                                 ? <RefreshCw className="w-3.5 h-3.5" style={{ animation: 'spin 1s linear infinite' }} />
@@ -892,6 +895,7 @@ export function RSFormModal({
 
                 {/* ── Grand Total row ── */}
                 {items.length > 0 && (
+                    <>
                     <div
                         style={{
                             padding: '10px 22px',
@@ -916,6 +920,28 @@ export function RSFormModal({
                             ₱ {fmtCurrency(grandTotal)}
                         </div>
                     </div>
+                    {isBelowCashierMinimum && (
+                        <div
+                            role="alert"
+                            style={{
+                                margin: '10px 22px 0',
+                                padding: '10px 12px',
+                                borderRadius: 9,
+                                display: 'flex', alignItems: 'flex-start', gap: 8,
+                                background: isDark ? 'rgba(251,191,36,0.10)' : 'rgba(255,251,235,0.95)',
+                                border: `1px solid ${isDark ? 'rgba(251,191,36,0.35)' : 'rgba(217,119,6,0.30)'}`,
+                                color: isDark ? '#fcd34d' : '#92400e',
+                                fontSize: 11, lineHeight: 1.5,
+                            }}
+                        >
+                            <AlertCircle style={{ width: 15, height: 15, marginTop: 1, flexShrink: 0 }} />
+                            <span>
+                                Kindly use your petty cash. If your office has no petty cash fund, kindly request for it amounting to PHP 5,000.
+                                Cashier requisitions must have a minimum total amount of PHP 1,000.
+                            </span>
+                        </div>
+                    )}
+                    </>
                 )}
 
                 {/* ── Footer: Payee + Note ── */}

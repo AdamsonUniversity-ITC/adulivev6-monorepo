@@ -48,6 +48,8 @@ export interface RSProcessRow {
     location: string | null;
     from: string | null;
     for_liquidation?: boolean;
+    /** 0 = pending, 1 = approved, 2 = disapproved by Controller */
+    is_controlled?: number;
     /** RS type (e.g. "Cashier") — used to gate certain actions; not displayed. */
     rstype?: string | null;
     // Extended fields (populated when modal fetches detail)
@@ -139,14 +141,19 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
         // { label: 'Mark Unserved',    variant: 'secondary', visibleOn: ['certified rs'] },
     ],
     'admin-access': [
-        { label: 'Disapprove', variant: 'danger', visibleOn: ['for budget director'], locationFilter: ['budget office'] },
+        { label: 'Disapprove', variant: 'danger', visibleOn: ['for budget director', 'on process'], locationFilter: ['budget office'] },
+        { label: 'Controller', icon: ShieldCheck, variant: 'primary', visibleOn: ['for budget director', 'on process'], locationFilter: ['budget office'], forwardGroup: true },
         // ── Forward to… group — only when status is "for budget director" and location is "budget office" ──
-        { label: 'Stockroom', icon: Warehouse, variant: 'secondary', visibleOn: ['for budget director'], locationFilter: ['budget office'], forwardGroup: true },
-        { label: 'Accounting', icon: BookOpen, variant: 'secondary', visibleOn: ['for budget director'], locationFilter: ['budget office'], forwardGroup: true },
-        { label: 'Acctg. Director', icon: Briefcase, variant: 'secondary', visibleOn: ['for budget director'], locationFilter: ['budget office'], forwardGroup: true },
-        { label: 'HRMDO', icon: Users, variant: 'secondary', visibleOn: ['for budget director'], locationFilter: ['budget office'], forwardGroup: true },
-        { label: 'BAO', icon: Landmark, variant: 'secondary', visibleOn: ['for budget director'], locationFilter: ['budget office'], forwardGroup: true },
-        { label: 'Cash Management', icon: Banknote, variant: 'secondary', visibleOn: ['for budget director'], locationFilter: ['budget office'], forwardGroup: true },
+        { label: 'Stockroom', icon: Warehouse, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
+        { label: 'Accounting', icon: BookOpen, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
+        { label: 'Acctg. Director', icon: Briefcase, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
+        { label: 'HRMDO', icon: Users, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
+        { label: 'BAO', icon: Landmark, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
+        { label: 'Cash Management', icon: Banknote, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
+    ],
+    'controller-access': [
+        { label: 'Controller Approve', icon: CheckCircle2, variant: 'success', visibleOn: ['on process'], locationFilter: ['budget office'] },
+        { label: 'Controller Disapprove', icon: XCircle, variant: 'danger', visibleOn: ['on process'], locationFilter: ['budget office'] },
     ],
     'logistics-access': [
         { label: 'Mark Served', variant: 'success', visibleOn: ['certified rs', 'unserved rs'] },
@@ -177,7 +184,7 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // / Print RS respectively, replacing the old stockroom-access footer.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
-    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
+    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
     { label: 'Chat / Messages', icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     { label: 'RS Process History', icon: History, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     {
@@ -187,13 +194,13 @@ const COMMON_ACTIONS: RoleAction[] = [
     },
     {
         label: 'For Pricing', icon: CircleDollarSign, variant: 'secondary',
-        visibleOn: ['for budget director'], restrictedTo: ['admin-access'],
+        visibleOn: ['on process'], restrictedTo: ['admin-access'],
         locationFilter: ['budget office'], toolbarGroup: 'left',
     },
     { label: 'Send RS to WICO', icon: Send, variant: 'primary', visibleOn: ['for purchase'], restrictedTo: ['logistics-access'], locationFilter: ['logistics'], toolbarGroup: 'right' },
     { label: 'For Purchase', icon: ShoppingCart, variant: 'secondary', visibleOn: ['for approval'], restrictedTo: ['admin-access'], locationFilter: ['budget office'], toolbarGroup: 'right' },
     { label: 'Reprocess RS', icon: RefreshCw, variant: 'secondary', visibleOn: '*', restrictedTo: ['budget-access', 'admin-access'], toolbarGroup: 'right' },
-    { label: 'Send RS to Staff', icon: Send, variant: 'primary', visibleOn: ['for budget director'], restrictedTo: ['admin-access'], locationFilter: ['budget office'], toolbarGroup: 'right' },
+    { label: 'Send RS to Staff', icon: Send, variant: 'primary', visibleOn: ['on process'], restrictedTo: ['admin-access'], locationFilter: ['budget office'], toolbarGroup: 'right' },
     { label: 'Print RS', icon: Printer, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'right' },
     {
         label: 'Mark Served', icon: PackageCheck, variant: 'success',
@@ -240,6 +247,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
             'served by wico': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}66` },
             'for budget staff': { bg: `${t.cellBlue}1f`, text: t.cellBlue, border: `${t.cellBlue}55` },
             'for budget director': { bg: `${t.cellBlue}2e`, text: t.cellBlue, border: `${t.cellBlue}66` },
+            'on process': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}66` },
             'for purchase': { bg: `${t.cellBlue}1a`, text: t.cellBlue, border: `${t.cellBlue}4d` },
             'po on process': { bg: `${t.cellBlue}26`, text: t.cellBlue, border: `${t.cellBlue}59` },
             'unserved rs': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
@@ -263,6 +271,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
         'served by wico': { bg: 'rgba(219,234,254,0.75)', border: 'rgba(29,78,216,0.30)', text: '#1e3a8a' },
         'for budget staff': { bg: 'rgba(237,233,254,0.70)', border: 'rgba(109,40,217,0.30)', text: '#5b21b6' },
         'for budget director': { bg: 'rgba(237,233,254,0.90)', border: 'rgba(109,40,217,0.40)', text: '#4c1d95' },
+        'on process': { bg: 'rgba(219,234,254,0.85)', border: 'rgba(29,78,216,0.35)', text: '#1e3a8a' },
         'for purchase': { bg: 'rgba(207,250,254,0.65)', border: 'rgba(8,145,178,0.30)', text: '#155e75' },
         'po on process': { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)', text: '#0e4f63' },
         'unserved rs': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
@@ -306,6 +315,7 @@ function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
     const icons: Record<PermissionKey, React.ReactNode> = {
         'budget-access': <DollarSign style={{ width: 14, height: 14 }} />,
         'admin-access': <ShieldCheck style={{ width: 14, height: 14 }} />,
+        'controller-access': <Stamp style={{ width: 14, height: 14 }} />,
         'logistics-access': <Truck style={{ width: 14, height: 14 }} />,
         'accounting-access': <Calculator style={{ width: 14, height: 14 }} />,
         'stockroom-access': <Package style={{ width: 14, height: 14 }} />,
@@ -323,6 +333,9 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean } {
         'Mark as Reviewed': { verb: 'mark this requisition slip as reviewed' },
         'Mark as Cancelled': { verb: 'cancel this requisition slip', danger: true },
         'Disapprove': { verb: 'disapprove this requisition slip', danger: true },
+        'Controller Approve': { verb: 'approve this requisition slip as Controller' },
+        'Controller Disapprove': { verb: 'disapprove this requisition slip as Controller', danger: true },
+        'Forward to Controller': { verb: 'forward this requisition slip to the Controller' },
         'Reprocess RS': { verb: 'send this requisition slip back for reprocessing' },
         'Approve RS': { verb: 'approve this requisition slip' },
         'Reject RS': { verb: 'reject this requisition slip', danger: true },
@@ -1033,14 +1046,75 @@ export function RSProcessModal({
     const matchesLocation = (a: RoleAction) =>
         !a.locationFilter || a.locationFilter.some(l => l.toLowerCase() === locationLower);
 
+    const controllerDecision = Number(row.is_controlled ?? 0);
+
+    const isControllerDecisionAction = (a: RoleAction) =>
+        a.label === 'Controller Approve'
+        || a.label === 'Controller Disapprove';
+
+    const isAdminOnwardAction = (a: RoleAction) =>
+        a.forwardGroup
+        || ['For Pricing', 'Send RS to Staff'].includes(a.label);
+
+    const matchesControllerWorkflow = (a: RoleAction) => {
+        /*
+         * Controller can decide only while:
+         *
+         * status = on process
+         * is_controlled = 0
+         */
+        if (
+            roleKey === 'controller-access'
+            && isControllerDecisionAction(a)
+        ) {
+            return statusLower === 'on process'
+                && controllerDecision === 0;
+        }
+
+        /*
+         * Admin can initially forward to Controller from "for budget director".
+         * Admin can also resend a Controller-disapproved RS.
+         */
+        if (
+            roleKey === 'admin-access'
+            && a.label === 'Controller'
+        ) {
+            return statusLower === 'for budget director'
+                || (
+                    statusLower === 'on process'
+                    && controllerDecision === 2
+                );
+        }
+
+        /*
+         * Actions that happen immediately after Controller approval.
+         *
+         * For Purchase is intentionally excluded because it belongs to a later
+         * workflow stage:
+         *
+         * status = for approval
+         * location = budget office
+         */
+        if (
+            roleKey === 'admin-access'
+            && isAdminOnwardAction(a)
+            && a.label !== 'Controller'
+        ) {
+            return statusLower === 'on process'
+                && controllerDecision === 1;
+        }
+
+        return true;
+    };
+
     // Toolbar (top): common actions, split left/right via each action's toolbarGroup.
-    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a));
-    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a));
+    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a));
+    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a));
 
     // Footer (bottom): role-specific transition buttons only
     const roleActions = ROLE_ACTIONS[roleKey] ?? [];
-    const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a));
-    const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a));
+    const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a));
+    const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a));
 
     const cancelVisible = matchesStatus(CANCEL_ACTION) && !isTerminal;
 
@@ -1971,30 +2045,31 @@ export function RSProcessModal({
                                 again flips it off. */}
                                 {(roleKey === 'admin-access' || roleKey === 'budget-access')
                                     && locationLower === 'budget office'
+                                    && !(roleKey === 'admin-access' && controllerDecision === 2)
                                     && (row.rstype ?? '').toLowerCase() === 'cashier' && (
-                                    <button
-                                        onClick={() => triggerAction({ label: 'For Liquidation', variant: 'primary', visibleOn: '*', confirm: false })}
-                                        style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                                            marginTop: 2,
-                                            padding: '5px 12px', borderRadius: 20,
-                                            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                            border: row.for_liquidation ? `1px solid ${LIQUIDATION_COLOR}88` : `1px solid ${t.cardBorder}`,
-                                            background: row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent',
-                                            color: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
-                                            cursor: 'pointer', transition: 'background .14s ease',
-                                        }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}38` : `${t.cellMuted}1a`)}
-                                        onMouseLeave={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent')}
-                                    >
-                                        <span style={{
-                                            display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                                            background: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
-                                            flexShrink: 0,
-                                        }} />
-                                        {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
-                                    </button>
-                                )}
+                                        <button
+                                            onClick={() => triggerAction({ label: 'For Liquidation', variant: 'primary', visibleOn: '*', confirm: false })}
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                marginTop: 2,
+                                                padding: '5px 12px', borderRadius: 20,
+                                                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                                border: row.for_liquidation ? `1px solid ${LIQUIDATION_COLOR}88` : `1px solid ${t.cardBorder}`,
+                                                background: row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent',
+                                                color: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
+                                                cursor: 'pointer', transition: 'background .14s ease',
+                                            }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}38` : `${t.cellMuted}1a`)}
+                                            onMouseLeave={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent')}
+                                        >
+                                            <span style={{
+                                                display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                                                background: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
+                                                flexShrink: 0,
+                                            }} />
+                                            {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
+                                        </button>
+                                    )}
                             </div>
                             <div style={{
                                 padding: '9px 20px', textAlign: 'center',

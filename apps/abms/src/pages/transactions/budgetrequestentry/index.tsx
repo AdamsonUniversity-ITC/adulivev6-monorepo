@@ -52,7 +52,7 @@ function BudgetRequestEntryInner({
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const perPage = 50;
+    const perPage = 20;
 
     // ── Modal state ───────────────────────────────────────────────────────────
     const [showNewRS, setShowNewRS] = useState(false);

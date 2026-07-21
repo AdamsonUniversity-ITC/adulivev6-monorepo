@@ -6,7 +6,13 @@ import {
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import echo from '../../../../lib/echo';
-import type { ChatMessage, PayeeDetailRecord, RSFormItem, ThemeTokens } from '../types';
+import type {
+    ChatMessage,
+    PayeeDetailRecord,
+    QuotedPricePreview,
+    RSFormItem,
+    ThemeTokens,
+} from '../types';
 import { fmtCurrency, formatRequisitionNumber, isZeroRequisitionNumber, normalizeEntryStatus } from '../utils';
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
@@ -78,6 +84,14 @@ export function RSViewModal({
     const [showChat, setShowChat] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [incomingMessage, setIncomingMessage] = useState<ChatMessage | null>(null);
+    const [quotedPricePreview, setQuotedPricePreview] =
+        useState<QuotedPricePreview | null>(null);
+
+    const [isLoadingQuotedPreview, setIsLoadingQuotedPreview] =
+        useState(false);
+
+    const [quotedPreviewError, setQuotedPreviewError] =
+        useState<string | null>(null);
     const showChatRef = useRef(showChat);
     useEffect(() => { showChatRef.current = showChat; }, [showChat]);
 
@@ -132,6 +146,9 @@ export function RSViewModal({
         setShowPayeeView(false);
         setShowChat(false);
         setLoading(true);
+        setQuotedPricePreview(null);
+        setQuotedPreviewError(null);
+        setIsLoadingQuotedPreview(true);
         financeSvc.get(`/abms/budget-request-entry/${recordId}`)
             .then(res => {
                 setHeader(res.data.header);
@@ -145,6 +162,34 @@ export function RSViewModal({
         }).then(res => {
             setUnreadCount(res.data[String(recordId)] ?? 0);
         }).catch(() => { });
+        financeSvc
+            .get(`/abms/budget-request-entry/${recordId}/quoted-price-preview`)
+            .then(res => {
+                setQuotedPricePreview(res.data);
+            })
+            .catch((err: unknown) => {
+                const message =
+                    typeof err === 'object'
+                        && err !== null
+                        && 'response' in err
+                        ? (
+                            err as {
+                                response?: {
+                                    data?: {
+                                        message?: string;
+                                    };
+                                };
+                            }
+                        ).response?.data?.message
+                        : null;
+
+                setQuotedPreviewError(
+                    message ?? 'Failed to load the quoted-price preview.'
+                );
+            })
+            .finally(() => {
+                setIsLoadingQuotedPreview(false);
+            });
     }, [open, recordId]);
 
     if (!open) return null;
@@ -664,6 +709,540 @@ export function RSViewModal({
                     </div>
                 ) : (
                     <>
+                        {/* ── Supplier quoted-price preview ───────────────────────────── */}
+                        {isLoadingQuotedPreview && (
+                            <div
+                                style={{
+                                    margin: '16px 18px 0',
+                                    padding: '14px 16px',
+                                    borderRadius: 12,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 9,
+                                    background: isDark
+                                        ? 'rgba(59,130,246,0.08)'
+                                        : 'rgba(239,246,255,0.90)',
+                                    border: `1px solid ${isDark
+                                            ? 'rgba(96,165,250,0.25)'
+                                            : 'rgba(37,99,235,0.18)'
+                                        }`,
+                                    color: t.cellMuted,
+                                    fontSize: 11,
+                                }}
+                            >
+                                <RefreshCw
+                                    className="w-3.5 h-3.5"
+                                    style={{ animation: 'spin 1s linear infinite' }}
+                                />
+                                Loading supplier quotation preview…
+                            </div>
+                        )}
+
+                        {quotedPreviewError && (
+                            <div
+                                style={{
+                                    margin: '16px 18px 0',
+                                    padding: '10px 14px',
+                                    borderRadius: 10,
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 8,
+                                    background: isDark
+                                        ? 'rgba(248,113,113,0.10)'
+                                        : 'rgba(254,242,242,0.90)',
+                                    border: `1px solid ${isDark
+                                            ? 'rgba(248,113,113,0.30)'
+                                            : 'rgba(220,38,38,0.25)'
+                                        }`,
+                                    color: isDark ? '#fca5a5' : '#991b1b',
+                                    fontSize: 11,
+                                }}
+                            >
+                                <AlertTriangle
+                                    className="w-3.5 h-3.5 shrink-0"
+                                    style={{ marginTop: 1 }}
+                                />
+                                {quotedPreviewError}
+                            </div>
+                        )}
+
+                        {quotedPricePreview?.has_quoted_prices && (
+                            <div
+                                style={{
+                                    margin: '16px 18px',
+                                    borderRadius: 14,
+                                    overflow: 'hidden',
+                                    border: `1px solid ${quotedPricePreview.quotation_status === 'pending'
+                                            ? (
+                                                isDark
+                                                    ? 'rgba(251,191,36,0.35)'
+                                                    : 'rgba(202,138,4,0.28)'
+                                            )
+                                            : (
+                                                isDark
+                                                    ? 'rgba(74,222,128,0.35)'
+                                                    : 'rgba(22,163,74,0.25)'
+                                            )
+                                        }`,
+                                    background: isDark
+                                        ? 'rgba(10,22,50,0.55)'
+                                        : 'rgba(248,250,252,0.95)',
+                                }}
+                            >
+                                {/* Quotation heading */}
+                                <div
+                                    style={{
+                                        padding: '13px 16px',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        justifyContent: 'space-between',
+                                        gap: 12,
+                                        background:
+                                            quotedPricePreview.quotation_status === 'pending'
+                                                ? (
+                                                    isDark
+                                                        ? 'rgba(251,191,36,0.10)'
+                                                        : 'rgba(254,249,195,0.75)'
+                                                )
+                                                : (
+                                                    isDark
+                                                        ? 'rgba(74,222,128,0.09)'
+                                                        : 'rgba(240,253,244,0.90)'
+                                                ),
+                                        borderBottom: `1px solid ${t.sectionDivider}`,
+                                    }}
+                                >
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontSize: 11,
+                                                fontWeight: 800,
+                                                color: t.titleColor,
+                                            }}
+                                        >
+                                            Supplier Quotation Preview
+                                        </div>
+
+                                        <div
+                                            style={{
+                                                marginTop: 3,
+                                                fontSize: 10,
+                                                lineHeight: 1.5,
+                                                color: t.cellMuted,
+                                            }}
+                                        >
+                                            {quotedPricePreview.quotation_status === 'pending'
+                                                ? 'Supplier prices have been entered and are awaiting Administration approval. The balances below are projections only.'
+                                                : 'The supplier quoted prices have already been accepted by Administration.'}
+                                        </div>
+                                    </div>
+
+                                    <span
+                                        style={{
+                                            flexShrink: 0,
+                                            padding: '3px 8px',
+                                            borderRadius: 999,
+                                            fontSize: 9,
+                                            fontWeight: 800,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '.06em',
+                                            background:
+                                                quotedPricePreview.quotation_status === 'pending'
+                                                    ? (
+                                                        isDark
+                                                            ? 'rgba(251,191,36,0.15)'
+                                                            : 'rgba(253,230,138,0.65)'
+                                                    )
+                                                    : (
+                                                        isDark
+                                                            ? 'rgba(74,222,128,0.13)'
+                                                            : 'rgba(187,247,208,0.65)'
+                                                    ),
+                                            color:
+                                                quotedPricePreview.quotation_status === 'pending'
+                                                    ? (isDark ? '#fbbf24' : '#92400e')
+                                                    : (isDark ? '#4ade80' : '#166534'),
+                                        }}
+                                    >
+                                        {quotedPricePreview.quotation_status === 'pending'
+                                            ? 'Pending Approval'
+                                            : 'Accepted'}
+                                    </span>
+                                </div>
+
+                                {/* Total comparison */}
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns:
+                                            'repeat(auto-fit, minmax(150px, 1fr))',
+                                        gap: 10,
+                                        padding: '14px 16px',
+                                        borderBottom: `1px solid ${t.sectionDivider}`,
+                                    }}
+                                >
+                                    {[
+                                        {
+                                            label: 'Original RS Total',
+                                            value: quotedPricePreview.current_total,
+                                            color: t.cellText,
+                                        },
+                                        {
+                                            label: 'Quoted RS Total',
+                                            value: quotedPricePreview.quoted_total,
+                                            color: t.cellBlue,
+                                        },
+                                        {
+                                            label:
+                                                quotedPricePreview.total_delta > 0
+                                                    ? 'Additional Requirement'
+                                                    : quotedPricePreview.total_delta < 0
+                                                        ? 'Expected Savings'
+                                                        : 'Price Difference',
+                                            value: Math.abs(quotedPricePreview.total_delta),
+                                            color:
+                                                quotedPricePreview.total_delta > 0
+                                                    ? t.cellRed
+                                                    : quotedPricePreview.total_delta < 0
+                                                        ? t.cellGreen
+                                                        : t.cellMuted,
+                                        },
+                                    ].map(summary => (
+                                        <div
+                                            key={summary.label}
+                                            style={{
+                                                padding: '10px 12px',
+                                                borderRadius: 10,
+                                                background: isDark
+                                                    ? 'rgba(7,14,32,0.50)'
+                                                    : 'rgba(255,255,255,0.80)',
+                                                border: `1px solid ${t.sectionDivider}`,
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 700,
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '.06em',
+                                                    color: t.tableHeadText,
+                                                    marginBottom: 4,
+                                                }}
+                                            >
+                                                {summary.label}
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    fontSize: 18,
+                                                    fontWeight: 800,
+                                                    color: summary.color,
+                                                    fontVariantNumeric: 'tabular-nums',
+                                                }}
+                                            >
+                                                ₱ {fmtCurrency(summary.value)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Item quotation comparison */}
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table
+                                        style={{
+                                            width: '100%',
+                                            minWidth: 850,
+                                            borderCollapse: 'collapse',
+                                        }}
+                                    >
+                                        <thead>
+                                            <tr style={{ background: t.tableHeadBg }}>
+                                                {[
+                                                    'Account',
+                                                    'Item',
+                                                    'Qty',
+                                                    'Original Price',
+                                                    'Quoted Price',
+                                                    'Difference',
+                                                    'Quoted Total',
+                                                ].map((label, index, columns) => (
+                                                    <th
+                                                        key={label}
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 10,
+                                                            fontWeight: 700,
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '.06em',
+                                                            color: t.tableHeadText,
+                                                            textAlign:
+                                                                index >= 2 ? 'right' : 'left',
+                                                            borderBottom:
+                                                                `1px solid ${t.tableHeadBorder}`,
+                                                            borderRight:
+                                                                index < columns.length - 1
+                                                                    ? `1px solid ${t.tableHeadBorder}`
+                                                                    : 'none',
+                                                            whiteSpace: 'nowrap',
+                                                        }}
+                                                    >
+                                                        {label}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            {quotedPricePreview.items.map((item, index) => (
+                                                <tr
+                                                    key={item.id}
+                                                    style={{
+                                                        background:
+                                                            index % 2 === 0
+                                                                ? t.rowEvenBg
+                                                                : t.rowOddBg,
+                                                        borderBottom:
+                                                            `1px solid ${t.rowBorder}`,
+                                                    }}
+                                                >
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 13,
+                                                            fontWeight: 700,
+                                                            color: t.cellBlue,
+                                                        }}
+                                                    >
+                                                        {item.account_code}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 13,
+                                                            color: t.cellText,
+                                                        }}
+                                                    >
+                                                        {item.description}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 13,
+                                                            textAlign: 'right',
+                                                            color: t.cellText,
+                                                        }}
+                                                    >
+                                                        {item.quantity}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 13,
+                                                            textAlign: 'right',
+                                                            color: t.cellMuted,
+                                                        }}
+                                                    >
+                                                        ₱ {fmtCurrency(item.unit_cost)}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 13,
+                                                            fontWeight: 800,
+                                                            textAlign: 'right',
+                                                            color:
+                                                                item.quoted_price !== null
+                                                                    ? t.cellBlue
+                                                                    : t.cellMuted,
+                                                        }}
+                                                    >
+                                                        {item.quoted_price !== null
+                                                            ? `₱ ${fmtCurrency(item.quoted_price)}`
+                                                            : '—'}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 14,
+                                                            fontWeight: 700,
+                                                            textAlign: 'right',
+                                                            color:
+                                                                item.delta > 0
+                                                                    ? t.cellRed
+                                                                    : item.delta < 0
+                                                                        ? t.cellGreen
+                                                                        : t.cellMuted,
+                                                        }}
+                                                    >
+                                                        {item.delta > 0 ? '+' : ''}
+                                                        ₱ {fmtCurrency(item.delta)}
+                                                    </td>
+
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            fontSize: 14,
+                                                            fontWeight: 700,
+                                                            textAlign: 'right',
+                                                            color: t.cellText,
+                                                        }}
+                                                    >
+                                                        ₱ {fmtCurrency(item.quoted_total)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Consolidated account balance effect */}
+                                <div
+                                    style={{
+                                        padding: '14px 16px',
+                                        borderTop: `1px solid ${t.sectionDivider}`,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            marginBottom: 9,
+                                            fontSize: 9,
+                                            fontWeight: 800,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '.08em',
+                                            color: t.tableHeadText,
+                                        }}
+                                    >
+                                        Projected Account Balances
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns:
+                                                'repeat(auto-fit, minmax(240px, 1fr))',
+                                            gap: 9,
+                                        }}
+                                    >
+                                        {quotedPricePreview.accounts.map(account => (
+                                            <div
+                                                key={account.sub_account_id}
+                                                style={{
+                                                    padding: '10px 12px',
+                                                    borderRadius: 10,
+                                                    background: account.sufficient
+                                                        ? (
+                                                            isDark
+                                                                ? 'rgba(74,222,128,0.06)'
+                                                                : 'rgba(240,253,244,0.80)'
+                                                        )
+                                                        : (
+                                                            isDark
+                                                                ? 'rgba(248,113,113,0.08)'
+                                                                : 'rgba(254,242,242,0.90)'
+                                                        ),
+                                                    border: `1px solid ${account.sufficient
+                                                            ? (
+                                                                isDark
+                                                                    ? 'rgba(74,222,128,0.22)'
+                                                                    : 'rgba(22,163,74,0.18)'
+                                                            )
+                                                            : (
+                                                                isDark
+                                                                    ? 'rgba(248,113,113,0.30)'
+                                                                    : 'rgba(220,38,38,0.25)'
+                                                            )
+                                                        }`,
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        fontSize: 10,
+                                                        fontWeight: 800,
+                                                        color: t.cellBlue,
+                                                        marginBottom: 7,
+                                                    }}
+                                                >
+                                                    Account {account.account_code}
+                                                </div>
+
+                                                <div
+                                                    style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: '1fr auto',
+                                                        rowGap: 4,
+                                                        fontSize: 10,
+                                                    }}
+                                                >
+                                                    <span style={{ color: t.cellMuted }}>
+                                                        Current balance
+                                                    </span>
+                                                    <strong style={{ color: t.cellText }}>
+                                                        ₱ {fmtCurrency(account.current_balance)}
+                                                    </strong>
+
+                                                    <span style={{ color: t.cellMuted }}>
+                                                        Price adjustment
+                                                    </span>
+                                                    <strong
+                                                        style={{
+                                                            color:
+                                                                account.net_delta > 0
+                                                                    ? t.cellRed
+                                                                    : account.net_delta < 0
+                                                                        ? t.cellGreen
+                                                                        : t.cellMuted,
+                                                        }}
+                                                    >
+                                                        {account.net_delta > 0 ? '-' : '+'}
+                                                        ₱ {fmtCurrency(
+                                                            Math.abs(account.net_delta)
+                                                        )}
+                                                    </strong>
+
+                                                    <span style={{ color: t.cellMuted }}>
+                                                        Balance after approval
+                                                    </span>
+                                                    <strong
+                                                        style={{
+                                                            color: account.sufficient
+                                                                ? t.cellGreen
+                                                                : t.cellRed,
+                                                        }}
+                                                    >
+                                                        ₱ {fmtCurrency(account.balance_after)}
+                                                    </strong>
+                                                </div>
+
+                                                {!account.sufficient && (
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'flex-start',
+                                                            gap: 6,
+                                                            marginTop: 8,
+                                                            fontSize: 9,
+                                                            fontWeight: 700,
+                                                            color: t.cellRed,
+                                                        }}
+                                                    >
+                                                        <AlertTriangle
+                                                            className="w-3 h-3 shrink-0"
+                                                        />
+                                                        Insufficient balance if the quoted prices
+                                                        are accepted.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {/* Items table */}
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: canEdit ? 760 : 720 }}>

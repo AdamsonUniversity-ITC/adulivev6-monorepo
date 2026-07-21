@@ -50,6 +50,7 @@ export const T = {
         statusForBudgetDir: { bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.45)', text: '#c4b5fd' },
         statusForPurchase: { bg: 'rgba(34,211,238,0.12)', border: 'rgba(34,211,238,0.35)', text: '#22d3ee' },
         statusPOOnProcess: { bg: 'rgba(34,211,238,0.18)', border: 'rgba(34,211,238,0.42)', text: '#67e8f9' },
+        statusOnProcess: { bg: 'rgba(96,165,250,0.16)', border: 'rgba(96,165,250,0.40)', text: '#93c5fd' },
         statusForApproval: {
             bg: 'rgba(99,102,241,0.14)',
             border: 'rgba(99,102,241,0.38)',
@@ -133,6 +134,7 @@ export const T = {
         statusForBudgetDir: { bg: 'rgba(237,233,254,0.90)', border: 'rgba(109,40,217,0.40)', text: '#4c1d95' },
         statusForPurchase: { bg: 'rgba(207,250,254,0.65)', border: 'rgba(8,145,178,0.30)', text: '#155e75' },
         statusPOOnProcess: { bg: 'rgba(207,250,254,0.85)', border: 'rgba(8,145,178,0.40)', text: '#0e4f63' },
+        statusOnProcess: { bg: 'rgba(219,234,254,0.85)', border: 'rgba(37,99,235,0.35)', text: '#1d4ed8' },
         statusForApproval: {
             bg: 'rgba(224,231,255,0.75)',
             border: 'rgba(79,70,229,0.30)',
