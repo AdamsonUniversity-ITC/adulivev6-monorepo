@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import {
   fetchAfterCutoffPrintStatus,
@@ -14,6 +14,7 @@ export function useFiledLeaveAfterCutoffReport(
     queryKey: ["filed-leave-after-cutoff-report", params],
     queryFn: () => fetchFiledLeaveAfterCutoffReport(params),
     enabled: !params.all,
+    placeholderData: keepPreviousData,
   })
 }
 
