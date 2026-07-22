@@ -9,6 +9,8 @@ export interface AccountOption {
     account_id: number;
     account_code: string;
     account_name: string;
+    main_account_code?: string | null;
+    main_account_name?: string | null;
     balance: number;
     account_parent_id: number;
 }
@@ -79,6 +81,13 @@ export function SelectAccountModal({
     }, [open, search, fetchAccounts]);
 
     if (!open) return null;
+
+    const displayAccountCode = (account: AccountOption) => account.main_account_code
+        ? `${account.main_account_code} - ${account.account_code}`
+        : account.account_code;
+    const displayAccountName = (account: AccountOption) => account.main_account_name
+        ? `${account.main_account_name} - ${account.account_name}`
+        : account.account_name;
 
     const COLS = ['Account Code', 'Account Name', 'Balance'];
 
@@ -222,10 +231,10 @@ export function SelectAccountModal({
                                     }}
                                 >
                                     <td style={{ padding: '9px 14px', fontSize: 11, fontWeight: 700, color: t.cellBlue, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>
-                                        {row.account_code}
+                                        {displayAccountCode(row)}
                                     </td>
                                     <td style={{ padding: '9px 14px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
-                                        {row.account_name}
+                                        {displayAccountName(row)}
                                     </td>
                                     <td style={{ padding: '9px 14px', fontSize: 11, fontWeight: 700, color: t.cellGreen, textAlign: 'right', whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums' }}>
                                         ₱ {fmtCurrency(Number(row.balance))}
