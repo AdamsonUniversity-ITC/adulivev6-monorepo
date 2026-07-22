@@ -92,6 +92,8 @@ export interface AccountOption {
     account_id: number;
     account_code: string;
     account_name: string;
+    main_account_code?: string | null;
+    main_account_name?: string | null;
     balance: number;
     account_parent_id: number;
 }

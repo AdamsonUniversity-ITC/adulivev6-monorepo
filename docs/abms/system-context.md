@@ -70,7 +70,7 @@ The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Con
 
 The User Department Access index supports case-insensitive displayed-name search and stable A–Z/Z–A name ordering before cursor pagination. Equal displayed names use employee number as the tie-breaker, and missing teacher-directory records fall back to employee number.
 
-During RS creation, the account picker queries only the exact school-year typed-unit allocation and returns 10-row cursor pages ordered by account name with account ID as the tie-breaker. Account code/name search is applied before pagination. The requisition-process `requisitionId` account lookup remains an unpaginated list of only the accounts already referenced by that RS.
+During RS creation, the account picker queries only the exact school-year typed-unit allocation and returns 10-row cursor pages ordered by account name with account ID as the tie-breaker. Account code/name search is applied before pagination and also matches parent/main account code or name. Picker rows display `Main Code - Sub Code` and `Main Name - Sub Name`, while selection and persistence continue using the child account ID and child account code. The requisition-process `requisitionId` account lookup remains an unpaginated list of only the accounts already referenced by that RS.
 
 ### Report Route-to-Service Map
 
