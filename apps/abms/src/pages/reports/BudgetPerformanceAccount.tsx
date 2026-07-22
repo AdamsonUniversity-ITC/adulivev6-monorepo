@@ -15,6 +15,7 @@ import { budgetperformanceaccountRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox, type ReportFilterOption } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type Identifier = string | number;
@@ -100,7 +101,7 @@ const formatDate = (value: string) => {
   const [year, month, day] = value.split('-');
   return value ? `${month}/${day}/${year}` : '';
 };
-const AmountCells = ({ amounts }: { amounts: Money }) => <>{moneyColumns.map(column => <td key={column}>{amounts[column]}</td>)}</>;
+const AmountCells = ({ amounts }: { amounts: Money }) => <>{moneyColumns.map(column => <td key={column}>{formatMoney(amounts[column])}</td>)}</>;
 const UnitCell = ({ row }: { row: UnitRow }) => <td><span>{row.unit.name}</span><Badge variant="outline" className="unit-badge ml-2 align-middle">{row.unit.type === 'department' ? 'Department' : 'Section'}</Badge></td>;
 
 function ReportTable({ preview }: { preview: Preview }) {

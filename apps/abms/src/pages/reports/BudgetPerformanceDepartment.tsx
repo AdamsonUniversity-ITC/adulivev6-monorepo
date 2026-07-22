@@ -14,6 +14,7 @@ import { budgetperformancedepartmentRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox, type ReportFilterOption } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type OrgKind = 'Department' | 'Section';
@@ -214,7 +215,7 @@ const requestErrorMessage = (error: unknown) => {
 };
 
 const AmountCells = ({ amounts }: { amounts: BudgetPerformanceAmounts }) => <>
-  {amountColumns.map(column => <td key={column}>{amounts[column]}</td>)}
+  {amountColumns.map(column => <td key={column}>{formatMoney(amounts[column])}</td>)}
 </>;
 
 function ReportTable({ preview }: { preview: BudgetPerformancePreview }) {

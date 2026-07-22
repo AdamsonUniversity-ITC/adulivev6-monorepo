@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Search, X, RefreshCw, AlertCircle } from 'lucide-react';
-import type { AccountOption, ThemeTokens } from '../types';
+import { ChevronLeft, ChevronRight, Search, X, RefreshCw, AlertCircle } from 'lucide-react';
+import type { ThemeTokens } from '../types';
 import { financeSvc } from '@repo/axios-config';
 import {fmtCurrency} from '../utils';
 
@@ -31,28 +31,54 @@ export function SelectAccountModal({
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [hoveredId, setHoveredId] = useState<number | null>(null);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [prevCursor, setPrevCursor] = useState<string | null>(null);
+    const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const requestSequence = useRef(0);
 
-    useEffect(() => {
-        if (!open) return;
-        setSearch(''); setItems([]); setLoading(true); setError(null);
+    const fetchAccounts = useCallback(async (query: string, cursor: string | null = null, targetPage = 1) => {
+        const sequence = ++requestSequence.current;
+        setLoading(true);
+        setError(null);
+        setCurrentCursor(cursor);
+        setPage(targetPage);
+
         const params: Record<string, string> = { currentSchoolYear };
         if (departmentId) params.departmentId = departmentId;
         else params.sectionId = sectionId;
+        if (query) params.search = query;
+        if (cursor) params.cursor = cursor;
 
-        financeSvc.get('/abms/budget-request-entry/accounts', { params })
-            .then(({ data }) => setItems(data?.accounts ?? []))
-            .catch(() => setError('Failed to load accounts. Please try again.'))
-            .finally(() => setLoading(false));
+        try {
+            const { data } = await financeSvc.get('/abms/budget-request-entry/accounts', { params });
+            if (sequence !== requestSequence.current) return;
+            setItems(data?.accounts ?? []);
+            setNextCursor(data?.next_cursor ?? null);
+            setPrevCursor(data?.prev_cursor ?? null);
+        } catch {
+            if (sequence !== requestSequence.current) return;
+            setError('Failed to load accounts. Please try again.');
+        } finally {
+            if (sequence === requestSequence.current) setLoading(false);
+        }
+    }, [currentSchoolYear, departmentId, sectionId]);
+
+    useEffect(() => {
+        if (!open) return;
+        requestSequence.current += 1;
+        setSearch(''); setItems([]); setLoading(true); setError(null);
+        setNextCursor(null); setPrevCursor(null); setCurrentCursor(null); setPage(1);
     }, [open, departmentId, sectionId, currentSchoolYear]);
 
-    if (!open) return null;
+    useEffect(() => {
+        if (!open) return;
+        const delay = search.trim() === '' ? 0 : 350;
+        const timer = window.setTimeout(() => fetchAccounts(search.trim(), null, 1), delay);
+        return () => window.clearTimeout(timer);
+    }, [open, search, fetchAccounts]);
 
-    const filtered = search.trim()
-        ? items.filter(i =>
-            i.account_code.toLowerCase().includes(search.toLowerCase()) ||
-            i.account_name.toLowerCase().includes(search.toLowerCase()),
-        )
-        : items;
+    if (!open) return null;
 
     const COLS = ['Account Code', 'Account Name', 'Balance'];
 
@@ -167,15 +193,16 @@ export function SelectAccountModal({
                                     <td colSpan={3} style={{ padding: '40px 16px', textAlign: 'center', fontSize: 11, color: t.cellRed }}>
                                         <AlertCircle className="w-4 h-4 mx-auto mb-2 opacity-70" style={{ color: t.cellRed }} />
                                         {error}
+                                        <button onClick={() => fetchAccounts(search.trim(), currentCursor, page)} className="block mx-auto mt-2 text-[10px] font-bold underline" style={{ color: t.cellBlue }}>Retry</button>
                                     </td>
                                 </tr>
-                            ) : filtered.length === 0 ? (
+                            ) : items.length === 0 ? (
                                 <tr>
                                     <td colSpan={3} style={{ padding: '40px 16px', textAlign: 'center', fontSize: 11, color: t.cellMuted }}>
                                         {search ? <>No accounts match &ldquo;{search}&rdquo;.</> : 'No accounts found.'}
                                     </td>
                                 </tr>
-                            ) : filtered.map((row, i) => (
+                            ) : items.map((row, i) => (
                                 <tr
                                     key={row.account_id}
                                     onClick={() => onSelect(row)}
@@ -210,11 +237,50 @@ export function SelectAccountModal({
                 </div>
 
                 {/* Footer */}
-                <div style={{ padding: '8px 16px', background: t.cardHeaderBg, borderTop: `1px solid ${t.cardHeaderBorder}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ padding: '8px 16px', background: t.cardHeaderBg, borderTop: `1px solid ${t.cardHeaderBorder}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md" style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}>
-                        {filtered.length} {filtered.length === 1 ? 'account' : 'accounts'}
+                        {items.length} {items.length === 1 ? 'account' : 'accounts'}
                     </span>
                     <span style={{ fontSize: 10, color: t.cellMuted }}>Click a row to select it</span>
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button
+                            type="button"
+                            onClick={() => prevCursor && fetchAccounts(search.trim(), prevCursor, Math.max(1, page - 1))}
+                            disabled={!prevCursor || loading}
+                            aria-label="Previous account page"
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '5px 8px', borderRadius: 7,
+                                background: t.inputBg, border: `1px solid ${t.inputBorder}`,
+                                color: t.cellText, fontSize: 10, fontWeight: 700,
+                                cursor: !prevCursor || loading ? 'not-allowed' : 'pointer',
+                                opacity: !prevCursor || loading ? 0.4 : 1,
+                            }}
+                        >
+                            <ChevronLeft style={{ width: 12, height: 12 }} />
+                            Previous
+                        </button>
+                        <span style={{ minWidth: 48, textAlign: 'center', fontSize: 10, fontWeight: 700, color: t.cellMuted }}>
+                            Page {page}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => nextCursor && fetchAccounts(search.trim(), nextCursor, page + 1)}
+                            disabled={!nextCursor || loading}
+                            aria-label="Next account page"
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '5px 8px', borderRadius: 7,
+                                background: t.inputBg, border: `1px solid ${t.inputBorder}`,
+                                color: t.cellText, fontSize: 10, fontWeight: 700,
+                                cursor: !nextCursor || loading ? 'not-allowed' : 'pointer',
+                                opacity: !nextCursor || loading ? 0.4 : 1,
+                            }}
+                        >
+                            Next
+                            <ChevronRight style={{ width: 12, height: 12 }} />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>,

@@ -15,6 +15,7 @@ import { budgetperformanceuniversityRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type Identifier = string | number;
@@ -111,7 +112,7 @@ const formatDate = (value: string) => {
   const [year, month, day] = value.split('-');
   return value ? `${month}/${day}/${year}` : '';
 };
-const AmountCells = ({ amounts }: { amounts: Money }) => <>{moneyColumns.map(column => <td key={column}>{amounts[column]}</td>)}</>;
+const AmountCells = ({ amounts }: { amounts: Money }) => <>{moneyColumns.map(column => <td key={column}>{formatMoney(amounts[column])}</td>)}</>;
 const AccountName = ({ account }: { account: Account }) => <>[{account.account_code}] {account.account_name}</>;
 
 function ReportTable({ preview }: { preview: Preview }) {

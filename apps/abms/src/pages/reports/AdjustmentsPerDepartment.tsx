@@ -16,6 +16,7 @@ import { adjustmentsperdepartmentRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type Identifier = string | number;
@@ -112,7 +113,7 @@ const formatDate = (value: string) => {
 };
 const AccountName = ({ account }: { account: Account }) => <>[{account.account_code}] {account.account_name}</>;
 const UnitName = ({ unit }: { unit: Unit }) => <>{unit.name}<Badge variant="outline" className="type-badge ml-2 align-middle">{unit.type === 'department' ? 'Department' : 'Section'}</Badge></>;
-const MoneyCells = ({ money }: { money: Money }) => <><td>{money.additional}</td><td>{money.deduction}</td></>;
+const MoneyCells = ({ money }: { money: Money }) => <><td>{formatMoney(money.additional)}</td><td>{formatMoney(money.deduction)}</td></>;
 
 function SummaryTable({ preview }: { preview: Preview }) {
   if (!preview.unit_groups.length) return <p className="report-empty">No adjustments were found for the selected filters.</p>;
@@ -137,27 +138,27 @@ function DetailedTable({ preview }: { preview: Preview }) {
   if (!preview.unit_groups.length) return <p className="report-empty">No adjustments were found for the selected filters.</p>;
   return <table className="adjustment-detail-table"><thead><tr><th>Account</th><th>Date</th><th>Adj. Additional</th><th>Adj. Deduction</th><th>Remarks / Description</th></tr></thead><tbody>
     {preview.unit_groups.map(unitGroup => <Fragment key={`${unitGroup.unit.type}-${unitGroup.unit.id}`}>
-      <tr className="unit-heading"><td colSpan={2}><UnitName unit={unitGroup.unit} /></td><td>{unitGroup.totals.additional}</td><td>{unitGroup.totals.deduction}</td><td /></tr>
+      <tr className="unit-heading"><td colSpan={2}><UnitName unit={unitGroup.unit} /></td><td>{formatMoney(unitGroup.totals.additional)}</td><td>{formatMoney(unitGroup.totals.deduction)}</td><td /></tr>
       {unitGroup.categories.map(category => <Fragment key={`${unitGroup.unit.type}-${unitGroup.unit.id}-${category.classification}`}>
-        <tr className="category-heading"><td colSpan={2}>{category.classification}</td><td>{category.totals.additional}</td><td>{category.totals.deduction}</td><td /></tr>
+        <tr className="category-heading"><td colSpan={2}>{category.classification}</td><td>{formatMoney(category.totals.additional)}</td><td>{formatMoney(category.totals.deduction)}</td><td /></tr>
         {category.main_accounts.map(main => <Fragment key={`${category.classification}-${main.main_account.id}`}>
-          <tr className="main-account"><td colSpan={2}><AccountName account={main.main_account} /></td><td>{main.totals.additional}</td><td>{main.totals.deduction}</td><td /></tr>
+          <tr className="main-account"><td colSpan={2}><AccountName account={main.main_account} /></td><td>{formatMoney(main.totals.additional)}</td><td>{formatMoney(main.totals.deduction)}</td><td /></tr>
           {main.sub_accounts.map(sub => <Fragment key={`${main.main_account.id}-${sub.sub_account.id}`}>
-            <tr className="sub-account"><td colSpan={2}><AccountName account={sub.sub_account} /></td><td>{sub.totals.additional}</td><td>{sub.totals.deduction}</td><td /></tr>
-            {sub.rows.map(row => <tr className="event-row" key={String(row.id)}><td /><td>{formatDate(row.date)}</td><td>{row.additional}</td><td>{row.deduction}</td><td>{row.remarks}</td></tr>)}
+            <tr className="sub-account"><td colSpan={2}><AccountName account={sub.sub_account} /></td><td>{formatMoney(sub.totals.additional)}</td><td>{formatMoney(sub.totals.deduction)}</td><td /></tr>
+            {sub.rows.map(row => <tr className="event-row" key={String(row.id)}><td /><td>{formatDate(row.date)}</td><td>{formatMoney(row.additional)}</td><td>{formatMoney(row.deduction)}</td><td>{row.remarks}</td></tr>)}
           </Fragment>)}
         </Fragment>)}
       </Fragment>)}
     </Fragment>)}
-    <tr className="grand-total"><td colSpan={2}>Overall Total:</td><td>{preview.grand_total.additional}</td><td>{preview.grand_total.deduction}</td><td /></tr>
+    <tr className="grand-total"><td colSpan={2}>Overall Total:</td><td>{formatMoney(preview.grand_total.additional)}</td><td>{formatMoney(preview.grand_total.deduction)}</td><td /></tr>
   </tbody></table>;
 }
 
 function PerDateTable({ preview }: { preview: Preview }) {
   if (!preview.date_groups.length) return <p className="report-empty">No adjustments were found for the selected date.</p>;
   return <table className="adjustment-date-table"><thead><tr><th>Department</th><th>Account</th><th>Adj. Additional</th><th>Adj. Deduction</th><th>Remarks / Description</th></tr></thead><tbody>
-    {preview.date_groups.flatMap(group => group.rows.map(row => <tr key={`${group.date}-${row.id}`}><td><UnitName unit={row.unit} /></td><td><AccountName account={row.main_account} /> / <AccountName account={row.sub_account} /></td><td>{row.additional}</td><td>{row.deduction}</td><td>{row.remarks}</td></tr>))}
-    <tr className="grand-total"><td colSpan={2}>Overall Total:</td><td>{preview.grand_total.additional}</td><td>{preview.grand_total.deduction}</td><td /></tr>
+    {preview.date_groups.flatMap(group => group.rows.map(row => <tr key={`${group.date}-${row.id}`}><td><UnitName unit={row.unit} /></td><td><AccountName account={row.main_account} /> / <AccountName account={row.sub_account} /></td><td>{formatMoney(row.additional)}</td><td>{formatMoney(row.deduction)}</td><td>{row.remarks}</td></tr>))}
+    <tr className="grand-total"><td colSpan={2}>Overall Total:</td><td>{formatMoney(preview.grand_total.additional)}</td><td>{formatMoney(preview.grand_total.deduction)}</td><td /></tr>
   </tbody></table>;
 }
 

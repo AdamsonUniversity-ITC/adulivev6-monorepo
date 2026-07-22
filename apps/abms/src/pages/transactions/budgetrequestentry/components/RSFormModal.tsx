@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, CheckCircle2, MessageSquare, Paperclip, Plus, Printer, Save, StickyNote, Trash2, X, ClipboardList, User, UploadCloud, FileIcon, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Paperclip, Plus, Save, StickyNote, Trash2, X, ClipboardList, User, UploadCloud, FileIcon, RefreshCw } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import type { PayeeDetails, RSFormItem, RSType, ThemeTokens } from '../types';
+import type { RSType, ThemeTokens } from '../types';
 import { fmtCurrency, formatCurrentDate, formatRequisitionNumber, getCurrentSchoolYear } from '../utils';
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
@@ -471,8 +471,6 @@ export function RSFormModal({
     const [isSavingRS, setIsSavingRS] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [payeeInput, setPayeeInput] = useState('');
-    const [showChat, setShowChat] = useState(false);
-    const [unreadCount, setUnreadCount] = useState(0);
     useEffect(() => {
         if (open) {
             setItems([]);
@@ -482,7 +480,7 @@ export function RSFormModal({
             setIsSaved(false);
             setPayeeInput(rsHeaderData?.payee ?? '');
         }
-    }, [open]);
+    }, [open, rsHeaderData?.payee]);
 
     if (!open || !rsType) return null;
 
@@ -580,7 +578,11 @@ export function RSFormModal({
                 padding: '24px 16px',
                 overflowY: 'auto',
             }}
-            onClick={e => { if (e.target === e.currentTarget) isSaved ? onClose() : onDiscard(); }}
+            onClick={e => {
+                if (e.target !== e.currentTarget) return;
+                if (isSaved) onClose();
+                else void onDiscard();
+            }}
         >
             <style>{`
                 @keyframes rsform-in {
@@ -735,23 +737,6 @@ export function RSFormModal({
                             'New Item',
                             () => setShowAddItem(true),
                             t.btnRefresh,
-                        )}
-                        {iconBtn(
-                            <Printer className="w-3.5 h-3.5" />,
-                            'Print RS',
-                            () => { },
-                            t.btnPrevSY,
-                        )}
-                        {iconBtn(
-                            <MessageSquare className="w-3.5 h-3.5" />,
-                            'Chat / Message',
-                            () => setShowChat(p => !p),
-                            {
-                                bg: isDark ? 'rgba(147,197,253,0.10)' : 'rgba(219,234,254,0.55)',
-                                border: isDark ? 'rgba(147,197,253,0.35)' : 'rgba(96,165,250,0.45)',
-                                text: isDark ? '#93c5fd' : '#2563eb',
-                                hover: isDark ? 'rgba(147,197,253,0.20)' : 'rgba(191,219,254,0.80)',
-                            },
                         )}
                         {iconBtn(
                             <Paperclip className="w-3.5 h-3.5" />,

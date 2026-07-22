@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    AlertCircle, AlertTriangle, Check, ClipboardList, CreditCard, MessageSquare,
+    AlertCircle, AlertTriangle, ClipboardList,
     Paperclip, Plus, Printer, RefreshCw, Save, StickyNote, Trash2, User, X,
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
@@ -19,6 +19,8 @@ import { AttachmentsModal } from './AttachmentsModal';
 import { ChatModal, RSChatBadge } from './chat';
 import { StatusBadge } from './common';
 import { PAYEE_VIEW_REQUIRED_FORMS, PayeeDetailsViewModal } from './PayeeDetailsViewModal';
+import { RSPrintPreview } from '../../requisition-process/shared/components/RSPrintPreview';
+import type { RSLineItem, RSProcessRow } from '../../requisition-process/shared/components/RSProcessModal';
 
 export interface RSViewHeader {
     id: number;
@@ -82,6 +84,7 @@ export function RSViewModal({
     const [payeeDetail, setPayeeDetail] = useState<PayeeDetailRecord | null>(null);
     const [showPayeeView, setShowPayeeView] = useState(false);
     const [showChat, setShowChat] = useState(false);
+    const [showPrintPreview, setShowPrintPreview] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [incomingMessage, setIncomingMessage] = useState<ChatMessage | null>(null);
     const [quotedPricePreview, setQuotedPricePreview] =
@@ -123,7 +126,9 @@ export function RSViewModal({
                 try {
                     channel.stopListening('.RequisitionChatMessageSent');
                     echo.leave(`requisition-chat.${recordId}`);
-                } catch { }
+                } catch {
+                    // The realtime client may already have removed the channel.
+                }
             };
         } catch {
             return;
@@ -145,6 +150,7 @@ export function RSViewModal({
         setPayeeDetail(null);
         setShowPayeeView(false);
         setShowChat(false);
+        setShowPrintPreview(false);
         setLoading(true);
         setQuotedPricePreview(null);
         setQuotedPreviewError(null);
@@ -190,11 +196,39 @@ export function RSViewModal({
             .finally(() => {
                 setIsLoadingQuotedPreview(false);
             });
-    }, [open, recordId]);
+    }, [open, recordId, currentUser.id]);
 
     if (!open) return null;
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
+    const printRow: RSProcessRow | null = header ? {
+        id: header.id,
+        date: header.created_at,
+        requisition_no: header.requisition_number,
+        department_id: header.department_id,
+        section_id: header.section_id,
+        department_section: header.department,
+        requested_by: header.requested_by_name,
+        requested_by_empno: header.requested_by,
+        total_amount: grandTotal,
+        status: header.status,
+        location: header.location,
+        from: null,
+        rstype: header.rstype,
+        payee: header.payee,
+        payment_form: header.payment_form,
+        note: header.note,
+    } : null;
+    const printItems: RSLineItem[] = items.map(item => ({
+        id: item.id,
+        account_id: item.account_id,
+        account_code: item.accountNo,
+        description: item.itemDescription,
+        quantity: Number(item.quantity) || 0,
+        unit_of_measurement: item.unitOfMeasurement,
+        unit_cost: Number(item.unitCost) || 0,
+        total_cost: item.totalCost,
+    }));
 
     function handleAddItem(item: RSFormItem) {
         setItemActionError(null);
@@ -528,6 +562,18 @@ export function RSViewModal({
                                 t={t}
                                 isDark={isDark}
                             />
+                            {!isUnsavedRS && (
+                                <button
+                                    onClick={() => setShowPrintPreview(true)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    style={{ background: t.btnPrevSY.bg, borderColor: t.btnPrevSY.border, color: t.btnPrevSY.text }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
+                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
+                                >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    Print RS
+                                </button>
+                            )}
                             <button
                                 onClick={() => setShowAttachments(true)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
@@ -664,6 +710,16 @@ export function RSViewModal({
                                 t={t}
                                 isDark={isDark}
                             />
+                            <button
+                                onClick={() => setShowPrintPreview(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                style={{ background: t.btnPrevSY.bg, borderColor: t.btnPrevSY.border, color: t.btnPrevSY.text }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
+                            >
+                                <Printer className="w-3.5 h-3.5" />
+                                Print RS
+                            </button>
                             <button
                                 onClick={openAttachedFilesModal}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
@@ -1555,6 +1611,15 @@ export function RSViewModal({
                     t={t}
                     isDark={isDark}
                     incomingMessage={incomingMessage}
+                />
+            )}
+
+            {showPrintPreview && printRow && (
+                <RSPrintPreview
+                    row={printRow}
+                    items={printItems}
+                    payeeDetail={payeeDetail}
+                    onClose={() => setShowPrintPreview(false)}
                 />
             )}
         </div>,

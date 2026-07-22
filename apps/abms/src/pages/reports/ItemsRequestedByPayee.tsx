@@ -13,6 +13,7 @@ import { itemsrequestedbypayeeRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type Identifier = string | number;
@@ -82,8 +83,8 @@ function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => v
       <header><div><h1>ADAMSON UNIVERSITY</h1><h2>ITEMS REQUESTED BY PAYEE (Period: {formatDate(preview.report.from)} - {formatDate(preview.report.to)})</h2></div><p><b>School Year:</b><strong>{preview.report.school_year}</strong></p></header>
       <table className="payee-report-table"><thead><tr><th>Payee</th><th>Description</th><th>Requisition No.</th><th>Date</th><th>Unit Cost</th><th>Quantity</th><th>Amount</th></tr></thead><tbody>
         {!preview.rows.length && <tr className="report-empty"><td colSpan={7}>No requested items were found for this period.</td></tr>}
-        {preview.rows.map(row => <tr key={String(row.id)}><td>{row.payee}</td><td>{row.description}</td><td>{row.requisition_number}</td><td>{formatDate(row.requisition_date)}</td><td>{row.unit_cost}</td><td>{row.quantity}</td><td>{row.amount}</td></tr>)}
-        <tr className="report-total"><td colSpan={6}>Overall Total:</td><td>{preview.grand_total.total_amount}</td></tr>
+        {preview.rows.map(row => <tr key={String(row.id)}><td>{row.payee}</td><td>{row.description}</td><td>{row.requisition_number}</td><td>{formatDate(row.requisition_date)}</td><td>{formatMoney(row.unit_cost)}</td><td>{row.quantity}</td><td>{formatMoney(row.amount)}</td></tr>)}
+        <tr className="report-total"><td colSpan={6}>Overall Total:</td><td>{formatMoney(preview.grand_total.total_amount)}</td></tr>
       </tbody></table>
       <footer>-=xxx=- | Source: ABMS | Print Date: {new Date().toLocaleDateString()} | Printed By: {preview.report.printed_by}</footer>
     </article>

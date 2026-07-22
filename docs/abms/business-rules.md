@@ -53,6 +53,8 @@ OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves 
 
 ### Current Requisition Entry and Finalization Guards
 
+- Budget Proposal Entry and Budget Request Entry automatically select the user's Department or Section only when the combined authorized typed-unit list contains exactly one option. Users with zero or multiple authorized units retain an empty selector and must choose explicitly where applicable.
+- During initial RS creation, Print RS and Chat/Message actions are not shown. After the requisition has been created, its Budget Request Entry viewing modal provides Chat and the same printable RS preview used by Requisition Process. Unsaved requisitions with number `0` cannot be printed.
 - Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.
 - Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
 - The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
@@ -161,6 +163,7 @@ OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves 
 
 ## UI and Print Contract
 
+- All displayed monetary values use thousands separators and exactly two decimal places in screen tables, modals, report previews, and printed output. Numeric form controls and API payloads remain unformatted machine-readable numbers.
 - Validate required filters before opening a preview.
 - Loading or API failure must not open stale or zero-filled data.
 - Show incomplete-history warnings as toasts, not as an inline block in the report preview or print body.
