@@ -62,7 +62,7 @@ ABMS route files are under `../finance_service/app-modules/abms/routes/`. Report
 
 Transaction families include proposal entry, adjustment entry, requisition entry/process, liquidation submission, transfer account, settings, status, accounts, departments, and user access.
 
-Office Supplies list queries default to `item_name` ascending with an `id` tie-breaker before cursor pagination. The administration UI filters by partial item name and permits Item Name or Unit Cost sorting in either direction. The Budget Request Entry Stockroom picker consumes the same 10-row cursor pages with Previous/Next navigation and always requests alphabetical item-name order.
+Office Supplies list queries default to `item_name` ascending with an `id` tie-breaker before cursor pagination. The administration UI filters by partial item name and permits Item Name or Unit Cost sorting in either direction. Both the Budget Request Entry Stockroom item picker and the New RS Stockable / Inventoriable Items reference panel consume the same 10-row cursor pages with Previous/Next navigation and always request alphabetical item-name order.
 
 The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
 
