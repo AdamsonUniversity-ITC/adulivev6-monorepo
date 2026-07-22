@@ -62,3 +62,11 @@ tasks/
 !/tasks/20260719-budget-liquidation-report.md
 !/tasks/20260719-budget-proposal-reports.md
 !/tasks/20260719-uniform-report-printing.md
+!/tasks/20260722-abms-schema-workflow-reconciliation.md
+!/tasks/20260722-requisition-role-filter-defaults.md
+!/tasks/20260722-controller-dashboard-route-access.md
+!/tasks/20260722-liquidation-tag-status-availability.md
+!/tasks/20260722-office-supplies-name-order-filter.md
+!/tasks/20260722-stockroom-rs-catalog-items.md
+!/tasks/20260722-requisition-date-filter-layout.md
+!/tasks/20260722-user-access-name-search-order.md

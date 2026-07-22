@@ -215,12 +215,10 @@ const CANCEL_ACTION: RoleAction = {
 };
 
 /** Terminal statuses — once an entry lands here, the workflow is over, so
- *  "Mark as Cancelled" hides regardless of role.
+ *  "Mark as Cancelled" and "For Liquidation" hide regardless of role.
  *  "Reprocess RS" is intentionally NOT gated by this: budget-access and
  *  admin-access need to be able to reprocess an RS regardless of its current
- *  status, including terminal ones. The "For Liquidation" toggle is also not
- *  gated by this: it's a manual tag the budget officer can set independent
- *  of status, even on terminal entries. */
+ *  status, including terminal ones. */
 const TERMINAL_STATUSES = ['disapproved', 'cancelled'];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2039,13 +2037,11 @@ export function RSProcessModal({
                                 }}>
                                     {formatAmount(row.total_amount)}
                                 </span>
-                                {/* For Liquidation — only shown to admin-access and budget-access
-                                when the entry is at the budget office and the RS type is Cashier.
-                                A tag on the entry, independent of its status. Revertible: clicking
-                                again flips it off. */}
+                                {/* For Liquidation — shown to Administration and Budget for every
+                                non-terminal Cashier RS, regardless of its current location or
+                                workflow stage. Revertible: clicking again flips it off. */}
                                 {(roleKey === 'admin-access' || roleKey === 'budget-access')
-                                    && locationLower === 'budget office'
-                                    && !(roleKey === 'admin-access' && controllerDecision === 2)
+                                    && !isTerminal
                                     && (row.rstype ?? '').toLowerCase() === 'cashier' && (
                                         <button
                                             onClick={() => triggerAction({ label: 'For Liquidation', variant: 'primary', visibleOn: '*', confirm: false })}

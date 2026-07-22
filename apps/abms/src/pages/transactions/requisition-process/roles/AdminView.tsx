@@ -132,7 +132,9 @@ function StatusBadge({ status, t, isDark }: { status: string | null; t: Theme; i
 function buildQuery(fs: FilterState): AdminQuery {
     return {
         role: 'admin-access',
-        statuses: fs.activeStatuses,
+        statuses: fs.activeStatuses.map(status =>
+            status === 'For Budget Director' ? 'For Certification' : status
+        ),
         department: fs.allDepts ? null : (fs.selectedDeptId ?? null),
         kind: fs.allDepts ? null : (fs.selectedDeptKind ?? null),
         allDepartments: fs.allDepts,

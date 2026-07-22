@@ -50,6 +50,7 @@ interface CursorPage {
 }
 
 type SortDir = 'asc' | 'desc';
+type SortBy = 'item_name' | 'unit_cost';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod schema
@@ -139,6 +140,7 @@ export default function OfficeSupplies() {
 
   const [page, setPage] = useState<CursorPage | null>(loaderData.data as CursorPage);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('item_name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [cursorIdx, setCursorIdx] = useState(0);
@@ -168,7 +170,7 @@ export default function OfficeSupplies() {
   const fetchPage = useCallback(async (cursor: string | null) => {
     setLoading(true);
     try {
-      const params: Record<string, string> = { sort: sortDir };
+      const params: Record<string, string> = { sort_by: sortBy, sort: sortDir };
       if (search) params.search = search;
       if (cursor) params.cursor = cursor;
 
@@ -181,13 +183,13 @@ export default function OfficeSupplies() {
     } finally {
       setLoading(false);
     }
-  }, [search, sortDir]);
+  }, [search, sortBy, sortDir]);
 
   // Reset to first page when search or sort changes
   useEffect(() => {
     setCursors([null]);
     setCursorIdx(0);
-  }, [search, sortDir]);
+  }, [search, sortBy, sortDir]);
 
   const hasMounted = useRef(false);
 
@@ -247,7 +249,8 @@ export default function OfficeSupplies() {
       }
       setDialogOpen(false);
       fetchPage(cursors[cursorIdx]);
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
       toast.error(editTarget ? 'Failed to update item' : 'Failed to add item', {
         description:
           err?.response?.data?.message ?? 'Please try again or contact support.',
@@ -345,15 +348,28 @@ export default function OfficeSupplies() {
                       />
                       <input
                         type="text"
-                        placeholder="Search code, name, unit…"
+                        placeholder="Filter by item name…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
+                        aria-label="Filter office supplies by item name"
                         className="text-xs h-8 pl-8 pr-3 rounded-md outline-none w-56"
                         style={inputStyle}
                       />
                     </div>
 
-                    {/* Sort toggle */}
+                    {/* Sort field */}
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value as SortBy)}
+                      aria-label="Sort office supplies by"
+                      className="text-xs h-8 px-3 rounded-md outline-none"
+                      style={inputStyle}
+                    >
+                      <option value="item_name">Item Name</option>
+                      <option value="unit_cost">Unit Cost</option>
+                    </select>
+
+                    {/* Sort direction */}
                     <button
                       onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                       className="flex items-center gap-1.5 text-xs h-8 px-3 rounded-md border transition-colors"
@@ -364,7 +380,9 @@ export default function OfficeSupplies() {
                       }}
                     >
                       <SortIcon className="w-3 h-3" />
-                      Price {sortDir === 'asc' ? 'Low→High' : 'High→Low'}
+                      {sortBy === 'item_name'
+                        ? (sortDir === 'asc' ? 'A→Z' : 'Z→A')
+                        : (sortDir === 'asc' ? 'Low→High' : 'High→Low')}
                     </button>
 
                     {/* Record count */}
@@ -494,7 +512,9 @@ export default function OfficeSupplies() {
 
             {/* ── Three-dot dropdown portal ────────────────────── */}
             {openMenuId !== null && menuPos && (() => {
-              const supply = page?.data.find(s => s.id === openMenuId)!;
+              const supply = page?.data.find(s => s.id === openMenuId);
+              if (!supply) return null;
+
               return (
                 <>
                   <div

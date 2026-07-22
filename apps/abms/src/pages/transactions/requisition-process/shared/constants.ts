@@ -35,8 +35,8 @@ export const ALL_DEPARTMENTS = [
     'Psychology', 'Social Work', 'Sociology', 'Tourism',
 ];
 
-// Budget Office and Administration status filters
-const COMMON_STATUS_OPTIONS = [
+// Budget Office status filters
+const BUDGET_STATUS_OPTIONS = [
     { label: 'All' },
     { label: 'For Review' },
     { label: 'For Certification' },
@@ -45,6 +45,13 @@ const COMMON_STATUS_OPTIONS = [
     { label: 'Unserved RS' },
     { label: 'Served RS' },
 ];
+
+// Administration uses the workflow's actual stage name in the UI.
+const ADMIN_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.map(option =>
+    option.label === 'For Certification'
+        ? { label: 'For Budget Director' }
+        : option
+);
 
 // Logistics / Purchasing-specific status filters
 const LOGISTICS_STATUS_OPTIONS = [
@@ -122,7 +129,7 @@ const COMMON_PAYMENT_FORM_CONFIG = {
 
 export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
     'budget-access': {
-        status: { options: COMMON_STATUS_OPTIONS },
+        status: { options: BUDGET_STATUS_OPTIONS, defaultLabel: 'For Review' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -132,7 +139,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'admin-access': {
-        status: { options: COMMON_STATUS_OPTIONS },
+        status: { options: ADMIN_STATUS_OPTIONS, defaultLabel: 'For Budget Director' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -142,7 +149,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'controller-access': {
-        status: { options: CONTROLLER_STATUS_OPTIONS },
+        status: { options: CONTROLLER_STATUS_OPTIONS, defaultLabel: 'For Controller' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -152,7 +159,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'logistics-access': {
-        status: { options: LOGISTICS_STATUS_OPTIONS },
+        status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabel: 'For Pricing' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -161,7 +168,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'accounting-access': {
-        status: { options: COMMON_STATUS_OPTIONS },
+        status: { options: BUDGET_STATUS_OPTIONS },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -170,7 +177,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'stockroom-access': {
-        status: { options: STOCKROOM_STATUS_OPTIONS },
+        status: { options: STOCKROOM_STATUS_OPTIONS, defaultLabel: 'To Process RS' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -179,7 +186,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'cashier-access': {
-        status: { options: COMMON_STATUS_OPTIONS },
+        status: { options: BUDGET_STATUS_OPTIONS },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,

@@ -106,6 +106,7 @@ export interface AddItemFormState {
     unitCost: string;
     quantity: string;
     unitOfMeasurement: string;
+    officeSupplyId: number | null;
 }
 
 export type AddItemSchemaErrors = Partial<Record<keyof AddItemFormState | 'balance_cap', string>>;

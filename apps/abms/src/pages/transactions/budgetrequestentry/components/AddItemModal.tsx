@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { z } from 'zod';
-import { AlertCircle, Check, ChevronDown, Plus, Search, X, ClipboardList, RefreshCw, Save } from 'lucide-react';
-import type { AddItemFormState, AddItemSchemaErrors, RSFormItem, ThemeTokens } from '../types';
+import { AlertCircle, Search, X, ClipboardList, RefreshCw, Save } from 'lucide-react';
+import type { RSFormItem, ThemeTokens } from '../types';
 import { SelectAccountModal } from './SelectAccountModal';
 import { SelectSupplyModal } from './SelectSupplyModal';
 import type { RSType, SupplyItem, AccountOption } from '../types';
@@ -19,6 +19,7 @@ export interface AddItemFormState {
     unitCost: string;
     quantity: string;
     unitOfMeasurement: string;
+    officeSupplyId: number | null;
 }
 
 export const EMPTY_ITEM_FORM: AddItemFormState = {
@@ -31,6 +32,7 @@ export const EMPTY_ITEM_FORM: AddItemFormState = {
     unitCost: '',
     quantity: '',
     unitOfMeasurement: '',
+    officeSupplyId: null,
 };
 
 // ── Zod schema for AddItemModal client-side validation ────────────────────────
@@ -103,6 +105,7 @@ export function AddItemModal({
             itemDescription: item.item_name,
             unitCost: item.unit_cost,
             unitOfMeasurement: item.unit_measurement,
+            officeSupplyId: item.id,
         });
         setItemFromSupply(true);
         setShowSupplyPicker(false);
@@ -111,7 +114,6 @@ export function AddItemModal({
     // When picker is closed without selection: restore form, hide picker
     function handleSupplyClose() {
         setForm(savedFormRef.current);
-        setItemFromSupply(false);
         setShowSupplyPicker(false);
     }
 
@@ -154,6 +156,11 @@ export function AddItemModal({
     const [isSaving, setIsSaving] = useState(false);
 
     async function handleSave() {
+        if (rsType === 'stockroom' && !form.officeSupplyId) {
+            setErrors({ itemDescription: 'Select an item from the Stockroom list.' });
+            return;
+        }
+
         const result = addItemSchema.safeParse(form);
 
         if (!result.success) {
@@ -187,6 +194,7 @@ export function AddItemModal({
                 quantity: parseInt(form.quantity, 10),
                 unit_of_measurement: form.unitOfMeasurement,
                 total_cost: totalAmount,
+                office_supply_id: rsType === 'stockroom' ? form.officeSupplyId : null,
             });
 
             const saved = res.data.item;
@@ -418,6 +426,19 @@ export function AddItemModal({
                             {/* Item section — locked until account is selected */}
                             {sectionLabel('Item Details')}
 
+                            {rsType === 'stockroom' && accountSelected && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 7,
+                                    padding: '8px 12px', borderRadius: 8,
+                                    background: isDark ? 'rgba(59,130,246,0.10)' : 'rgba(219,234,254,0.65)',
+                                    border: `1px solid ${isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.28)'}`,
+                                    fontSize: 10, color: t.cellBlue, fontWeight: 600,
+                                }}>
+                                    <ClipboardList style={{ width: 13, height: 13, flexShrink: 0 }} />
+                                    Select an item using Get Items. Stockroom item details cannot be entered manually.
+                                </div>
+                            )}
+
                             {!accountSelected && (
                                 <div style={{
                                     display: 'flex', alignItems: 'center', gap: 7,
@@ -435,7 +456,7 @@ export function AddItemModal({
                                 <div style={{ flex: 1 }}>
                                     {inputField('Item Description', form.itemDescription, v => set('itemDescription', v), {
                                         placeholder: accountSelected ? 'e.g. Ballpen, black, 12pcs/box…' : '',
-                                        readOnly: itemFromSupply,
+                                        readOnly: rsType === 'stockroom' || itemFromSupply,
                                         disabled: !accountSelected,
                                         error: errors.itemDescription,
                                     })}
@@ -471,7 +492,7 @@ export function AddItemModal({
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                                 {inputField('Unit Cost', form.unitCost, v => set('unitCost', v), {
                                     type: 'number', placeholder: accountSelected ? '0.00' : '',
-                                    mono: true, readOnly: itemFromSupply,
+                                    mono: true, readOnly: rsType === 'stockroom' || itemFromSupply,
                                     disabled: !accountSelected,
                                     error: errors.unitCost,
                                 })}
@@ -483,7 +504,7 @@ export function AddItemModal({
                                 })}
                                 {inputField('Unit of Measurement', form.unitOfMeasurement, v => set('unitOfMeasurement', v), {
                                     placeholder: accountSelected ? 'pcs, box, ream…' : '',
-                                    readOnly: itemFromSupply,
+                                    readOnly: rsType === 'stockroom' || itemFromSupply,
                                     disabled: !accountSelected,
                                     error: errors.unitOfMeasurement,
                                 })}

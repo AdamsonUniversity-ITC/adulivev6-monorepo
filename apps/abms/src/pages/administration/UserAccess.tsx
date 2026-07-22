@@ -13,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ca
 import { Users, UserPlus, Search, X, Loader2, UserCheck, ShieldCheck, ChevronLeft, Save, Building2, Layers, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { userdepartmentRoute } from '../../router';
 import { financeSvc } from '@repo/axios-config';
-import { useRouteContext } from '@tanstack/react-router';
 import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -519,7 +518,7 @@ function UserManagementModal({
         setSelectedDepts([]);
       }
     }
-  }, [isOpen, teacher, permissions, existingAccess, existingGeneralPermissions]);
+  }, [isOpen, teacher, permissions, existingAccess, existingGeneralPermissions, deptData?.departments, deptData?.sections]);
 
   const proposalPermId = deptPermissions.find((p) => p.name === 'allow-budget-proposal-entry')?.id;
 
@@ -1038,7 +1037,6 @@ function UserManagementModal({
                 const allOn = deptAllChecked(key);
                 const someOn = deptSomeChecked(key);
                 const permMap = deptPerms[key] ?? {};
-                const isProposalOn = proposalPermId !== undefined && !!permMap[proposalPermId];
                 const permError = errors[`dept_${key}_permissions`];
                 const fromError = errors[`dept_${key}_proposal_from`];
                 const toError = errors[`dept_${key}_proposal_to`];
@@ -1692,7 +1690,11 @@ export default function UserAccess() {
 
   const [users, setUsers] = useState<UserAccessRecord[]>(raw?.users?.data ?? []);
   const [nextCursor, setNextCursor] = useState<string | null>(raw?.users?.next_cursor ?? null);
+  const [totalUsers, setTotalUsers] = useState<number>(raw?.users?.total ?? users.length);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [nameSearch, setNameSearch] = useState('');
+  const [nameOrder, setNameOrder] = useState<'asc' | 'desc'>('asc');
 
   const showToast = (type: 'success' | 'error', message: string) => {
     const id = Date.now();
@@ -1707,9 +1709,12 @@ export default function UserAccess() {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const { data } = await financeSvc.get(`/abms/access/users?cursor=${nextCursor}`);
+      const { data } = await financeSvc.get('/abms/access', {
+        params: { cursor: nextCursor, search: nameSearch.trim() || undefined, order: nameOrder },
+      });
       setUsers((prev) => [...prev, ...(data.data ?? [])]);
       setNextCursor(data.next_cursor ?? null);
+      setTotalUsers(data.total ?? 0);
     } catch {
       showToast('error', 'Failed to load more users.');
     } finally {
@@ -1719,13 +1724,43 @@ export default function UserAccess() {
 
   const refetchUsers = async () => {
     try {
-      const { data } = await financeSvc.get('/abms/access');
+      const { data } = await financeSvc.get('/abms/access', {
+        params: { search: nameSearch.trim() || undefined, order: nameOrder },
+      });
       setUsers(data.data ?? []);
       setNextCursor(data.next_cursor ?? null);
+      setTotalUsers(data.total ?? 0);
     } catch {
       // silent
     }
   };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsFiltering(true);
+      try {
+        const { data } = await financeSvc.get('/abms/access', {
+          params: { search: nameSearch.trim() || undefined, order: nameOrder },
+          signal: controller.signal,
+        });
+        setUsers(data.data ?? []);
+        setNextCursor(data.next_cursor ?? null);
+        setTotalUsers(data.total ?? 0);
+      } catch (error: unknown) {
+        if ((error as { code?: string }).code !== 'ERR_CANCELED') {
+          showToast('error', 'Failed to filter the user access list.');
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsFiltering(false);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [nameSearch, nameOrder]);
 
   return (
     <AdamsonBudgetLayout>
@@ -1799,7 +1834,7 @@ export default function UserAccess() {
               }}
             >
               <CardHeader
-                className="px-6 py-4 flex flex-row items-center gap-2"
+                className="px-6 py-4 flex flex-col gap-3 sm:flex-row sm:items-center"
                 style={{ borderBottom: `1px solid ${t.cardHeaderBorder}` }}
               >
                 <Users className="w-4 h-4" style={{ color: t.tableHeadText }} />
@@ -1809,12 +1844,39 @@ export default function UserAccess() {
                 >
                   User Access List
                 </CardTitle>
-                <span
-                  className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
+                <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center">
+                  <div className="relative min-w-0 sm:w-64">
+                    <Search
+                      className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
+                      style={{ color: t.inputPlaceholder }}
+                    />
+                    <input
+                      type="search"
+                      value={nameSearch}
+                      onChange={event => setNameSearch(event.target.value)}
+                      placeholder="Search by name…"
+                      aria-label="Search users by name"
+                      className="w-full rounded-lg border py-2 pl-9 pr-3 text-xs font-medium outline-none"
+                      style={{ background: t.inputBg, borderColor: t.inputBorder, color: t.inputText }}
+                    />
+                  </div>
+                  <select
+                    value={nameOrder}
+                    onChange={event => setNameOrder(event.target.value as 'asc' | 'desc')}
+                    aria-label="Order users by name"
+                    className="rounded-lg border px-3 py-2 text-xs font-semibold outline-none"
+                    style={{ background: t.inputBg, borderColor: t.inputBorder, color: t.inputText }}
+                  >
+                    <option value="asc">Name: A–Z</option>
+                    <option value="desc">Name: Z–A</option>
+                  </select>
+                  <span
+                  className="self-start whitespace-nowrap text-xs font-medium px-2 py-0.5 rounded-full sm:self-auto"
                   style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
                 >
-                  {users.length} record{users.length !== 1 ? 's' : ''}
-                </span>
+                  {isFiltering ? 'Filtering…' : `${totalUsers} record${totalUsers !== 1 ? 's' : ''}`}
+                  </span>
+                </div>
               </CardHeader>
 
               <CardContent className="p-0">
