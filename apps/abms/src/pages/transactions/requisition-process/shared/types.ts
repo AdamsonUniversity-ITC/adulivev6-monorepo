@@ -10,6 +10,8 @@ export interface StatusOption {
 export interface StatusFilterConfig {
     sectionLabel?: string;
     options: StatusOption[];
+    /** Status selected when a role view is first opened. Falls back to the first option. */
+    defaultLabel?: string;
 }
 
 export interface DeptOption {
@@ -97,14 +99,19 @@ export interface FilterState {
 export function makeDefaultFilterState(
     config: FilterPanelConfig,
 ): FilterState {
-    const allSentinel =
-        config.status?.options?.[0]?.label ?? 'All';
+    const statusOptions = config.status?.options ?? [];
+    const allSentinel = statusOptions[0]?.label ?? 'All';
+    const configuredDefault = config.status?.defaultLabel;
+    const defaultStatus = configuredDefault
+        && statusOptions.some(option => option.label === configuredDefault)
+        ? configuredDefault
+        : allSentinel;
 
     const firstSortCol =
         config.sortColumns?.[0] ?? '';
 
     return {
-        activeStatuses: [allSentinel],
+        activeStatuses: [defaultStatus],
 
         selectedDept: null,
         selectedDeptId: null,

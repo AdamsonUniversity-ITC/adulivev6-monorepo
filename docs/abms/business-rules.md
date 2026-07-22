@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-07-19
+Last verified: 2026-07-22
 
 ## Shared Financial Identity
 
@@ -50,6 +50,40 @@ OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves 
 - Whole-requisition deletion first preflights every item mapping before opening the transaction. Inside the transaction it locks the header/items, re-resolves and locks each allocation/proposal, applies refunds, and deletes; any later failure rolls the entire transaction back. Do not remove the locked revalidation merely because the preflight passed.
 - Refund only the still-consumed portion: `max(total_cost - unused_amount, 0)`. This avoids refunding returned value twice.
 - Status transitions such as cancelled or disapproved affect report eligibility. Do not assume they refund balances; balance mutation must be traced to the specific controller/service action before changing or documenting it.
+
+### Current Requisition Entry and Finalization Guards
+
+- Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.
+- Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
+- The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
+- Finalization requires at least one item. A Cashier requisition must total at least PHP 1,000; drafts may still synchronize below that threshold.
+- Cancelling or disapproving through the current requisition-process action handler locks the requisition, resolves each item by stored `account_id`, refunds the still-consumed amount, and updates the status atomically. If any item lacks an exact allocation/proposal mapping, the action fails without partial balance or status changes.
+- The department quoted-price preview is read-only. The requester may view it; otherwise the user needs a typed permission matching the requisition's exact department or section. It aggregates all item deltas per allocation before projecting the balance and returns unresolved allocations explicitly rather than changing balances.
+- Administration and Budget users may toggle `for_liquidation` on a Cashier requisition at any workflow location or status except `cancelled` and `disapproved`. The backend returns 403 without either permission and 422 for a non-Cashier or terminal requisition. The toggle remains reversible and changes only the tag; it does not approve, liquidate, reroute, or mutate balances.
+
+## Controller Approval Gate
+
+- `budget_request_entry.is_controlled` has three states: `0` pending, `1` approved, and `2` disapproved. It must not be treated as a boolean.
+- Administration may first use `Forward to Controller` only when the requisition is at `status = for budget director` and `location = budget office`. The transition sets `status = on process`, keeps the location at Budget Office, records the prior location in `from`, and resets `is_controlled = 0`.
+- A user with general `controller-access` may submit exactly one decision while `status = on process` and `is_controlled = 0`. Decision `1` approves and decision `2` disapproves; the endpoint locks the requisition before checking and writing the state.
+- A Controller-disapproved requisition remains `on process` at Budget Office with `is_controlled = 2`. Administration may forward it to the Controller again, which resets the decision to pending. `Reprocess RS` instead returns it to Department review and also resets the decision.
+- Administration may perform the guarded onward actions (`Send RS to Staff`, `For Pricing`, or forwarding to Stockroom, BAO, Accounting, Accounting Director, HRMDO, or Cash Management) only while `status = on process` and `is_controlled = 1`.
+- The decision endpoint returns 403 without `controller-access`; validation rejects decisions outside `1` or `2`; and it returns 422 when the requisition is not `on process` or has already received a decision. Invalid initial forwarding, invalid resubmission, and onward routing without approval also return 422 without applying the requested transition.
+- Current security caveat: `PUT /api/abms/requisition-process/{id}` enforces these state prerequisites but does not independently verify that the authenticated caller has the role implied by the requested action. Likewise, list filtering accepts a client-supplied role. Do not interpret frontend button visibility or these state checks as complete authorization; add server-side permission checks before relying on the workflow as a security boundary.
+
+### Requisition Role Filter Defaults
+
+- Initial status filters are role-specific: Budget Office uses `For Review`, Administration uses `For Budget Director`, Controller uses `For Controller`, Purchasing/Logistics uses `For Pricing`, and Stockroom uses `To Process RS`.
+- Administration's display label `For Budget Director` maps to the backend's legacy `For Certification` filter token, which resolves database status `for budget director`.
+- Accounting and Cashier retain the shared `All` default. Users may still select `All` or combine non-All statuses after the initial load.
+
+### Controller Dashboard
+
+- Controller dashboard metrics are scoped to the selected school year.
+- Pending Controller Review requires both `status = on process` and `is_controlled = 0`; the recent work queue uses the same predicate.
+- Controller Approved counts requisitions with `is_controlled = 1`, and Controller Disapproved counts requisitions with `is_controlled = 2`, regardless of their later workflow location.
+- Total RS and status distribution cover every requisition in the selected school year. The dashboard does not mutate workflow or financial state.
+- `controller-access` authorizes the Controller dashboard, Requisition Process, the Administration and report destinations explicitly shown to Controller users, and the corresponding report APIs. Users lacking all allowed permissions continue to receive frontend unauthorized routing or backend 403 responses.
 
 ## Liquidation Returned Amounts
 
@@ -101,7 +135,7 @@ OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves 
 
 ### Budget Liquidation
 
-- Requires general `admin-access` or `budget-access` and includes only live, numbered requisitions whose current status is not cancelled or disapproved.
+- Requires general `admin-access`, `budget-access`, or `controller-access` and includes only live, numbered requisitions whose current status is not cancelled or disapproved.
 - R.S. Date filtering uses `budget_request_entry.created_at` inside inclusive application-timezone day boundaries.
 - For Liquidation scopes `for_liquidation = true`; Liquidated scopes `is_liquidated = true`; Both uses their union and returns a matching requisition once.
 - All-unit output groups by `(unit_type, unit_id)` and starts every Department/Section print section on a new page.

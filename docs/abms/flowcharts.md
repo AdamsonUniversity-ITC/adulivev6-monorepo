@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-07-19
+Last verified: 2026-07-22
 
 ## System Context
 
@@ -47,8 +47,17 @@ flowchart TD
     E -- Yes --> F[Debit allocation/proposal and create item atomically]
     F --> G[Finalize by assigning nonzero requisition number]
     G --> H[Initial request audit cutoff]
-    H --> I[Route through department, budget, logistics/cashier, accounting/BAO]
-    I --> J{Unused or returned amount?}
+    H --> I[Budget review marks for Budget Director]
+    I --> IA[Administration forwards to Controller and resets decision to pending]
+    IA --> IB{Controller-access user decides once while on process?}
+    IB -- Disapprove --> IC[Keep at Budget Office with decision 2]
+    IC --> ID{Administration response}
+    ID -- Resubmit --> IA
+    ID -- Reprocess --> IE[Return to Department review and reset decision]
+    IE --> I
+    IB -- Approve --> IF[Set decision 1]
+    IF --> IG[Allow guarded onward routing]
+    IG --> J{Unused or returned amount?}
     J -- Yes --> K[Record unused amount and restore eligible balance]
     J -- No --> L[Continue fulfillment/liquidation]
     K --> L
@@ -63,6 +72,28 @@ flowchart TD
     R --> S[Open transaction; lock header and items]
     S --> T[Re-resolve and lock each allocation and proposal]
     T --> V[Apply refunds and delete; rollback all on any failure]
+```
+
+## Requisition Finalization and Quoted-Price Preview
+
+```mermaid
+flowchart TD
+    A[Save or finalize requisition] --> B[Load live stored items]
+    B --> C[Recalculate header total from item total_cost]
+    C --> D{Finalizing?}
+    D -- No --> E[Persist synchronized total]
+    D -- Yes --> F{At least one item?}
+    F -- No --> X[Return validation error]
+    F -- Yes --> G{Cashier request below PHP 1,000?}
+    G -- Yes --> X
+    G -- No --> H[Assign requisition number and persist calculated total]
+
+    P[Department user opens quoted-price preview] --> Q{Requester or exact typed-unit permission?}
+    Q -- No --> Y[Return 403]
+    Q -- Yes --> R[Resolve each stored account ID within school year and typed unit]
+    R --> S[Aggregate item price deltas per allocation]
+    S --> T[Return current and projected totals and balances]
+    T --> U[Do not mutate items, allocations, proposals, or header]
 ```
 
 ## Historical Report Projection

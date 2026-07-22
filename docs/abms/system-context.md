@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-07-19
+Last verified: 2026-07-22
 
 ## Purpose
 
@@ -62,6 +62,14 @@ ABMS route files are under `../finance_service/app-modules/abms/routes/`. Report
 
 Transaction families include proposal entry, adjustment entry, requisition entry/process, liquidation submission, transfer account, settings, status, accounts, departments, and user access.
 
+Office Supplies list queries default to `item_name` ascending with an `id` tie-breaker before cursor pagination. The UI filters by partial item name and permits Item Name or Unit Cost sorting in either direction.
+
+The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
+
+The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
+
+The User Department Access index supports case-insensitive displayed-name search and stable A–Z/Z–A name ordering before cursor pagination. Equal displayed names use employee number as the tie-breaker, and missing teacher-directory records fall back to employee number.
+
 ### Report Route-to-Service Map
 
 | API prefix | Controller | Primary service/projector |
@@ -89,6 +97,12 @@ Each report prefix exposes `GET /` for filter data and `GET /preview` for calcul
 ## Authorization and Data Quality
 
 Authorization combines general permissions with typed department/section assignments. Inactive historical units can remain relevant to finance reports when allocations or transactions reference them.
+
+The Controller workflow uses the general `controller-access` permission. The backend decision endpoint verifies that permission independently of frontend visibility; UI role selection is not an authorization boundary.
+
+Sidebar permission declarations and `router.tsx` guards must remain identical. Controller-visible reports also enforce `controller-access` in their backend report controllers; frontend visibility alone is insufficient.
+
+Known authorization debt: the generic requisition-process listing and transition endpoints currently trust client-supplied role/action context and do not consistently verify the corresponding general permission server-side. The state guards described in `business-rules.md` protect workflow order, but they do not replace actor authorization. Treat this as an implementation risk until each role-specific read/write endpoint enforces its permission independently.
 
 Historical calculations use OwenIt audits. Missing creation evidence, incomplete old/new values, changed relationships, ambiguous legacy account-code mappings, or writes that bypassed auditing must produce structured data-quality warnings. The UI displays these warnings as toasts; printed report bodies remain focused on report data.
 

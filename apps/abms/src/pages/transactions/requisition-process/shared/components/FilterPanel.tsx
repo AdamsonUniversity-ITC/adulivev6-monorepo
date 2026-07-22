@@ -513,9 +513,17 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             label={config.dateRange!.checkboxLabel ?? 'Filter by Date Range'}
                                             t={t}
                                         />
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'auto minmax(0, 1fr)',
+                                            alignItems: 'center',
+                                            gap: '6px 8px',
+                                            minWidth: 0,
+                                        }}>
+                                            <span style={{ fontSize: 10, color: t.cellMuted }}>From</span>
                                             <input
                                                 type="date"
+                                                aria-label="From date"
                                                 value={state.dateFrom}
                                                 onChange={e => onChange({ dateFrom: e.target.value })}
                                                 disabled={!state.dateRangeEnabled}
@@ -528,14 +536,17 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                                     color: t.inputText,
                                                     outline: 'none',
                                                     width: '100%',
+                                                    minWidth: 0,
+                                                    boxSizing: 'border-box',
                                                     colorScheme: isDark ? 'dark' : 'light',
                                                     opacity: state.dateRangeEnabled ? 1 : 0.4,
                                                     cursor: state.dateRangeEnabled ? 'text' : 'not-allowed',
                                                 }}
                                             />
-                                            <span style={{ fontSize: 10, color: t.cellMuted, flexShrink: 0 }}>to</span>
+                                            <span style={{ fontSize: 10, color: t.cellMuted }}>To</span>
                                             <input
                                                 type="date"
+                                                aria-label="To date"
                                                 value={state.dateTo}
                                                 onChange={e => onChange({ dateTo: e.target.value })}
                                                 disabled={!state.dateRangeEnabled}
@@ -548,6 +559,8 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                                     color: t.inputText,
                                                     outline: 'none',
                                                     width: '100%',
+                                                    minWidth: 0,
+                                                    boxSizing: 'border-box',
                                                     colorScheme: isDark ? 'dark' : 'light',
                                                     opacity: state.dateRangeEnabled ? 1 : 0.4,
                                                     cursor: state.dateRangeEnabled ? 'text' : 'not-allowed',
