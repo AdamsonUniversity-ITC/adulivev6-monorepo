@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, RefreshCw, Search, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, ChevronLeft, ChevronRight, RefreshCw, Search, X } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import type { SupplyItem, ThemeTokens } from '../types';
 
@@ -25,27 +25,40 @@ export function SupplyListPanel({
     const [items, setItems] = useState<SupplyItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [prevCursor, setPrevCursor] = useState<string | null>(null);
+    const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const requestSequence = useRef(0);
 
-    const fetchSupplies = useCallback(async (q: string) => {
+    const fetchSupplies = useCallback(async (q: string, cursor: string | null = null, targetPage = 1) => {
+        const sequence = ++requestSequence.current;
         setLoading(true);
         setError(null);
+        setCurrentCursor(cursor);
+        setPage(targetPage);
         try {
-            const params: Record<string, string> = {};
+            const params: Record<string, string> = { sort_by: 'item_name', sort: 'asc' };
             if (q) params.search = q;
+            if (cursor) params.cursor = cursor;
             const res = await financeSvc.get('/abms/office-supplies', { params });
+            if (sequence !== requestSequence.current) return;
             const raw = res.data;
             setItems(Array.isArray(raw) ? raw : (raw?.data ?? []));
+            setNextCursor(Array.isArray(raw) ? null : (raw?.next_cursor ?? null));
+            setPrevCursor(Array.isArray(raw) ? null : (raw?.prev_cursor ?? null));
         } catch {
+            if (sequence !== requestSequence.current) return;
             setError('Failed to load supply list. Please try again.');
         } finally {
-            setLoading(false);
+            if (sequence === requestSequence.current) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
         // No delay on initial empty search, debounce only when user is typing
         const delay = search.trim() === '' ? 0 : 350;
-        const timer = setTimeout(() => fetchSupplies(search), delay);
+        const timer = setTimeout(() => fetchSupplies(search.trim(), null, 1), delay);
         return () => clearTimeout(timer);
     }, [search, fetchSupplies]);
 
@@ -179,7 +192,7 @@ export function SupplyListPanel({
                                     <AlertCircle className="w-4 h-4 mx-auto mb-2 opacity-70" style={{ color: t.cellRed }} />
                                     {error}
                                     <button
-                                        onClick={() => fetchSupplies(search)}
+                                        onClick={() => fetchSupplies(search.trim(), currentCursor, page)}
                                         className="block mx-auto mt-2 text-[10px] font-bold underline"
                                         style={{ color: t.cellBlue }}
                                     >
@@ -232,7 +245,7 @@ export function SupplyListPanel({
                     background: t.cardHeaderBg,
                     borderTop: `1px solid ${t.cardHeaderBorder}`,
                     flexShrink: 0,
-                    display: 'flex', alignItems: 'center',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                 }}
             >
                 <span
@@ -241,6 +254,45 @@ export function SupplyListPanel({
                 >
                     {items.length} {items.length === 1 ? 'item' : 'items'}
                 </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                        type="button"
+                        onClick={() => prevCursor && fetchSupplies(search.trim(), prevCursor, Math.max(1, page - 1))}
+                        disabled={!prevCursor || loading}
+                        aria-label="Previous stockable-items page"
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '5px 8px', borderRadius: 7,
+                            background: t.inputBg, border: `1px solid ${t.inputBorder}`,
+                            color: t.cellText, fontSize: 10, fontWeight: 700,
+                            cursor: !prevCursor || loading ? 'not-allowed' : 'pointer',
+                            opacity: !prevCursor || loading ? 0.4 : 1,
+                        }}
+                    >
+                        <ChevronLeft style={{ width: 12, height: 12 }} />
+                        Previous
+                    </button>
+                    <span style={{ minWidth: 48, textAlign: 'center', fontSize: 10, fontWeight: 700, color: t.cellMuted }}>
+                        Page {page}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => nextCursor && fetchSupplies(search.trim(), nextCursor, page + 1)}
+                        disabled={!nextCursor || loading}
+                        aria-label="Next stockable-items page"
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '5px 8px', borderRadius: 7,
+                            background: t.inputBg, border: `1px solid ${t.inputBorder}`,
+                            color: t.cellText, fontSize: 10, fontWeight: 700,
+                            cursor: !nextCursor || loading ? 'not-allowed' : 'pointer',
+                            opacity: !nextCursor || loading ? 0.4 : 1,
+                        }}
+                    >
+                        Next
+                        <ChevronRight style={{ width: 12, height: 12 }} />
+                    </button>
+                </div>
             </div>
         </div>
     );
