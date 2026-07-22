@@ -15,6 +15,7 @@ import { budgetliquidationRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type Unit = { type: 'department' | 'section'; id: number; name: string; active: boolean };
@@ -84,7 +85,7 @@ function RequisitionColumns() {
 }
 
 function RequisitionCells({ row }: { row: RequisitionRow }) {
-  return <><td>{row.requisition_number}</td><td>{formatDate(row.requisition_date)}</td><td>{statusLabel(row.liquidation_status)}</td><td>{row.liquidated_by ?? '—'}</td><td>{formatDate(row.liquidation_date)}</td><td>{row.total_amount}</td><td>{row.returned_amount}</td><td>{row.liquidated_amount}</td></>;
+  return <><td>{row.requisition_number}</td><td>{formatDate(row.requisition_date)}</td><td>{statusLabel(row.liquidation_status)}</td><td>{row.liquidated_by ?? '—'}</td><td>{formatDate(row.liquidation_date)}</td><td>{formatMoney(row.total_amount)}</td><td>{formatMoney(row.returned_amount)}</td><td>{formatMoney(row.liquidated_amount)}</td></>;
 }
 
 function UnitSection({ preview, group }: { preview: Preview; group: UnitGroup }) {
@@ -94,7 +95,7 @@ function UnitSection({ preview, group }: { preview: Preview; group: UnitGroup })
       {!group.account_groups.length && <p className="empty">No requisitions were found for this unit.</p>}
       {group.account_groups.map((parent, parentIndex) => <div className="account-parent" key={`${parent.main_account.id ?? 'unmapped'}-${parentIndex}`}>
         <h3>[{parent.main_account.account_code}] {parent.main_account.account_name}</h3>
-        <table><tbody>{parent.sub_accounts.map((sub, index) => <tr key={`${sub.sub_account.id ?? 'unmapped'}-${index}`}><td>[{sub.sub_account.account_code}] {sub.sub_account.account_name}</td><td>{sub.total_amount}</td></tr>)}<tr className="subtotal"><td>Per Account Total:</td><td>{parent.total_amount}</td></tr></tbody></table>
+        <table><tbody>{parent.sub_accounts.map((sub, index) => <tr key={`${sub.sub_account.id ?? 'unmapped'}-${index}`}><td>[{sub.sub_account.account_code}] {sub.sub_account.account_name}</td><td>{formatMoney(sub.total_amount)}</td></tr>)}<tr className="subtotal"><td>Per Account Total:</td><td>{formatMoney(parent.total_amount)}</td></tr></tbody></table>
       </div>)}
     </div> : preview.report.preview_type === 'summary' ? <table className="requisition-table"><RequisitionColumns /><tbody>
       {!group.rows.length && <tr className="empty"><td colSpan={8}>No requisitions were found for this unit.</td></tr>}
@@ -105,11 +106,11 @@ function UnitSection({ preview, group }: { preview: Preview; group: UnitGroup })
         <table className="requisition-table"><RequisitionColumns /><tbody><tr><RequisitionCells row={entry} /></tr></tbody></table>
         <table className="item-table"><thead><tr><th>Account</th><th>Description</th><th>Unit Cost</th><th>Quantity</th><th>Unit of Measurement</th><th>Total</th></tr></thead><tbody>
           {!entry.items.length && <tr className="empty"><td colSpan={6}>No live items.</td></tr>}
-          {entry.items.map(item => <tr key={item.id}><td>{item.account}</td><td>{item.description}</td><td>{item.unit_cost}</td><td>{item.quantity}</td><td>{item.unit_of_measurement || '—'}</td><td>{item.total_amount}</td></tr>)}
+          {entry.items.map(item => <tr key={item.id}><td>{item.account}</td><td>{item.description}</td><td>{formatMoney(item.unit_cost)}</td><td>{item.quantity}</td><td>{item.unit_of_measurement || '—'}</td><td>{formatMoney(item.total_amount)}</td></tr>)}
         </tbody></table>
       </article>)}
     </div>}
-    <div className="unit-total"><span>Unit Total:</span><b>{group.totals.total_amount}</b>{!preview.report.summary_per_account && <><span>Returned:</span><b>{group.totals.returned_amount}</b><span>Liquidated:</span><b>{group.totals.liquidated_amount}</b></>}</div>
+    <div className="unit-total"><span>Unit Total:</span><b>{formatMoney(group.totals.total_amount)}</b>{!preview.report.summary_per_account && <><span>Returned:</span><b>{formatMoney(group.totals.returned_amount)}</b><span>Liquidated:</span><b>{formatMoney(group.totals.liquidated_amount)}</b></>}</div>
   </section>;
 }
 
@@ -127,7 +128,7 @@ function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => v
     <article className="liquidation-report mx-auto min-h-[700px] max-w-[1320px] bg-white p-7 text-black shadow-2xl sm:p-10"><ReportHeader preview={preview} />
       {!preview.unit_groups.length && <p className="empty">No liquidation requisitions were found for the selected filters.</p>}
       {preview.unit_groups.map(group => <UnitSection key={`${group.unit.type}:${group.unit.id}`} preview={preview} group={group} />)}
-      <div className="grand-total"><span>Overall Total:</span><b>{preview.grand_total.total_amount}</b>{!preview.report.summary_per_account && <><span>Returned:</span><b>{preview.grand_total.returned_amount}</b><span>Liquidated:</span><b>{preview.grand_total.liquidated_amount}</b></>}</div>
+      <div className="grand-total"><span>Overall Total:</span><b>{formatMoney(preview.grand_total.total_amount)}</b>{!preview.report.summary_per_account && <><span>Returned:</span><b>{formatMoney(preview.grand_total.returned_amount)}</b><span>Liquidated:</span><b>{formatMoney(preview.grand_total.liquidated_amount)}</b></>}</div>
       <footer>-=xxx=- | Source: ABMS | Print Date: {new Date().toLocaleDateString()} | Printed By: {preview.report.printed_by}</footer>
     </article>
     <style>{`.liquidation-report{font-family:Arial,sans-serif;font-size:10px}.liquidation-report h1{font-size:20px;font-weight:800;margin:0}.liquidation-report h2{font-size:12px;margin:2px 0 10px}.liquidation-report header p{margin:3px 0;display:grid;grid-template-columns:90px 1fr}.liquidation-unit{margin-top:18px}.unit-heading{border-bottom:2px dashed #555;padding:5px 0;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800}.unit-tag{border:1px solid #777;border-radius:999px;padding:1px 6px;font-size:8px;text-transform:uppercase}.requisition-table,.item-table,.account-summary table{width:100%;border-collapse:collapse;table-layout:fixed}.requisition-table th,.requisition-table td,.item-table th,.item-table td,.account-summary td{padding:4px;text-align:left;vertical-align:top;font-variant-numeric:tabular-nums}.requisition-table thead,.item-table thead{border-bottom:1px solid #777}.requisition-table th:nth-last-child(-n+3),.requisition-table td:nth-last-child(-n+3),.item-table th:nth-last-child(-n+4),.item-table td:nth-last-child(-n+4),.account-summary td:last-child{text-align:right}.requisition-table th:nth-child(1){width:11%}.requisition-table th:nth-child(2){width:10%}.requisition-table th:nth-child(3){width:11%}.requisition-table th:nth-child(4){width:12%}.requisition-table th:nth-child(5){width:15%}.item-table{margin:5px 0 14px 18px;width:calc(100% - 18px);background:#fafafa}.item-table th:nth-child(1){width:12%}.item-table th:nth-child(2){width:39%}.requisition-detail{border-bottom:1px solid #aaa;padding-top:8px;break-inside:auto}.account-parent{margin:8px 0 14px 18px;break-inside:auto}.account-parent h3{font-size:11px;margin:0 0 3px}.account-summary td:last-child{width:20%}.subtotal{border-top:1px dashed #555;font-weight:800}.subtotal td:first-child{text-align:right}.unit-total,.grand-total{margin-left:auto;margin-top:8px;width:max-content;display:grid;grid-template-columns:auto 95px auto 95px auto 95px;gap:4px 8px;text-align:right;border-top:2px solid #555;padding-top:4px}.grand-total{font-size:12px;border-bottom:3px double #555;margin-top:16px}.empty{text-align:center!important;color:#555;padding:18px!important}.liquidation-report footer{margin-top:20px;border-top:2px dashed #555;padding-top:4px}@page{size:letter landscape;margin:0.35in}@media print{body *{visibility:hidden!important}.liquidation-report-preview,.liquidation-report-preview *{visibility:visible!important}.liquidation-report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:white!important;padding:0!important}.report-actions{display:none!important}.liquidation-report{box-shadow:none!important;max-width:none!important;min-height:0!important;padding:0!important}.liquidation-unit+.liquidation-unit{break-before:page}.liquidation-unit{break-after:page}.liquidation-unit:last-of-type{break-after:auto}}`}</style>

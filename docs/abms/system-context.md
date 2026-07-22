@@ -62,13 +62,15 @@ ABMS route files are under `../finance_service/app-modules/abms/routes/`. Report
 
 Transaction families include proposal entry, adjustment entry, requisition entry/process, liquidation submission, transfer account, settings, status, accounts, departments, and user access.
 
-Office Supplies list queries default to `item_name` ascending with an `id` tie-breaker before cursor pagination. The UI filters by partial item name and permits Item Name or Unit Cost sorting in either direction.
+Office Supplies list queries default to `item_name` ascending with an `id` tie-breaker before cursor pagination. The administration UI filters by partial item name and permits Item Name or Unit Cost sorting in either direction. The Budget Request Entry Stockroom picker consumes the same 10-row cursor pages with Previous/Next navigation and always requests alphabetical item-name order.
 
 The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
 
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
 
 The User Department Access index supports case-insensitive displayed-name search and stable A–Z/Z–A name ordering before cursor pagination. Equal displayed names use employee number as the tie-breaker, and missing teacher-directory records fall back to employee number.
+
+During RS creation, the account picker queries only the exact school-year typed-unit allocation and returns 10-row cursor pages ordered by account name with account ID as the tie-breaker. Account code/name search is applied before pagination. The requisition-process `requisitionId` account lookup remains an unpaginated list of only the accounts already referenced by that RS.
 
 ### Report Route-to-Service Map
 

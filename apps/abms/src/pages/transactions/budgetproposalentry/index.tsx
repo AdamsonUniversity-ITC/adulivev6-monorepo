@@ -18,8 +18,16 @@ export default function BudgetProposalEntry() {
     const { data } = budgetproposalentryRoute.useLoaderData() || {};
     const { user } = budgetproposalentryRoute.useRouteContext();
     const sy: string = data?.school_year ?? '-';
-    const departments: DeptOption[] = (data?.departments ?? []) as DeptOption[];
-    const sections: DeptOption[] = (data?.sections ?? []) as DeptOption[];
+    const departments: DeptOption[] = (data?.departments ?? []).map((unit: DeptOption) => ({
+        ...unit,
+        id: String(unit.id),
+        kind: 'Department' as const,
+    }));
+    const sections: DeptOption[] = (data?.sections ?? []).map((unit: DeptOption) => ({
+        ...unit,
+        id: String(unit.id),
+        kind: 'Section' as const,
+    }));
     const mainAccounts: MainAccount[] = (data?.mainaccounts ?? []) as MainAccount[];
     const subAccounts: SubAccount[] = (data?.subaccounts ?? []) as SubAccount[];
 
@@ -27,8 +35,11 @@ export default function BudgetProposalEntry() {
     const entryTo: string = data?.entryto ?? '';
     const isWithinEntryPeriod = isEntryPeriodOpen(entryFrom, entryTo);
 
-    const [selectedDept, setSelectedDept] = useState('');
-    const [selectedDeptKind, setSelectedDeptKind] = useState<'Department' | 'Section' | ''>('');
+    const soleUnit = [...departments, ...sections].length === 1
+        ? [...departments, ...sections][0]
+        : null;
+    const [selectedDept, setSelectedDept] = useState(() => soleUnit?.id ?? '');
+    const [selectedDeptKind, setSelectedDeptKind] = useState<'Department' | 'Section' | ''>(() => soleUnit?.kind ?? '');
     const [selectedMain, setSelectedMain] = useState('');
     const [selectedSub, setSelectedSub] = useState('');
 

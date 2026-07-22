@@ -5,7 +5,7 @@ import { budgetrequestentryRoute } from '../../../router';
 import { useRouteContext } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { T } from './theme';
-import type { DeptOption, PayeeDetails, RSRecord, RSType, ThemeTokens, ToastItem, ToastKind } from './types';
+import type { DeptOption, RSRecord, RSType, ThemeTokens, ToastItem, ToastKind } from './types';
 import { LIQUIDATION_COLOR, fmt, formatRequisitionNumber, liquidationRowBg, liquidationRowHoverBg, normalizeEntryStatus } from './utils';
 import { Btn, Checkbox, DeptDropdown, StatusBadge, Toasts } from './components/common';
 import { NewRSModal } from './components/NewRSModal';
@@ -23,12 +23,12 @@ function BudgetRequestEntryInner({
 
     const deptOptions: DeptOption[] = [
         ...departments.map((d: { id: string; name: string }) => ({
-            id: d.id,
+            id: String(d.id),
             name: d.name,
             kind: 'Department' as const,
         })),
         ...sections.map((s: { id: string; name: string }) => ({
-            id: s.id,
+            id: String(s.id),
             name: s.name,
             kind: 'Section' as const,
         })),
@@ -39,7 +39,7 @@ function BudgetRequestEntryInner({
     const [filterByDate, setFilterByDate] = useState(false);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [selectedDept, setSelectedDept] = useState('');
+    const [selectedDept, setSelectedDept] = useState(() => deptOptions.length === 1 ? deptOptions[0].id : '');
     const [search, setSearch] = useState('');
 
     // ── Table state ───────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ function BudgetRequestEntryInner({
     const activeSchoolYear = (() => {
         if (!usePrevSY) return currentSchoolYear ?? '';
         // Shift both years back by 1: "2024–2025" → "2023–2024"
-        const match = (currentSchoolYear ?? '').match(/(\d{4})[–\-](\d{4})/);
+        const match = (currentSchoolYear ?? '').match(/(\d{4})[–-](\d{4})/);
         if (!match) return currentSchoolYear ?? '';
         return `${parseInt(match[1]) - 1}–${parseInt(match[2]) - 1}`;
     })();
@@ -110,7 +110,7 @@ function BudgetRequestEntryInner({
         setUsePrevSY(next);
         if (next) {
             // Compute what the prev SY label will be
-            const match = (currentSchoolYear ?? '').match(/(\d{4})[–\-](\d{4})/);
+            const match = (currentSchoolYear ?? '').match(/(\d{4})[–-](\d{4})/);
             const prevLabel = match
                 ? `${parseInt(match[1]) - 1}–${parseInt(match[2]) - 1}`
                 : 'previous school year';
@@ -198,17 +198,6 @@ function BudgetRequestEntryInner({
             addToast('error', 'Failed to load more records. Please try again.');
         } finally {
             setIsLoadingMore(false);
-        }
-    };
-
-    const handleDelete = async (id: number) => {
-        const rec = records.find(r => r.id === id);
-        try {
-            await financeSvc.delete(`/abms/budget-request-entry/${id}`);
-            setRecords(prev => prev.filter(r => r.id !== id));
-            if (rec) addToast('success', `"${rec.requisitionNo}" deleted.`);
-        } catch {
-            addToast('error', 'Failed to delete the record. Please try again.');
         }
     };
 

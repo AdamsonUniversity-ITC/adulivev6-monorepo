@@ -16,6 +16,7 @@ import { itemrequestedperaccountRoute } from '../../router';
 import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/Page';
 import { ReportFilterCombobox, type ReportFilterOption } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
+import { formatMoney } from './shared/money';
 import './shared/report-print.css';
 
 type Identifier = string | number;
@@ -122,27 +123,27 @@ function ReportBody({ preview }: { preview: Preview }) {
   if (preview.report.preview_type === 'summary') return <table className="requested-summary-table">
     <thead><tr><th>Account / Office</th><th>Total Amount</th></tr></thead>
     <tbody>{preview.main_account_groups.map(main => <Fragment key={String(main.main_account.id)}>
-      <tr className="main-heading"><td><AccountName account={main.main_account} /></td><td>{main.totals.total_amount}</td></tr>
+      <tr className="main-heading"><td><AccountName account={main.main_account} /></td><td>{formatMoney(main.totals.total_amount)}</td></tr>
       {main.sub_account_groups.map(sub => <Fragment key={`${main.main_account.id}-${sub.sub_account.id}`}>
-        <tr className="sub-heading"><td><AccountName account={sub.sub_account} /></td><td>{sub.totals.total_amount}</td></tr>
-        {sub.rows.map(row => <tr key={`${sub.sub_account.id}-${row.unit.type}-${row.unit.id}`}><td className="unit-cell"><UnitName unit={row.unit} /></td><td>{row.total_amount}</td></tr>)}
+        <tr className="sub-heading"><td><AccountName account={sub.sub_account} /></td><td>{formatMoney(sub.totals.total_amount)}</td></tr>
+        {sub.rows.map(row => <tr key={`${sub.sub_account.id}-${row.unit.type}-${row.unit.id}`}><td className="unit-cell"><UnitName unit={row.unit} /></td><td>{formatMoney(row.total_amount)}</td></tr>)}
       </Fragment>)}
-    </Fragment>)}<tr className="grand-total"><td>Overall Total:</td><td>{preview.grand_total.total_amount}</td></tr></tbody>
+    </Fragment>)}<tr className="grand-total"><td>Overall Total:</td><td>{formatMoney(preview.grand_total.total_amount)}</td></tr></tbody>
   </table>;
 
   return <>{preview.main_account_groups.map(main => <section className="main-section" key={String(main.main_account.id)}>
-    <div className="main-title"><span>Main Account: <AccountName account={main.main_account} /></span><strong>{main.totals.total_amount}</strong></div>
+    <div className="main-title"><span>Main Account: <AccountName account={main.main_account} /></span><strong>{formatMoney(main.totals.total_amount)}</strong></div>
     {main.sub_account_groups.map(sub => <section className="sub-section" key={`${main.main_account.id}-${sub.sub_account.id}`}>
-      <div className="sub-title"><span>Sub Account: <AccountName account={sub.sub_account} /></span><strong>{sub.totals.total_amount}</strong></div>
+      <div className="sub-title"><span>Sub Account: <AccountName account={sub.sub_account} /></span><strong>{formatMoney(sub.totals.total_amount)}</strong></div>
       {sub.unit_groups.map(unitGroup => <table className="requested-detail-table" key={`${sub.sub_account.id}-${unitGroup.unit.type}-${unitGroup.unit.id}`}>
         <caption><UnitName unit={unitGroup.unit} /></caption>
         <thead><tr><th>Date</th><th>Requisition No.</th><th>Description</th><th>Unit Cost</th><th>Quantity</th><th>Amount</th></tr></thead>
-        <tbody>{unitGroup.items.map(item => <tr key={String(item.id)}><td>{formatDate(item.requisition_date)}</td><td>{item.requisition_number}</td><td>{item.description}</td><td>{item.unit_cost}</td><td>{item.quantity}</td><td>{item.amount}</td></tr>)}
-          <tr className="unit-total"><td colSpan={5}>Unit Total:</td><td>{unitGroup.totals.total_amount}</td></tr>
+        <tbody>{unitGroup.items.map(item => <tr key={String(item.id)}><td>{formatDate(item.requisition_date)}</td><td>{item.requisition_number}</td><td>{item.description}</td><td>{formatMoney(item.unit_cost)}</td><td>{item.quantity}</td><td>{formatMoney(item.amount)}</td></tr>)}
+          <tr className="unit-total"><td colSpan={5}>Unit Total:</td><td>{formatMoney(unitGroup.totals.total_amount)}</td></tr>
         </tbody>
       </table>)}
     </section>)}
-  </section>)}<div className="detail-grand-total"><span>Overall Total:</span><strong>{preview.grand_total.total_amount}</strong></div></>;
+  </section>)}<div className="detail-grand-total"><span>Overall Total:</span><strong>{formatMoney(preview.grand_total.total_amount)}</strong></div></>;
 }
 
 function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => void }) {

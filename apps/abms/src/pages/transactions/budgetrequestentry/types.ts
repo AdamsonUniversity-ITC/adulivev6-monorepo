@@ -113,6 +113,7 @@ export type AddItemSchemaErrors = Partial<Record<keyof AddItemFormState | 'balan
 
 export interface RSFormItem {
     id: number;
+    account_id?: number | null;
     accountNo: string;
     itemDescription: string;
     unitCost: string;

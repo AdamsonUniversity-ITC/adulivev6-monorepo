@@ -161,8 +161,8 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             </div>
         </article>
         <style>{`
-            .rs-print-overlay{position:fixed;inset:0;z-index:20000;background:rgba(15,23,42,.76);overflow:auto;padding:70px 20px 40px}
-            .rs-print-toolbar{position:fixed;right:24px;top:18px;z-index:20001;display:flex;gap:8px}
+            .rs-print-overlay{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.76);overflow:auto;padding:70px 20px 40px}
+            .rs-print-toolbar{position:fixed;right:24px;top:18px;z-index:200001;display:flex;gap:8px}
             .rs-print-toolbar button{display:flex;align-items:center;gap:7px;border:1px solid #000;border-radius:7px;background:#fff;color:#000;padding:9px 15px;font:700 12px Arial;cursor:pointer}
             .rs-print-page{box-sizing:border-box;width:8.5in;min-height:11in;margin:auto;background:#fff;color:#000;padding:2.5mm;font:12px Arial,sans-serif;box-shadow:0 10px 40px #000}
             .rs-sheet{box-sizing:border-box;min-height:calc(11in - 5mm);padding:6mm 5mm 4mm;display:flex;flex-direction:column}
