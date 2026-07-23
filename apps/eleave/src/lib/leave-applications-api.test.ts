@@ -76,4 +76,21 @@ describe("getValidationFieldErrors", () => {
         "Insufficient Paternity Leave credits for the selected dates.",
     })
   })
+
+  it("maps duplicate leave date_from validation message", () => {
+    const duplicateError = {
+      response: {
+        data: {
+          message: "The given data was invalid.",
+          errors: {
+            date_from: ["You already have a leave request on 2026-07-22."],
+          },
+        },
+      },
+    }
+
+    expect(getValidationFieldErrors(duplicateError)).toEqual({
+      date_from: "You already have a leave request on 2026-07-22.",
+    })
+  })
 })

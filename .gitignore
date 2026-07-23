@@ -54,6 +54,8 @@ docs/
 /docs/*
 !/docs/abms/
 !/docs/abms/**
+!/docs/eleave/
+!/docs/eleave/**
 tasks/
 !/tasks/
 /tasks/*

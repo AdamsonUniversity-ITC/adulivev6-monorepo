@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Form } from "@repo/ui/components/form"
+import { toast } from "@repo/ui/exports"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronLeft } from "lucide-react"
@@ -94,7 +95,6 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   const queryClient = useQueryClient()
   const isEdit = mode === "edit"
   const [currentStep, setCurrentStep] = React.useState(1)
-  const [submitError, setSubmitError] = React.useState<string | null>(null)
   const formTopRef = React.useRef<HTMLDivElement>(null)
   const isInitialStepRender = React.useRef(true)
   const { data: leaveTypes = [] } = useLeaveTypes()
@@ -307,10 +307,8 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
       return
     }
 
-    setSubmitError(null)
-
     if (isEdit) {
-      setSubmitError("Updating leave requests is not available yet.")
+      toast.error("Updating leave requests is not available yet.")
       return
     }
 
@@ -324,7 +322,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     })
     if (paternityCreditError) {
       form.setError("leave_type_id", { message: paternityCreditError })
-      setSubmitError(paternityCreditError)
+      toast.error(paternityCreditError)
       setCurrentStep(2)
       return
     }
@@ -333,9 +331,8 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
       const authResponse = await fetchAuthUser()
       const employeeNo = resolveEmployeeNo(authResponse.data)
 
-      // console.log(employeeNo)
       if (!employeeNo) {
-        setSubmitError("Unable to resolve your employee number from your account.")
+        toast.error("Unable to resolve your employee number from your account.")
         return
       }
 
@@ -348,9 +345,21 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
       const fieldErrors = getValidationFieldErrors(error)
       if (fieldErrors) {
         applyApiFieldErrors(fieldErrors, form.setError)
+
+        if (fieldErrors.date_from || fieldErrors.date_to) {
+          setCurrentStep(1)
+        } else if (fieldErrors.leave_type_id || fieldErrors.leave_days) {
+          setCurrentStep(2)
+        } else if (
+          fieldErrors.reason ||
+          fieldErrors.address ||
+          fieldErrors.supporting_documents
+        ) {
+          setCurrentStep(3)
+        }
       }
 
-      setSubmitError(
+      toast.error(
         getValidationErrorMessage(error) ??
           "Unable to submit your leave application. Please try again.",
       )
@@ -396,12 +405,6 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
                   {stepDescription[currentStep]}
                 </p>
               </div>
-
-              {submitError ? (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
-                  <p className="text-destructive text-sm">{submitError}</p>
-                </div>
-              ) : null}
 
               {currentStep === 1 ? <DatesStep form={form} /> : null}
               {currentStep === 2 ? (

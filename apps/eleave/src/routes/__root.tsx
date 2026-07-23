@@ -1,5 +1,6 @@
 import { Outlet, createRootRouteWithContext, redirect } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
+import { Toaster } from '@repo/ui/components/sonner'
 
 import { AppSidebar } from '@/components/app-sidebar'
 import {
@@ -64,6 +65,7 @@ function RootComponent() {
         </SidebarInset>
         {/* <TanStackRouterDevtools position="bottom-right" /> */}
       </SidebarProvider>
+      <Toaster richColors />
     </TooltipProvider>
   )
 }
