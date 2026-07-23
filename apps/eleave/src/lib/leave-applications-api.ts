@@ -107,6 +107,7 @@ export async function applyLeaveApplication(formData: FormData) {
     formData,
     {
       timeout: 120_000,
+      headers: { "Content-Type": "multipart/form-data" },
     },
   )
 
@@ -163,11 +164,13 @@ export async function fetchHrApprovalLeaveApplications(params?: HrApprovalListPa
 export type HrApprovalItemPayload = {
   leave_application_date_id: number
   hr_status_1:
+    | "Pending"
     | "Approved With Pay"
     | "Approved Without Pay"
     | "Disapproved"
     | "Cancelled"
   hr_status_2?:
+    | "Pending"
     | "Approved With Pay"
     | "Approved Without Pay"
     | "Disapproved"

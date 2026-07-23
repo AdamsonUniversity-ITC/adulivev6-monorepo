@@ -30,9 +30,13 @@ export function buildLeaveApplyFormData(
     )
   })
 
-  for (const document of values.supporting_documents ?? []) {
-    formData.append("supporting_documents[]", document)
-  }
+  values.supporting_documents?.forEach((document, index) => {
+    formData.append(
+      `supporting_documents[${index}]`,
+      document,
+      document.name,
+    )
+  })
 
   return formData
 }

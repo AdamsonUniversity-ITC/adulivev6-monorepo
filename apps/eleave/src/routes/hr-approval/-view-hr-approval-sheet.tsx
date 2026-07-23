@@ -24,7 +24,6 @@ import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import {
   canSplitLeaveDayDecision,
   hasHrApprovalDayDecisionChanged,
-  hasPendingHrDayDecision,
   mapChangedHrApprovalDayDecisionToPayloadItem,
   mapLeaveApplicationsToHrApprovalRows,
   type HrApprovalDayDecision,
@@ -257,6 +256,7 @@ export const ViewHrApprovalSheet = ({
 
       setIsApplyConfirmOpen(false)
       setActionError(null)
+      onOpenChange(false)
     },
     onError: (error) => {
       const fieldErrors = getValidationFieldErrors(error)
@@ -345,17 +345,6 @@ export const ViewHrApprovalSheet = ({
     return { items }
   }
 
-  const hasSubmittingDecision = (entry: HrApprovalDayDecision): boolean => {
-    if (entry.isSplit) {
-      return (
-        entry.status1 !== "pending" ||
-        (entry.status2 != null && entry.status2 !== "pending")
-      )
-    }
-
-    return entry.status1 !== "pending"
-  }
-
   const validateDraft = (): string | null => {
     const applicationDatesById = new Map(
       (activeRequest?.record.leave_application_dates ?? []).map((applicationDate) => [
@@ -363,16 +352,6 @@ export const ViewHrApprovalSheet = ({
         applicationDate,
       ]),
     )
-
-    if (dailyDraft.some(hasPendingHrDayDecision)) {
-      return "Set approval status for all leave days before applying changes."
-    }
-
-    const hasDecision = dailyDraft.some(hasSubmittingDecision)
-
-    if (!hasDecision) {
-      return "Set an approval status for at least one day before applying changes."
-    }
 
     const hasChangedDecision = dailyDraft.some((entry) => {
       const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
@@ -388,7 +367,15 @@ export const ViewHrApprovalSheet = ({
     }
 
     for (const entry of dailyDraft) {
-      if (!entry.isSplit || !hasSubmittingDecision(entry)) {
+      if (!entry.isSplit) {
+        continue
+      }
+
+      const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
+      if (
+        applicationDate == null ||
+        !hasHrApprovalDayDecisionChanged(entry, applicationDate)
+      ) {
         continue
       }
 
@@ -402,11 +389,7 @@ export const ViewHrApprovalSheet = ({
         return `Select different half-day portions for ${entry.actualDate}.`
       }
 
-      if (
-        entry.status1 === "pending" ||
-        entry.status2 == null ||
-        entry.status2 === "pending"
-      ) {
+      if (entry.status2 == null) {
         return `Set approval status for both split portions on ${entry.actualDate}.`
       }
 
@@ -449,7 +432,25 @@ export const ViewHrApprovalSheet = ({
     setIsApplyConfirmOpen(true)
   }
 
-  const hasPendingDays = dailyDraft.some(hasPendingHrDayDecision)
+  const applicationDatesById = React.useMemo(
+    () =>
+      new Map(
+        (activeRequest?.record.leave_application_dates ?? []).map(
+          (applicationDate) => [applicationDate.id, applicationDate],
+        ),
+      ),
+    [activeRequest?.record.leave_application_dates],
+  )
+
+  const hasDirtyChanges = dailyDraft.some((entry) => {
+    const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
+
+    return (
+      applicationDate != null &&
+      hasHrApprovalDayDecisionChanged(entry, applicationDate)
+    )
+  })
+
   const draftStatus = resolveOverallStatusFromHrDayStatuses(resolveDraftStatuses(dailyDraft))
   const displayStatus = readOnly ? (activeRequest?.status ?? "pending") : draftStatus
   const displayDecisions = readOnly
@@ -574,18 +575,12 @@ export const ViewHrApprovalSheet = ({
                     type="button"
                     size="sm"
                     onClick={requestApplyDailyChanges}
-                    disabled={hasPendingDays || hrApprovalMutation.isPending}
+                    disabled={!hasDirtyChanges || hrApprovalMutation.isPending}
                   >
                     Apply Daily Changes
                   </Button>
                 ) : null}
               </div>
-
-              {!readOnly && hasPendingDays ? (
-                <p className="text-muted-foreground mb-3 text-sm">
-                  All days must have an approval status before applying.
-                </p>
-              ) : null}
 
               {!readOnly && actionError ? (
                 <p className="text-destructive mb-3 text-sm">{actionError}</p>

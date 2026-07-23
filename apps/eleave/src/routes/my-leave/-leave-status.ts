@@ -33,10 +33,12 @@ export const LEAVE_CANCEL_STATUS_LABELS: Record<LeaveCancelStatus, string> = {
 
 export const LEAVE_STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All statuses" },
-  ...LEAVE_OVERALL_STATUSES.map((status) => ({
-    value: status,
-    label: LEAVE_OVERALL_STATUS_LABELS[status],
-  })),
+  ...LEAVE_OVERALL_STATUSES.filter((status) => status !== "partially_approved").map(
+    (status) => ({
+      value: status,
+      label: LEAVE_OVERALL_STATUS_LABELS[status],
+    }),
+  ),
 ] as const
 
 export function formatOverallStatusLabel(

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card"
 import { fetchAuthUser, resolveEmployeeNo } from "@/lib/fetch-auth-user"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useLeaveBalances } from "@/hooks/use-leave-balances"
 import { useMyEmployeeHrProfile } from "@/hooks/use-employee-hr-profile"
 import { useMyLeaveApplications } from "@/hooks/use-my-leave-applications"
 import {
@@ -27,6 +28,7 @@ import {
 } from "@/lib/leave-applications-api"
 import { mapLeaveApplicationToRow } from "@/lib/map-leave-application-to-row"
 import { buildLeaveApplyFormData } from "@/lib/map-leave-form-to-apply-payload"
+import { getPaternityCreditValidationMessage } from "@/lib/paternity-leave-credits"
 import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import {
   leaveFormDefaults,
@@ -96,6 +98,7 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   const formTopRef = React.useRef<HTMLDivElement>(null)
   const isInitialStepRender = React.useRef(true)
   const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: leaveBalances = [] } = useLeaveBalances()
   const { data: leaveApplicationsResponse } = useMyLeaveApplications()
   const { data: myHrProfile } = useMyEmployeeHrProfile()
   const canSelectEvening = myHrProfile?.can_select_evening_day_portion ?? false
@@ -244,6 +247,16 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
           form.setError("leave_type_id", { message: timingError })
           return false
         }
+
+        const paternityCreditError = getPaternityCreditValidationMessage({
+          leaveCode: leaveType.leave_code,
+          leaveDays: syncedDays,
+          balances: leaveBalances,
+        })
+        if (paternityCreditError) {
+          form.setError("leave_type_id", { message: paternityCreditError })
+          return false
+        }
       }
 
       return true
@@ -298,6 +311,21 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
 
     if (isEdit) {
       setSubmitError("Updating leave requests is not available yet.")
+      return
+    }
+
+    const selectedLeaveType = leaveTypes.find(
+      (type) => String(type.id) === values.leave_type_id,
+    )
+    const paternityCreditError = getPaternityCreditValidationMessage({
+      leaveCode: selectedLeaveType?.leave_code,
+      leaveDays: values.leave_days,
+      balances: leaveBalances,
+    })
+    if (paternityCreditError) {
+      form.setError("leave_type_id", { message: paternityCreditError })
+      setSubmitError(paternityCreditError)
+      setCurrentStep(2)
       return
     }
 

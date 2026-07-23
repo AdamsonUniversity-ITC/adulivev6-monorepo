@@ -34,7 +34,7 @@ export function mapApiHrStatusToSlug(
   return "pending"
 }
 
-export function mapSlugToApiHrStatus(status: HrApprovalStatus): ApiHrStatus | null {
+export function mapSlugToApiHrStatus(status: HrApprovalStatus): ApiHrStatus {
   if (status === "approved_with_pay") {
     return "Approved With Pay"
   }
@@ -51,7 +51,7 @@ export function mapSlugToApiHrStatus(status: HrApprovalStatus): ApiHrStatus | nu
     return "Cancelled"
   }
 
-  return null
+  return "Pending"
 }
 
 export function summarizeHrApprovalStatus(
