@@ -21,6 +21,10 @@ import { z } from 'zod';
 import { createDocument } from '../-lib/api/createDocument.ts';
 import { createPackage } from '../-lib/api/createPackage.ts';
 import {
+  PackageIncludedItemsFields,
+  type PackageIncludedItemFormValue,
+} from './-package-included-items-fields.tsx';
+import {
   SupportingRequirementsFields,
   type SupportingRequirementFormValue,
 } from './-supporting-requirements-fields.tsx';
@@ -46,6 +50,12 @@ const catalogFormSchema = z.object({
       allowed_mime_types: z.array(z.string()).optional(),
       max_file_size_kb: z.number().nullable().optional(),
       max_files: z.number().min(1).max(20).nullable().optional(),
+    }),
+  ),
+  included_items: z.array(
+    z.object({
+      label: z.string().min(1, { message: 'Label is required.' }).max(255),
+      sort_order: z.number().nullable().optional(),
     }),
   ),
 });
@@ -80,6 +90,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       allow_multiple_per_request: true,
       once_per_student: false,
       supporting_document_requirements: [],
+      included_items: [],
     },
   });
 
@@ -126,6 +137,10 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             ? false
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
+          included_items: values.included_items.map((item, index) => ({
+            ...item,
+            sort_order: index,
+          })) as PackageIncludedItemFormValue[],
         },
         selectedGroup,
       );
@@ -204,7 +219,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
               form={form}
               disabled={mutation.isPending}
             />
-          ) : null}
+          ) : (
+            <PackageIncludedItemsFields
+              form={form}
+              disabled={mutation.isPending}
+            />
+          )}
 
           <DialogFooter>
             <Button

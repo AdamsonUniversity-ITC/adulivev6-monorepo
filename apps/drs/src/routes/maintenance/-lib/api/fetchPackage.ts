@@ -9,6 +9,7 @@ export type PackageRule = {
 
 export type PackageDetail = {
   id: string | number;
+  group_id?: string | number | null;
   package_name: string;
   price: number;
   account_code?: string;
@@ -16,6 +17,11 @@ export type PackageDetail = {
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
   rules?: PackageRule[];
+  included_items?: Array<{
+    id: number | string;
+    label: string;
+    sort_order?: number;
+  }>;
 };
 
 export const fetchPackage = async (
@@ -23,7 +29,7 @@ export const fetchPackage = async (
 ): Promise<PackageDetail> => {
   const { data } = await registrarSvc.get<PackageDetail>(
     `v1/drs/packages/${packageId}`,
-    { params: { with: 'rules.rule' } },
+    { params: { with: 'rules.rule,includedItems' } },
   );
   return data;
 };

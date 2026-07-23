@@ -7,12 +7,18 @@ export type EditPackagePayload = {
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
+  group_id?: number;
   package_rules?: {
     graduate?: boolean;
     undergraduate?: boolean;
     enrolled?: boolean;
     unenrolled?: boolean;
   };
+  included_items?: Array<{
+    id?: number | string | null;
+    label: string;
+    sort_order?: number | null;
+  }>;
 };
 
 export const editPackage = async (

@@ -21,6 +21,7 @@ export type SupportingDocumentRequirement = {
 
 export type DocumentDetail = {
   id: string | number;
+  group_id?: string | number | null;
   document_name: string;
   price: number;
   account_code?: string;

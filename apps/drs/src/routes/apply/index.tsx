@@ -1020,6 +1020,7 @@ function ApplyDocumentsPage() {
                                         title={pkg.package_name}
                                         unitPrice={pkg.price}
                                         rules={pkg.rules}
+                                        includedItems={pkg.included_items}
                                       />
                                     </li>
                                   );
@@ -1259,6 +1260,7 @@ function CatalogLineRow({
   title,
   unitPrice,
   rules,
+  includedItems,
   locked = false,
   lockedByNames = [],
 }: {
@@ -1270,6 +1272,7 @@ function CatalogLineRow({
   title: string;
   unitPrice: string | number;
   rules: CatalogDocument['rules'];
+  includedItems?: Array<{ id: number; label: string }>;
   locked?: boolean;
   lockedByNames?: string[];
 }) {
@@ -1336,6 +1339,13 @@ function CatalogLineRow({
         </div>
         <div className="min-w-0 flex-1">
           <p className="leading-snug font-medium">{title}</p>
+          {includedItems && includedItems.length > 0 ? (
+            <ul className="text-muted-foreground mt-1.5 list-disc space-y-0.5 pl-4 text-xs leading-snug">
+              {includedItems.map((item) => (
+                <li key={item.id}>{item.label}</li>
+              ))}
+            </ul>
+          ) : null}
           <div className="text-muted-foreground mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums">
             <span>PHP {formatPrice(unit)} each</span>
             {inCart ? (

@@ -7,6 +7,7 @@ export type EditDocumentPayload = {
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
+  group_id?: number;
   rules?: {
     graduate?: boolean;
     undergraduate?: boolean;
