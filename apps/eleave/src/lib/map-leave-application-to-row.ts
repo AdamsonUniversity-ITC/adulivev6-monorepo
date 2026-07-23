@@ -19,6 +19,14 @@ export function mapLeaveApplicationToRow(
     overall_status: coerceOverallStatus(record.overall_status),
     cancel_status: coerceCancelStatus(record.cancel_status),
     filed_at: record.created_at ?? `${record.date_filed}T00:00:00.000Z`,
+    approver1_status: record.approver1_status,
+    approver2_status: record.approver2_status,
+    leave_application_dates: (record.leave_application_dates ?? []).map(
+      (day) => ({
+        hr_status_1: day.hr_status_1,
+        hr_status_2: day.hr_status_2,
+      }),
+    ),
   }
 }
 

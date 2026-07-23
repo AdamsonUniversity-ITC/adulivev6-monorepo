@@ -75,6 +75,14 @@ const WorkflowApprovalStatusBadge = ({ status }: { status: string }) => {
     return <PendingStatusBadge>{status}</PendingStatusBadge>
   }
 
+  if (normalized === "cancelled") {
+    return (
+      <Badge variant="outline" className="font-normal text-slate-700">
+        {status}
+      </Badge>
+    )
+  }
+
   return (
     <Badge variant="outline" className="font-normal">
       {status}
@@ -85,7 +93,7 @@ const WorkflowApprovalStatusBadge = ({ status }: { status: string }) => {
 const buildWorkflowRows = (record: LeaveApplicationRecord): WorkflowTableRow[] => {
   const hrApproval = resolveHrApprovalSummary(record)
 
-  return [
+  const rows: WorkflowTableRow[] = [
     {
       step: "Immediate Superior",
       teachers: record.employee_teacher?.supervisor
@@ -112,6 +120,22 @@ const buildWorkflowRows = (record: LeaveApplicationRecord): WorkflowTableRow[] =
       actedAt: hrApproval.latestApprovedDate,
     },
   ]
+
+  const overallCancelled =
+    (record.overall_status ?? "").trim().toLowerCase() === "cancelled"
+  const cancelledByTeacher = record.cancelled_by_teacher ?? null
+
+  if (overallCancelled || record.cancelled_by || cancelledByTeacher) {
+    rows.push({
+      step: "Cancelled by",
+      teachers: cancelledByTeacher ? [cancelledByTeacher] : [],
+      status: "Cancelled",
+      remarks: record.cancellation_reason ?? null,
+      actedAt: record.cancelled_at,
+    })
+  }
+
+  return rows
 }
 
 export const ForApprovalWorkflowTable = ({

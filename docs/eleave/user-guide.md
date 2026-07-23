@@ -58,6 +58,14 @@ Errors appear as a **toast** and, when possible, on the related form field. You 
 3. After both approve, HR processes each leave day (with or without pay, etc.).
 4. Track progress under **My Leave**. Open a request to see day-level details and attachments.
 
+### Cancel or edit while still Pending
+
+You can **Cancel request** or **Edit** from My Leave (table Actions or the request detail) only while Approver 1, Approver 2, and HR are still **Pending**.
+
+- Cancel is immediate. An optional reason may be entered.
+- Once anyone Approves, Disapproves, or Cancels a step, Cancel and Edit are hidden.
+- Editing the form is shown only for Pending requests; saving an update is not available yet.
+
 ## Tips
 
 - Check balances on My Leave before filing multi-day leave.

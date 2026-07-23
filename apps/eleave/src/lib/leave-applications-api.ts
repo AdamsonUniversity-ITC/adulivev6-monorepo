@@ -33,6 +33,9 @@ export type LeaveApplicationRecord = {
   overall_status: string | null
   cancel_status: string | null
   cancelled_at: string | null
+  cancellation_reason?: string | null
+  cancelled_by?: string | null
+  cancelled_by_teacher?: EmployeeTeacherRecord | null
   approver1_idno: string | null
   approver1_status: string | null
   approver1_remarks: string | null
@@ -109,6 +112,22 @@ export async function applyLeaveApplication(formData: FormData) {
       timeout: 120_000,
       headers: { "Content-Type": "multipart/form-data" },
     },
+  )
+
+  return response.data
+}
+
+export type CancelLeaveApplicationPayload = {
+  cancellation_reason?: string | null
+}
+
+export async function cancelLeaveApplication(
+  leaveApplicationId: number | string,
+  payload: CancelLeaveApplicationPayload = {},
+) {
+  const response = await hrmdoSvc.patch<{ data: LeaveApplicationRecord }>(
+    `v1/leave-applications/${leaveApplicationId}/cancel`,
+    payload,
   )
 
   return response.data

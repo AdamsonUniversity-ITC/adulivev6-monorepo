@@ -14,6 +14,12 @@ export type LeaveRequestRow = {
   overall_status: LeaveOverallStatus
   cancel_status: LeaveCancelStatus
   filed_at: string
+  approver1_status: string | null
+  approver2_status: string | null
+  leave_application_dates: Array<{
+    hr_status_1: string | null
+    hr_status_2: string | null
+  }>
 }
 
 export function getLeavePeriodYearsFromRows(

@@ -58,6 +58,14 @@ function ApprovalStatusBadge({ status }: { status: string }) {
     return <PendingStatusBadge>{status}</PendingStatusBadge>
   }
 
+  if (normalized === "cancelled") {
+    return (
+      <Badge variant="outline" className="font-normal text-slate-700">
+        {status}
+      </Badge>
+    )
+  }
+
   return (
     <Badge variant="outline" className="font-normal">
       {status}

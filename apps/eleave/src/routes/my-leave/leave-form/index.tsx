@@ -30,6 +30,7 @@ import {
 import { mapLeaveApplicationToRow } from "@/lib/map-leave-application-to-row"
 import { buildLeaveApplyFormData } from "@/lib/map-leave-form-to-apply-payload"
 import { getPaternityCreditValidationMessage } from "@/lib/paternity-leave-credits"
+import { isLeaveApplicationPendingOnly } from "@/lib/is-leave-application-pending-only"
 import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import {
   leaveFormDefaults,
@@ -99,9 +100,11 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
   const isInitialStepRender = React.useRef(true)
   const { data: leaveTypes = [] } = useLeaveTypes()
   const { data: leaveBalances = [] } = useLeaveBalances()
-  const { data: leaveApplicationsResponse } = useMyLeaveApplications()
+  const { data: leaveApplicationsResponse, isSuccess: leaveApplicationsLoaded } =
+    useMyLeaveApplications()
   const { data: myHrProfile } = useMyEmployeeHrProfile()
   const canSelectEvening = myHrProfile?.can_select_evening_day_portion ?? false
+  const blockedEditRedirected = React.useRef(false)
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -112,6 +115,30 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     resolver: zodResolver(leaveFormSchema),
     defaultValues: leaveFormDefaults,
   })
+
+  React.useEffect(() => {
+    if (!isEdit || !leaveId || !leaveApplicationsLoaded || blockedEditRedirected.current) {
+      return
+    }
+
+    const record = leaveApplicationsResponse?.data.find(
+      (application) => String(application.id) === leaveId,
+    )
+
+    if (!record || !isLeaveApplicationPendingOnly(record)) {
+      blockedEditRedirected.current = true
+      toast.error(
+        "This leave request can no longer be edited because it is no longer fully Pending.",
+      )
+      void navigate({ to: "/my-leave" })
+    }
+  }, [
+    isEdit,
+    leaveId,
+    leaveApplicationsLoaded,
+    leaveApplicationsResponse?.data,
+    navigate,
+  ])
 
   React.useEffect(() => {
     if (isEdit) return

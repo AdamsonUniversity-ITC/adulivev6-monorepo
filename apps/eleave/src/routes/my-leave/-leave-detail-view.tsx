@@ -10,9 +10,10 @@ import {
   MapPin,
   Pencil,
   Sun,
+  XCircle,
   type LucideIcon,
 } from "lucide-react"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { Button } from "@/components/ui/button"
@@ -27,11 +28,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useLeaveApplication } from "@/hooks/use-leave-application"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
 import { mapApiDayPortion, mapDayPortionToApiLabel } from "@/lib/day-portion"
+import { isLeaveApplicationPendingOnly } from "@/lib/is-leave-application-pending-only"
 import type { LeaveApplicationRecord } from "@/lib/leave-applications-api"
 import { resolveHrApprovalSummary } from "@/lib/resolve-hr-approval-summary"
 import { resolveLeaveDaysFromRecord } from "@/lib/resolve-leave-days-from-record"
 import { cn } from "@/lib/utils"
 
+import { CancelLeaveDialog } from "./-cancel-leave-dialog"
 import { LeaveApprovalStep } from "./-leave-approval-step"
 import {
   CancelStatusBadge,
@@ -279,6 +282,7 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
   const { application, isLoading, isError, isNotFound } =
     useLeaveApplication(leaveId)
   const { data: leaveTypes = [] } = useLeaveTypes()
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   if (isLoading) {
     return <LeaveDetailSkeleton />
@@ -361,10 +365,17 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
           hr_approved_date: null,
         }))
   // const canEdit = overallStatus !== "approved"
-  const canEdit = false
+  const canMutate = isLeaveApplicationPendingOnly(application)
+  const canEdit = canMutate
+  const canCancel = canMutate
   const hrApproval = resolveHrApprovalSummary(application)
   const supervisor = application.employee_teacher?.supervisor ?? null
   const manager = application.employee_teacher?.manager ?? null
+  const cancelledByTeacher = application.cancelled_by_teacher ?? null
+  const showCancelledBy =
+    overallStatus === "cancelled" ||
+    Boolean(application.cancelled_by) ||
+    cancelledByTeacher != null
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
@@ -376,18 +387,40 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
           </Link>
         </Button>
 
-        {canEdit ? (
-          <Button size="sm" className="gap-1.5 shadow-sm" asChild>
-            <Link
-              to="/my-leave/leave-form/{-$leaveId}"
-              params={{ leaveId: String(application.id) }}
-            >
-              <Pencil className="size-4" />
-              Edit request
-            </Link>
-          </Button>
+        {canEdit || canCancel ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit ? (
+              <Button size="sm" className="gap-1.5 shadow-sm" asChild>
+                <Link
+                  to="/my-leave/leave-form/{-$leaveId}"
+                  params={{ leaveId: String(application.id) }}
+                >
+                  <Pencil className="size-4" />
+                  Edit request
+                </Link>
+              </Button>
+            ) : null}
+            {canCancel ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setCancelOpen(true)}
+              >
+                <XCircle className="size-4" />
+                Cancel request
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
+
+      <CancelLeaveDialog
+        leaveId={String(application.id)}
+        leaveLabel={`${leaveTypeName} (#${application.id})`}
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+      />
 
       <div className="overflow-hidden rounded-2xl border border-amber-200/80 bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.16),_transparent_55%),linear-gradient(135deg,_#fef3c7_0%,_#fffbeb_45%,_#ffffff_100%)]">
         <div className="p-5 sm:p-6">
@@ -510,6 +543,12 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
                   status={hrApproval.status}
                   actedAt={hrApproval.latestApprovedDate}
                 />
+              ) : overallStatus === "cancelled" ? (
+                <LeaveApprovalStep
+                  title="HR Approval"
+                  status="Cancelled"
+                  actedAt={application.cancelled_at}
+                />
               ) : (
                 <div className="px-5 py-4">
                   <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
@@ -520,6 +559,15 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
                   </PendingStatusBadge>
                 </div>
               )}
+              {showCancelledBy ? (
+                <LeaveApprovalStep
+                  title="Cancelled by"
+                  teacher={cancelledByTeacher}
+                  status="Cancelled"
+                  remarks={application.cancellation_reason}
+                  actedAt={application.cancelled_at}
+                />
+              ) : null}
             </CardContent>
           </Card>
         </aside>

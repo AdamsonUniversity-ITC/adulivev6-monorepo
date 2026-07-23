@@ -15,6 +15,7 @@ Source: `routes/api/leave_applications.php`
 | GET | `leave-applications/me` | auth | Current user’s applications |
 | GET | `leave-applications/me/el-dependent-care-usage` | auth | EL dependent-care usage |
 | POST | `leave-applications/apply` | auth | Multipart apply |
+| PATCH | `leave-applications/{leaveApplication}/cancel` | auth (owner) | Immediate cancel while fully Pending; optional `cancellation_reason` |
 | GET | `leave-applications/for-approval` | supervisor/manager | Endorsement queue |
 | PATCH | `leave-applications/{leaveApplication}/decision` | supervisor/manager | Approve/disapprove |
 | GET | `leave-applications/for-hr-approval` | HR approval perms | HR queue |

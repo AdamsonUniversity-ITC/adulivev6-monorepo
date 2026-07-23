@@ -31,6 +31,8 @@ If you are both supervisor and manager for an employee, the system may allow you
 
 Your decision is stored on the application’s approver fields. Disapproval stops the request from reaching HR endorsement.
 
+If the employee **cancels** the request while it is still Pending, Approver 1/2 statuses become **Cancelled**. The For Approval list badge shows **Cancelled**, and the workflow shows a **Cancelled by** step with the employee’s avatar. Approve/Disapprove is no longer available.
+
 ## What You Are Not Responsible For
 
 - Final day-by-day HR status (with pay / without pay / cancel) — that is **HR Approval**.
