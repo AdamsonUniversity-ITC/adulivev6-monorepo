@@ -27,8 +27,11 @@ import ItemsRequestedByPayee from './pages/reports/ItemsRequestedByPayee.tsx';
 import AdjustmentsPerDepartment from './pages/reports/AdjustmentsPerDepartment.tsx';
 import BudgetLiquidation from './pages/reports/BudgetLiquidation.tsx';
 import BudgetProposalReports from './pages/reports/BudgetProposalReports.tsx';
+import UnservedRs from './pages/reports/UnservedRs.tsx';
 import LiquidationSubmission from './pages/transactions/liquidationsubmission';
 import UnauthorizedScreen from './components/UnauthorizedScreen.tsx';
+import LoadingScreen from './components/LoadingScreen.tsx';
+import BudgetUserGuides from './pages/infographics/BudgetUserGuides.tsx';
 
 const rootRoute = new RootRoute({
     component: App,
@@ -145,6 +148,9 @@ const protectedRoute = new Route({
             return { user: null };
         }
     },
+    pendingComponent: LoadingScreen,
+    pendingMs: 0,
+    pendingMinMs: 500,
     component: () => <Outlet />,
 });
 
@@ -479,6 +485,17 @@ export const budgetproposalreportsRoute = new Route({
     },
     component: BudgetProposalReports,
 });
+export const unservedRsRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/reports/unserved-rs',
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    loader: async () => {
+        const data = await financeSvc.get('abms/unserved-rs');
+
+        return { data };
+    },
+    component: UnservedRs,
+});
 export const liquidationsubmissionRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/liquidation-submission',
@@ -509,6 +526,12 @@ export const liquidationsubmissionRoute = new Route({
     },
     component: LiquidationSubmission,
 });
+export const budgetUserGuidesRoute = new Route({
+    getParentRoute: () => protectedRoute,
+    path: '/infographics/budget-user-guides',
+    beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-proposal-entry', 'allow-budget-request-entry']),
+    component: BudgetUserGuides,
+});
 export const testRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/test',
@@ -532,7 +555,7 @@ const unauthorizedRoute = new Route({
 });
 
 const routeTree = rootRoute.addChildren([
-    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute, budgetperformancedepartmentRoute, budgetperformanceaccountRoute, budgetperformanceuniversityRoute, itemrequestedperaccountRoute, itemsrequestedbypayeeRoute, adjustmentsperdepartmentRoute, budgetliquidationRoute, budgetproposalreportsRoute, liquidationsubmissionRoute]),
+    protectedRoute.addChildren([homeRoute, testRoute, budgetsettingsRoute, departmentRoute, officeSuppliesRoute, mainAccountRoute, subAccountsRoute, budgetstatusRoute, userdepartmentRoute, budgetproposalentryRoute, budgetreviewRoute, budgetreviewdetailsRoute, budgettransferaccountRoute, budgetadjustmententryRoute, budgetrequestentryRoute, requesitionprocessRoute, budgetperformancedepartmentRoute, budgetperformanceaccountRoute, budgetperformanceuniversityRoute, itemrequestedperaccountRoute, itemsrequestedbypayeeRoute, adjustmentsperdepartmentRoute, budgetliquidationRoute, budgetproposalreportsRoute, unservedRsRoute, liquidationsubmissionRoute, budgetUserGuidesRoute]),
     unauthorizedRoute,
     maintenanceRoute,
 ]);

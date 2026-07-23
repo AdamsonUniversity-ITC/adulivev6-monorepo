@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-07-22
+Last verified: 2026-07-23
 
 ## System Context
 
@@ -17,6 +17,22 @@ flowchart LR
     API --> FE
     FE --> PREVIEW[Screen preview, toast warnings, browser print]
 ```
+
+## Protected Route Bootstrap
+
+```mermaid
+flowchart TD
+    A[User enters a protected ABMS route] --> B[Show full-screen ABMS loading screen]
+    B --> C[Verify finance service and authenticated session]
+    C --> D{Authenticated and ABMS access allowed?}
+    D -- No --> E[Use existing login, maintenance, or unauthorized redirect]
+    D -- Yes --> F[Load finance profile]
+    F --> G[Load general permissions and typed unit assignments]
+    G --> H[Build protected route context]
+    H --> I[Render authorized page]
+```
+
+The protected route owns this bootstrap state. Its pending component appears immediately and remains visible briefly to prevent protected content from flashing before permission resolution. Production login redirects use `VITE_ADU_LIVE_PRODUCTION_URL`; localhost remains the development fallback.
 
 ## Proposal and Allocation
 
@@ -96,25 +112,23 @@ flowchart TD
     T --> U[Do not mutate items, allocations, proposals, or header]
 ```
 
-## Historical Report Projection
+## Live Date-Range Report Projection
 
 ```mermaid
 flowchart TD
     A[Receive report filters] --> B[Authorize and validate dates, scope, and preview type]
-    B --> C[Resolve current school-year proposals, typed units, and account IDs]
-    C --> D[Build allocation keys: unit type plus unit ID plus child account ID]
-    D --> E[Load current approved_total_cost baseline where applicable]
-    D --> F[Load relevant audits inside and around the inclusive period]
-    F --> G[Order by timestamp then global audit ID]
-    G --> H[Project create, update delta, delete reversal, and restore reapply]
-    H --> I{Historical evidence complete?}
-    I -- No --> J[Keep supported best-effort deltas and add structured warnings]
-    I -- Yes --> K[Mark data quality complete]
-    E --> L[Aggregate allocation first]
-    J --> L
+    B --> C[Convert dates to explicit application-timezone start and end strings]
+    C --> D[Select live proposal, adjustment, or requisition headers by created_at]
+    D --> E[Exclude entries created outside the range even if updated inside it]
+    E --> F[Load latest stored headers, items, allocations, and balances]
+    F --> G[Resolve current typed units and account IDs]
+    G --> H{Current identity and relationships valid?}
+    H -- No --> J[Exclude or preserve under an explicit unmapped group and warn]
+    H -- Yes --> K[Use current stored values]
+    J --> L[Aggregate allocation or entry rows]
     K --> L
     L --> M[Roll up by requested unit, account, division, or university hierarchy]
-    M --> N[Backend computes subtotals, grand total, and reconciliation]
+    M --> N[Backend computes subtotals and grand totals]
     N --> O[Format money as two-decimal strings]
     O --> P[Frontend opens fresh preview]
     P --> Q{Warnings present?}
@@ -141,19 +155,17 @@ flowchart TD
     K --> L[Commit atomically; keep for_liquidation and is_approve unchanged]
 ```
 
-## Requested-Item Historical Snapshot
+## Requested-Item Live Projection
 
 ```mermaid
 flowchart TD
     A[Load live numbered requisition] --> B{Current status valid and header not deleted?}
     B -- No --> X[Exclude]
-    B -- Yes --> C[Find first audit assigning a nonzero requisition number]
-    C --> D{Cutoff evidence available?}
-    D -- No --> E[Apply documented fallback and warn, or exclude if unsafe]
-    D -- Yes --> F[Replay header and item audits through cutoff]
-    F --> G[Reconstruct payee, number, date, account, description, price, quantity, amount]
-    E --> H[Apply school-year, inclusive date, account, unit, and payee filters]
-    G --> H
+    B -- Yes --> C[Filter current header created_at through inclusive From and To]
+    C --> D{Entry created inside range?}
+    D -- No --> X
+    D -- Yes --> G[Read current payee, number, account, description, price, quantity, and amount]
+    G --> H[Apply school-year, account, unit, and payee filters]
     H --> I[Exclude deleted items and unreliable account mappings]
     I --> J[Return each qualifying item once]
     J --> K[Backend groups or sorts and calculates totals]
@@ -226,6 +238,110 @@ flowchart TD
     L --> M[Frontend renders tagged unit rows and warning toasts]
 ```
 
+## Approved Budget Proposal Report
+
+```mermaid
+flowchart TD
+    A[Select school year and typed Department or Section] --> B[Validate exact typed unit and prohibit account filters]
+    B --> C[Load live proposal headers, allocations, and items]
+    C --> D[Map each allocation to its current root and child account]
+    D --> E{Hierarchy resolved?}
+    E -- No --> F[Preserve values under Unmapped Account and warn]
+    E -- Yes --> G[Group root account to child account]
+    F --> H[Aggregate item quantity, proposed amount, and approved amount]
+    G --> H
+    H --> I[Merge duplicate allocations and count each live item ID once]
+    I --> J[Calculate child, root, and grand totals]
+    J --> K[Return fixed money strings, quality metadata, and printed full name]
+    K --> L[Frontend renders the full selected unit budget and warning toasts]
+```
+
+## Approved Items per Account Proposal Report
+
+```mermaid
+flowchart TD
+    A[Select school year and required root account] --> B[Optionally select child account and typed unit]
+    B --> C[Validate root-child relationship and paired unit filter]
+    C --> D[Load live proposal headers, allocations, and items]
+    D --> E[Apply account and optional exact typed-unit scope]
+    E --> F[Map each proposal to a Department, Section, or Unmapped unit]
+    F --> G[Group unit to child account to item rows]
+    G --> H[Return description, quantity, and approved amount]
+    H --> I[Calculate child, unit, and grand totals]
+    I --> J[Format money and attach quality warnings and printed full name]
+    J --> K[Render each typed unit as a separate Letter print section]
+```
+
+## Approved Items per Account/Department Proposal Report
+
+```mermaid
+flowchart TD
+    A[Select school year and required root account] --> B[Optionally select child account and typed unit]
+    B --> C[Validate root-child relationship and paired unit filter]
+    C --> D[Load live proposal headers, allocations, and items]
+    D --> E[Apply account and optional exact typed-unit scope]
+    E --> F[Map current child account and typed organizational identity]
+    F --> G[Group child account to Department or Section to item rows]
+    G --> H[Return description, quantity, proposed amount, and approved amount]
+    H --> I[Calculate unit, child, selected-main-account, and grand totals]
+    I --> J[Format money and attach quality warnings and printed full name]
+    J --> K[Render the grouped Letter landscape report]
+```
+
+## Proposed versus Approved Percentage Proposal Report
+
+```mermaid
+flowchart TD
+    A[Select school year and required typed unit] --> B[Optionally select root and child account]
+    B --> C[Validate typed unit and root-child relationship]
+    C --> D[Load live proposal headers, allocations, and items]
+    D --> E[Map current root and child account identity]
+    E --> F[Aggregate proposed and approved cents per child and root]
+    F --> G[Calculate approved divided by proposed times 100]
+    G --> H{Proposed amount is zero?}
+    H -- Yes --> I[Return 0.00 percent]
+    H -- No --> J[Round percentage to two decimals]
+    I --> K[Return backend child, root, and grand totals]
+    J --> K
+    K --> L[Render Letter landscape preview with warnings and printed full name]
+```
+
+## Previous versus Current Approved Budget Report
+
+```mermaid
+flowchart TD
+    A[Select previous school year and required typed unit] --> B[Read current school year from Budget Settings]
+    B --> C{Current year exists and differs?}
+    C -- No --> D[Return validation error]
+    C -- Yes --> E[Optionally validate root and child account scope]
+    E --> F[Load live proposals, allocations, and items for both years]
+    F --> G[Map the union of current root and child account identities]
+    G --> H[Aggregate previous and current approved cents independently]
+    H --> I[Calculate current divided by previous times 100]
+    I --> J{Previous approved amount is zero?}
+    J -- Yes --> K[Return 0.00 percent]
+    J -- No --> L[Round percentage to two decimals]
+    K --> M[Return child, root, and grand totals]
+    L --> M
+    M --> N[Render Letter landscape preview with warnings and printed full name]
+```
+
+## Unserved RS Report
+
+```mermaid
+flowchart TD
+    A[Select inclusive From and To dates] --> B[Optionally select current Location]
+    B --> C[Validate dates, location, and report permission]
+    C --> D[Load live numbered requisitions by created_at]
+    D --> E[Exclude current Served and Served by WICO statuses]
+    E --> F[Resolve typed Department or Section]
+    F --> G[Read first certified-status audit for display date]
+    G --> H[Group current Location to current Status to RS rows]
+    H --> I[Calculate status, location, and grand totals]
+    I --> J[Return fixed money strings, warnings, and printed full name]
+    J --> K[Render each location as a Letter landscape print section]
+```
+
 ## Authorization and Unit Scope
 
 ```mermaid
@@ -258,7 +374,7 @@ flowchart LR
     A --> E{Changes authorization or UI contract?}
     B -- Yes --> F[Review ERD, migrations, rollback, ID/code lookups]
     C -- Yes --> G[Review locks, atomicity, balances, unused/refund behavior]
-    D -- Yes --> H[Review audit ordering, date boundaries, warnings, precision]
+    D -- Yes --> H[Review created_at boundaries, live-value sources, warnings, and precision]
     E -- Yes --> I[Review typed scope, stale preview, loading/error, print]
     F --> J[Focused tests and regression suite]
     G --> J

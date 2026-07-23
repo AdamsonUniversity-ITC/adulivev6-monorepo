@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Settings, Menu, Receipt, FileText
+  LayoutDashboard, Settings, Menu, Receipt, FileText, Images
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -177,7 +177,18 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Adjustments Per Department', href: '/reports/adjustments-per-department', permissions: ['admin-access', 'budget-access', 'controller-access'] },
       { label: 'Budget Liquidation', href: '/reports/budget-liquidation', permissions: ['admin-access', 'budget-access', 'controller-access'] },
       { label: 'Budget Proposal Reports', href: '/reports/budget-proposal-reports', permissions: ['admin-access', 'budget-access', 'controller-access'] },
-
+      { label: 'Unserved RS', href: '/reports/unserved-rs', permissions: ['admin-access', 'budget-access', 'controller-access'] },
+    ],
+  },
+  {
+    icon: Images,
+    label: 'Infographics',
+    children: [
+      {
+        label: 'Budget User Guides',
+        href: '/infographics/budget-user-guides',
+        permissions: ['allow-budget-proposal-entry', 'allow-budget-request-entry',],
+      },
     ],
   },
 
@@ -394,7 +405,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
     <motion.aside
       animate={{ width: isOpen ? 288 : 72 }}
       transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
-      className="relative z-20 flex flex-col h-screen shrink-0 overflow-hidden"
+      className="relative z-20 flex h-screen shrink-0 flex-col overflow-visible"
       style={{
         background: t.sidebar,
         borderRight: `1px solid ${t.border}`,
@@ -633,6 +644,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
       {/* Collapsed expand pill */}
       {!isOpen && (
         <motion.button
+          type="button"
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
           disabled={isNavigating}
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
