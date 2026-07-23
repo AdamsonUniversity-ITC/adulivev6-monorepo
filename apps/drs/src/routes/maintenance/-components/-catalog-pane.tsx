@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from '@repo/ui/components/card';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type DocumentListItem,
   fetchDocuments,
@@ -59,6 +59,7 @@ const toCatalogItem = (
 export const CatalogPane = ({ kind, selectedGroup }: Props) => {
   const copy = KIND_COPY[kind];
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
+  const preserveSelectionOnGroupChangeRef = useRef(false);
 
   const listQuery = useQuery({
     queryKey: [`${kind}s`, selectedGroup],
@@ -75,22 +76,28 @@ export const CatalogPane = ({ kind, selectedGroup }: Props) => {
   }, [listQuery.data, kind]);
 
   useEffect(() => {
+    if (preserveSelectionOnGroupChangeRef.current) {
+      preserveSelectionOnGroupChangeRef.current = false;
+      return;
+    }
     setSelectedId(null);
   }, [selectedGroup]);
 
   useEffect(() => {
     if (selectedId === null) return;
+    if (listQuery.isFetching || listQuery.isLoading) return;
     if (!items.some((item) => String(item.id) === String(selectedId))) {
       setSelectedId(null);
     }
-  }, [items, selectedId]);
+  }, [items, selectedId, listQuery.isFetching, listQuery.isLoading]);
 
   if (!selectedGroup) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
           <p className="text-muted-foreground text-sm">
-            Pick a group above to manage its {kind === 'document' ? 'documents' : 'packages'}.
+            Pick a group above to manage its{' '}
+            {kind === 'document' ? 'documents' : 'packages'}.
           </p>
         </CardContent>
       </Card>
@@ -166,6 +173,9 @@ export const CatalogPane = ({ kind, selectedGroup }: Props) => {
             kind={kind}
             itemId={selectedId}
             selectedGroup={selectedGroup}
+            onBeforeGroupSwitch={() => {
+              preserveSelectionOnGroupChangeRef.current = true;
+            }}
           />
         ) : (
           <Card>

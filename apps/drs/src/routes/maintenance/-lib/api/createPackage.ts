@@ -7,6 +7,10 @@ export type CreatePackagePayload = {
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
+  included_items?: Array<{
+    label: string;
+    sort_order?: number | null;
+  }>;
 };
 
 export const createPackage = async (

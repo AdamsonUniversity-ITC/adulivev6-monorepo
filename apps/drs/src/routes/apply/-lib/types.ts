@@ -52,6 +52,7 @@ export type CatalogPackage = {
   once_per_student?: boolean;
   already_requested?: boolean;
   rules?: DocumentRuleRow[] | null;
+  included_items?: Array<{ id: number; label: string }>;
 };
 
 export type CatalogGroup = {

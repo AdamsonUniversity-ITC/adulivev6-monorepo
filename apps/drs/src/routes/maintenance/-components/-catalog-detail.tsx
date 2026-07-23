@@ -8,6 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/card';
+import { Label } from '@repo/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/select';
 import { Separator } from '@repo/ui/components/separator';
 import { toast } from '@repo/ui/exports';
 import { FormCheckbox } from '@repo/ui/form-components/form-checkbox';
@@ -15,8 +23,8 @@ import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useContext, useEffect } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { editDocument } from '../-lib/api/editDocument.ts';
 import { editPackage } from '../-lib/api/editPackage.ts';
@@ -24,8 +32,14 @@ import {
   type DocumentDetail,
   fetchDocument,
 } from '../-lib/api/fetchDocument.ts';
+import { fetchDocumentGroups } from '../-lib/api/fetchDocumentGroups.ts';
 import { type PackageDetail, fetchPackage } from '../-lib/api/fetchPackage.ts';
+import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
 import { LoadingIndicator } from '../../-loading-indicator.tsx';
+import {
+  type PackageIncludedItemFormValue,
+  PackageIncludedItemsFields,
+} from './-package-included-items-fields.tsx';
 import { RequiredCompanionsFields } from './-required-companions-fields.tsx';
 import {
   type SupportingRequirementFormValue,
@@ -40,6 +54,7 @@ const detailFormSchema = z.object({
     .string()
     .min(1, { message: 'Account code is required.' })
     .max(50),
+  group_id: z.string().min(1, { message: 'Group is required.' }),
   is_active: z.boolean(),
   allow_multiple_per_request: z.boolean(),
   once_per_student: z.boolean(),
@@ -63,6 +78,13 @@ const detailFormSchema = z.object({
     }),
   ),
   required_companion_ids: z.array(z.number().int().positive()),
+  included_items: z.array(
+    z.object({
+      id: z.union([z.string(), z.number()]).nullable().optional(),
+      label: z.string().min(1, { message: 'This field is required.' }).max(255),
+      sort_order: z.number().nullable().optional(),
+    }),
+  ),
 });
 
 type DetailFormValues = z.infer<typeof detailFormSchema>;
@@ -71,11 +93,13 @@ type Props = {
   kind: CatalogKind;
   itemId: string | number;
   selectedGroup: string;
+  onBeforeGroupSwitch?: () => void;
 };
 
 const detailToForm = (
   kind: CatalogKind,
   detail: DocumentDetail | PackageDetail,
+  fallbackGroupId: string,
 ): DetailFormValues => {
   const rules = { ...EMPTY_CATALOG_RULES };
   detail.rules?.forEach((entry) => {
@@ -93,6 +117,8 @@ const detailToForm = (
     name,
     price: Number(detail.price ?? 0),
     account_code: String(detail.account_code ?? ''),
+    group_id:
+      detail.group_id != null ? String(detail.group_id) : fallbackGroupId,
     is_active: Boolean(detail.is_active),
     allow_multiple_per_request: detail.allow_multiple_per_request !== false,
     once_per_student: Boolean(detail.once_per_student),
@@ -117,11 +143,33 @@ const detailToForm = (
       kind === 'document'
         ? ((detail as DocumentDetail).required_companion_ids ?? []).map(Number)
         : [],
+    included_items:
+      kind === 'package'
+        ? ((detail as PackageDetail).included_items ?? []).map(
+            (item, index) => ({
+              id: item.id,
+              label: item.label,
+              sort_order: item.sort_order ?? index,
+            }),
+          )
+        : [],
   };
 };
 
-export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
+export const CatalogDetail = ({
+  kind,
+  itemId,
+  selectedGroup,
+  onBeforeGroupSwitch,
+}: Props) => {
   const queryClient = useQueryClient();
+  const ctx = useContext(DocumentManagementContext);
+  if (!ctx) {
+    throw new Error(
+      'CatalogDetail must be used within DocumentMangementProvider',
+    );
+  }
+  const { setSelectedGroup } = ctx;
 
   const detailQuery = useQuery({
     queryKey: [`${kind}_detail`, itemId],
@@ -131,18 +179,26 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
     refetchOnWindowFocus: false,
   });
 
+  const { data: groups = [] } = useQuery({
+    queryKey: ['document_groups'],
+    queryFn: fetchDocumentGroups,
+    refetchOnWindowFocus: false,
+  });
+
   const form = useForm<DetailFormValues>({
     resolver: zodResolver(detailFormSchema),
     defaultValues: {
       name: '',
       price: 0,
       account_code: '',
+      group_id: selectedGroup,
       is_active: true,
       allow_multiple_per_request: true,
       once_per_student: false,
       rules: { ...EMPTY_CATALOG_RULES },
       supporting_document_requirements: [],
       required_companion_ids: [],
+      included_items: [],
     },
   });
 
@@ -154,8 +210,8 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
 
   useEffect(() => {
     if (!detailQuery.data) return;
-    form.reset(detailToForm(kind, detailQuery.data));
-  }, [detailQuery.data, kind, form]);
+    form.reset(detailToForm(kind, detailQuery.data, selectedGroup));
+  }, [detailQuery.data, kind, form, selectedGroup]);
 
   useEffect(() => {
     if (!oncePerStudent) return;
@@ -164,6 +220,7 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
 
   const mutation = useMutation({
     mutationFn: (values: DetailFormValues) => {
+      const groupId = Number(values.group_id);
       if (kind === 'document') {
         return editDocument(itemId, {
           document_name: values.name,
@@ -174,6 +231,7 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
             ? false
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
+          group_id: groupId,
           rules: values.rules,
           supporting_document_requirements:
             values.supporting_document_requirements.map((item, index) => ({
@@ -193,16 +251,32 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
           ? false
           : values.allow_multiple_per_request,
         once_per_student: values.once_per_student,
+        group_id: groupId,
         package_rules: values.rules,
+        included_items: values.included_items.map((item, index) => ({
+          ...item,
+          sort_order: index,
+        })) as PackageIncludedItemFormValue[],
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, values) => {
+      const newGroupId = String(values.group_id);
+      const groupChanged = newGroupId !== String(selectedGroup);
+
       toast.success(
         kind === 'document' ? 'Document updated.' : 'Package updated.',
       );
+
       queryClient.invalidateQueries({
         queryKey: [`${kind}s`, selectedGroup],
       });
+      if (groupChanged) {
+        queryClient.invalidateQueries({
+          queryKey: [`${kind}s`, newGroupId],
+        });
+        onBeforeGroupSwitch?.();
+        setSelectedGroup(newGroupId);
+      }
       queryClient.invalidateQueries({ queryKey: [`${kind}_detail`, itemId] });
     },
     onError: () => {
@@ -255,6 +329,38 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
               name="account_code"
               label="Account code"
               placeholder="e.g. REG-DOC-01"
+            />
+            <Controller
+              control={form.control}
+              name="group_id"
+              render={({ field, fieldState }) => (
+                <div className="space-y-1">
+                  <Label htmlFor={`${kind}-group-select`}>
+                    {kind === 'document' ? 'Document group' : 'Package group'}
+                  </Label>
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={field.onChange}
+                    disabled={mutation.isPending || groups.length === 0}
+                  >
+                    <SelectTrigger id={`${kind}-group-select`}>
+                      <SelectValue placeholder="Select a group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={String(group.id)}>
+                          {group.group_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.error ? (
+                    <p className="text-destructive text-xs">
+                      {fieldState.error.message}
+                    </p>
+                  ) : null}
+                </div>
+              )}
             />
           </div>
 
@@ -323,7 +429,15 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
                 disabled={mutation.isPending}
               />
             </>
-          ) : null}
+          ) : (
+            <>
+              <Separator />
+              <PackageIncludedItemsFields
+                form={form}
+                disabled={mutation.isPending}
+              />
+            </>
+          )}
 
           <div className="border-border flex justify-end gap-2 border-t pt-4">
             <Button
@@ -332,7 +446,7 @@ export const CatalogDetail = ({ kind, itemId, selectedGroup }: Props) => {
               disabled={mutation.isPending || !form.formState.isDirty}
               onClick={() =>
                 detailQuery.data &&
-                form.reset(detailToForm(kind, detailQuery.data))
+                form.reset(detailToForm(kind, detailQuery.data, selectedGroup))
               }
             >
               Reset
