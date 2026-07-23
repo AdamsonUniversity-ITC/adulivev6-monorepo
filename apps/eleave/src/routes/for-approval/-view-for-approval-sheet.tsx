@@ -106,6 +106,9 @@ export const ViewForApprovalSheet = ({
   const isRemarksRequired = pendingDecision === "Disapproved"
   const canConfirm =
     !isRemarksRequired || remarks.trim() !== ""
+  const isApplicationCancelled =
+    (activeRequest?.record.overall_status ?? "").trim().toLowerCase() ===
+    "cancelled"
 
   const confirmDecision = () => {
     if (!activeRequest || !pendingDecision) {
@@ -225,6 +228,24 @@ export const ViewForApprovalSheet = ({
             </div>
 
             <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)]">
+              {isApplicationCancelled ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-700">
+                    This leave request has been cancelled and can no longer be
+                    approved or disapproved.
+                  </p>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => onOpenChange(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <p className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
                 Change Status
               </p>
@@ -287,6 +308,8 @@ export const ViewForApprovalSheet = ({
                   Close
                 </Button>
               </div>
+                </>
+              )}
             </div>
 
             {pendingDecision ? (

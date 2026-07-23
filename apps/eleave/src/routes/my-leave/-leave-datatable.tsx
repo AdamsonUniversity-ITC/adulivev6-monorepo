@@ -10,11 +10,13 @@ import {
 import { useNavigate } from "@tanstack/react-router"
 import type { ColumnDef, PaginationState, SortingState } from "@tanstack/react-table"
 import { format, parseISO } from "date-fns"
-import { Eye, Pencil } from "lucide-react"
+import { Eye, Pencil, XCircle } from "lucide-react"
 import * as React from "react"
 
+import { isLeaveApplicationPendingOnly } from "@/lib/is-leave-application-pending-only"
 import { getLeavePeriodYearsFromRows, type LeaveRequestRow } from "@/lib/leave-request-row"
 import { matchesLeaveYearFilter } from "@/lib/leave-date-year"
+import { CancelLeaveDialog } from "./-cancel-leave-dialog"
 import {
   formatCancelStatusLabel,
   formatOverallStatusLabel,
@@ -177,6 +179,9 @@ export function MyLeaveDataTable({
   const [search, setSearch] = React.useState("")
   const [yearFilter, setYearFilter] = React.useState("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
+  const [cancellingRow, setCancellingRow] = React.useState<LeaveRequestRow | null>(
+    null,
+  )
 
   const yearOptions = React.useMemo(() => getLeavePeriodYearsFromRows(rows), [rows])
 
@@ -206,6 +211,7 @@ export function MyLeaveDataTable({
   }, [filteredRows, pagination.pageIndex, pagination.pageSize])
 
   return (
+    <>
     <DataTable<LeaveRequestRow>
       columns={columns}
       data={pagedRows}
@@ -296,7 +302,19 @@ export function MyLeaveDataTable({
                 params: { leaveId: row.original.id },
               })
             },
-            hidden: (row) => row.original.overall_status === "approved",
+            hidden: (row) => !isLeaveApplicationPendingOnly(row.original),
+          },
+          {
+            label: (
+              <>
+                <XCircle className="size-4" />
+                Cancel request
+              </>
+            ),
+            onSelect: (row) => {
+              setCancellingRow(row.original)
+            },
+            hidden: (row) => !isLeaveApplicationPendingOnly(row.original),
           },
         ],
       }}
@@ -307,5 +325,21 @@ export function MyLeaveDataTable({
         emptyMessage: "No leave requests yet. Apply for leave to get started.",
       }}
     />
+
+    <CancelLeaveDialog
+      leaveId={cancellingRow?.id ?? null}
+      leaveLabel={
+        cancellingRow
+          ? `${cancellingRow.leave_type} (#${cancellingRow.id})`
+          : undefined
+      }
+      open={cancellingRow != null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setCancellingRow(null)
+        }
+      }}
+    />
+    </>
   )
 }

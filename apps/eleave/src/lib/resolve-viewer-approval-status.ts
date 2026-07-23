@@ -1,6 +1,10 @@
 import type { LeaveApplicationRecord } from "@/lib/leave-applications-api"
 
-export type ViewerApprovalStatus = "pending" | "approved" | "disapproved"
+export type ViewerApprovalStatus =
+  | "pending"
+  | "approved"
+  | "disapproved"
+  | "cancelled"
 
 export function normalizeApproverDecisionStatus(
   value: string | null | undefined,
@@ -15,6 +19,10 @@ export function normalizeApproverDecisionStatus(
     return "disapproved"
   }
 
+  if (normalized === "cancelled") {
+    return "cancelled"
+  }
+
   return "pending"
 }
 
@@ -22,6 +30,10 @@ export function resolveViewerApprovalStatus(
   record: LeaveApplicationRecord,
   viewerEmpNo: string | null | undefined,
 ): ViewerApprovalStatus | null {
+  if ((record.overall_status ?? "").trim().toLowerCase() === "cancelled") {
+    return "cancelled"
+  }
+
   const viewer = viewerEmpNo?.trim()
 
   if (!viewer) {

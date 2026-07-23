@@ -162,6 +162,7 @@ function ForApprovalPage() {
               <option value="approved">Approved</option>
               <option value="disapproved">Disapproved</option>
               <option value="pending">Pending</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </label>
         </div>
@@ -227,7 +228,9 @@ function ForApprovalPage() {
                     <OverallStatusBadge
                       status={
                         resolveViewerApprovalStatus(row.record, viewerEmpNo) ??
-                        "pending"
+                        (row.overallStatus === "cancelled"
+                          ? "cancelled"
+                          : "pending")
                       }
                     />
                     <Button

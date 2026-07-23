@@ -111,3 +111,23 @@ When HR marks portions Approved With Pay (or changes types/portions), `validateH
 | Per-day `hr_status_*` | HR disposition of each portion |
 
 Both supervisor and manager approval are required before the application is endorsed into the HR queue.
+
+## Cancel and Edit (My Leave)
+
+Employee self-service **cancel** and **edit** are allowed only while the application is fully **Pending**:
+
+- `overall_status` is `Pending`
+- Approver1 and Approver2 are `Pending` or null (not Approved or Disapproved)
+- Every non-empty HR day status is `Pending` (not Approved With/Without Pay, Disapproved, or Cancelled)
+
+**Cancel** (`PATCH /v1/leave-applications/{id}/cancel`):
+
+- Immediate — no approver or HR action
+- Optional `cancellation_reason`
+- Sets `overall_status` to `Cancelled`, stamps `cancelled_by` / `cancelled_at`, and sets Pending day HR statuses to `Cancelled`
+- Sets Approver1 and Approver2 to `Cancelled` when they were still Pending/null (does not set `approver*_idno` to the employee)
+- Leaves `cancel_status` as `None` (request workflow unused)
+- Workflow UIs show a **Cancelled by** step with the canceller’s avatar/name from `cancelled_by_teacher`
+- Approver decisions are rejected after cancel
+
+**Edit** visibility uses the same Pending-only rule. Saving an edited application is not available yet (no update API).
