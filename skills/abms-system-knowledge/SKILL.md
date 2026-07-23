@@ -11,7 +11,7 @@ Use the workspace documentation as durable memory for ABMS. It records repositor
 
 ## Start Here
 
-1. Read `../../docs/abms/system-context.md` for every ABMS task.
+1. Read `../../docs/abms/continuity-status.md` and `../../docs/abms/system-context.md` for every ABMS task.
 2. Read only the task-specific references below.
 3. Inspect the actual source, migrations, and tests before making a change. Documentation is a maintained map, not a substitute for verification.
 4. If implementation changes a relationship, invariant, endpoint family, or workflow, update the relevant reference in the same task.
@@ -30,9 +30,9 @@ Use the workspace documentation as durable memory for ABMS. It records repositor
 - A proposal or requisition belongs to exactly one department or section in valid business state.
 - Use application-timezone inclusive boundaries for date-ranged finance reports.
 - Return backend-calculated money as fixed two-decimal strings in report APIs; do not make the frontend the financial calculator.
-- Historical reports reconstruct audited state and net deltas in global audit-ID order. Never silently substitute current values for missing historical evidence.
+- Date-ranged reports select live entries by inclusive application-timezone `created_at` boundaries and display their latest stored values; later edits intentionally change earlier date-range results. Audit history is not a report-calculation source.
 - Treat root account code `355` as CAPEX for reports and all other root accounts as NON-CAPEX.
-- Keep report and historical projection code read-only unless a task explicitly changes a transaction workflow.
+- Keep report projection code read-only unless a task explicitly changes a transaction workflow.
 
 ## Repository Boundaries
 

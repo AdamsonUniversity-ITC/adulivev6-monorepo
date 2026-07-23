@@ -1,50 +1,37 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-07-22
+Last verified: 2026-07-23
 
 ## Shared Financial Identity
 
 - Account identity is the positive `accounts.id`. Codes and SAP numbers are non-unique labels.
 - A typed unit key is `department:{id}` or `section:{id}`. Never merge these namespaces.
 - A proposal allocation is the tuple of school year, typed unit, proposal, and child account represented by `budget_proposal_entry` plus `sub_accounts`.
-- Current account hierarchy and organization relationships are used for grouping historical activity. Emit a warning when historical evidence shows the mapping changed or cannot be established reliably.
+- Current account hierarchy and organization relationships are used for report grouping. Emit a warning when a current relationship cannot be established reliably.
 
 ## Budget Performance Formula
 
-For each scoped allocation:
-
-```text
-Balance = Approved Budget + Adjustment Additional
-          - Adjustment Deduction - Released + Unused Amount
-```
-
-- Approved Budget is the current live `approved_total_cost` baseline for the selected school year. It is not bounded by the report date range.
-- Additional, Deduction, Released, and Unused Amount are period activity reconstructed from net audit deltas inside inclusive application-timezone boundaries.
+- A proposal participates only when its current `created_at` is inside the inclusive application-timezone From/To boundaries. Approved Budget and Balance come directly from the included allocation's latest `approved_total_cost` and `balance`.
+- Adjustment Additional and Deduction come from the latest values of live adjustment entries created inside the range.
+- Released and Unused Amount come from the latest `total_cost` and `unused_amount` of live items whose current live requisition header was created inside the range.
+- Balance is a stored current allocation value and is not recomputed from the other displayed period columns.
+- A later update to any included current row intentionally changes a report for the row's original creation date. An update does not move an entry into a range when its `created_at` is outside that range.
 - Aggregate by typed unit and child allocation first, then roll up to a parent, division, or university level. This prevents cross-unit and cross-account leakage.
 - Return all financial fields as backend-formatted two-decimal strings. Category, group, and grand totals are calculated by the backend.
 - Root account code `355` is CAPEX; every other root account is NON-CAPEX.
 
-## Audit Projection
+## Live Date-Range Projection
 
-OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves same-second ordering.
-
-- Create: add the initial audited financial state.
-- Update: add only `new - old` for each financial field.
-- Delete: reverse the last known state.
-- Restore: reapply the restored state.
-- A remarks-only edit with no monetary delta does not create a financial event row.
-- For detailed adjustment output, remarks reflect state after create/update/restore and before delete.
-- Do not invent historical activity from a current balance or current row when audit evidence is absent.
-- Return best-effort supported deltas with `data_quality.complete = false` and structured warnings when exact reconstruction is impossible.
+- Date-ranged report services do not query OwenIt audits for inclusion, dates, values, snapshots, lifecycle reconstruction, or reconciliation.
+- Convert From and To to explicit start-of-day and end-of-day strings in the application timezone before querying `created_at`; this preserves midnight and end-of-day inclusivity without connection-timezone shifts.
+- Missing audit history is not a report data-quality error. Current invalid organizational identity, unresolved account identity, ambiguous legacy code mapping, and current total inconsistencies may still produce warnings.
 
 ## Requisition Snapshot and Balance Rules
 
-- A finalized request is first established by the audit event that assigns a nonzero requisition number.
-- Historical requested-item reports reconstruct request number, payee, description, unit cost, quantity, and total cost at that cutoff. Global audit-ID ordering applies.
-- If the nonzero-number audit is missing, both requested-item report families use the current header `created_at` as the request-date fallback and emit `missing_request_audit`.
-- At the request cutoff, missing audited header or item fields may fall back to current values through `RequestedItemAuditSnapshotService`; this emits `incomplete_requisition_snapshot` or `incomplete_item_snapshot`. These are best-effort results, never complete historical evidence.
+- Requested-item reports include current live, numbered requisitions whose current header `created_at` is inside the range.
+- Request number, payee, organizational ownership, description, account, unit cost, quantity, and total cost all come from the latest stored live header and item rows.
 - Drafts, soft-deleted headers/items, and requests whose current status is cancelled or disapproved do not qualify for requested-item reports.
-- Requested amount is audited `total_cost`; the frontend does not multiply unit cost by quantity.
+- Requested amount is the current stored item `total_cost`; the frontend does not multiply unit cost by quantity.
 - Modern requisition items must resolve their stored `account_id` to the exact school-year typed-unit allocation.
 - A legacy missing/zero `account_id` may fall back to account code only when the scoped allocation yields exactly one account. Ambiguous or missing mappings are rejected for balance-changing deletion and excluded/warned in historical reports. Ambiguity checks include soft-deleted historical allocation matches, so one active match plus one trashed match is still ambiguous.
 - Whole-requisition deletion first preflights every item mapping before opening the transaction. Inside the transaction it locks the header/items, re-resolves and locks each allocation/proposal, applies refunds, and deletes; any later failure rolls the entire transaction back. Do not remove the locked revalidation merely because the preflight passed.
@@ -120,20 +107,20 @@ OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves 
 ### Item Requested Per Account
 
 - Hierarchy is root account -> child account -> tagged department/section.
-- Summary returns unit totals; Detailed returns initial-finalized item snapshots and unit/sub/root/grand totals.
+- Summary returns current unit totals; Detailed returns current live items and unit/sub/root/grand totals.
 - All-account and all-unit switches widen scope explicitly; both default off.
 
 ### Items Requested by Payee
 
-- Returns one row per qualifying initial-finalized item with nonblank payee.
+- Returns one row per qualifying current live item with a nonblank current payee.
 - Multi-item requisitions repeat payee, RS number, and RS date.
 - Sort by payee case-insensitively, then request date, request number, and item ID.
 
 ### Adjustments Per Department
 
 - Summary and Detailed use typed unit -> category -> root -> child hierarchy.
-- Summary aggregates Additional and Deduction; Detailed exposes each monetary audit event with date and remarks.
-- Detailed per Date requires the same From and To date and returns a flat dated group sorted by unit, root, child, and audit ID.
+- Summary aggregates each qualifying current adjustment once. Detailed exposes one current row per adjustment with its entry creation date and current remarks and amounts.
+- Detailed per Date requires the same From and To date and returns a flat group sorted by unit, root, child, and adjustment ID.
 
 ### Budget Liquidation
 
@@ -159,7 +146,29 @@ OwenIt `audits` are ordered by timestamp and global audit ID; audit ID resolves 
 - University Budget is a school-year-wide live snapshot that does not require a unit filter. It groups Main Account -> Sub-Account -> typed Department/Section and aggregates item quantity, proposed amount, and approved amount.
 - University Budget keeps Department and Section identities distinct, merges duplicate allocations for the same typed unit and child account without double-counting items, and permits the same optional Main/Sub-Account narrowing.
 - Missing organizational or account relationships remain under explicit Unmapped groups with warnings so university totals reconcile.
+- Approved Budget is a school-year and exact typed-unit live snapshot. It always includes every allocated account for the selected Department/Section and disables Main/Sub-Account filtering.
+- Approved Budget groups Main Account -> Sub-Account and aggregates live item quantity, proposed amount, and approved amount. Null approved values are zero; child, root, and grand totals are backend-calculated.
+- Approved Budget merges duplicate allocations for the same child account without counting the same proposal item ID twice and preserves unresolved account relationships under Unmapped Account with warnings.
+- Approved Items per Account requires one root Main Account, permits an optional child Sub-Account, and permits either one exact typed Department/Section or all units for the school year.
+- Approved Items per Account groups typed unit -> child account -> live proposal item. It displays description, quantity, and current `approved_total_cost`; null and zero approved values remain visible as `0.00`.
+- Approved Items per Account returns backend child, unit, and grand totals. All-unit printing starts each Department/Section on a new Letter landscape page, and unresolved units are preserved with warnings.
+- Approved Items per Account/Department uses the same required root, optional child, and optional exact typed-unit scope, but groups child account -> typed Department/Section -> live proposal item.
+- Approved Items per Account/Department displays description, quantity, proposed `total_cost`, and approved `approved_total_cost`, then calculates typed-unit, child-account, selected-main-account, and grand totals on the backend. Null approved values remain visible as `0.00`.
+- Percentage of Proposed versus Approved Budget requires one exact typed Department/Section and permits optional Main/Sub-Account narrowing. It groups current live proposal item values as root account -> child account.
+- Its backend-calculated percentage is `(approved amount / proposed amount) * 100`, formatted to two decimals for every child, root total, and grand total. Total percentages use aggregated amounts rather than averaging row percentages; a zero proposed denominator returns `0.00`.
+- Percentage of Approved Budget, Previous versus Current School Year treats the selected report `school_year` as the previous year and resolves the current year only from `budget_settings.current_school_year`. The years must differ.
+- It scopes both years to the same exact typed unit and optional Main/Sub-Account filters, then groups the union of current account identities present in either year. Missing-year values are zero rather than causing the account row to disappear.
+- Its percentage is `(current approved amount / previous approved amount) * 100`. Child, root, and grand percentages use aggregated approved cents; a zero previous approved denominator returns `0.00`.
 - Other unimplemented legacy proposal report choices are visible but disabled until their rules are implemented.
+
+### Unserved RS Report
+
+- The report includes current live requisition headers with a nonzero requisition number and excludes only current statuses `served` and `served by wico`, case-insensitively.
+- Its inclusive application-timezone From/To period applies to the live header's `created_at`. Current status, location, organization ownership, and total amount are displayed; audits do not determine period inclusion.
+- Blank Location includes every current location. A selected normalized Location scopes exactly; null or blank locations are grouped as Unassigned.
+- Output groups current Location -> current Status -> requisition rows. Current cancelled and disapproved requisitions remain included because they are not served.
+- Date Certified is display metadata from the first requisition-header audit, ordered by timestamp and audit ID, whose new status is `certified`. Missing certification evidence displays as unavailable and does not remove the row.
+- Typed organizational identity is preserved, money is formatted by the backend, and status, location, and grand totals reconcile to current header `total_amount` values.
 
 ## UI and Print Contract
 

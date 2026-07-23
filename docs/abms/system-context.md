@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-07-22
+Last verified: 2026-07-23
 
 ## Purpose
 
@@ -43,9 +43,14 @@ The report pages live in `apps/abms/src/pages/reports/`:
 - `AdjustmentsPerDepartment.tsx`
 - `BudgetLiquidation.tsx`
 - `BudgetProposalReports.tsx`
+- `UnservedRs.tsx`
 - shared searchable filter: `shared/ReportFilterCombobox.tsx`
 
 Routes are registered in `apps/abms/src/router.tsx`. Finance requests use the shared finance-service Axios configuration. Protected routing must derive production redirects from the Vite production URL environment setting rather than hardcoded localhost values.
+
+The shared protected route renders `components/LoadingScreen.tsx` immediately while it verifies the authenticated session, ABMS access, finance profile, general permissions, and typed Department/Section assignments. Protected content is rendered only after that context resolves. The screen remains visible for at least 500 ms to avoid flashing on fast responses and preserves the existing login, maintenance, and unauthorized redirects. The production redirect base is the single Vite setting `VITE_ADU_LIVE_PRODUCTION_URL`.
+
+The static Budget User Guides page lives at `pages/infographics/BudgetUserGuides.tsx` and `/infographics/budget-user-guides`. Its sidebar item and route both allow either `allow-budget-proposal-entry` or `allow-budget-request-entry`. Approved artwork is served from `public/infographics/`; the page makes no finance API request and changes no transaction behavior.
 
 ## Backend Entry Points
 
@@ -59,6 +64,7 @@ ABMS route files are under `../finance_service/app-modules/abms/routes/`. Report
 - `adjustments-per-department.php`
 - `budget-liquidation.php`
 - `budget-proposal-reports.php`
+- `unserved-rs.php`
 
 Transaction families include proposal entry, adjustment entry, requisition entry/process, liquidation submission, transfer account, settings, status, accounts, departments, and user access.
 
@@ -76,14 +82,15 @@ During RS creation, the account picker queries only the exact school-year typed-
 
 | API prefix | Controller | Primary service/projector |
 |---|---|---|
-| `/api/abms/budget-performance-per-department` | `BudgetPerformancePerDepartmentController` | `BudgetPerformanceReportService`, `BudgetPerformanceAuditProjector` |
-| `/api/abms/budget-performance-per-account` | `BudgetPerformancePerAccountController` | `BudgetPerformancePerAccountReportService`, `BudgetPerformanceAuditProjector` |
-| `/api/abms/budget-performance-university` | `BudgetPerformanceUniversityController` | `BudgetPerformanceUniversityReportService`, `BudgetPerformanceAuditProjector` |
-| `/api/abms/item-requested-per-account` | `ItemRequestedPerAccountController` | `ItemRequestedPerAccountReportService`, `RequestedItemAuditSnapshotService` |
-| `/api/abms/items-requested-by-payee` | `ItemsRequestedByPayeeController` | `ItemsRequestedByPayeeReportService`, `RequestedItemAuditSnapshotService` |
-| `/api/abms/adjustments-per-department` | `AdjustmentsPerDepartmentController` | `AdjustmentsPerDepartmentReportService`, `AdjustmentAuditEventProjector` |
+| `/api/abms/budget-performance-per-department` | `BudgetPerformancePerDepartmentController` | `BudgetPerformanceReportService` |
+| `/api/abms/budget-performance-per-account` | `BudgetPerformancePerAccountController` | `BudgetPerformancePerAccountReportService` |
+| `/api/abms/budget-performance-university` | `BudgetPerformanceUniversityController` | `BudgetPerformanceUniversityReportService` |
+| `/api/abms/item-requested-per-account` | `ItemRequestedPerAccountController` | `ItemRequestedPerAccountReportService` |
+| `/api/abms/items-requested-by-payee` | `ItemsRequestedByPayeeController` | `ItemsRequestedByPayeeReportService` |
+| `/api/abms/adjustments-per-department` | `AdjustmentsPerDepartmentController` | `AdjustmentsPerDepartmentReportService` |
 | `/api/abms/budget-liquidation` | `BudgetLiquidationController` | `BudgetLiquidationReportService` |
 | `/api/abms/budget-proposal-reports` | `BudgetProposalReportsController` | `BudgetProposalReportService` |
+| `/api/abms/unserved-rs` | `UnservedRsController` | `UnservedRsReportService` |
 
 Each report prefix exposes `GET /` for filter data and `GET /preview` for calculated report output, protected by `auth:api`.
 
@@ -106,7 +113,7 @@ Sidebar permission declarations and `router.tsx` guards must remain identical. C
 
 Known authorization debt: the generic requisition-process listing and transition endpoints currently trust client-supplied role/action context and do not consistently verify the corresponding general permission server-side. The state guards described in `business-rules.md` protect workflow order, but they do not replace actor authorization. Treat this as an implementation risk until each role-specific read/write endpoint enforces its permission independently.
 
-Historical calculations use OwenIt audits. Missing creation evidence, incomplete old/new values, changed relationships, ambiguous legacy account-code mappings, or writes that bypassed auditing must produce structured data-quality warnings. The UI displays these warnings as toasts; printed report bodies remain focused on report data.
+Every report with From and To filters selects live proposal, adjustment, or requisition headers through inclusive application-timezone `created_at` boundaries and reads the latest stored header, item, allocation, and balance fields. Updates made after the selected To date intentionally change the report for the entry's original date, while an entry created outside the range remains excluded even if updated inside it. Date-ranged report services do not query OwenIt audits. Current relationship or legacy account-mapping problems still produce structured data-quality warnings; the UI displays warnings as toasts while printed report bodies remain focused on report data.
 
 ## Documentation Maintenance
 
@@ -118,3 +125,16 @@ Update these files in the same change whenever durable behavior changes:
 - repository/module entry points: this file
 
 Source code and migrations win if documentation is stale. Correct the documentation once the discrepancy is verified.
+
+## Verification Baseline
+
+As of 2026-07-23:
+
+- The ABMS production frontend build completes successfully.
+- Targeted lint checks for the newly added report pages and protected-route loading screen pass.
+- The focused Budget Proposal Reports backend suite passes with 19 tests and 266 assertions.
+- The focused Unserved RS backend suite passes with 4 tests and 38 assertions.
+- Relevant changed backend files pass Laravel Pint.
+- The Vite build retains its existing large-chunk advisory; this is a performance follow-up, not a build failure.
+- Full authenticated browser workflows depend on an available seeded ABMS environment and should be rerun before deployment when that environment is available.
+- `router.tsx` retains pre-existing lint debt unrelated to the loading screen (`isRedirect` unused and explicit `any` usage); production compilation succeeds.
