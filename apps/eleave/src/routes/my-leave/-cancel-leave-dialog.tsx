@@ -58,6 +58,8 @@ export function CancelLeaveDialog({
       toast.success("Leave request cancelled.")
       await queryClient.invalidateQueries({ queryKey: ["my-leave-applications"] })
       await queryClient.invalidateQueries({ queryKey: ["leave-balances"] })
+      await queryClient.invalidateQueries({ queryKey: ["for-approval-pending-count"] })
+      await queryClient.invalidateQueries({ queryKey: ["hr-approval-pending-count"] })
       onOpenChange(false)
       onCancelled?.()
     },
@@ -77,7 +79,7 @@ export function CancelLeaveDialog({
           <AlertDialogDescription>
             This will immediately cancel
             {leaveLabel ? ` ${leaveLabel}` : " this leave request"}. You can only
-            cancel while Approver 1, Approver 2, and HR are still Pending.
+            cancel while your supervisor, manager, and HR are still Pending.
           </AlertDialogDescription>
         </AlertDialogHeader>
 

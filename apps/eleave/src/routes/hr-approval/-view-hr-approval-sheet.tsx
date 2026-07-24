@@ -226,6 +226,9 @@ export const ViewHrApprovalSheet = ({
       await queryClient.invalidateQueries({
         queryKey: ["hr-approval-leave-applications"],
       })
+      await queryClient.invalidateQueries({
+        queryKey: ["hr-approval-pending-count"],
+      })
       await queryClient.refetchQueries({
         queryKey: ["hr-approval-leave-applications"],
       })

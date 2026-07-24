@@ -38,8 +38,9 @@ export function getAttachmentPreviewUrl(
 
 export const DEFAULT_DOCUMENT_ACCEPT = {
   "application/pdf": [".pdf"],
-  "image/jpeg": [".jpg", ".jpeg"],
+  "image/jpeg": [".jpg", ".jpeg", ".jfif"],
   "image/png": [".png"],
+  "image/webp": [".webp"],
   "application/msword": [".doc"],
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
     ".docx",
@@ -68,7 +69,7 @@ export function getFileKindFromMime(
 
   const extension = fileName.split(".").pop()?.toLowerCase()
   if (extension === "pdf") return "pdf"
-  if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension ?? "")) {
+  if (["jpg", "jpeg", "jfif", "png", "gif", "webp"].includes(extension ?? "")) {
     return "image"
   }
   if (["doc", "docx"].includes(extension ?? "")) return "document"

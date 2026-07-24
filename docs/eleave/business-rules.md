@@ -63,14 +63,19 @@ Slots: `am`, `pm`, `evening`.
 
 | Portion | Occupies |
 | --- | --- |
-| Whole Day | am + pm + evening |
+| Whole Day (`emp_type` = ACADEMIC) | am + pm + evening |
+| Whole Day (`emp_type` = CO-ACADEMIC / other) | am + pm |
 | AM | am |
 | PM | pm |
 | Evening | evening |
 
-- Block when requested slots intersect any existing application date rows for that employee on that date.
-- **All statuses count**, including Cancelled and Disapproved (any existing row still occupies its slots).
-- Example: existing AM only → new AM or Whole Day blocked; new PM or Evening allowed.
+`LeaveDayPortion::slots($portion, $includeEveningInWholeDay)` — `$includeEveningInWholeDay` comes from `Teacher::includesEveningInWholeDay()` (`emp_type === ACADEMIC`).
+
+- Block when requested slots intersect any existing **active** application date rows for that employee on that date.
+- **Cancelled** applications do not occupy slots (employee may re-apply the same date/portion).
+- **Disapproved by Approver 1 or 2** does not occupy slots (employee may re-apply).
+- **Disapproved by HR** still occupies slots (employee cannot re-apply those portions).
+- Example: existing AM only → new AM or Whole Day blocked; new PM or Evening allowed (Evening also allowed against CO-ACADEMIC Whole Day).
 
 Error field: `date_from` (message names date and overlapping slots).
 
@@ -124,8 +129,9 @@ Employee self-service **cancel** and **edit** are allowed only while the applica
 
 - Immediate — no approver or HR action
 - Optional `cancellation_reason`
-- Sets `overall_status` to `Cancelled`, stamps `cancelled_by` / `cancelled_at`, and sets Pending day HR statuses to `Cancelled`
-- Sets Approver1 and Approver2 to `Cancelled` when they were still Pending/null (does not set `approver*_idno` to the employee)
+- Sets `overall_status` to `Cancelled`, stamps `cancelled_by` / `cancelled_at`
+- Clears Approver1 and Approver2 to null (and their dates) when they were still Pending/null — UI shows `—`, not Pending or Cancelled
+- Clears Pending day HR statuses to null — UI shows `—` on those steps
 - Leaves `cancel_status` as `None` (request workflow unused)
 - Workflow UIs show a **Cancelled by** step with the canceller’s avatar/name from `cancelled_by_teacher`
 - Approver decisions are rejected after cancel

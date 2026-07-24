@@ -27,9 +27,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useLeaveApplication } from "@/hooks/use-leave-application"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
-import { mapApiDayPortion, mapDayPortionToApiLabel } from "@/lib/day-portion"
+import {
+  mapApiDayPortion,
+  mapDayPortionToApiLabel,
+  resolveDisplayDayPortion,
+} from "@/lib/day-portion"
 import { isLeaveApplicationPendingOnly } from "@/lib/is-leave-application-pending-only"
 import type { LeaveApplicationRecord } from "@/lib/leave-applications-api"
+import { resolveApproverOrHrWorkflowStatus } from "@/lib/resolve-approver-or-hr-workflow-status"
 import { resolveHrApprovalSummary } from "@/lib/resolve-hr-approval-summary"
 import { resolveLeaveDaysFromRecord } from "@/lib/resolve-leave-days-from-record"
 import { cn } from "@/lib/utils"
@@ -130,11 +135,13 @@ function SchedulePortionLine({
   portion,
   leaveTypeName,
   hrStatus,
+  applicationCancelled = false,
 }: {
   portionLabel?: string
   portion: DayPortion
   leaveTypeName: string
   hrStatus: string | null
+  applicationCancelled?: boolean
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -145,7 +152,11 @@ function SchedulePortionLine({
       ) : null}
       <PortionBadge portion={portion} />
       <LeaveTypeChip name={leaveTypeName} />
-      <HrApprovalStatusBadge status={hrStatus} />
+      {applicationCancelled ? (
+        <span className="text-muted-foreground text-xs">—</span>
+      ) : (
+        <HrApprovalStatusBadge status={hrStatus} />
+      )}
     </div>
   )
 }
@@ -155,12 +166,18 @@ function ScheduleDayRow({
   index,
   leaveTypeNames,
   fallbackLeaveTypeName,
+  applicationCancelled = false,
 }: {
   day: ScheduleDateRow
   index: number
   leaveTypeNames: Map<number, string>
   fallbackLeaveTypeName: string
+  applicationCancelled?: boolean
 }) {
+  const displayPortion = resolveDisplayDayPortion(
+    day.approved_day_portion_1,
+    day.approved_day_portion_2,
+  )
   const isSplit =
     day.approved_day_portion_2 != null &&
     day.approved_day_portion_2.trim() !== ""
@@ -175,40 +192,28 @@ function ScheduleDayRow({
         <span className="text-sm font-medium">{formatLeaveDay(day.leave_date)}</span>
       </div>
       <div className="flex flex-col gap-1.5 pl-2 sm:items-end sm:pl-0">
-        {isSplit ? (
-          <>
-            <SchedulePortionLine
-              portionLabel="Portion 1"
-              portion={mapApiDayPortion(day.approved_day_portion_1)}
-              leaveTypeName={resolveLeaveTypeName(
-                day.approved_leave_type_id_1,
-                leaveTypeNames,
-                fallbackLeaveTypeName,
-              )}
-              hrStatus={day.hr_status_1}
-            />
-            <SchedulePortionLine
-              portionLabel="Portion 2"
-              portion={mapApiDayPortion(day.approved_day_portion_2!)}
-              leaveTypeName={resolveLeaveTypeName(
-                day.approved_leave_type_id_2,
-                leaveTypeNames,
-                fallbackLeaveTypeName,
-              )}
-              hrStatus={day.hr_status_2}
-            />
-          </>
-        ) : (
-          <SchedulePortionLine
-            portion={mapApiDayPortion(day.approved_day_portion_1)}
-            leaveTypeName={resolveLeaveTypeName(
-              day.approved_leave_type_id_1,
-              leaveTypeNames,
-              fallbackLeaveTypeName,
+        <SchedulePortionLine
+          portion={displayPortion}
+          leaveTypeName={resolveLeaveTypeName(
+            day.approved_leave_type_id_1,
+            leaveTypeNames,
+            fallbackLeaveTypeName,
+          )}
+          hrStatus={day.hr_status_1}
+          applicationCancelled={applicationCancelled}
+        />
+        {isSplit && day.hr_status_2 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-muted-foreground w-16 shrink-0 text-xs font-medium">
+              Portion 2
+            </span>
+            {applicationCancelled ? (
+              <span className="text-muted-foreground text-xs">—</span>
+            ) : (
+              <HrApprovalStatusBadge status={day.hr_status_2} />
             )}
-            hrStatus={day.hr_status_1}
-          />
-        )}
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -342,11 +347,13 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
   )
   const dayCount = applicationDates.length || leaveDays.length
   const partialCount = applicationDates.length
-    ? applicationDates.filter(
-        (day) =>
-          mapApiDayPortion(day.approved_day_portion_1) !== "wholeday" ||
-          day.approved_day_portion_2 != null,
-      ).length
+    ? applicationDates.filter((day) => {
+        const display = resolveDisplayDayPortion(
+          day.approved_day_portion_1,
+          day.approved_day_portion_2,
+        )
+        return display !== "wholeday"
+      }).length
     : leaveDays.filter((day) => day.day_portion !== "wholeday").length
   const scheduleDates: ScheduleDateRow[] =
     applicationDates.length > 0
@@ -486,6 +493,7 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
                   index={index}
                   leaveTypeNames={leaveTypeNames}
                   fallbackLeaveTypeName={leaveTypeName}
+                  applicationCancelled={overallStatus === "cancelled"}
                 />
               ))}
             </div>
@@ -524,30 +532,44 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
                 title="Supervisor"
                 subtitle=""
                 teacher={supervisor}
-                status={application.approver1_status ?? "Pending"}
+                status={resolveApproverOrHrWorkflowStatus(
+                  application.overall_status,
+                  application.approver1_status,
+                )}
                 remarks={application.approver1_remarks}
-                actedAt={application.approver1_date}
+                actedAt={
+                  overallStatus === "cancelled"
+                    ? null
+                    : application.approver1_date
+                }
               />
               <LeaveApprovalStep
                 title="Manager"
                 subtitle=""
                 teacher={manager}
-                status={application.approver2_status ?? "Pending"}
+                status={resolveApproverOrHrWorkflowStatus(
+                  application.overall_status,
+                  application.approver2_status,
+                )}
                 remarks={application.approver2_remarks}
-                actedAt={application.approver2_date}
+                actedAt={
+                  overallStatus === "cancelled"
+                    ? null
+                    : application.approver2_date
+                }
               />
-              {hrApproval.approvers.length > 0 ? (
+              {overallStatus === "cancelled" ? (
+                <LeaveApprovalStep
+                  title="HR Approval"
+                  status="—"
+                  actedAt={null}
+                />
+              ) : hrApproval.approvers.length > 0 ? (
                 <LeaveApprovalStep
                   title="HR Approval"
                   teachers={hrApproval.approvers}
                   status={hrApproval.status}
                   actedAt={hrApproval.latestApprovedDate}
-                />
-              ) : overallStatus === "cancelled" ? (
-                <LeaveApprovalStep
-                  title="HR Approval"
-                  status="Cancelled"
-                  actedAt={application.cancelled_at}
                 />
               ) : (
                 <div className="px-5 py-4">

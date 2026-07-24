@@ -1,5 +1,9 @@
 import type { LeaveApplicationRecord } from "@/lib/leave-applications-api"
-import { mapApiDayPortion } from "@/lib/day-portion"
+import {
+  getDayPortionLabel,
+  mapApiDayPortion,
+  resolveDisplayDayPortion,
+} from "@/lib/day-portion"
 import type { LeaveDay } from "@/routes/my-leave/leave-form/schema"
 import { syncLeaveDays } from "@/routes/my-leave/leave-form/utils"
 
@@ -21,7 +25,10 @@ export function resolveLeaveDaysFromRecord(
     return mapLeaveDays(
       record.leave_application_dates.map((day) => ({
         date: day.leave_date,
-        day_portion: day.approved_day_portion_1,
+        day_portion: resolveDisplayDayPortion(
+          day.approved_day_portion_1,
+          day.approved_day_portion_2,
+        ),
       })),
     )
   }
@@ -37,12 +44,7 @@ export function formatLeaveDatePortionLabel(
   approvedDayPortion1: string,
   approvedDayPortion2: string | null | undefined,
 ): string {
-  const portion1 = mapApiDayPortion(approvedDayPortion1)
-
-  if (!approvedDayPortion2) {
-    return portion1
-  }
-
-  const portion2 = mapApiDayPortion(approvedDayPortion2)
-  return `${portion1}+${portion2}`
+  return getDayPortionLabel(
+    resolveDisplayDayPortion(approvedDayPortion1, approvedDayPortion2),
+  )
 }

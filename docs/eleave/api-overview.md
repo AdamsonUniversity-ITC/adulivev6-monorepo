@@ -17,8 +17,10 @@ Source: `routes/api/leave_applications.php`
 | POST | `leave-applications/apply` | auth | Multipart apply |
 | PATCH | `leave-applications/{leaveApplication}/cancel` | auth (owner) | Immediate cancel while fully Pending; optional `cancellation_reason` |
 | GET | `leave-applications/for-approval` | supervisor/manager | Endorsement queue |
+| GET | `leave-applications/for-approval/pending-count` | supervisor/manager | Pending count for sidebar badge |
 | PATCH | `leave-applications/{leaveApplication}/decision` | supervisor/manager | Approve/disapprove |
 | GET | `leave-applications/for-hr-approval` | HR approval perms | HR queue |
+| GET | `leave-applications/for-hr-approval/pending-count` | HR approval perms | Pending count for sidebar badge |
 | PATCH | `leave-application-dates/hr-approval` | HR approval perms | Batch day HR updates |
 
 ## Leave Types
@@ -94,7 +96,7 @@ Source: `routes/api/leave_application_media.php`
 
 | Method | Path | Gate |
 | --- | --- | --- |
-| GET | `leave-applications/media/{media}/view` | `signed` (+ auth group) |
+| GET | `leave-applications/media/{media}/view` | `signed` |
 
 Named route: `eleave.media.view`. URL expiration from `eleave.file_url_expiration_minutes`.
 

@@ -29,6 +29,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -39,6 +40,8 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useMyEmployeeHrProfile } from "@/hooks/use-employee-hr-profile";
+import { useForApprovalPendingCount } from "@/hooks/use-for-approval-pending-count";
+import { useHrApprovalPendingCount } from "@/hooks/use-hr-approval-pending-count";
 import {
   getAvatarUrlFromEmpNo,
   getInitialsFromDisplayName,
@@ -46,6 +49,7 @@ import {
 import { canAccessEleaveRoute } from "@/lib/eleave-route-access";
 import { resolveDisplayName, resolveEmployeeNo } from "@/lib/fetch-auth-user";
 import { resolveHrmdoPortalUrl } from "@/lib/resolve-adu-live-url";
+import { cn } from "@/lib/utils";
 
 const mainNavItems = [
   { title: "Guidelines", url: "/guidelines", icon: BookOpen },
@@ -64,6 +68,14 @@ const reportNavItems = [
   { title: "Filed Leave", url: "/reports/filed-leave", icon: FolderOpen },
   { title: "Filed Leave After Cutoff", url: "/reports/filed-leave-after-cutoff", icon: FolderOpen },
 ] as const;
+
+function formatPendingCountBadge(count: number): string {
+  if (count > 99) {
+    return "99+"
+  }
+
+  return String(count)
+}
 
 function isNavItemActive(pathname: string, url: string) {
   if (
@@ -105,6 +117,18 @@ export function AppSidebar() {
   function canViewNavItem(url: string): boolean {
     return canAccessEleaveRoute(url, { user: authUser, profile: hrProfile });
   }
+
+  const canViewForApproval = canViewNavItem("/for-approval");
+  const canViewHrApproval = canViewNavItem("/hr-approval");
+  const { data: forApprovalPendingCount = 0 } =
+    useForApprovalPendingCount(canViewForApproval);
+  const { data: hrApprovalPendingCount = 0 } =
+    useHrApprovalPendingCount(canViewHrApproval);
+
+  const pendingCountByUrl: Partial<Record<string, number>> = {
+    "/for-approval": forApprovalPendingCount,
+    "/hr-approval": hrApprovalPendingCount,
+  };
 
   const visibleAdminNavItems = adminNavItems.filter((item) =>
     canViewNavItem(item.url),
@@ -163,7 +187,10 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {visibleMainNavItems.map((item) => (
+              {visibleMainNavItems.map((item) => {
+                const pendingCount = pendingCountByUrl[item.url] ?? 0
+
+                return (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild
@@ -178,8 +205,22 @@ export function AppSidebar() {
                       </span>
                     </Link>
                   </SidebarMenuButton>
+                  {pendingCount > 0 ? (
+                    <SidebarMenuBadge
+                      className={cn(
+                        "bg-amber-100 text-amber-800 peer-hover/menu-button:text-amber-900 peer-data-[active=true]/menu-button:text-amber-900",
+                        "!top-1/2 h-5 min-w-5 -translate-y-1/2 px-1.5 mr-2 leading-none",
+                        "group-data-[collapsible=icon]:flex",
+                      )}
+                    >
+                      <span className="flex h-full w-full items-center justify-center leading-none">
+                        {formatPendingCountBadge(pendingCount)}
+                      </span>
+                    </SidebarMenuBadge>
+                  ) : null}
                 </SidebarMenuItem>
-              ))}
+                )
+              })}
 
               {visibleAdminNavItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
