@@ -3,6 +3,7 @@ import {
   mapLeaveApplicationToHrApprovalRow,
   type HrApprovalRow,
 } from "@/lib/map-hr-approval-row"
+import { resolveApproverOrHrWorkflowStatus } from "@/lib/resolve-approver-or-hr-workflow-status"
 import { resolveHrApprovalSummary } from "@/lib/resolve-hr-approval-summary"
 
 export type FiledLeaveReportRow = HrApprovalRow & {
@@ -12,9 +13,19 @@ export type FiledLeaveReportRow = HrApprovalRow & {
 }
 
 function buildApprovalsLabel(record: LeaveApplicationRecord): string {
-  const supervisor = record.approver1_status?.trim() || "—"
-  const manager = record.approver2_status?.trim() || "—"
-  const hr = resolveHrApprovalSummary(record).status
+  const overall = record.overall_status
+  const supervisor = resolveApproverOrHrWorkflowStatus(
+    overall,
+    record.approver1_status,
+  )
+  const manager = resolveApproverOrHrWorkflowStatus(
+    overall,
+    record.approver2_status,
+  )
+  const hr = resolveApproverOrHrWorkflowStatus(
+    overall,
+    resolveHrApprovalSummary(record).status,
+  )
 
   return `Supervisor: ${supervisor} | Manager: ${manager} | HR: ${hr}`
 }
