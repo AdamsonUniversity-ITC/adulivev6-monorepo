@@ -71,6 +71,7 @@ function BudgetRequestEntryInner({
         school_year: string;
         created_at: string;
         payee: string | null;
+        payment_form: string | null;
         payeeFromModal: boolean;
     }
     const [rsHeaderData, setRsHeaderData] = useState<RSHeaderData | null>(null);
@@ -275,6 +276,7 @@ function BudgetRequestEntryInner({
                             school_year: res.data.school_year,
                             created_at: res.data.created_at,
                             payee: payeeDetails?.payee ?? null,
+                            payment_form: paymentForm || null,
                             payeeFromModal: payeeDetails !== null,
                         });
                         setShowRSForm(true);

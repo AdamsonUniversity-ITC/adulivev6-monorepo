@@ -40,7 +40,7 @@ export function normalizeStatus(raw: string | null | undefined): Status {
     if (!raw) return 'for review';
     const s = raw.toLowerCase().trim() as Status;
     const valid: Status[] = [
-        'unsaved', 'for review', 'for certification', 'certified', 'for pricing',
+        'unsaved', 'reprocess', 'for review', 'for certification', 'certified', 'for pricing',
         'disapproved', 'cancelled', 'served by wico',
         'for budget staff', 'for budget director', 'for purchase', 'po on process', 'on process', 'for approval',
     ];

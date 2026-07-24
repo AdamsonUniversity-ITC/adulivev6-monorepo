@@ -4,6 +4,7 @@ export type ThemeTokens = typeof T.dark;
 
 export type Status =
     | 'unsaved'
+    | 'reprocess'
     | 'for review'
     | 'for certification'
     | 'certified'

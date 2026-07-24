@@ -298,19 +298,16 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
         });
     }
 
-    // An item's approved amount can never exceed its proposed amount.
-    function getApprovedError(row: BudgetItem): string | null {
-        const raw = (drafts[row.id]?.approvedAmount ?? '').trim();
+    function getApprovedError(itemId: number): string | null {
+        const raw = (drafts[itemId]?.approvedAmount ?? '').trim();
         if (raw === '') return null;
         const val = Number(raw);
         if (isNaN(val)) return null;
-        if (val > row.amount) {
-            return `Cannot exceed proposed amount (${fmt(row.amount)}).`;
-        }
+        if (val < 0) return 'Approved amount cannot be negative.';
         return null;
     }
 
-    const hasApprovedErrors = items.some(row => getApprovedError(row) !== null);
+    const hasApprovedErrors = items.some(row => getApprovedError(row.id) !== null);
 
     function handleRemarksChange(id: number, value: string) {
         patchDraft(id, { remarks: value });
@@ -325,7 +322,7 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
         if (dirtyIds.size === 0 || saving) return;
 
         if (hasApprovedErrors) {
-            showToast('error', 'One or more approved amounts exceed their proposed amount. Please fix before saving.');
+            showToast('error', 'One or more approved amounts are invalid. Please fix before saving.');
             return;
         }
 
@@ -865,14 +862,13 @@ function BudgetReviewDetailsInner({ t, navState }: { t: typeof T.dark; navState:
                                                     onClick={e => e.stopPropagation()}
                                                 >
                                                     {(() => {
-                                                        const approvedError = getApprovedError(row);
+                                                        const approvedError = getApprovedError(row.id);
                                                         return (
                                                             <>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max={row.amount}
-                                                                    step="0.01"
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
                                                                     value={drafts[row.id]?.approvedAmount ?? ''}
                                                                     onChange={e => handleApprovedChange(row.id, e.target.value)}
                                                                     placeholder="0.00"

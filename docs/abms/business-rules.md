@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-07-23
+Last verified: 2026-07-24
 
 ## Shared Financial Identity
 
@@ -45,10 +45,14 @@ Last verified: 2026-07-23
 - Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.
 - Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
 - The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
-- Finalization requires at least one item. A Cashier requisition must total at least PHP 1,000; drafts may still synchronize below that threshold.
+- Finalization requires at least one item. A Cashier requisition must total at least PHP 1,000 unless its stored payment form is exactly `PNB Credit Card Payment`; drafts may still synchronize below that threshold.
+- `Reprocess RS` uses the dedicated database status `reprocess`, sets `location = department`, records the prior location in `from`, and resets Controller decision state. Reprocess actions are hidden once an entry is already in `reprocess`.
+- Department-side item editing is allowed only for unsaved requisitions or entries with `status = reprocess` and `location = department`. Editable rows may change description, quantity, unit cost, and unit of measurement; every save recalculates item totals and applies only the account/proposal balance delta inside one transaction.
+- Item add/remove/update routes reject non-editable finalized requisitions. Modern rows resolve by stored `account_id`; legacy rows may fall back to account code only when the selected school-year typed-unit allocation resolves uniquely.
 - Cancelling or disapproving through the current requisition-process action handler locks the requisition, resolves each item by stored `account_id`, refunds the still-consumed amount, and updates the status atomically. If any item lacks an exact allocation/proposal mapping, the action fails without partial balance or status changes.
 - The department quoted-price preview is read-only. The requester may view it; otherwise the user needs a typed permission matching the requisition's exact department or section. It aggregates all item deltas per allocation before projecting the balance and returns unresolved allocations explicitly rather than changing balances.
 - Administration and Budget users may toggle `for_liquidation` on a Cashier requisition at any workflow location or status except `cancelled` and `disapproved`. The backend returns 403 without either permission and 422 for a non-Cashier or terminal requisition. The toggle remains reversible and changes only the tag; it does not approve, liquidate, reroute, or mutate balances.
+- Administration and Budget users may toggle `is_cash_advance` on a Cashier requisition only after it has a nonzero requisition number and while status is not `cancelled` or `disapproved`. The tag is independent from `for_liquidation` and changes no balances, approval state, status, location, or routing.
 
 ## Controller Approval Gate
 
@@ -126,7 +130,7 @@ Last verified: 2026-07-23
 
 - Requires general `admin-access`, `budget-access`, or `controller-access` and includes only live, numbered requisitions whose current status is not cancelled or disapproved.
 - R.S. Date filtering uses `budget_request_entry.created_at` inside inclusive application-timezone day boundaries.
-- For Liquidation scopes `for_liquidation = true`; Liquidated scopes `is_liquidated = true`; Both uses their union and returns a matching requisition once.
+- For Liquidation scopes `for_liquidation = true`; Liquidated scopes `is_liquidated = true`; Both uses their union and returns a matching requisition once. The independent Cash Advances checkbox adds `is_cash_advance = true` to the selected liquidation scope.
 - All-unit output groups by `(unit_type, unit_id)` and starts every Department/Section print section on a new page.
 - Standard Summary returns one requisition row. Detailed adds current live item rows and displays accounts as root code plus child code.
 - Pending requisitions expose unavailable liquidation metadata as null and contribute zero Returned and Liquidated amounts. Saved header liquidation fields are authoritative for liquidated requisition summaries.
@@ -140,6 +144,7 @@ Last verified: 2026-07-23
 - The Details and Status report is a current live snapshot scoped by school year and exact typed Department/Section; it has no date range.
 - Blank account filters include every allocated child account. Main-only includes its children, while Main plus Sub-Account narrows to that exact allocation account.
 - Proposed Amount comes from each live proposal item's `total_cost`; Approved Amount comes from `approved_total_cost`, with null normalized to zero.
+- Budget Review Details permits `approved_total_cost` to be greater than the proposal item's `total_cost`; only negative approved amounts are invalid. Saved approved values roll up to Sub-Account and Budget Proposal approved totals and balances as entered.
 - Status codes are 0 Pending, 1 Approved, and 2 Disapproved. Approved and Disapproved timestamps use the item's current `updated_at` converted to the application timezone; Pending has no status timestamp.
 - Sub-Account, Main Account, and Grand Totals are recalculated from live items and returned as fixed two-decimal strings.
 - Missing account hierarchy is preserved under Unmapped Account with a warning so proposal value is not silently removed.
@@ -155,7 +160,7 @@ Last verified: 2026-07-23
 - Approved Items per Account/Department uses the same required root, optional child, and optional exact typed-unit scope, but groups child account -> typed Department/Section -> live proposal item.
 - Approved Items per Account/Department displays description, quantity, proposed `total_cost`, and approved `approved_total_cost`, then calculates typed-unit, child-account, selected-main-account, and grand totals on the backend. Null approved values remain visible as `0.00`.
 - Percentage of Proposed versus Approved Budget requires one exact typed Department/Section and permits optional Main/Sub-Account narrowing. It groups current live proposal item values as root account -> child account.
-- Its backend-calculated percentage is `(approved amount / proposed amount) * 100`, formatted to two decimals for every child, root total, and grand total. Total percentages use aggregated amounts rather than averaging row percentages; a zero proposed denominator returns `0.00`.
+- Its backend-calculated percentage is `(approved amount / proposed amount) * 100`, formatted to two decimals for every child, root total, and grand total. Total percentages use aggregated amounts rather than averaging row percentages; a zero proposed denominator returns `0.00`. Percentages may exceed `100.00` when Budget Review approves more than the proposed amount.
 - Percentage of Approved Budget, Previous versus Current School Year treats the selected report `school_year` as the previous year and resolves the current year only from `budget_settings.current_school_year`. The years must differ.
 - It scopes both years to the same exact typed unit and optional Main/Sub-Account filters, then groups the union of current account identities present in either year. Missing-year values are zero rather than causing the account row to disappear.
 - Its percentage is `(current approved amount / previous approved amount) * 100`. Child, root, and grand percentages use aggregated approved cents; a zero previous approved denominator returns `0.00`.
@@ -182,3 +187,13 @@ Last verified: 2026-07-23
 - Screen previews use the same Letter aspect and maximum width as the printed sheet; tables must remain within the printable width and repeat table headers across printed pages.
 - Do not render hardcoded page numbers because browser pagination depends on content and print settings.
 - Allow long account and requisition groups to flow across pages while keeping individual rows, headings, subtotals, totals, and footers together where practical.
+
+## Core Financial Transaction Safety
+
+- Proposal saving serializes by school year plus typed organizational unit using a deterministic MySQL advisory-lock name no longer than MySQL's 64-character limit, then locks the proposal, allocation, and affected items. Header/allocation creation, item changes, and live-item rollups commit or roll back together.
+- Requisition item creation and amount increases lock both the exact account allocation and its proposal. Both projected balances must remain nonnegative before any financial write.
+- Final RS numbering uses a locked calendar-year sequence row. Draft number `0` is reusable; once a requisition has a nonzero number, later finalization or reprocessing preserves it.
+- Core financial mutations require an `Idempotency-Key` UUID in production. A completed retry with the same user, action, key, and payload replays the stored response; changed payloads fail with `422`, and a concurrent in-progress request fails with `409`.
+- The browser retains one idempotency key across transport-error retries for the same action and clears it after a definitive HTTP response.
+- Balance mutations use integer-cent or exact decimal-string arithmetic for decisions and persist two-decimal values. Binary floating-point values are not authoritative for affordability checks.
+- Completed idempotency records expire after 30 days and are pruned by the scheduled `abms:prune-financial-idempotency` command.

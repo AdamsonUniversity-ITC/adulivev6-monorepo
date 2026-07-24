@@ -60,6 +60,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     if (isDark) {
         const map: Record<string, { bg: string; text: string; border: string }> = {
             'for review': { bg: `${t.cellAmber}26`, text: t.cellAmber, border: `${t.cellAmber}66` },
+            'reprocess': { bg: 'rgba(216,180,254,0.14)', text: '#d8b4fe', border: 'rgba(216,180,254,0.42)' },
             'for certification': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
             'certified': { bg: `${t.cellGreen}26`, text: t.cellGreen, border: `${t.cellGreen}66` },
             'for pricing': { bg: `${t.cellAmber}1f`, text: t.cellAmber, border: `${t.cellAmber}59` },
@@ -83,6 +84,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     // Light mode — explicit, carefully tuned palette (uniform with BudgetView)
     const map: Record<string, { bg: string; text: string; border: string }> = {
         'for review': { bg: 'rgba(253,230,138,0.50)', border: 'rgba(202,138,4,0.40)', text: '#92400e' },
+        'reprocess': { bg: 'rgba(245,243,255,0.90)', border: 'rgba(124,58,237,0.32)', text: '#6d28d9' },
         'for certification': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
         'certified': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
         'for pricing': { bg: 'rgba(254,215,170,0.55)', border: 'rgba(194,65,12,0.32)', text: '#9a3412' },

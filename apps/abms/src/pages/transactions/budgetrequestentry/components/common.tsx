@@ -375,6 +375,7 @@ export function StatusBadge({ status, t }: { status: Status; t: ThemeTokens }) {
     const token = ((): typeof t.statusForReview => {
         switch (status) {
             case 'unsaved': return t.statusUnsaved ?? t.statusForReview;
+            case 'reprocess': return t.statusReprocess ?? t.statusForReview;
             case 'for review': return t.statusForReview;
             case 'for certification': return t.statusForCertification;
             case 'certified': return t.statusCertified;

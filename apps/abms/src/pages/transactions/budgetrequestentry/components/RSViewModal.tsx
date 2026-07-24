@@ -52,6 +52,31 @@ interface RSAttachedFile {
     created_at: string;
 }
 
+type ApiErrorLike = {
+    response?: {
+        data?: {
+            message?: string;
+        };
+    };
+    message?: string;
+};
+
+type RawLineItem = Partial<RSFormItem> & {
+    account_id?: number | string;
+    accountId?: number | string;
+    account_code?: string | number | null;
+    description?: string | null;
+    unit_cost?: string | number | null;
+    unit_of_measurement?: string | null;
+    total_cost?: string | number | null;
+};
+
+function getErrorMessage(err: unknown): string | undefined {
+    if (typeof err !== 'object' || err === null) return undefined;
+    const apiError = err as ApiErrorLike;
+    return apiError.response?.data?.message ?? apiError.message;
+}
+
 export function RSViewModal({
     open, recordId, onClose, onUpdated, t, isDark, currentUser,
 }: {
@@ -99,7 +124,9 @@ export function RSViewModal({
     useEffect(() => { showChatRef.current = showChat; }, [showChat]);
 
     const isUnsavedRS = isZeroRequisitionNumber(header?.requisition_number) || normalizeEntryStatus(header?.status, header?.requisition_number) === 'unsaved';
-    const canEdit = !!header && (isUnsavedRS || (header.status === 'for review' && header.location === 'department'));
+    const isReprocessAtDepartment = normalizeEntryStatus(header?.status, header?.requisition_number) === 'reprocess'
+        && (header?.location ?? '').toLowerCase() === 'department';
+    const canEdit = !!header && (isUnsavedRS || isReprocessAtDepartment);
 
     // ── Persistent realtime subscription — lives while modal is open, not just when chat is open ──
     const seenMessageIds = useRef<Set<number>>(new Set());
@@ -230,6 +257,70 @@ export function RSViewModal({
         total_cost: item.totalCost,
     }));
 
+    function normalizeLineItem(raw: RawLineItem): RSFormItem {
+        return {
+            id: Number(raw.id),
+            account_id: Number(raw.account_id ?? raw.accountId ?? 0),
+            accountNo: String(raw.accountNo ?? raw.account_code ?? ''),
+            itemDescription: String(raw.itemDescription ?? raw.description ?? ''),
+            unitCost: String(raw.unitCost ?? raw.unit_cost ?? '0'),
+            quantity: String(raw.quantity ?? '0'),
+            unitOfMeasurement: String(raw.unitOfMeasurement ?? raw.unit_of_measurement ?? ''),
+            totalCost: Number(raw.totalCost ?? raw.total_cost ?? 0),
+            unused_amount: Number(raw.unused_amount ?? 0),
+        };
+    }
+
+    function updateEditableItem(itemId: number, patch: Partial<RSFormItem>) {
+        setItemActionError(null);
+        setItems(prev => prev.map(item => {
+            if (item.id !== itemId) return item;
+
+            const next = { ...item, ...patch };
+            const quantity = Number(next.quantity);
+            const unitCost = Number(next.unitCost);
+            next.totalCost = Number.isFinite(quantity) && Number.isFinite(unitCost)
+                ? Math.round(quantity * unitCost * 100) / 100
+                : 0;
+
+            return next;
+        }));
+        setDirty(true);
+    }
+
+    async function persistEditableItems(): Promise<number> {
+        if (!header) return grandTotal;
+        if (items.length === 0) {
+            throw new Error('Add at least one item before saving the requisition slip.');
+        }
+
+        const payload = items.map(item => {
+            const description = item.itemDescription.trim();
+            const unitOfMeasurement = item.unitOfMeasurement.trim();
+            const quantity = Number(item.quantity);
+            const unitCost = Number(item.unitCost);
+
+            if (!description) throw new Error('Every item must have a description.');
+            if (!unitOfMeasurement) throw new Error('Every item must have a unit of measurement.');
+            if (!Number.isInteger(quantity) || quantity < 1) throw new Error('Every item quantity must be at least 1.');
+            if (!Number.isFinite(unitCost) || unitCost <= 0) throw new Error('Every item unit cost must be greater than 0.');
+
+            return {
+                id: item.id,
+                description,
+                quantity,
+                unit_cost: unitCost,
+                unit_of_measurement: unitOfMeasurement,
+            };
+        });
+
+        const res = await financeSvc.put(`/abms/budget-request-entry/${header.id}/items`, { items: payload });
+        const nextItems = (res.data?.items ?? []).map(normalizeLineItem);
+        setItems(nextItems);
+        if (res.data?.data) setHeader(prev => prev ? { ...prev, ...res.data.data } : prev);
+        return nextItems.reduce((sum: number, item: RSFormItem) => sum + item.totalCost, 0);
+    }
+
     function handleAddItem(item: RSFormItem) {
         setItemActionError(null);
         setItems(prev => {
@@ -260,12 +351,12 @@ export function RSViewModal({
         setItemActionError(null);
         try {
             await financeSvc.delete(`/abms/budget-request-entry/items/${itemId}`);
-        } catch (err: any) {
+        } catch (err: unknown) {
             // The backend now refuses to delete when it can't refund the
             // balance (no matching account/sub-account). Do NOT remove the
             // item locally in that case — doing so would desync the UI from
             // the database and make the un-refunded item disappear silently.
-            const serverMessage = err?.response?.data?.message;
+            const serverMessage = getErrorMessage(err);
             setItemActionError(
                 serverMessage ?? 'Failed to remove item: the balance could not be refunded. The item was left in place.'
             );
@@ -292,16 +383,17 @@ export function RSViewModal({
         setIsResaving(true);
         setItemActionError(null);
         try {
+            const persistedTotal = canEdit ? await persistEditableItems() : grandTotal;
             await financeSvc.patch(`/abms/budget-request-entry/${header.id}/save`, {
-                total_amount: overrideTotal ?? grandTotal,
+                total_amount: overrideTotal ?? persistedTotal,
                 finalize: true,
             });
             setDirty(false);
             onUpdated();
             onClose();
-        } catch (err: any) {
+        } catch (err: unknown) {
             // keep dirty so user can retry
-            const serverMessage = err?.response?.data?.message;
+            const serverMessage = getErrorMessage(err);
             setItemActionError(serverMessage ?? 'Failed to save changes. Please try again.');
         } finally {
             setIsResaving(false);
@@ -316,8 +408,8 @@ export function RSViewModal({
             await financeSvc.delete(`/abms/budget-request-entry/${header.id}`);
             onUpdated();
             onClose();
-        } catch (err: any) {
-            const serverMessage = err?.response?.data?.message;
+        } catch (err: unknown) {
+            const serverMessage = getErrorMessage(err);
             setItemActionError(serverMessage ?? 'Failed to discard the Requisition Slip. Please try again.');
         } finally {
             setIsDiscarding(false);
@@ -337,8 +429,8 @@ export function RSViewModal({
         try {
             const res = await financeSvc.get(`/abms/budget-request-entry/${header.id}/files`);
             setAttachedFiles(res.data?.data ?? []);
-        } catch (err: any) {
-            setFileViewError(err?.response?.data?.message ?? 'Failed to load attached files.');
+        } catch (err: unknown) {
+            setFileViewError(getErrorMessage(err) ?? 'Failed to load attached files.');
         } finally {
             setIsLoadingFiles(false);
         }
@@ -364,8 +456,8 @@ export function RSViewModal({
                 ? { ...item, url: freshUrl, expires_at: res.data.expires_at }
                 : item));
             window.open(freshUrl, '_blank', 'noopener,noreferrer');
-        } catch (err: any) {
-            setFileViewError(err?.response?.data?.message ?? 'Failed to open attached file.');
+        } catch (err: unknown) {
+            setFileViewError(getErrorMessage(err) ?? 'Failed to open attached file.');
         } finally {
             setOpeningFileId(null);
         }
@@ -1368,16 +1460,46 @@ export function RSViewModal({
                                                 {item.accountNo || <span style={{ color: t.cellMuted, fontWeight: 400, fontStyle: 'italic' }}>—</span>}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
-                                                {item.itemDescription || <span style={{ color: t.cellMuted, fontStyle: 'italic' }}>—</span>}
+                                                {canEdit ? (
+                                                    <input
+                                                        value={item.itemDescription}
+                                                        onChange={e => updateEditableItem(item.id, { itemDescription: e.target.value })}
+                                                        style={{ width: '100%', minWidth: 180, border: `1px solid ${t.inputBorder}`, borderRadius: 8, background: t.inputBg, color: t.inputText, padding: '6px 8px', fontSize: 11, outline: 'none' }}
+                                                    />
+                                                ) : (item.itemDescription || <span style={{ color: t.cellMuted, fontStyle: 'italic' }}>—</span>)}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                                                ₱ {fmtCurrency(parseFloat(item.unitCost) || 0)}
+                                                {canEdit ? (
+                                                    <input
+                                                        type="number"
+                                                        min="0.01"
+                                                        step="0.01"
+                                                        value={item.unitCost}
+                                                        onChange={e => updateEditableItem(item.id, { unitCost: e.target.value })}
+                                                        style={{ width: 96, border: `1px solid ${t.inputBorder}`, borderRadius: 8, background: t.inputBg, color: t.inputText, padding: '6px 8px', fontSize: 11, textAlign: 'right', outline: 'none', fontFamily: "'JetBrains Mono', monospace" }}
+                                                    />
+                                                ) : <>₱ {fmtCurrency(parseFloat(item.unitCost) || 0)}</>}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace" }}>
-                                                {item.quantity || '0'}
+                                                {canEdit ? (
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        step="1"
+                                                        value={item.quantity}
+                                                        onChange={e => updateEditableItem(item.id, { quantity: e.target.value })}
+                                                        style={{ width: 64, border: `1px solid ${t.inputBorder}`, borderRadius: 8, background: t.inputBg, color: t.inputText, padding: '6px 8px', fontSize: 11, textAlign: 'right', outline: 'none', fontFamily: "'JetBrains Mono', monospace" }}
+                                                    />
+                                                ) : (item.quantity || '0')}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                {item.unitOfMeasurement || '—'}
+                                                {canEdit ? (
+                                                    <input
+                                                        value={item.unitOfMeasurement}
+                                                        onChange={e => updateEditableItem(item.id, { unitOfMeasurement: e.target.value })}
+                                                        style={{ width: 78, border: `1px solid ${t.inputBorder}`, borderRadius: 8, background: t.inputBg, color: t.inputText, padding: '6px 8px', fontSize: 11, textAlign: 'right', outline: 'none' }}
+                                                    />
+                                                ) : (item.unitOfMeasurement || '—')}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellGreen, textAlign: 'right', borderRight: canEdit ? `1px solid ${t.rowBorder}` : 'none', fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                                                 ₱ {fmtCurrency(item.totalCost)}

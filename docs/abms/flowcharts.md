@@ -69,8 +69,9 @@ flowchart TD
     IB -- Disapprove --> IC[Keep at Budget Office with decision 2]
     IC --> ID{Administration response}
     ID -- Resubmit --> IA
-    ID -- Reprocess --> IE[Return to Department review and reset decision]
-    IE --> I
+    ID -- Reprocess --> IE[Set status reprocess and return to Department]
+    IE --> IE2[Requester edits/adds/removes items; backend applies balance deltas]
+    IE2 --> G
     IB -- Approve --> IF[Set decision 1]
     IF --> IG[Allow guarded onward routing]
     IG --> J{Unused or returned amount?}
@@ -185,7 +186,11 @@ flowchart TD
     F --> I[Group by typed Department or Section]
     G --> I
     H --> I
-    I --> J{Presentation}
+    I --> CA{Cash Advances only?}
+    CA -- Yes --> CB[Keep is_cash_advance]
+    CA -- No --> J
+    CB --> J
+    J{Presentation}
     J -- Summary --> K[Return one aligned requisition row]
     J -- Detailed --> L[Attach current live item rows and ID-based account paths]
     J -- Summary per Account --> M[Roll live item totals through root and child accounts]
@@ -392,4 +397,39 @@ flowchart LR
     C --> D[Print with 0.35 inch margins]
     D --> E[Repeat table headers and preserve rows/totals]
     E --> F[Allow long groups to continue onto following Letter pages]
+```
+
+## Idempotent Financial Mutation
+
+```mermaid
+flowchart TD
+    A[User starts one financial action] --> B[Frontend assigns UUID idempotency key]
+    B --> C[Backend locks user plus action plus key]
+    C --> D{Existing key?}
+    D -- Completed same payload --> E[Replay original response]
+    D -- Different payload --> F[Return 422]
+    D -- In progress --> G[Return 409]
+    D -- No --> H[Begin database transaction]
+    H --> I[Lock financial rows and validate projected balances]
+    I --> J{All checks pass?}
+    J -- No --> K[Rollback mutation and key]
+    J -- Yes --> L[Apply deltas and authoritative rollups]
+    L --> M[Store completed response with 30-day expiry]
+    M --> N[Commit once]
+    N --> O[Return response]
+```
+
+## Finalized RS Numbering
+
+```mermaid
+flowchart TD
+    A[Finalize locked requisition] --> B[Lock live items and recalculate header total]
+    B --> C{Already has nonzero RS number?}
+    C -- Yes --> D[Preserve current number]
+    C -- No --> E[Lock calendar-year sequence row]
+    E --> F[Increment last sequence]
+    F --> G[Compose year plus six-digit sequence]
+    D --> H[Save number total route status and timestamp]
+    G --> H
+    H --> I[Commit atomically]
 ```

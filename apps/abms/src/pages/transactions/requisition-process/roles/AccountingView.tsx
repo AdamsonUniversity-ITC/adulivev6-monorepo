@@ -48,6 +48,7 @@ const COLUMNS = ROLE_COLUMNS['accounting-access'];
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     'for review':        { bg: 'rgba(251,191,36,0.15)',  text: '#b45309', border: 'rgba(251,191,36,0.40)'  },
+    'reprocess':         { bg: 'rgba(245,243,255,0.90)', text: '#6d28d9', border: 'rgba(124,58,237,0.32)' },
     'for certification': { bg: 'rgba(96,165,250,0.15)',  text: '#1d4ed8', border: 'rgba(96,165,250,0.40)'  },
     'certified':         { bg: 'rgba(74,222,128,0.15)',  text: '#047857', border: 'rgba(74,222,128,0.40)'  },
     'unserved':          { bg: 'rgba(248,113,113,0.15)', text: '#b91c1c', border: 'rgba(248,113,113,0.40)' },

@@ -39,6 +39,7 @@ export const ALL_DEPARTMENTS = [
 const BUDGET_STATUS_OPTIONS = [
     { label: 'All' },
     { label: 'For Review' },
+    { label: 'Reprocess' },
     { label: 'For Certification' },
     { label: 'Certified RS' },
     { label: 'On Process' },

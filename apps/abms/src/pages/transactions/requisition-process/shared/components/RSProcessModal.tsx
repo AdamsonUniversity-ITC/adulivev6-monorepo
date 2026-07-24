@@ -48,6 +48,7 @@ export interface RSProcessRow {
     location: string | null;
     from: string | null;
     for_liquidation?: boolean;
+    is_cash_advance?: boolean;
     /** 0 = pending, 1 = approved, 2 = disapproved by Controller */
     is_controlled?: number;
     /** RS type (e.g. "Cashier") — used to gate certain actions; not displayed. */
@@ -228,6 +229,7 @@ const TERMINAL_STATUSES = ['disapproved', 'cancelled'];
 // (violet) that won't be confused with status semantics (amber/green/blue).
 // ─────────────────────────────────────────────────────────────────────────────
 const LIQUIDATION_COLOR = '#eab308';
+const CASH_ADVANCE_COLOR = '#0ea5e9';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Status color map — theme-aware so dark/light variants both look correct
@@ -236,6 +238,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     if (isDark) {
         const map: Record<string, { bg: string; text: string; border: string }> = {
             'for review': { bg: `${t.cellAmber}26`, text: t.cellAmber, border: `${t.cellAmber}66` },
+            'reprocess': { bg: 'rgba(216,180,254,0.14)', text: '#d8b4fe', border: 'rgba(216,180,254,0.42)' },
             'for certification': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
             'certified rs': { bg: `${t.cellGreen}26`, text: t.cellGreen, border: `${t.cellGreen}66` },
             'certified': { bg: `${t.cellGreen}26`, text: t.cellGreen, border: `${t.cellGreen}66` },
@@ -260,6 +263,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     // Light mode — matches BudgetView reference palette exactly
     const map: Record<string, { bg: string; text: string; border: string }> = {
         'for review': { bg: 'rgba(253,230,138,0.50)', border: 'rgba(202,138,4,0.40)', text: '#92400e' },
+        'reprocess': { bg: 'rgba(245,243,255,0.90)', border: 'rgba(124,58,237,0.32)', text: '#6d28d9' },
         'for certification': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
         'certified rs': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
         'certified': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
@@ -353,6 +357,7 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean } {
         'Forward to BAO': { verb: 'forward this requisition slip to the BAO' },
         'Forward to Cash Management': { verb: 'forward this requisition slip to Cash Management' },
         'For Liquidation': { verb: 'mark this requisition slip for liquidation' },
+        'Cash Advance': { verb: 'toggle this requisition slip as cash advance' },
     };
     const entry = map[action] ?? { verb: `proceed with "${action}"` };
     return { verb: entry.verb, danger: !!entry.danger };
@@ -1034,6 +1039,7 @@ export function RSProcessModal({
     const locationLower = (row.location ?? '').toLowerCase();
     const statusColors = getStatusColors(row.status, t, isDark);
     const isTerminal = TERMINAL_STATUSES.includes(statusLower);
+    const isUnsaved = !row.requisition_no || String(row.requisition_no).trim() === '0' || statusLower === 'unsaved';
 
     const matchesStatus = (a: RoleAction) =>
         a.visibleOn === '*' || a.visibleOn.some(s => s.toLowerCase() === statusLower);
@@ -1043,6 +1049,9 @@ export function RSProcessModal({
 
     const matchesLocation = (a: RoleAction) =>
         !a.locationFilter || a.locationFilter.some(l => l.toLowerCase() === locationLower);
+
+    const isNotAlreadyReprocessed = (a: RoleAction) =>
+        a.label !== 'Reprocess RS' || statusLower !== 'reprocess';
 
     const controllerDecision = Number(row.is_controlled ?? 0);
 
@@ -1106,8 +1115,8 @@ export function RSProcessModal({
     };
 
     // Toolbar (top): common actions, split left/right via each action's toolbarGroup.
-    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a));
-    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a));
+    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && isNotAlreadyReprocessed(a));
+    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && isNotAlreadyReprocessed(a));
 
     // Footer (bottom): role-specific transition buttons only
     const roleActions = ROLE_ACTIONS[roleKey] ?? [];
@@ -2064,6 +2073,33 @@ export function RSProcessModal({
                                                 flexShrink: 0,
                                             }} />
                                             {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
+                                        </button>
+                                    )}
+                                {(roleKey === 'admin-access' || roleKey === 'budget-access')
+                                    && !isTerminal
+                                    && !isUnsaved
+                                    && (row.rstype ?? '').toLowerCase() === 'cashier' && (
+                                        <button
+                                            onClick={() => triggerAction({ label: 'Cash Advance', variant: 'primary', visibleOn: '*', confirm: false })}
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                marginTop: 2,
+                                                padding: '5px 12px', borderRadius: 20,
+                                                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                                border: row.is_cash_advance ? `1px solid ${CASH_ADVANCE_COLOR}88` : `1px solid ${t.cardBorder}`,
+                                                background: row.is_cash_advance ? `${CASH_ADVANCE_COLOR}22` : 'transparent',
+                                                color: row.is_cash_advance ? CASH_ADVANCE_COLOR : t.cellMuted,
+                                                cursor: 'pointer', transition: 'background .14s ease',
+                                            }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = row.is_cash_advance ? `${CASH_ADVANCE_COLOR}38` : `${t.cellMuted}1a`)}
+                                            onMouseLeave={e => (e.currentTarget.style.background = row.is_cash_advance ? `${CASH_ADVANCE_COLOR}22` : 'transparent')}
+                                        >
+                                            <span style={{
+                                                display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                                                background: row.is_cash_advance ? CASH_ADVANCE_COLOR : t.cellMuted,
+                                                flexShrink: 0,
+                                            }} />
+                                            {row.is_cash_advance ? 'Cash Advance' : 'Mark Cash Advance'}
                                         </button>
                                     )}
                             </div>
