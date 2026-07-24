@@ -68,4 +68,4 @@ Use department filters where provided. Prefer Enter-to-search patterns when the 
 
 ## Duplicate Filings
 
-Employees cannot file overlapping **portions** on the same calendar date (including against cancelled/disapproved history). AM and PM on the same day are allowed if the other portion is free; Whole Day conflicts with all portions.
+Employees cannot file overlapping **portions** on the same calendar date against active leave filings (Pending / Approved* / HR-Disapproved). Cancelled applications and Approver 1/2 Disapproved applications do not block re-filing the same date or portion. AM and PM on the same day are allowed if the other portion is free; Whole Day conflicts with all portions.

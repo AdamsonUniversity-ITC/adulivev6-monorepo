@@ -367,6 +367,8 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
 
       await queryClient.invalidateQueries({ queryKey: ["my-leave-applications"] })
       await queryClient.invalidateQueries({ queryKey: ["el-dependent-care-usage"] })
+      await queryClient.invalidateQueries({ queryKey: ["for-approval-pending-count"] })
+      await queryClient.invalidateQueries({ queryKey: ["hr-approval-pending-count"] })
       await navigate({ to: "/my-leave" })
     } catch (error) {
       const fieldErrors = getValidationFieldErrors(error)

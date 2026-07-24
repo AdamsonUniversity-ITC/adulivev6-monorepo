@@ -50,7 +50,7 @@ Root `beforeLoad` denies restricted routes with redirect to `/forbidden`.
 | Area | Middleware / gate |
 | --- | --- |
 | Most eleave APIs | `auth:api` |
-| Signed media view | `signed` (+ auth group) |
+| Signed media view | `signed` |
 | For-approval list + decision | `EnsureIsSupervisorOrManager` |
 | HR approval list + patch | `eleave.permission:` + `hr_approval` list |
 | Beginning balances, FL cutoff, employee credits, reports, employee-search | `eleave.permission:` + `admin` list |

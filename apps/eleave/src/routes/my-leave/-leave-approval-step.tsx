@@ -11,6 +11,7 @@ import {
   getEmployeeAvatarUrl,
   getEmployeeInitials,
 } from "@/lib/employee-teacher-display"
+import { isDashWorkflowStatus } from "@/lib/resolve-approver-or-hr-workflow-status"
 import { cn } from "@/lib/utils"
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
@@ -33,6 +34,10 @@ function formatActedAt(value: string | null | undefined): string | null {
 
 function ApprovalStatusBadge({ status }: { status: string }) {
   const normalized = status.trim().toLowerCase()
+
+  if (normalized === "-" || normalized === "—" || normalized === "") {
+    return <span className="text-muted-foreground text-xs">—</span>
+  }
 
   if (normalized === "approved" || normalized === "processed") {
     return <Badge className="font-normal">{status}</Badge>
@@ -98,7 +103,8 @@ export function LeaveApprovalStep({
   const primaryPerson = people[0]
   const extraCount = Math.max(people.length - 1, 0)
   const formattedActedAt = formatActedAt(actedAt)
-  const isPending = status.trim().toLowerCase() === "pending"
+  const isDash = isDashWorkflowStatus(status)
+  const isPending = !isDash && status.trim().toLowerCase() === "pending"
   const displayName = primaryPerson
     ? formatEmployeeName(primaryPerson)
     : "Unassigned"
@@ -112,7 +118,9 @@ export function LeaveApprovalStep({
         <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
           {title}
         </p>
-        {isPending ? (
+        {isDash ? (
+          <span className="text-muted-foreground text-xs">—</span>
+        ) : isPending ? (
           <PendingStatusBadge>{status}</PendingStatusBadge>
         ) : (
           <ApprovalStatusBadge status={status} />

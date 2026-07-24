@@ -78,6 +78,12 @@ export const ViewForApprovalSheet = ({
       await queryClient.invalidateQueries({
         queryKey: ["for-approval-leave-applications"],
       })
+      await queryClient.invalidateQueries({
+        queryKey: ["for-approval-pending-count"],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ["hr-approval-pending-count"],
+      })
 
       setPendingDecision(null)
       setRemarks("")

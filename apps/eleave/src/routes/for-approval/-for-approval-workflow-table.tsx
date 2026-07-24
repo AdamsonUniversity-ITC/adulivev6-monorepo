@@ -8,6 +8,7 @@ import {
   type EmployeeTeacherRecord,
 } from "@/lib/employee-teacher-display"
 import type { LeaveApplicationRecord } from "@/lib/leave-applications-api"
+import { resolveApproverOrHrWorkflowStatus } from "@/lib/resolve-approver-or-hr-workflow-status"
 import { resolveHrApprovalSummary } from "@/lib/resolve-hr-approval-summary"
 import { Badge } from "@repo/ui/components/badge"
 import {
@@ -83,6 +84,10 @@ const WorkflowApprovalStatusBadge = ({ status }: { status: string }) => {
     )
   }
 
+  if (normalized === "-" || normalized === "—" || normalized === "") {
+    return <span className="text-muted-foreground text-xs">—</span>
+  }
+
   return (
     <Badge variant="outline" className="font-normal">
       {status}
@@ -92,6 +97,9 @@ const WorkflowApprovalStatusBadge = ({ status }: { status: string }) => {
 
 const buildWorkflowRows = (record: LeaveApplicationRecord): WorkflowTableRow[] => {
   const hrApproval = resolveHrApprovalSummary(record)
+  const overallStatus = record.overall_status
+  const overallCancelled =
+    (overallStatus ?? "").trim().toLowerCase() === "cancelled"
 
   const rows: WorkflowTableRow[] = [
     {
@@ -99,30 +107,37 @@ const buildWorkflowRows = (record: LeaveApplicationRecord): WorkflowTableRow[] =
       teachers: record.employee_teacher?.supervisor
         ? [record.employee_teacher.supervisor]
         : [],
-      status: record.approver1_status ?? "Pending",
+      status: resolveApproverOrHrWorkflowStatus(
+        overallStatus,
+        record.approver1_status,
+      ),
       remarks: record.approver1_remarks,
-      actedAt: record.approver1_date,
+      actedAt: overallCancelled ? null : record.approver1_date,
     },
     {
       step: "Manager",
       teachers: record.employee_teacher?.manager
         ? [record.employee_teacher.manager]
         : [],
-      status: record.approver2_status ?? "Pending",
+      status: resolveApproverOrHrWorkflowStatus(
+        overallStatus,
+        record.approver2_status,
+      ),
       remarks: record.approver2_remarks,
-      actedAt: record.approver2_date,
+      actedAt: overallCancelled ? null : record.approver2_date,
     },
     {
       step: "HR",
-      teachers: hrApproval.approvers,
-      status: hrApproval.approvers.length > 0 ? hrApproval.status : "Pending",
+      teachers: overallCancelled ? [] : hrApproval.approvers,
+      status: resolveApproverOrHrWorkflowStatus(
+        overallStatus,
+        hrApproval.approvers.length > 0 ? hrApproval.status : null,
+      ),
       remarks: null,
-      actedAt: hrApproval.latestApprovedDate,
+      actedAt: overallCancelled ? null : hrApproval.latestApprovedDate,
     },
   ]
 
-  const overallCancelled =
-    (record.overall_status ?? "").trim().toLowerCase() === "cancelled"
   const cancelledByTeacher = record.cancelled_by_teacher ?? null
 
   if (overallCancelled || record.cancelled_by || cancelledByTeacher) {

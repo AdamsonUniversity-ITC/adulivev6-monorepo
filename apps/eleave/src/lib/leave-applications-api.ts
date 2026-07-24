@@ -145,6 +145,14 @@ export async function fetchForApprovalLeaveApplications(params?: {
   return response.data
 }
 
+export async function fetchForApprovalPendingCount() {
+  const response = await hrmdoSvc.get<{ data: { pending_count: number } }>(
+    "v1/leave-applications/for-approval/pending-count",
+  )
+
+  return response.data.data.pending_count
+}
+
 export type LeaveApplicationDecisionPayload = {
   status: "Approved" | "Disapproved"
   remarks?: string | null
@@ -178,6 +186,14 @@ export async function fetchHrApprovalLeaveApplications(params?: HrApprovalListPa
   )
 
   return response.data
+}
+
+export async function fetchHrApprovalPendingCount() {
+  const response = await hrmdoSvc.get<{ data: { pending_count: number } }>(
+    "v1/leave-applications/for-hr-approval/pending-count",
+  )
+
+  return response.data.data.pending_count
 }
 
 export type HrApprovalItemPayload = {

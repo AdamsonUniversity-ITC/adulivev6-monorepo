@@ -35,6 +35,20 @@ export function mapApiDayPortion(value: string): DayPortion {
   return "wholeday"
 }
 
+/** HR-split days were filed as Whole Day; show Whole Day unless the employee filed AM/PM/Evening. */
+export function resolveDisplayDayPortion(
+  portion1: string,
+  portion2?: string | null,
+): DayPortion {
+  const hasPortion2 = portion2 != null && portion2.trim() !== ""
+
+  if (hasPortion2) {
+    return "wholeday"
+  }
+
+  return mapApiDayPortion(portion1)
+}
+
 export function mapDayPortionToApiLabel(portion: DayPortion): string {
   return DAY_PORTION_API_LABELS[portion]
 }
