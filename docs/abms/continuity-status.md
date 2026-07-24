@@ -1,6 +1,6 @@
 # ABMS Continuity Status
 
-Last verified: 2026-07-23
+Last verified: 2026-07-24
 
 ## Current Scope
 
@@ -46,6 +46,9 @@ Canonical behavioral details remain in:
 - Current live date-range reports use inclusive application-timezone `created_at` boundaries and current stored values. They do not reconstruct period activity from audits unless a report's documented rule explicitly uses an audit event for metadata.
 - Missing or ambiguous historical relationships produce structured data-quality warnings shown as toasts.
 - Browser reports use US Letter landscape with 0.35-inch margins and the authenticated user's resolved full name.
+- Core production financial mutations use UUID idempotency keys and replay completed identical requests without repeating writes.
+- Finalized RS numbers come from a locked yearly sequence; unsaved drafts remain `0`, and finalized numbers are preserved.
+- Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
 
 ## Resume Checklist
 
@@ -57,6 +60,28 @@ Before changing finance behavior in a new session:
 4. Locate the applicable task record or create one using the repository's required task format.
 5. Preserve unrelated working-tree changes.
 6. Run focused tests for the changed workflow, then the relevant regression suite, frontend lint/build, and authenticated browser flow when available.
+
+## Local Workflow Seed
+
+After rebuilding a local finance database, optionally set
+`ABMS_LOCAL_DEMO_DEPARTMENT_ID` (defaults to logical Department ID `1`) and
+run:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+`ABMS_LOCAL_DEMO_SCHOOL_YEAR` is an optional override. `DatabaseSeeder`
+creates no user record and calls only the local ABMS finance-schema seeder.
+The seeder does not query or write external organization, teacher, or
+authentication schemas, refuses to run in production, and creates a
+reconciled proposal/account baseline. Draft requisitions, routing, returns,
+and liquidation should be exercised through the UI so transaction behavior
+is tested rather than bypassed.
+
+The finance-service base PHPUnit `TestCase` refuses to start when the active
+connection is MySQL and the database name does not contain `test`. This guard
+must remain in place even when configuration is cached.
 
 ## Known Follow-ups
 

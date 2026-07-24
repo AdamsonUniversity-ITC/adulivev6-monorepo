@@ -85,6 +85,7 @@ erDiagram
         string note
         tinyint is_controlled "0 pending; 1 approved; 2 disapproved; default 0"
         boolean for_liquidation
+        boolean is_cash_advance "cashier RS tag; default false"
         boolean is_approve
         string remarks
         boolean is_liquidated
@@ -296,9 +297,12 @@ erDiagram
 - A saved liquidation summary is stored on `budget_request_entry`: returned amount is the sum of live item returns, liquidated amount is live item total cost less that return, and the username/date identify the latest successful save. This does not itself approve or remove the requisition from the liquidation queue.
 - `budget_request_entry.is_controlled` is an unsigned tiny integer state, not a boolean: `0` means pending Controller decision, `1` approved, and `2` disapproved. Forwarding or re-forwarding to the Controller resets it to `0`; reprocessing also resets it. The column is non-null with database default `0` and is audited with the requisition model.
 
-## Money and Schema Caveat
+## Financial Hardening Tables and Precision
 
-The current schema contains a mix of `DOUBLE` and `DECIMAL` financial columns. Do not assume database-wide exact decimal storage. Report services normalize arithmetic and API output to two decimal places; schema precision cleanup requires a separate migration and regression plan.
+- `rs_number_sequences` has one row per calendar year (`year` primary key, `last_sequence`). Finalization locks this row before assigning a nonzero RS number. Draft requisitions retain number `0`; there is intentionally no unique constraint on `budget_request_entry.requisition_number`.
+- `financial_idempotency_keys` records authenticated user, route/action, UUID key, canonical request hash, processing state, original response, and expiry. `(user_id, action, idempotency_key)` is unique.
+- Proposal, allocation, adjustment, requisition, requisition-item, and office-supply monetary columns covered by task ABMS-CORE-20260724-001 use `DECIMAL(15,2)`. Existing `released`, `liquidated_amount`, and `returned_amount` remain `DECIMAL(15,2)`.
+- Application balance decisions convert decimal strings to integer cents. Quantities remain integer values and are not money.
 
 ## Platform Tables Outside the Domain Diagram
 

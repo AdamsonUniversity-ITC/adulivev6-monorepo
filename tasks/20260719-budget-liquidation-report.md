@@ -14,7 +14,8 @@ Provide typed-unit liquidation summaries, detailed requisition items, and summar
 
 ### Requirements
 
-- Provide School Year, merged Department/Section, all-units, liquidation status, Summary/Detailed, Summary per Department and Account, and inclusive R.S. Date filters.
+- Provide School Year, merged Department/Section, all-units, liquidation status, an independent Cash Advances checkbox, Summary/Detailed, Summary per Department and Account, and inclusive R.S. Date filters.
+- Liquidation status supports Both, For Liquidation, and Liquidated. When checked, Cash Advances adds `is_cash_advance = true` to the selected status scope.
 - Use `budget_request_entry.created_at` as R.S. Date.
 - Include live numbered requisitions, excluding current cancelled or disapproved statuses.
 - Require Administration or Budget access.

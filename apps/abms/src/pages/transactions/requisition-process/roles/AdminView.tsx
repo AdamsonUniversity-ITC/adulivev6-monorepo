@@ -57,6 +57,7 @@ export interface AdminRow {
     from: string | null;
     note: string | null;
     for_liquidation?: boolean;
+    is_cash_advance?: boolean;
     is_controlled?: number;
     /** RS type (e.g. "Cashier") — passed through from the API but not displayed in this table. */
     rstype?: string | null;
@@ -73,6 +74,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     if (isDark) {
         const map: Record<string, { bg: string; text: string; border: string }> = {
             'for review': { bg: `${t.cellAmber}26`, text: t.cellAmber, border: `${t.cellAmber}66` },
+            'reprocess': { bg: 'rgba(216,180,254,0.14)', text: '#d8b4fe', border: 'rgba(216,180,254,0.42)' },
             'for certification': { bg: `${t.cellAmber}1a`, text: t.cellAmber, border: `${t.cellAmber}55` },
             'certified': { bg: `${t.cellGreen}26`, text: t.cellGreen, border: `${t.cellGreen}66` },
             'for pricing': { bg: `${t.cellAmber}1f`, text: t.cellAmber, border: `${t.cellAmber}59` },
@@ -94,6 +96,7 @@ function getStatusColors(status: string | null, t: Theme, isDark: boolean) {
     // Light mode — explicit, carefully tuned palette
     const map: Record<string, { bg: string; text: string; border: string }> = {
         'for review': { bg: 'rgba(253,230,138,0.50)', border: 'rgba(202,138,4,0.40)', text: '#92400e' },
+        'reprocess': { bg: 'rgba(245,243,255,0.90)', border: 'rgba(124,58,237,0.32)', text: '#6d28d9' },
         'for certification': { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
         'certified': { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
         'for pricing': { bg: 'rgba(254,215,170,0.55)', border: 'rgba(194,65,12,0.32)', text: '#9a3412' },
@@ -407,19 +410,27 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
             return;
         }
 
-        // 'For Liquidation' is a revertible toggle, not a one-way status
-        // transition — keep the modal open and patch the row in place
-        // instead of closing it like the other STATUS_ACTIONS below.
-        if (action === 'For Liquidation') {
+        // 'For Liquidation' and 'Cash Advance' are revertible tags, not
+        // one-way status transitions — keep the modal open and patch the row
+        // in place instead of closing it like the STATUS_ACTIONS below.
+        if (action === 'For Liquidation' || action === 'Cash Advance') {
             setModalError(null);
             setModalLoading(true);
             try {
                 const res = await financeSvc.put(`/abms/requisition-process/${row.id}`, { action });
-                const updated = !!res.data?.data?.for_liquidation;
-                setSelectedRow(prev => prev ? { ...prev, for_liquidation: updated } : prev);
-                addToast('success', updated
-                    ? `RS ${row.requisition_no} marked for liquidation.`
-                    : `RS ${row.requisition_no} unmarked for liquidation.`);
+                if (action === 'For Liquidation') {
+                    const updated = !!res.data?.data?.for_liquidation;
+                    setSelectedRow(prev => prev ? { ...prev, for_liquidation: updated } : prev);
+                    addToast('success', updated
+                        ? `RS ${row.requisition_no} marked for liquidation.`
+                        : `RS ${row.requisition_no} unmarked for liquidation.`);
+                } else {
+                    const updated = !!res.data?.data?.is_cash_advance;
+                    setSelectedRow(prev => prev ? { ...prev, is_cash_advance: updated } : prev);
+                    addToast('success', updated
+                        ? `RS ${row.requisition_no} tagged as cash advance.`
+                        : `RS ${row.requisition_no} untagged as cash advance.`);
+                }
                 await handleRequery();
             } catch (err: any) {
                 const message = err?.response?.data?.message ?? 'Failed to update RS.';

@@ -40,6 +40,7 @@ export const T = {
 
         statusForReview: { bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.40)', text: '#fbbf24' },
         statusUnsaved: { bg: 'rgba(148,163,184,0.14)', border: 'rgba(148,163,184,0.38)', text: '#cbd5e1' },
+        statusReprocess: { bg: 'rgba(216,180,254,0.14)', border: 'rgba(216,180,254,0.42)', text: '#d8b4fe' },
         statusForCertification: { bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.30)', text: '#fcd34d' },
         statusCertified: { bg: 'rgba(74,222,128,0.12)', border: 'rgba(74,222,128,0.35)', text: '#4ade80' },
         statusForPricing: { bg: 'rgba(251,146,60,0.13)', border: 'rgba(251,146,60,0.38)', text: '#fb923c' },
@@ -124,6 +125,7 @@ export const T = {
 
         statusForReview: { bg: 'rgba(253,230,138,0.50)', border: 'rgba(202,138,4,0.40)', text: '#92400e' },
         statusUnsaved: { bg: 'rgba(241,245,249,0.90)', border: 'rgba(100,116,139,0.34)', text: '#475569' },
+        statusReprocess: { bg: 'rgba(245,243,255,0.90)', border: 'rgba(124,58,237,0.32)', text: '#6d28d9' },
         statusForCertification: { bg: 'rgba(253,230,138,0.35)', border: 'rgba(202,138,4,0.28)', text: '#a16207' },
         statusCertified: { bg: 'rgba(187,247,208,0.55)', border: 'rgba(4,120,87,0.35)', text: '#065f46' },
         statusForPricing: { bg: 'rgba(254,215,170,0.55)', border: 'rgba(194,65,12,0.32)', text: '#9a3412' },

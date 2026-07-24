@@ -19,6 +19,8 @@ export interface RSFormItem {
     totalCost: number;
 }
 
+const PNB_CREDIT_CARD_PAYMENT = 'PNB Credit Card Payment';
+
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
     stockroom: {
         title: 'FOR OFFICE SUPPLIES / STOCKABLES (STOCKROOM)',
@@ -451,6 +453,7 @@ export function RSFormModal({
         school_year: string;
         created_at: string;
         payee: string | null;
+        payment_form: string | null;
         payeeFromModal: boolean;
     } | null;
     department: string;
@@ -503,7 +506,8 @@ export function RSFormModal({
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
     const CASHIER_MINIMUM_AMOUNT = 1000;
-    const isBelowCashierMinimum = rsType === 'cashier' && grandTotal < CASHIER_MINIMUM_AMOUNT;
+    const isPnbCreditCardPayment = rsHeaderData?.payment_form === PNB_CREDIT_CARD_PAYMENT;
+    const isBelowCashierMinimum = rsType === 'cashier' && !isPnbCreditCardPayment && grandTotal < CASHIER_MINIMUM_AMOUNT;
     const isSaveDisabled = isSavingRS || isSaved || items.length === 0 || isBelowCashierMinimum;
 
     async function handleSaveRS() {
