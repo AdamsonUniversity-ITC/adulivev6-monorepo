@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
-import { Check, CreditCard, RefreshCw, User, X } from 'lucide-react';
-import { financeSvc } from '@repo/axios-config/finance-service';
-import type { PayeeDetailRecord, ThemeTokens } from '../types';
+import { Check, User, X } from 'lucide-react';
+import type { ThemeTokens } from '../types';
 import { Btn } from './common';
 
 export interface PayeeDetailRecord {
@@ -18,6 +17,36 @@ export interface PayeeDetailRecord {
 }
 
 export const PAYEE_VIEW_REQUIRED_FORMS = ['Payment for Supplier/Water', 'Reimbursement/Replenishment'];
+
+function ReadonlyCheck({
+    checked,
+    label,
+    t,
+    isDark,
+}: {
+    checked: boolean;
+    label: string;
+    t: ThemeTokens;
+    isDark: boolean;
+}) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div
+                style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                    border: `1.5px solid ${checked ? (isDark ? '#60a5fa' : '#3b82f6') : t.sectionDivider}`,
+                    background: checked
+                        ? (isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)')
+                        : (isDark ? 'rgba(10,22,50,0.55)' : 'rgba(220,234,255,0.55)'),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+            >
+                {checked && <Check style={{ width: 10, height: 10, color: isDark ? '#60a5fa' : '#3b82f6', strokeWidth: 3 }} />}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: checked ? t.cellText : t.cellMuted }}>{label}</span>
+        </div>
+    );
+}
 
 export function PayeeDetailsViewModal({
     open, onClose, payeeName, detail, t, isDark,
@@ -50,30 +79,9 @@ export function PayeeDetailsViewModal({
     const emptyVal = (val: string | null | undefined) =>
         val ? val : <span style={{ color: t.cellMuted, fontStyle: 'italic', fontWeight: 400 }}>—</span>;
 
-    function ReadonlyCheck({ checked, label }: { checked: boolean; label: string }) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <div
-                    style={{
-                        width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                        border: `1.5px solid ${checked ? (isDark ? '#60a5fa' : '#3b82f6') : t.sectionDivider}`,
-                        background: checked
-                            ? (isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)')
-                            : (isDark ? 'rgba(10,22,50,0.55)' : 'rgba(220,234,255,0.55)'),
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                >
-                    {checked && <Check style={{ width: 10, height: 10, color: isDark ? '#60a5fa' : '#3b82f6', strokeWidth: 3 }} />}
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: checked ? t.cellText : t.cellMuted }}>{label}</span>
-            </div>
-        );
-    }
-
-    const mopLabel = detail?.is_cheque ? 'Cheque' : detail?.is_bank ? 'Bank Transfer' : '—';
-
     return createPortal(
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 100000,
                 background: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,20,60,0.45)',
@@ -84,6 +92,9 @@ export function PayeeDetailsViewModal({
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Payee details"
                 style={{
                     width: '100%', maxWidth: 480,
                     borderRadius: 16,
@@ -92,6 +103,9 @@ export function PayeeDetailsViewModal({
                     boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.60)' : '0 16px 48px rgba(0,20,60,0.18)',
                     animation: 'modal-in .18s ease both',
                     overflow: 'hidden',
+                    maxHeight: 'calc(100dvh - 24px)',
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}
             >
                 {/* Header */}
@@ -125,7 +139,7 @@ export function PayeeDetailsViewModal({
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>
+                <div style={{ padding: '18px 20px 20px', minHeight: 0, flex: 1, overflowY: 'auto' }}>
 
                     {/* Payee */}
                     <div style={{ marginBottom: 14 }}>
@@ -142,9 +156,9 @@ export function PayeeDetailsViewModal({
                     {/* Classification */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification</div>
-                        <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" />
-                        <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" />
-                        <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" />
+                        <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" t={t} isDark={isDark} />
+                        <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" t={t} isDark={isDark} />
+                        <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" t={t} isDark={isDark} />
                     </div>
 
                     {/* Mode of Payment */}

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, File as FileIcon, Paperclip, RefreshCw, Trash2, UploadCloud, X } from 'lucide-react';
+import { File as FileIcon, Paperclip, UploadCloud, X } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import type { ThemeTokens } from '../types';
 
@@ -94,6 +94,7 @@ export function AttachmentsModal({
 
     return createPortal(
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 100000,
                 background: 'rgba(0,0,0,0.55)',
@@ -104,11 +105,16 @@ export function AttachmentsModal({
         >
             <div
                 onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Add requisition files"
                 style={{
                     width: '100%', maxWidth: 480,
                     background: t.cardBg, border: `1px solid ${t.cardBorder}`,
                     borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
                     display: 'flex', flexDirection: 'column',
+                    maxHeight: 'calc(100dvh - 24px)',
+                    overflow: 'hidden',
                 }}
             >
                 {/* Header */}
@@ -131,7 +137,7 @@ export function AttachmentsModal({
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: 18 }}>
+                <div style={{ padding: 18, overflowY: 'auto', minHeight: 0, flex: 1 }}>
                     <div
                         onClick={handleDropzoneClick}
                         onDragOver={e => { e.preventDefault(); setIsDragActive(true); }}

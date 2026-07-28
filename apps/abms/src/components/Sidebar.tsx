@@ -37,6 +37,7 @@ interface SidebarProps {
   onToggle: () => void;
   isDark: boolean;
   isNavigating?: boolean;
+  isOverlay?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,7 +170,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: FileText,
     label: 'Reports',
     children: [
-      { label: 'Department Performance Per Department', href: '/reports/budget-performance-department', permissions: ['admin-access', 'budget-access', 'controller-access'] },
+      { label: 'Budget Performance Per Department', href: '/reports/budget-performance-department', permissions: ['admin-access', 'budget-access', 'controller-access'] },
       { label: 'Budget Performance Per Account', href: '/reports/budget-performance-account', permissions: ['admin-access', 'budget-access', 'controller-access'] },
       { label: 'Budget Performance University', href: '/reports/budget-performance-university', permissions: ['admin-access', 'budget-access', 'controller-access'] },
       { label: 'Item Requested Per Account', href: '/reports/item-requested-per-account', permissions: ['admin-access', 'budget-access', 'controller-access'] },
@@ -373,7 +374,7 @@ function NavButton({
 // Sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigating = false }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigating = false, isOverlay = false }) => {
   const t = isDark ? T.dark : T.light;
   const themeKey = isDark ? 'dark' : 'light';
   const navigate = useNavigate();
@@ -403,9 +404,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
 
   return (
     <motion.aside
-      animate={{ width: isOpen ? 288 : 72 }}
+      initial={false}
+      animate={{
+        width: isOverlay ? 288 : isOpen ? 288 : 72,
+        x: isOverlay && !isOpen ? -288 : 0,
+      }}
       transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
-      className="relative z-20 flex h-screen shrink-0 flex-col overflow-visible"
+      aria-hidden={isOverlay && !isOpen}
+      inert={isOverlay && !isOpen ? true : undefined}
+      className={`${isOverlay ? 'fixed inset-y-0 left-0' : 'relative'} z-20 flex h-screen h-dvh shrink-0 flex-col overflow-visible`}
       style={{
         background: t.sidebar,
         borderRight: `1px solid ${t.border}`,
@@ -642,7 +649,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
       </div>
 
       {/* Collapsed expand pill */}
-      {!isOpen && (
+      {!isOpen && !isOverlay && (
         <motion.button
           type="button"
           aria-label="Expand sidebar"

@@ -36,6 +36,38 @@ export const EMPTY_PAYEE: PayeeDetails = {
 
 export const BANK_OPTIONS = ['PNB', 'BDO', 'Metrobank', 'BPI'];
 
+function CheckRow({
+    checked,
+    onChange,
+    label,
+    t,
+    isDark,
+}: {
+    checked: boolean;
+    onChange: (value: boolean) => void;
+    label: string;
+    t: ThemeTokens;
+    isDark: boolean;
+}) {
+    return (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 6 }}>
+            <div
+                onClick={() => onChange(!checked)}
+                style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                    border: `1.5px solid ${checked ? (isDark ? '#60a5fa' : '#3b82f6') : t.inputBorder}`,
+                    background: checked ? (isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)') : t.inputBg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all .12s',
+                }}
+            >
+                {checked && <Check style={{ width: 10, height: 10, color: isDark ? '#60a5fa' : '#3b82f6', strokeWidth: 3 }} />}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: t.inputText }}>{label}</span>
+        </label>
+    );
+}
+
 export function PayeeDetailsModal({
     open, onClose, onConfirm, t, isDark,
 }: {
@@ -48,8 +80,24 @@ export function PayeeDetailsModal({
     const [form, setForm] = useState<PayeeDetails>(EMPTY_PAYEE);
 
     useEffect(() => {
-        if (open) setForm(EMPTY_PAYEE);
+        if (!open) return;
+        const resetTimer = window.setTimeout(() => setForm(EMPTY_PAYEE), 0);
+        return () => window.clearTimeout(resetTimer);
     }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        const previousOverflow = document.body.style.overflow;
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose();
+        };
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', closeOnEscape);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [onClose, open]);
 
     if (!open) return null;
 
@@ -76,46 +124,25 @@ export function PayeeDetailsModal({
         borderBottom: `1px solid ${t.sectionDivider}`,
     };
 
-    function CheckRow({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-        return (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 6 }}>
-                <div
-                    onClick={() => onChange(!checked)}
-                    style={{
-                        width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                        border: `1.5px solid ${checked ? (isDark ? '#60a5fa' : '#3b82f6') : t.inputBorder}`,
-                        background: checked ? (isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)') : t.inputBg,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all .12s',
-                    }}
-                >
-                    {checked && <Check style={{ width: 10, height: 10, color: isDark ? '#60a5fa' : '#3b82f6', strokeWidth: 3 }} />}
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: t.inputText }}>{label}</span>
-            </label>
-        );
-    }
-
     return createPortal(
         <div
+            className="abms-modal-backdrop fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{
-                position: 'fixed', inset: 0, zIndex: 99999,
                 background: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,20,60,0.45)',
                 backdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '20px',
             }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="payee-details-title"
+                className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 w-full max-w-[480px] flex-col overflow-hidden rounded-2xl"
                 style={{
-                    width: '100%', maxWidth: 480,
-                    borderRadius: 16,
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.60)' : '0 16px 48px rgba(0,20,60,0.18)',
                     animation: 'modal-in .18s ease both',
-                    overflow: 'hidden',
                 }}
             >
                 {/* Header */}
@@ -126,7 +153,7 @@ export function PayeeDetailsModal({
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <User style={{ width: 15, height: 15, color: isDark ? '#60a5fa' : '#3b82f6' }} />
-                        <span style={{ fontSize: 13, fontWeight: 800, color: t.cardTitle }}>Payee Details</span>
+                        <span id="payee-details-title" style={{ fontSize: 13, fontWeight: 800, color: t.cardTitle }}>Payee Details</span>
                     </div>
                     <button
                         onClick={onClose}
@@ -137,7 +164,7 @@ export function PayeeDetailsModal({
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-5 sm:pb-5 sm:pt-[18px]">
 
                     {/* Payee */}
                     <div style={{ marginBottom: 14 }}>
@@ -172,6 +199,8 @@ export function PayeeDetailsModal({
                             checked={form.aduEmployee}
                             onChange={v => set('aduEmployee', v)}
                             label="AdU Employee"
+                            t={t}
+                            isDark={isDark}
                         />
                         <CheckRow
                             checked={form.nonVatRegistered}
@@ -180,6 +209,8 @@ export function PayeeDetailsModal({
                                 if (v) set('vatRegistered', false);
                             }}
                             label="Non-VAT Registered"
+                            t={t}
+                            isDark={isDark}
                         />
                         <CheckRow
                             checked={form.vatRegistered}
@@ -188,6 +219,8 @@ export function PayeeDetailsModal({
                                 if (v) set('nonVatRegistered', false);
                             }}
                             label="VAT Registered"
+                            t={t}
+                            isDark={isDark}
                         />
                     </div>
 
@@ -298,12 +331,10 @@ export function PayeeDetailsModal({
                 </div>
 
                 {/* Footer */}
-                <div style={{
-                    padding: '12px 20px',
+                <div className="grid shrink-0 grid-cols-1 gap-2 p-3 min-[420px]:grid-cols-2 sm:flex sm:justify-end sm:px-5" style={{
                     borderTop: `1px solid ${t.sectionDivider}`,
-                    display: 'flex', justifyContent: 'flex-end', gap: 8,
                 }}>
-                    <Btn token={t.btnRefresh} icon={<X className="w-3.5 h-3.5" />} label="Cancel" onClick={onClose} t={t} />
+                    <Btn token={t.btnRefresh} icon={<X className="w-3.5 h-3.5" />} label="Cancel" onClick={onClose} t={t} className="w-full justify-center sm:w-auto" />
                     <Btn
                         token={t.btnNew}
                         icon={<ArrowRight className="w-3.5 h-3.5" />}
@@ -311,6 +342,7 @@ export function PayeeDetailsModal({
                         onClick={() => { if (isValid) onConfirm(form); }}
                         disabled={!isValid}
                         t={t}
+                        className="w-full justify-center sm:w-auto"
                     />
                 </div>
             </div>

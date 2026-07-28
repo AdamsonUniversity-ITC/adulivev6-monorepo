@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-07-23
+Last verified: 2026-07-28
 
 ## Purpose
 
@@ -46,9 +46,15 @@ The report pages live in `apps/abms/src/pages/reports/`:
 - `UnservedRs.tsx`
 - shared searchable filter: `shared/ReportFilterCombobox.tsx`
 
+All nine report previews use `shared/ReportPrintPortal.tsx` and `shared/report-print.css` for authoritative US Letter landscape sizing, readable shared typography, a `0.30in` printer-safe margin, and matching preview content inset. Page-local table layouts remain responsible for report-specific columns, grouping, and page-break rules.
+
 Routes are registered in `apps/abms/src/router.tsx`. Finance requests use the shared finance-service Axios configuration. Protected routing must derive production redirects from the Vite production URL environment setting rather than hardcoded localhost values.
 
 The shared protected route renders `components/LoadingScreen.tsx` immediately while it verifies the authenticated session, ABMS access, finance profile, general permissions, and typed Department/Section assignments. Protected content is rendered only after that context resolves. The screen remains visible for at least 500 ms to avoid flashing on fast responses and preserves the existing login, maintenance, and unauthorized redirects. The production redirect base is the single Vite setting `VITE_ADU_LIVE_PRODUCTION_URL`.
+
+Every routed page uses `layouts/Screenlayout.tsx`. At 1536 CSS pixels and wider, it preserves the existing expanded-sidebar desktop layout. Below that breakpoint, `components/Sidebar.tsx` is an inert off-canvas drawer while closed and can be opened from the header, dismissed through its backdrop or Escape, and closes after navigation. `components/ui/Page.tsx` provides responsive shared page width, header, action, and surface constraints. Application-level horizontal overflow is suppressed; intentionally wide tables must remain inside their page-owned scroll container, and report paper retains its printable width inside the preview's scroll container.
+
+All non-print workflow dialogs are bounded by the dynamic viewport rather than being centered at an unrestricted natural content height. Global rules constrain the shared shadcn `DialogContent` and `AlertDialogContent` primitives. Custom administration, requisition, liquidation, attachment, account, payee, item, chat, and audit overlays use the `abms-modal-backdrop` scroll contract or a fixed-header/scrollable-body/fixed-footer structure. On short displays the backdrop aligns custom content from the visible top and can scroll to every action. The New Requisition Slip and Add Item dialogs keep their headers and action footers visible while only their bodies scroll. Report paper, RS print previews, and printable review sheets remain outside this rule so their printable dimensions are preserved inside their existing local preview scrolling.
 
 The static Budget User Guides page lives at `pages/infographics/BudgetUserGuides.tsx` and `/infographics/budget-user-guides`. Its sidebar item and route both allow either `allow-budget-proposal-entry` or `allow-budget-request-entry`. Approved artwork is served from `public/infographics/`; the page makes no finance API request and changes no transaction behavior.
 
@@ -70,7 +76,7 @@ Transaction families include proposal entry, adjustment entry, requisition entry
 
 Office Supplies list queries default to `item_name` ascending with an `id` tie-breaker before cursor pagination. The administration UI filters by partial item name and permits Item Name or Unit Cost sorting in either direction. Both the Budget Request Entry Stockroom item picker and the New RS Stockable / Inventoriable Items reference panel consume the same 10-row cursor pages with Previous/Next navigation and always request alphabetical item-name order.
 
-The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
+The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Administration includes a `For Approval` status filter that selects current requisition headers whose status is `for approval`, while retaining `For Budget Director` as its default filter. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
 
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
 
@@ -93,6 +99,8 @@ During RS creation, the account picker queries only the exact school-year typed-
 | `/api/abms/unserved-rs` | `UnservedRsController` | `UnservedRsReportService` |
 
 Each report prefix exposes `GET /` for filter data and `GET /preview` for calculated report output, protected by `auth:api`.
+
+The index loaders for Budget Performance Per Department, Budget Performance Per Account, Budget Performance University, Item Requested Per Account, Items Requested By Payee, and Budget Liquidation return `requisition_first_dates` keyed by school year plus the application-timezone `current_date`. Their school-year selectors use this metadata to default From to the first live budget request entry date and To to the current date. Adjustments Per Department uses the parallel `adjustment_first_dates` contract sourced from live budget adjustments. Unserved RS does not use either default contract.
 
 ## Identity Rules
 
@@ -128,9 +136,10 @@ Source code and migrations win if documentation is stale. Correct the documentat
 
 ## Verification Baseline
 
-As of 2026-07-23:
+As of 2026-07-28:
 
 - The ABMS production frontend build completes successfully.
+- The shared shell and all non-print modal systems target the 1920×1080 baseline, 720p-class compact displays, and mobile breakpoints, and the responsive changes compile successfully; authenticated visual browser validation still depends on an available seeded ABMS environment.
 - Targeted lint checks for the newly added report pages and protected-route loading screen pass.
 - The focused Budget Proposal Reports backend suite passes with 19 tests and 266 assertions.
 - The focused Unserved RS backend suite passes with 4 tests and 38 assertions.

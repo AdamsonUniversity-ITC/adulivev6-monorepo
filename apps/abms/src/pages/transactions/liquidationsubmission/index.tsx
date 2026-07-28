@@ -114,7 +114,7 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
             >
                 {/* ── Filter Section ── */}
                 <div
-                    className="grid grid-cols-1 items-center gap-4 px-6 py-3 sm:grid-cols-[minmax(240px,1fr)_minmax(220px,1fr)_auto]"
+                    className="grid grid-cols-1 items-center gap-4 px-4 py-3 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,1fr)_auto] lg:px-6"
                     style={{ borderBottom: `1px solid ${t.sectionDivider}` }}
                 >
                     <div className="min-w-0 w-full">
@@ -127,7 +127,7 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                         />
                     </div>
 
-                    <div className="flex items-center justify-start gap-4 sm:justify-center">
+                    <div className="flex flex-wrap items-center justify-start gap-4 lg:justify-center">
                         <Checkbox checked={ascending} onChange={handleAscending} label="Ascending" t={t} isDark={isDark} />
                         <Checkbox checked={descending} onChange={handleDescending} label="Descending" t={t} isDark={isDark} />
                     </div>
@@ -135,7 +135,7 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                     <button
                         onClick={fetchRecords}
                         disabled={isLoading}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all duration-150 select-none"
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-bold transition-all duration-150 select-none sm:w-auto"
                         style={{
                             background: isLoading ? t.btnDisBg : t.btnRefresh.bg,
                             borderColor: isLoading ? t.btnDisBorder : t.btnRefresh.border,

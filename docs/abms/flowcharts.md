@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-07-23
+Last verified: 2026-07-28
 
 ## System Context
 
@@ -48,6 +48,21 @@ flowchart TD
     G --> H[Review and store approved_total_cost]
     H --> I[Approved Budget becomes school-year baseline]
     I --> J[Released, unused, and balance evolve through transactions]
+```
+
+## Budget Adjustment Entry
+
+```mermaid
+flowchart TD
+    A[Open add-adjustment modal] --> B[Display current school year from Budget Settings]
+    B --> C[Submit typed unit, account IDs, description, and amounts]
+    C --> D[Backend resolves current school year from Budget Settings]
+    D --> E{Current year configured and exact allocation exists?}
+    E -- No --> X[Return validation error; change nothing]
+    E -- Yes --> F[Lock current-year allocation and proposal]
+    F --> G{Resulting balances remain nonnegative?}
+    G -- No --> X
+    G -- Yes --> H[Create adjustment with current school year and update balances atomically]
 ```
 
 ## Requisition and Balance Lifecycle
@@ -101,7 +116,9 @@ flowchart TD
     D -- No --> E[Persist synchronized total]
     D -- Yes --> F{At least one item?}
     F -- No --> X[Return validation error]
-    F -- Yes --> G{Cashier request below PHP 1,000?}
+    F -- Yes --> FP{Payee requirement satisfied?}
+    FP -- No --> X
+    FP -- Yes --> G{Cashier request below PHP 1,000 without PNB exemption?}
     G -- Yes --> X
     G -- No --> H[Assign requisition number and persist calculated total]
 
@@ -117,7 +134,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Receive report filters] --> B[Authorize and validate dates, scope, and preview type]
+    A[Load report filters] --> AX{Report backing entry}
+    AX -- Requisition-backed --> AA[Return earliest live requisition date per school year and current application date]
+    AX -- Adjustments --> AA2[Return earliest live adjustment date per school year and current application date]
+    AA --> AB[Selecting a school year defaults From and To; user may edit either date]
+    AA2 --> AB
+    AB --> B[Authorize and validate dates, scope, and preview type]
     B --> C[Convert dates to explicit application-timezone start and end strings]
     C --> D[Select live proposal, adjustment, or requisition headers by created_at]
     D --> E[Exclude entries created outside the range even if updated inside it]
@@ -393,11 +415,17 @@ flowchart LR
 ```mermaid
 flowchart LR
     A[Open any ABMS report preview] --> B[Render shared 11 by 8.5 inch Letter landscape sheet]
-    B --> C[Constrain tables and content to printable width]
-    C --> D[Print with 0.35 inch margins]
-    D --> E[Repeat table headers and preserve rows/totals]
-    E --> F[Allow long groups to continue onto following Letter pages]
+    B --> C[Apply readable shared typography and a matching 0.30 inch preview inset]
+    C --> D[Constrain tables and content to printable width]
+    D --> E[Print with one printer-safe 0.30 inch page margin and no duplicate sheet padding]
+    E --> F[Repeat table headers and preserve rows/totals]
+    F --> G[Allow long groups to continue onto following Letter pages]
 ```
+
+The shared Requisition Slip is the portrait exception: its screen preview is
+8.5 by 11 inches, and print mode uses a 0.2-inch Letter page margin with no
+duplicate inner print padding. Requisition Process and Budget Request Entry
+both consume this same component.
 
 ## Idempotent Financial Mutation
 

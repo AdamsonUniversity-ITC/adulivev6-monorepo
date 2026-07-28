@@ -12,8 +12,10 @@ html {
 body {
   min-width: 20rem;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   background: var(--abms-canvas);
+  overflow-x: hidden;
 }
 
 button,
@@ -21,4 +23,104 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-width: 0;
+}
+
+.abms-app,
+.abms-app main,
+.abms-app main > div {
+  min-width: 0;
+}
+
+.abms-app img,
+.abms-app video,
+.abms-app canvas {
+  max-width: 100%;
+}
+
+.abms-app table {
+  max-width: 100%;
+}
+
+.requisition-filter-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.requisition-filter-cluster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13.75rem, 100%), 1fr));
+  align-items: stretch;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.requisition-filter-search {
+  min-width: 0;
+}
+
+[data-slot='dialog-content'],
+[data-slot='alert-dialog-content'] {
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.abms-modal-backdrop {
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 1024px) {
+  .requisition-filter-layout--with-search {
+    grid-template-columns: minmax(0, 2fr) minmax(17.5rem, 1fr);
+  }
+}
+
+@media (max-width: 639px) {
+  .requisition-role-dialog {
+    max-height: calc(100dvh - 1rem);
+    max-width: calc(100vw - 1rem);
+  }
+
+  .abms-app input,
+  .abms-app select,
+  .abms-app textarea {
+    max-width: 100%;
+  }
+
+  [data-slot='dialog-content'],
+  [data-slot='alert-dialog-content'] {
+    max-width: calc(100vw - 1rem);
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 639px), (max-height: 800px) {
+  .abms-modal-backdrop {
+    align-items: flex-start !important;
+    padding: 0.75rem !important;
+  }
+}
+
+@media (max-height: 800px) and (max-width: 1535px) {
+  .abms-app-header {
+    height: 4rem;
+  }
+
+  .abms-content {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .abms-status-bar {
+    height: 1.75rem;
+  }
 }

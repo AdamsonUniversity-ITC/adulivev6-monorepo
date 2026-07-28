@@ -52,7 +52,7 @@ const ADMIN_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.map(option =>
     option.label === 'For Certification'
         ? { label: 'For Budget Director' }
         : option
-);
+).concat({ label: 'For Approval' });
 
 // Logistics / Purchasing-specific status filters
 const LOGISTICS_STATUS_OPTIONS = [

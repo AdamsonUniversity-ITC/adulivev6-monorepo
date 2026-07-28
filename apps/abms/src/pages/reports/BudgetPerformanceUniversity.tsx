@@ -16,6 +16,7 @@ import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/P
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
 import { formatMoney } from './shared/money';
+import { getRequisitionDateDefaults, type RequisitionDateDefaultsPayload } from './shared/requisitionDateDefaults';
 import './shared/report-print.css';
 
 type Identifier = string | number;
@@ -32,7 +33,7 @@ type Account = { id: Identifier; account_code: string; account_name: string };
 type AccountRow = Money & { account: Account };
 type SubAccountRow = Money & { sub_account: Account };
 type DataQualityWarning = { code: string; message: string; affected_count?: number; entity_ids?: Identifier[] };
-type LoaderPayload = { school_years?: string[] };
+type LoaderPayload = RequisitionDateDefaultsPayload & { school_years?: string[] };
 type Preview = {
   report: {
     preview_type: PreviewType;
@@ -208,7 +209,7 @@ export default function BudgetPerformanceUniversity() {
     <PageSurface><Card className="border-0 bg-transparent shadow-none"><CardContent className="space-y-6 py-6">
       {!schoolYears.length && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">No school years are currently available.</p>}
       <div className="grid gap-5 md:grid-cols-2">
-        <div className="space-y-1.5"><Label htmlFor="university-school-year">School Year</Label><ReportFilterCombobox id="university-school-year" options={schoolYears.map(value => ({ value, label: value }))} value={schoolYear} disabled={loading || !schoolYears.length} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="university-school-year-error" groupLabel="Available school years" onChange={value => { setSchoolYear(value); setPreviewError(null); setErrors(current => ({ ...current, schoolYear: undefined })); }} /><FieldError id="university-school-year-error">{errors.schoolYear}</FieldError></div>
+        <div className="space-y-1.5"><Label htmlFor="university-school-year">School Year</Label><ReportFilterCombobox id="university-school-year" options={schoolYears.map(value => ({ value, label: value }))} value={schoolYear} disabled={loading || !schoolYears.length} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="university-school-year-error" groupLabel="Available school years" onChange={value => { const dates = getRequisitionDateDefaults(payload, value); setSchoolYear(value); setFrom(dates.from); setTo(dates.to); setPreviewError(null); setErrors(current => ({ ...current, schoolYear: undefined, from: undefined, to: undefined })); }} /><FieldError id="university-school-year-error">{errors.schoolYear}</FieldError></div>
         <fieldset className="rounded-lg border border-[var(--abms-border)] p-4"><legend className="px-2 text-sm font-semibold text-[var(--abms-primary)]">Report Options</legend><RadioGroup value={previewType} onValueChange={value => { const type = value as PreviewType; setPreviewType(type); if (type === 'detailed') setGroupBySectionType(false); setPreviewError(null); }} className="space-y-3"><div className="flex items-center gap-2"><RadioGroupItem id="university-summary" value="summary" /><Label htmlFor="university-summary">Summary</Label></div><div className="flex items-center gap-2"><RadioGroupItem id="university-detailed" value="detailed" /><Label htmlFor="university-detailed">Detailed</Label></div><div className="flex items-center gap-2 border-t border-[var(--abms-border)] pt-3"><Checkbox id="group-section-type" checked={groupBySectionType} disabled={loading || previewType !== 'summary'} onCheckedChange={checked => { setGroupBySectionType(checked === true); setPreviewError(null); }} /><Label htmlFor="group-section-type" className={previewType !== 'summary' ? 'text-muted-foreground' : ''}>Group summary by section type</Label></div></RadioGroup></fieldset>
       </div>
       <fieldset className="rounded-lg border border-[var(--abms-border)] p-4"><legend className="px-2 text-sm font-semibold text-[var(--abms-primary)]">Period</legend><div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="university-from">From</Label><Input id="university-from" type="date" value={from} disabled={loading} onChange={event => { setFrom(event.target.value); setPreviewError(null); setErrors(current => ({ ...current, from: undefined, to: undefined })); }} className="mt-1.5" /><FieldError>{errors.from}</FieldError></div><div><Label htmlFor="university-to">To</Label><Input id="university-to" type="date" value={to} min={from || undefined} disabled={loading} onChange={event => { setTo(event.target.value); setPreviewError(null); setErrors(current => ({ ...current, to: undefined })); }} className="mt-1.5" /><FieldError>{errors.to}</FieldError></div></div></fieldset>

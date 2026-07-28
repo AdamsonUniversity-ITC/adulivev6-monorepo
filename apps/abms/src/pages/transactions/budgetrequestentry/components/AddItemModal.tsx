@@ -327,12 +327,13 @@ export function AddItemModal({
             {/* AddItem backdrop — hidden when supply picker is open */}
             {!showSupplyPicker && (
                 <div
+                    className="abms-modal-backdrop"
                     style={{
                         position: 'fixed', inset: 0, zIndex: 100000,
                         background: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,20,60,0.45)',
                         backdropFilter: 'blur(6px)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '24px 16px',
+                        padding: '12px',
                         overflowY: 'auto',
                     }}
                     onClick={e => { if (e.target === e.currentTarget) onClose(); }}
@@ -345,6 +346,9 @@ export function AddItemModal({
                     `}</style>
 
                     <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Add new requisition item"
                         style={{
                             width: '100%', maxWidth: '500px',
                             background: t.cardBg,
@@ -354,10 +358,11 @@ export function AddItemModal({
                             overflow: 'hidden',
                             animation: 'additem-in .20s cubic-bezier(.22,1,.36,1)',
                             display: 'flex', flexDirection: 'column',
+                            maxHeight: 'calc(100dvh - 24px)',
                         }}
                     >
                         {/* ── Header ── */}
-                        <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                             <div>
                                 <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-.01em', color: t.titleColor, margin: 0 }}>
                                     Add New Item
@@ -385,7 +390,7 @@ export function AddItemModal({
                         </div>
 
                         {/* ── Body ── */}
-                        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+                        <div className="min-h-0 flex-1 p-4 sm:px-5 sm:py-[18px]" style={{ display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
 
                             {/* Account section */}
                             {sectionLabel('Account Information')}
@@ -412,7 +417,7 @@ export function AddItemModal({
                                 </span>
                             )}
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2">
                                 {displayOnlyField('Account No.', form.accountNo, true, t.cellBlue)}
                                 {displayOnlyField('Account Name', form.accountName)}
                             </div>
@@ -489,7 +494,7 @@ export function AddItemModal({
                             {/* Pricing section */}
                             {sectionLabel('Pricing & Quantity')}
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                            <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2 sm:grid-cols-3">
                                 {inputField('Unit Cost', form.unitCost, v => set('unitCost', v), {
                                     type: 'number', placeholder: accountSelected ? '0.00' : '',
                                     mono: true, readOnly: rsType === 'stockroom' || itemFromSupply,
@@ -553,7 +558,7 @@ export function AddItemModal({
                         </div>
 
                         {/* ── Footer actions ── */}
-                        <div style={{ padding: '12px 20px', background: t.cardHeaderBg, borderTop: `1px solid ${t.cardHeaderBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                        <div style={{ padding: '12px 20px', background: t.cardHeaderBg, borderTop: `1px solid ${t.cardHeaderBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
                             <button
                                 onClick={onClose}
                                 style={{
