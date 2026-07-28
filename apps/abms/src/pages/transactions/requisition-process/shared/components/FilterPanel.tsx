@@ -289,10 +289,13 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
 
             {/* ── Row 2: Left cluster  ║  RS No. hero field ─────────── */}
             {hasRow2 && (
-                <div style={{ display: 'grid', gridTemplateColumns: hasSearch && hasLeftCluster ? 'minmax(0, 2fr) minmax(280px, 1fr)' : 'minmax(0, 1fr)', alignItems: 'stretch', padding: 16, gap: 12 }}>
+                <div
+                    className={hasSearch && hasLeftCluster ? 'requisition-filter-layout requisition-filter-layout--with-search' : 'requisition-filter-layout'}
+                    style={{ alignItems: 'stretch' }}
+                >
 
                     {hasLeftCluster && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', alignItems: 'stretch', gap: 12, minWidth: 0 }}>
+                        <div className="requisition-filter-cluster">
 
                             {hasDept && (
                                 <>
@@ -611,7 +614,7 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                     )}
 
                     {hasSearch && (
-                        <div style={{ ...filterCard, minWidth: 280, justifyContent: 'space-between' }}>
+                        <div className="requisition-filter-search" style={{ ...filterCard, justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                                 <FilterCheckbox
                                     id="search-toggle"

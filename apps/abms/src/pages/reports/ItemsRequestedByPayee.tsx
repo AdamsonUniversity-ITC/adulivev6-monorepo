@@ -14,10 +14,11 @@ import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/P
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
 import { formatMoney } from './shared/money';
+import { getRequisitionDateDefaults, type RequisitionDateDefaultsPayload } from './shared/requisitionDateDefaults';
 import './shared/report-print.css';
 
 type Identifier = string | number;
-type LoaderPayload = { school_years?: string[] };
+type LoaderPayload = RequisitionDateDefaultsPayload & { school_years?: string[] };
 type PayeeRow = {
   id: Identifier;
   payee: string;
@@ -131,7 +132,7 @@ export default function ItemsRequestedByPayee() {
     <PageSurface><Card className="border-0 bg-transparent shadow-none"><CardContent className="space-y-6 py-6">
       {!schoolYears.length && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">No school years are currently available.</p>}
       <div className="grid gap-5 md:grid-cols-3">
-        <div className="space-y-1.5"><Label htmlFor="payee-school-year">School Year</Label><ReportFilterCombobox id="payee-school-year" options={schoolYears.map(value => ({ value, label: value }))} value={schoolYear} disabled={loading || !schoolYears.length} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="payee-school-year-error" groupLabel="Available school years" onChange={value => { setSchoolYear(value); setPreviewError(null); setErrors(current => ({ ...current, schoolYear: undefined })); }} /><FieldError id="payee-school-year-error">{errors.schoolYear}</FieldError></div>
+        <div className="space-y-1.5"><Label htmlFor="payee-school-year">School Year</Label><ReportFilterCombobox id="payee-school-year" options={schoolYears.map(value => ({ value, label: value }))} value={schoolYear} disabled={loading || !schoolYears.length} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="payee-school-year-error" groupLabel="Available school years" onChange={value => { const dates = getRequisitionDateDefaults(payload, value); setSchoolYear(value); setFrom(dates.from); setTo(dates.to); setPreviewError(null); setErrors(current => ({ ...current, schoolYear: undefined, from: undefined, to: undefined })); }} /><FieldError id="payee-school-year-error">{errors.schoolYear}</FieldError></div>
         <div><Label htmlFor="payee-from">From</Label><Input id="payee-from" type="date" value={from} disabled={loading} onChange={event => { setFrom(event.target.value); setPreviewError(null); setErrors(current => ({ ...current, from: undefined, to: undefined })); }} className="mt-1.5" /><FieldError>{errors.from}</FieldError></div>
         <div><Label htmlFor="payee-to">To</Label><Input id="payee-to" type="date" value={to} min={from || undefined} disabled={loading} onChange={event => { setTo(event.target.value); setPreviewError(null); setErrors(current => ({ ...current, to: undefined })); }} className="mt-1.5" /><FieldError>{errors.to}</FieldError></div>
       </div>

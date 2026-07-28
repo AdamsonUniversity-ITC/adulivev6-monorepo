@@ -209,6 +209,7 @@ export function AttachmentsModal({
 
     return createPortal(
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 100000,
                 background: 'rgba(0,0,0,0.55)',
@@ -474,6 +475,7 @@ export function RSFormModal({
     const [isSavingRS, setIsSavingRS] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [payeeInput, setPayeeInput] = useState('');
+    const [saveError, setSaveError] = useState<string | null>(null);
     useEffect(() => {
         if (open) {
             setItems([]);
@@ -482,6 +484,7 @@ export function RSFormModal({
             setIsSavingRS(false);
             setIsSaved(false);
             setPayeeInput(rsHeaderData?.payee ?? '');
+            setSaveError(null);
         }
     }, [open, rsHeaderData?.payee]);
 
@@ -508,11 +511,15 @@ export function RSFormModal({
     const CASHIER_MINIMUM_AMOUNT = 1000;
     const isPnbCreditCardPayment = rsHeaderData?.payment_form === PNB_CREDIT_CARD_PAYMENT;
     const isBelowCashierMinimum = rsType === 'cashier' && !isPnbCreditCardPayment && grandTotal < CASHIER_MINIMUM_AMOUNT;
-    const isSaveDisabled = isSavingRS || isSaved || items.length === 0 || isBelowCashierMinimum;
+    const effectivePayee = rsHeaderData?.payeeFromModal ? rsHeaderData.payee?.trim() ?? '' : payeeInput.trim();
+    const isCashierPayeeMissing = rsType === 'cashier' && effectivePayee === '';
+    const hasSavePrerequisiteError = items.length === 0 || isBelowCashierMinimum || isCashierPayeeMissing;
+    const isSaveDisabled = isSavingRS || isSaved || hasSavePrerequisiteError;
 
     async function handleSaveRS() {
         if (!rsHeaderId || isSaveDisabled) return;
         setIsSavingRS(true);
+        setSaveError(null);
         try {
             const res = await financeSvc.patch(`/abms/budget-request-entry/${rsHeaderId}/save`, {
                 total_amount: grandTotal,
@@ -523,8 +530,12 @@ export function RSFormModal({
             });
             setIsSaved(true);
             onSaveSuccess(res.data.requisition_number ?? String(rsHeaderId));
-        } catch {
-            // surface error — re-enable button so user can retry
+        } catch (error: unknown) {
+            const data = (error as {
+                response?: { data?: { message?: string; errors?: Record<string, string[] | string> } };
+            }).response?.data;
+            const validationMessage = Object.values(data?.errors ?? {}).flat()[0];
+            setSaveError(validationMessage || data?.message || 'The requisition slip could not be saved. Please try again.');
         } finally {
             setIsSavingRS(false);
         }
@@ -574,6 +585,7 @@ export function RSFormModal({
 
     const portal = createPortal(
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 99999,
                 background: isDark ? 'rgba(0,0,0,0.70)' : 'rgba(0,20,60,0.42)',
@@ -709,17 +721,17 @@ export function RSFormModal({
                             style={{
                                 background: isSaved
                                     ? (isDark ? 'rgba(34,197,94,0.15)' : 'rgba(220,252,231,0.80)')
-                                    : (items.length === 0 || isBelowCashierMinimum)
+                                    : hasSavePrerequisiteError
                                         ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
                                         : t.btnNew.bg,
                                 borderColor: isSaved
                                     ? (isDark ? 'rgba(34,197,94,0.40)' : 'rgba(22,163,74,0.35)')
-                                    : (items.length === 0 || isBelowCashierMinimum)
+                                    : hasSavePrerequisiteError
                                         ? (isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)')
                                         : t.btnNew.border,
                                 color: isSaved
                                     ? (isDark ? '#4ade80' : '#15803d')
-                                    : (items.length === 0 || isBelowCashierMinimum)
+                                    : hasSavePrerequisiteError
                                         ? (isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)')
                                         : t.btnNew.text,
                                 opacity: isSavingRS ? 0.6 : 1,
@@ -930,6 +942,29 @@ export function RSFormModal({
                             </span>
                         </div>
                     )}
+                    {isCashierPayeeMissing && (
+                        <div
+                            role="alert"
+                            style={{
+                                margin: '10px 22px 0',
+                                padding: '10px 12px',
+                                borderRadius: 9,
+                                display: 'flex', alignItems: 'flex-start', gap: 8,
+                                background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,242,242,0.95)',
+                                border: `1px solid ${isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.30)'}`,
+                                color: isDark ? '#fca5a5' : '#991b1b',
+                                fontSize: 11, lineHeight: 1.5,
+                            }}
+                        >
+                            <AlertCircle style={{ width: 15, height: 15, marginTop: 1, flexShrink: 0 }} />
+                            <span>Payee is required for Cashier requisitions.</span>
+                        </div>
+                    )}
+                    {saveError && (
+                        <div role="alert" style={{ margin: '10px 22px 0', color: isDark ? '#fca5a5' : '#991b1b', fontSize: 11 }}>
+                            {saveError}
+                        </div>
+                    )}
                     </>
                 )}
 
@@ -953,7 +988,11 @@ export function RSFormModal({
                         >
                             <User style={{ width: 12, height: 12 }} />
                             Payee
-                            {!rsHeaderData?.payeeFromModal && (
+                            {rsType === 'cashier' ? (
+                                <span style={{ color: t.cellRed, textTransform: 'none', fontSize: 9, fontWeight: 700, marginLeft: 2 }}>
+                                    (required)
+                                </span>
+                            ) : !rsHeaderData?.payeeFromModal && (
                                 <span style={{ color: t.cellAmber, textTransform: 'none', fontSize: 9, fontWeight: 600, marginLeft: 2 }}>
                                     (optional)
                                 </span>
@@ -979,7 +1018,7 @@ export function RSFormModal({
                         ) : (
                             <input
                                 value={payeeInput}
-                                onChange={e => setPayeeInput(e.target.value)}
+                                onChange={e => { setPayeeInput(e.target.value); setSaveError(null); }}
                                 disabled={isSaved}
                                 placeholder="Enter payee name…"
                                 style={{

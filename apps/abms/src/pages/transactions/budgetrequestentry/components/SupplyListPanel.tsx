@@ -67,6 +67,7 @@ export function SupplyListPanel({
     return (
 
         <div
+            className="min-h-0"
             style={{
                 width: '100%', maxWidth: '520px',
                 background: t.cardBg,
@@ -75,7 +76,7 @@ export function SupplyListPanel({
                 boxShadow: t.cardShadow,
                 overflow: 'hidden',
                 display: 'flex', flexDirection: 'column',
-                maxHeight: '82vh',
+                maxHeight: 'calc(100dvh - 24px)',
             }}
         >
             {/* Header */}
@@ -143,7 +144,7 @@ export function SupplyListPanel({
             </div>
 
             {/* Table — scrollable */}
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ overflow: 'auto', flex: 1 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr style={{ background: t.tableHeadBg }}>

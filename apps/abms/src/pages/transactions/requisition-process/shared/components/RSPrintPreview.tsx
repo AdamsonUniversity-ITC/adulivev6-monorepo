@@ -165,7 +165,7 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             .rs-print-toolbar{position:fixed;right:24px;top:18px;z-index:200001;display:flex;gap:8px}
             .rs-print-toolbar button{display:flex;align-items:center;gap:7px;border:1px solid #000;border-radius:7px;background:#fff;color:#000;padding:9px 15px;font:700 12px Arial;cursor:pointer}
             .rs-print-page{box-sizing:border-box;width:8.5in;min-height:11in;margin:auto;background:#fff;color:#000;padding:0;font:13.5px Arial,sans-serif;box-shadow:0 10px 40px #000}
-            .rs-sheet{box-sizing:border-box;min-height:11in;padding:7mm 6mm 5mm;display:flex;flex-direction:column}
+            .rs-sheet{box-sizing:border-box;min-height:11in;padding:.2in;display:flex;flex-direction:column}
             .rs-report-header{min-height:17mm}
             .rs-review-dates{display:grid;grid-template-columns:auto 1fr;align-self:flex-start;gap:4px 9px;width:66mm;font-size:11px;padding:0 0 2.5mm}
             .rs-title{text-align:center}.rs-title h1{font-size:27px;font-weight:500;letter-spacing:.6px;margin:0;color:#000}.rs-title h2{font-size:17px;margin:4px 0 0;color:#000}
@@ -187,10 +187,14 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             .rs-footer{font-size:9.5px;line-height:1.28;padding-top:4mm;text-align:justify}
             .rs-footer p{margin:2mm 0 0}
             @media print{
+                html,body{margin:0!important;padding:0!important;width:auto!important;min-height:auto!important}
+                body>*:not(.rs-print-overlay){display:none!important}
                 body *{visibility:hidden!important}.rs-print-page,.rs-print-page *{visibility:visible!important}
-                .rs-print-page{position:absolute;left:0;top:0;width:8.5in;min-height:11in;margin:0;padding:0;box-shadow:none}
-                .rs-print-overlay{position:static;background:none!important;padding:0}.rs-print-toolbar{display:none!important}
-                @page{size:Letter portrait;margin:0}
+                .rs-print-overlay{position:static!important;width:auto!important;background:none!important;padding:0!important}
+                .rs-print-page{position:static!important;width:100%!important;min-height:10.6in!important;margin:0!important;padding:0!important;box-shadow:none!important}
+                .rs-sheet{min-height:10.6in!important;padding:0!important}
+                .rs-print-toolbar{display:none!important}
+                @page{size:Letter portrait;margin:.2in}
             }
         `}</style>
     </div>, document.body);

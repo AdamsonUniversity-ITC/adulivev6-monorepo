@@ -93,12 +93,10 @@ export function SelectAccountModal({
 
     const portal = createPortal(
         <div
+            className="abms-modal-backdrop fixed inset-0 z-[100002] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{
-                position: 'fixed', inset: 0, zIndex: 100002,
                 background: isDark ? 'rgba(0,0,0,0.80)' : 'rgba(0,20,60,0.52)',
                 backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '24px 16px',
             }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
@@ -119,7 +117,7 @@ export function SelectAccountModal({
                     overflow: 'hidden',
                     animation: 'acct-in .20s cubic-bezier(.22,1,.36,1)',
                     display: 'flex', flexDirection: 'column',
-                    maxHeight: '78vh',
+                    maxHeight: 'calc(100dvh - 24px)',
                 }}
             >
                 {/* Header */}
@@ -169,7 +167,7 @@ export function SelectAccountModal({
                 </div>
 
                 {/* Table */}
-                <div style={{ overflowY: 'auto', flex: 1 }}>
+                <div style={{ overflow: 'auto', flex: 1 }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                             <tr style={{ background: t.tableHeadBg }}>

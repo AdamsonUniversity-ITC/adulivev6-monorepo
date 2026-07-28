@@ -377,9 +377,9 @@ function BudgetRequestEntryInner({
                             </div>
                             <Checkbox checked={filterByDate} onChange={v => { setFilterByDate(v); if (!v) { setDateFrom(''); setDateTo(''); } }} label="Enable" t={t} isDark={isDark} />
                         </div>
-                        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                        <div className="grid min-w-0 grid-cols-1 items-center gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
                             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} disabled={!filterByDate} className="min-w-0 rounded-lg border px-2.5 py-2 text-[11px] font-semibold outline-none transition-all duration-150" style={{ background: t.cardHeaderBg, borderColor: t.inputBorder, color: dateFrom ? t.inputText : t.inputPlaceholder, colorScheme: isDark ? 'dark' : 'light', opacity: filterByDate ? 1 : 0.38, cursor: filterByDate ? 'default' : 'not-allowed' }} />
-                            <span className="text-[10px] font-bold" style={{ color: t.cellMuted }}>to</span>
+                            <span className="hidden text-[10px] font-bold min-[480px]:inline" style={{ color: t.cellMuted }}>to</span>
                             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} disabled={!filterByDate} className="min-w-0 rounded-lg border px-2.5 py-2 text-[11px] font-semibold outline-none transition-all duration-150" style={{ background: t.cardHeaderBg, borderColor: t.inputBorder, color: dateTo ? t.inputText : t.inputPlaceholder, colorScheme: isDark ? 'dark' : 'light', opacity: filterByDate ? 1 : 0.38, cursor: filterByDate ? 'default' : 'not-allowed' }} />
                         </div>
                     </div>
@@ -404,7 +404,7 @@ function BudgetRequestEntryInner({
 
                 {/* ══ ROW 2 — Search + count pill ═══════════════════════════ */}
                 <div
-                    className="px-5 py-2.5 flex items-center gap-3"
+                    className="flex flex-col items-stretch gap-2 px-4 py-2.5 min-[480px]:flex-row min-[480px]:items-center sm:px-5"
                     style={{
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,

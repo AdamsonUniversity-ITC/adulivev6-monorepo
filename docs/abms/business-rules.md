@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-07-24
+Last verified: 2026-07-28
 
 ## Shared Financial Identity
 
@@ -8,6 +8,12 @@ Last verified: 2026-07-24
 - A typed unit key is `department:{id}` or `section:{id}`. Never merge these namespaces.
 - A proposal allocation is the tuple of school year, typed unit, proposal, and child account represented by `budget_proposal_entry` plus `sub_accounts`.
 - Current account hierarchy and organization relationships are used for report grouping. Emit a warning when a current relationship cannot be established reliably.
+
+## Budget Adjustment Entry
+
+- New adjustment entries always use `budget_settings.current_school_year`; the backend derives this value and does not trust a client-supplied school year.
+- Creation fails without changing balances when the current school year is not configured or no matching current-year typed-unit allocation exists.
+- Existing adjustment school years remain immutable. Editing or deleting a historical adjustment continues to resolve and reverse its originally stored school-year allocation.
 
 ## Budget Performance Formula
 
@@ -24,6 +30,8 @@ Last verified: 2026-07-24
 
 - Date-ranged report services do not query OwenIt audits for inclusion, dates, values, snapshots, lifecycle reconstruction, or reconciliation.
 - Convert From and To to explicit start-of-day and end-of-day strings in the application timezone before querying `created_at`; this preserves midnight and end-of-day inclusivity without connection-timezone shifts.
+- On requisition-backed report pages with a school-year selector, selecting a year defaults From to the earliest live `budget_request_entry.created_at` date for that year and To to the current application-timezone date. Users may still edit either date; soft-deleted requisitions do not establish the default.
+- On Adjustments Per Department, selecting a year defaults From to the earliest live `budget_adjustment_entry.created_at` date for that year and To to the current application-timezone date. Soft-deleted adjustments do not establish the default.
 - Missing audit history is not a report data-quality error. Current invalid organizational identity, unresolved account identity, ambiguous legacy code mapping, and current total inconsistencies may still produce warnings.
 
 ## Requisition Snapshot and Balance Rules
@@ -45,6 +53,7 @@ Last verified: 2026-07-24
 - Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.
 - Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
 - The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
+- Finalizing a Cashier requisition requires a nonblank payee, either already stored from Payee Details or submitted by the RS form. Missing payee validation occurs before numbering or workflow changes; non-final total synchronization and non-Cashier requisitions do not require it. Editable legacy unsaved or reprocessed Cashier slips expose a required Payee input so they can satisfy the rule.
 - Finalization requires at least one item. A Cashier requisition must total at least PHP 1,000 unless its stored payment form is exactly `PNB Credit Card Payment`; drafts may still synchronize below that threshold.
 - `Reprocess RS` uses the dedicated database status `reprocess`, sets `location = department`, records the prior location in `from`, and resets Controller decision state. Reprocess actions are hidden once an entry is already in `reprocess`.
 - Department-side item editing is allowed only for unsaved requisitions or entries with `status = reprocess` and `location = department`. Editable rows may change description, quantity, unit cost, and unit of measurement; every save recalculates item totals and applies only the account/proposal balance delta inside one transaction.
@@ -183,8 +192,11 @@ Last verified: 2026-07-24
 - Show incomplete-history warnings as toasts, not as an inline block in the report preview or print body.
 - `printed_by` is the authenticated user's resolved full name.
 - Tag every organizational row as Department or Section; label inactive historical units where selectable.
-- Every ABMS report preview and browser print uses US Letter landscape (`11in × 8.5in`) with `0.35in` margins.
-- Screen previews use the same Letter aspect and maximum width as the printed sheet; tables must remain within the printable width and repeat table headers across printed pages.
+- Every ABMS report preview and browser print uses US Letter landscape (`11in × 8.5in`) with printer-safe `0.30in` margins.
+- Screen previews use the same Letter aspect, maximum width, and `0.30in` safe content inset as the printed sheet. Print mode removes the preview's inner padding so the browser page margin is the only printable inset.
+- Shared report typography uses a 15px base, 13px table cells, 26px/17px primary titles, 15px/14px group headings, 11px badges, and 12px footers for improved readability. Report-specific column widths, indentation, and alignment remain authoritative; content may flow onto additional pages instead of being reduced to fit.
+- Tables must remain within the printable width and repeat table headers across printed pages.
+- The shared Requisition Slip preview used by Requisition Process and Budget Request Entry uses US Letter portrait (`8.5in × 11in`). Browser printing declares `0.2in` page margins and sizes the report to the resulting printable area so non-borderless printers do not scale down a full-bleed sheet.
 - Do not render hardcoded page numbers because browser pagination depends on content and print settings.
 - Allow long account and requisition groups to flow across pages while keeping individual rows, headings, subtotals, totals, and footers together where practical.
 

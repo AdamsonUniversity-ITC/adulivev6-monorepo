@@ -630,7 +630,7 @@ function UserManagementModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="abms-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto p-4"
       style={{ background: t.modalOverlay, backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -640,7 +640,7 @@ function UserManagementModal({
           background: t.modalBg,
           border: `1px solid ${t.modalBorder}`,
           boxShadow: t.modalShadow,
-          maxHeight: '90vh',
+          maxHeight: 'calc(100dvh - 24px)',
         }}
       >
         {/* ── Modal Header ── */}
@@ -1489,7 +1489,7 @@ function AddUserModal({
 
       {/* ── Add User Search Modal ── */}
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className="abms-modal-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
         style={{ background: t.modalOverlay, backdropFilter: 'blur(4px)' }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >

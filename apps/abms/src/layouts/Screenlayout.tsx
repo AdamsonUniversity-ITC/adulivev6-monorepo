@@ -1,6 +1,6 @@
-import React, { useState, ReactNode } from 'react';
+import React, { useEffect, useState, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sun, Moon } from 'lucide-react';
+import { Menu, Sun, Moon, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar';
 import Sidebar from '../components/Sidebar';
 import { useTheme } from '../context/useTheme';
@@ -185,7 +185,12 @@ const ThemeToggle: React.FC<{
 
 const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
   const { user } = useRouteContext({ strict: false });
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isLargeDesktop, setIsLargeDesktop] = useState(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1536px)').matches
+  );
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1536px)').matches
+  );
   const { isDark, toggleTheme } = useTheme();
   const t = isDark ? L.dark : L.light;
 
@@ -197,6 +202,32 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
       isNavigating: state.status !== 'idle',
     }),
   });
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1536px)');
+    const handleViewportChange = (event: MediaQueryListEvent) => {
+      setIsLargeDesktop(event.matches);
+      setIsSidebarOpen(event.matches);
+    };
+
+    media.addEventListener('change', handleViewportChange);
+    return () => media.removeEventListener('change', handleViewportChange);
+  }, []);
+
+  useEffect(() => {
+    if (isLargeDesktop) return;
+    const closeTimer = window.setTimeout(() => setIsSidebarOpen(false), 0);
+    return () => window.clearTimeout(closeTimer);
+  }, [isLargeDesktop, pathname]);
+
+  useEffect(() => {
+    if (isLargeDesktop || !isSidebarOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSidebarOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isLargeDesktop, isSidebarOpen]);
   // ──────────────────────────────────────────────────────────────────────────
 
   return (
@@ -204,7 +235,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
     <motion.div
       aria-busy={isNavigating}
       inert={isNavigating}
-      className="min-h-screen flex overflow-hidden"
+      className="abms-app flex min-h-screen w-full overflow-hidden"
       animate={{ background: t.base }}
       transition={{ duration: 0.35 }}
       style={{ fontFamily: 'var(--abms-font-sans)' }}
@@ -227,14 +258,29 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         onToggle={() => setIsSidebarOpen(p => !p)}
         isDark={isDark}
         isNavigating={isNavigating}
+        isOverlay={!isLargeDesktop}
       />
 
+      <AnimatePresence>
+        {!isLargeDesktop && isSidebarOpen && (
+          <motion.button
+            type="button"
+            aria-label="Close navigation menu"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 z-[19] bg-slate-950/55 backdrop-blur-[2px]"
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Main ────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col relative z-10 h-screen overflow-hidden">
+      <main className="relative z-10 flex h-screen h-dvh min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* ── Header ────────────────────────────────────────────── */}
         <motion.header
-          className="h-[72px] flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 shrink-0"
+          className="abms-app-header flex h-[72px] shrink-0 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-6 lg:px-8"
           animate={{ background: t.headerBg }}
           transition={{ duration: 0.35 }}
           style={{
@@ -244,23 +290,41 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
           }}
         >
           {/* Title */}
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            {!isLargeDesktop && (
+              <button
+                type="button"
+                aria-label={isSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={isSidebarOpen}
+                onClick={() => setIsSidebarOpen(open => !open)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors"
+                style={{
+                  background: t.toggleBg,
+                  borderColor: t.toggleBorder,
+                  color: t.toggleColor,
+                }}
+              >
+                {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            )}
+            <div className="min-w-0">
             <h2
-              className="truncate font-[var(--abms-font-display)] text-sm font-bold tracking-wide leading-none sm:text-[15px]"
+              className="truncate font-[var(--abms-font-display)] text-xs font-bold leading-none tracking-wide min-[420px]:text-sm sm:text-[15px]"
               style={{ color: t.titleColor }}
             >
               Adamson Budget Monitoring System
             </h2>
             <p
-              className="text-[10px] tracking-[0.26em] uppercase mt-[5px] font-medium"
+              className="mt-[5px] hidden text-[10px] font-medium uppercase tracking-[0.26em] min-[420px]:block"
               style={{ color: t.subColor }}
             >
               Adamson University
             </p>
+            </div>
           </div>
 
           {/* Right: toggle + user */}
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <ThemeToggle
               isDark={isDark}
               onToggle={toggleTheme}
@@ -269,12 +333,12 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Divider */}
             <div
-              className="w-px h-8"
+              className="hidden h-8 w-px min-[420px]:block"
               style={{ background: t.headerBorder }}
             />
 
             {/* User chip */}
-            <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 min-[420px]:flex">
               <div className="hidden text-right sm:block">
                 <p
                   className="text-sm font-semibold leading-none"
@@ -335,7 +399,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
           they remain mounted and do not flicker or re-animate on navigation.
         */}
         <div
-          className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"
+          className="abms-content flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-3 sm:p-5 lg:p-6 2xl:p-8"
           style={{
             scrollbarWidth: 'thin',
             scrollbarColor: `${t.scrollThumb} transparent`,
@@ -343,6 +407,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
         >
           <AnimatePresence mode="wait">
             <motion.div
+              className="min-w-0"
               key={pathname}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -356,7 +421,7 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* ── Status bar ────────────────────────────────────────── */}
         <motion.div
-          className="h-8 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0"
+          className="abms-status-bar flex h-8 shrink-0 items-center justify-between gap-3 px-3 sm:px-6 lg:px-8"
           animate={{ background: t.statusBarBg }}
           transition={{ duration: 0.35 }}
           style={{ borderTop: `1px solid ${t.statusBorder}` }}
@@ -374,16 +439,16 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
               />
               Systems Online
             </span>
-            <span className="text-[10px]" style={{ color: t.statusText }}>·</span>
+            <span className="hidden text-[10px] min-[420px]:inline" style={{ color: t.statusText }}>·</span>
             <span
-              className="text-[10px] tracking-widest uppercase"
+              className="hidden text-[10px] uppercase tracking-widest min-[420px]:inline"
               style={{ color: t.statusText }}
             >
               AduLive v6.0
             </span>
           </div>
           <span
-            className="text-[10px] tracking-widest uppercase"
+            className="hidden text-[10px] uppercase tracking-widest sm:inline"
             style={{ color: t.statusText }}
           >
             {new Date().toLocaleDateString('en-PH', {

@@ -30,10 +30,11 @@ function formatAmount(amount: number) {
 }
 
 export function AccountsViewModal({
-    t, isDark, departmentSectionName, accounts, isLoading = false, error = null, onClose,
+    t, departmentSectionName, accounts, isLoading = false, error = null, onClose,
 }: AccountsViewModalProps) {
     return (
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 70,
                 background: 'rgba(0,0,0,0.60)',
@@ -50,7 +51,7 @@ export function AccountsViewModal({
                 borderRadius: 14,
                 width: '100%',
                 maxWidth: 640,
-                maxHeight: 'calc(100vh - 48px)',
+                maxHeight: 'calc(100dvh - 24px)',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',

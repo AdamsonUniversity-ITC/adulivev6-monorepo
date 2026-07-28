@@ -25,11 +25,118 @@
 .proposal-report {
   min-height: 8.5in !important;
   box-sizing: border-box;
+  padding: 0.3in !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+  color: #000 !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) h1 {
+  font-size: 26px !important;
+  line-height: 1.15 !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) h2 {
+  font-size: 17px !important;
+  line-height: 1.25 !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(h3, .unit-heading, .main-title, .approved-items-unit-heading) {
+  font-size: 15px !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) h4 {
+  font-size: 14px !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(th, td, caption) {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(.type-badge, .unit-badge, .unit-tag) {
+  font-size: 11px !important;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) footer {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
 }
 
 @page {
   size: letter landscape;
-  margin: 0.35in;
+  margin: 0.3in;
 }
 
 @media print {

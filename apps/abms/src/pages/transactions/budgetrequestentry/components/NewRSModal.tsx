@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ClipboardList,
-    FilePlus, RefreshCw, Search, X,
+    ChevronDown, FilePlus, RefreshCw, Search, X,
 } from 'lucide-react';
-import type { PayeeDetails, RSType, RSTypeOption, ThemeTokens } from '../types';
+import type { PayeeDetails, ThemeTokens } from '../types';
 import { Btn } from './common';
 import { PAYEE_REQUIRED_FORMS, PayeeDetailsModal } from './PayeeDetailsModal';
 import { SupplyListPanel } from './SupplyListPanel';
@@ -61,8 +60,30 @@ export function NewRSModal({
 
 
     useEffect(() => {
-        if (open) { setSelected('stockroom'); setPaymentForm(''); setShowSupplyList(false); setShowPayeeModal(false); setPendingType(null); }
+        if (!open) return;
+        const resetTimer = window.setTimeout(() => {
+            setSelected('stockroom');
+            setPaymentForm('');
+            setShowSupplyList(false);
+            setShowPayeeModal(false);
+            setPendingType(null);
+        }, 0);
+        return () => window.clearTimeout(resetTimer);
     }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        const previousOverflow = document.body.style.overflow;
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && !showPayeeModal) onClose();
+        };
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', closeOnEscape);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [onClose, open, showPayeeModal]);
 
     function handleConfirm() {
         if (!selected || isLoading) return;
@@ -79,14 +100,10 @@ export function NewRSModal({
 
     const portal = createPortal(
         <div
+            className="abms-modal-backdrop fixed inset-0 z-[99998] overflow-y-auto p-3 sm:p-4"
             style={{
-                position: 'fixed', inset: 0, zIndex: 99998,
                 background: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,20,60,0.40)',
                 backdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: '16px',
-                padding: '20px',
-                overflowX: 'auto',
             }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
@@ -97,29 +114,35 @@ export function NewRSModal({
                 }
             `}</style>
 
-            {/* Supply list panel — shown to the left when toggled */}
-            {showSupplyList && (
-                <SupplyListPanel
-                    t={t}
-                    isDark={isDark}
-                    onClose={() => setShowSupplyList(false)}
-                />
-            )}
-
-            {/* Modal card — same shape as the page card */}
             <div
-                style={{
-                    width: '100%', maxWidth: '580px',
-                    background: t.cardBg,
-                    border: `1px solid ${t.cardBorder}`,
-                    borderRadius: '16px',
-                    boxShadow: t.cardShadow,
-                    overflow: 'hidden',
-                    animation: 'modal-in .20s cubic-bezier(.22,1,.36,1)',
-                }}
+                className="mx-auto flex min-h-full w-full max-w-[1116px] flex-col items-center justify-start gap-3 lg:flex-row lg:items-center lg:justify-center lg:gap-4"
+                onClick={e => { if (e.target === e.currentTarget) onClose(); }}
             >
+                {/* Supply list panel — shown to the left when toggled */}
+                {showSupplyList && (
+                    <SupplyListPanel
+                        t={t}
+                        isDark={isDark}
+                        onClose={() => setShowSupplyList(false)}
+                    />
+                )}
+
+                {/* Modal card — same shape as the page card */}
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="new-rs-modal-title"
+                    className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[580px] min-w-0 flex-col overflow-hidden rounded-2xl"
+                    style={{
+                        background: t.cardBg,
+                        border: `1px solid ${t.cardBorder}`,
+                        boxShadow: t.cardShadow,
+                        animation: 'modal-in .20s cubic-bezier(.22,1,.36,1)',
+                    }}
+                >
                 {/* ── Header — same style as the page card header ── */}
                 <div
+                    className="shrink-0"
                     style={{
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
@@ -129,6 +152,7 @@ export function NewRSModal({
                 >
                     <div>
                         <h2
+                            id="new-rs-modal-title"
                             className="text-sm font-bold tracking-tight"
                             style={{ color: t.titleColor }}
                         >
@@ -162,7 +186,7 @@ export function NewRSModal({
                 </div>
 
                 {/* ── Body ── */}
-                <div style={{ padding: '20px' }}>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
 
                     {/* RS Type options */}
                     <p
@@ -342,17 +366,23 @@ export function NewRSModal({
                         </div>
                     )}
 
-                    {/* Divider */}
-                    <div style={{ height: 1, background: t.sectionDivider, marginBottom: 16 }} />
+                </div>
 
                     {/* Footer actions */}
-                    <div className="flex items-center justify-end gap-2">
+                    <div
+                        className="grid shrink-0 grid-cols-1 gap-2 p-3 min-[420px]:grid-cols-2 sm:flex sm:justify-end sm:px-5 sm:py-3.5"
+                        style={{
+                            background: t.cardHeaderBg,
+                            borderTop: `1px solid ${t.sectionDivider}`,
+                        }}
+                    >
                         <Btn
                             token={t.btnRefresh}
                             icon={<X className="w-3.5 h-3.5" />}
                             label="Cancel"
                             onClick={onClose}
                             t={t}
+                            className="w-full justify-center sm:w-auto"
                         />
                         <Btn
                             token={t.btnNew}
@@ -364,6 +394,7 @@ export function NewRSModal({
                             onClick={handleConfirm}
                             disabled={isLoading}
                             t={t}
+                            className="w-full justify-center sm:w-auto"
                         />
                     </div>
 

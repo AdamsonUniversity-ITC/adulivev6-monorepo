@@ -269,8 +269,8 @@ export const budgetadjustmententryRoute = new Route({
     beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-adjustment-entry');
-        const { proposal_school_year, current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries } = response.data;
-        return { proposal_school_year, current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries };
+        const { current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries } = response.data;
+        return { current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries };
     },
     component: BudgetAdjustmentEntry,
 });

@@ -16,6 +16,7 @@ import { FieldError, Page, PageHeader, PageSurface } from '../../components/ui/P
 import { ReportFilterCombobox } from './shared/ReportFilterCombobox';
 import { ReportPrintPortal } from './shared/ReportPrintPortal';
 import { formatMoney } from './shared/money';
+import { getRequisitionDateDefaults, type RequisitionDateDefaultsPayload } from './shared/requisitionDateDefaults';
 import './shared/report-print.css';
 
 type Unit = { type: 'department' | 'section'; id: number; name: string; active: boolean };
@@ -39,7 +40,7 @@ type Preview = {
   grand_total: Totals;
   data_quality: { complete: boolean; warnings: Array<{ code: string; message: string }>; calculation_timezone: string; inclusive_from: string; inclusive_to: string };
 };
-type LoaderPayload = { school_years?: string[]; units?: Unit[] };
+type LoaderPayload = RequisitionDateDefaultsPayload & { school_years?: string[]; units?: Unit[] };
 type PreviewType = 'summary' | 'detailed';
 type LiquidationScope = 'both' | 'for_liquidation' | 'liquidated';
 type Errors = Partial<Record<'schoolYear' | 'unit' | 'from' | 'to', string>>;
@@ -185,7 +186,7 @@ export default function BudgetLiquidation() {
   return <AdamsonBudgetLayout><Toaster position="bottom-right" richColors closeButton /><Page width="default"><PageHeader title="Budget Liquidation" description="Review liquidation and cash-advance requisitions by department or section." /><PageSurface><Card className="border-0 bg-transparent shadow-none"><CardContent className="space-y-6 py-6">
     {!schoolYears.length && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">No school years are currently available.</p>}
     <div className="grid gap-5 md:grid-cols-3">
-      <div className="space-y-1.5"><Label htmlFor="liquidation-school-year">School Year</Label><ReportFilterCombobox id="liquidation-school-year" options={schoolYears.map(value => ({ value, label: value }))} value={schoolYear} disabled={loading || !schoolYears.length} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="liquidation-school-year-error" groupLabel="Available school years" onChange={value => { setSchoolYear(value); setErrors(current => ({ ...current, schoolYear: undefined })); setPreviewError(null); }} /><FieldError id="liquidation-school-year-error">{errors.schoolYear}</FieldError></div>
+      <div className="space-y-1.5"><Label htmlFor="liquidation-school-year">School Year</Label><ReportFilterCombobox id="liquidation-school-year" options={schoolYears.map(value => ({ value, label: value }))} value={schoolYear} disabled={loading || !schoolYears.length} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="liquidation-school-year-error" groupLabel="Available school years" onChange={value => { const dates = getRequisitionDateDefaults(payload, value); setSchoolYear(value); setFrom(dates.from); setTo(dates.to); setErrors(current => ({ ...current, schoolYear: undefined, from: undefined, to: undefined })); setPreviewError(null); }} /><FieldError id="liquidation-school-year-error">{errors.schoolYear}</FieldError></div>
       <div className="space-y-1.5"><Label htmlFor="liquidation-unit">Department / Section</Label><ReportFilterCombobox id="liquidation-unit" options={units.map(unit => ({ value: `${unit.type}:${unit.id}`, label: unit.active ? unit.name : `${unit.name} (Inactive)`, badge: `${unit.type === 'department' ? 'Department' : 'Section'}${unit.active ? '' : ' · Inactive'}` }))} value={unitValue} disabled={loading || allUnits || !units.length} placeholder={allUnits ? 'All departments and sections' : 'Select department or section'} searchPlaceholder="Search department or section..." emptyText="No department or section found." invalid={Boolean(errors.unit)} errorId="liquidation-unit-error" groupLabel="Departments and sections" onChange={value => { setUnitValue(value); setErrors(current => ({ ...current, unit: undefined })); setPreviewError(null); }} /><FieldError id="liquidation-unit-error">{errors.unit}</FieldError></div>
       <div className="space-y-1.5"><Label htmlFor="liquidation-scope">Liquidation Status</Label><ReportFilterCombobox id="liquidation-scope" options={[{ value: 'both', label: 'Both' }, { value: 'for_liquidation', label: 'For Liquidation' }, { value: 'liquidated', label: 'Liquidated' }]} value={scope} disabled={loading} placeholder="Select status" searchPlaceholder="Search status..." emptyText="No status found." groupLabel="Liquidation statuses" onChange={value => { setScope(value as LiquidationScope); setPreviewError(null); }} /></div>
     </div>

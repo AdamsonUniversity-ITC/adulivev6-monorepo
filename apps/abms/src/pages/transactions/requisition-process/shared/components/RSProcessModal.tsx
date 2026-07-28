@@ -383,6 +383,7 @@ function ConfirmActionModal({
 
     return (
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 70,
                 background: 'rgba(0,0,0,0.55)',
@@ -1171,6 +1172,7 @@ export function RSProcessModal({
         <>
             {/* ── Backdrop ──────────────────────────────────────────────── */}
             <div
+                className="abms-modal-backdrop"
                 style={{
                     position: 'fixed', inset: 0, zIndex: 60,
                     background: 'rgba(0,0,0,0.60)',
@@ -1188,7 +1190,7 @@ export function RSProcessModal({
                     borderRadius: 14,
                     width: '100%',
                     maxWidth: 780,
-                    maxHeight: 'calc(100vh - 48px)',
+                    maxHeight: 'calc(100dvh - 48px)',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
@@ -2176,6 +2178,7 @@ export function RSProcessModal({
                         }
                     `}</style>
                     <div
+                        className="abms-modal-backdrop"
                         style={{
                             position: 'fixed', inset: 0, zIndex: 80,
                             background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
@@ -2192,7 +2195,7 @@ export function RSProcessModal({
                                 boxShadow: t.cardShadow,
                                 width: '100%',
                                 maxWidth: 820,
-                                maxHeight: 'calc(100vh - 48px)',
+                                maxHeight: 'calc(100dvh - 24px)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 animation: 'accept-modal-in .22s cubic-bezier(.22,1,.36,1)',
@@ -2485,7 +2488,7 @@ export function RSProcessModal({
                             transform: 'translate(-50%,-50%)',
                             zIndex: 1000001,
                             width: 'min(560px, calc(100vw - 32px))',
-                            maxHeight: '76vh',
+                            maxHeight: '76dvh',
                             display: 'flex',
                             flexDirection: 'column',
                             background: t.cardBg,
@@ -2695,6 +2698,7 @@ function PayeeDetailsViewModal({
 
     return createPortal(
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 100000,
                 background: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,20,60,0.45)',
@@ -2705,6 +2709,9 @@ function PayeeDetailsViewModal({
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Payee details"
                 style={{
                     width: '100%', maxWidth: 480,
                     borderRadius: 16,
@@ -2712,6 +2719,9 @@ function PayeeDetailsViewModal({
                     border: `1px solid ${t.cardBorder}`,
                     boxShadow: isDark ? '0 24px 64px rgba(0,0,0,0.60)' : '0 16px 48px rgba(0,20,60,0.18)',
                     overflow: 'hidden',
+                    maxHeight: 'calc(100dvh - 24px)',
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}
             >
                 {/* Header */}
@@ -2744,7 +2754,7 @@ function PayeeDetailsViewModal({
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: '18px 20px 20px', maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>
+                <div style={{ padding: '18px 20px 20px', minHeight: 0, flex: 1, overflowY: 'auto' }}>
                     {/* Payee */}
                     <div style={{ marginBottom: 14 }}>
                         <label style={labelStyle}>Payee</label>
@@ -2984,8 +2994,8 @@ function RSChatModal({
                     boxShadow: t.cardShadow,
                     width: '90%',
                     maxWidth: 600,
-                    height: '85vh',
-                    maxHeight: 700,
+                    height: 'min(85dvh, 700px)',
+                    maxHeight: 'calc(100dvh - 24px)',
                     display: 'flex',
                     flexDirection: 'column',
                     animation: 'rschat-modal-in .22s cubic-bezier(.22,1,.36,1)',
@@ -3418,8 +3428,8 @@ function RSAuditHistoryModal({
                     boxShadow: t.cardShadow,
                     width: '90%',
                     maxWidth: 700,
-                    height: '85vh',
-                    maxHeight: 750,
+                    height: 'min(85dvh, 750px)',
+                    maxHeight: 'calc(100dvh - 24px)',
                     display: 'flex',
                     flexDirection: 'column',
                     animation: 'audit-modal-in .22s cubic-bezier(.22,1,.36,1)',

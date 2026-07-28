@@ -4,7 +4,7 @@ import { z } from 'zod';
 import AdamsonBudgetLayout from '../../layouts/Screenlayout';
 import {
     Plus, ChevronDown, MoreHorizontal, Pencil, Eye, Trash2,
-    X, Search, Loader2, CheckSquare2, Square, CheckCircle2,
+    X, Search, Loader2, CheckCircle2,
     AlertCircle, AlertTriangle, Info,
 } from 'lucide-react';
 import { budgetadjustmententryRoute } from '../../router.tsx';
@@ -537,12 +537,12 @@ function DeleteConfirmModal({
 
     return (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+            className="abms-modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{ background: t.modalOverlay, backdropFilter: 'blur(4px)' }}
             onClick={e => { if (e.target === e.currentTarget && !deleting) onCancel(); }}
         >
             <div
-                className="relative w-full max-w-sm rounded-2xl overflow-hidden"
+                className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-2xl"
                 style={{ background: t.modalBg, border: `1px solid ${redBorder}`, boxShadow: t.modalShadow }}
             >
                 {/* Header */}
@@ -703,7 +703,6 @@ function AddAdjustmentModal({
     units,
     mainAccounts,
     subAccounts,
-    proposalSchoolYear,
     currentSchoolYear,
 }: {
     onClose:            () => void;
@@ -713,18 +712,11 @@ function AddAdjustmentModal({
     units:              UnitOption[];
     mainAccounts:       Account[];
     subAccounts:        Account[];
-    proposalSchoolYear: string | null;
     currentSchoolYear:  string | null;
 }) {
     const [form,                setForm]                = useState<ModalForm>(EMPTY_FORM);
     const [errors,              setErrors]              = useState<FormErrors>({});
     const [submitting,          setSubmitting]          = useState(false);
-    const [usePreviousSchoolYear, setUsePreviousSchoolYear] = useState(false);
-
-    // Derived school year shown to the user
-    const effectiveSchoolYear = usePreviousSchoolYear
-        ? (currentSchoolYear  ?? '—')
-        : (proposalSchoolYear ?? '—');
 
     function patch<K extends keyof ModalForm>(key: K, val: ModalForm[K]) {
         setForm(prev => ({ ...prev, [key]: val }));
@@ -788,9 +780,6 @@ function AddAdjustmentModal({
                 description:     form.description.trim(),
                 additional:      parseFloat(form.additional) || 0,
                 deduction:       parseFloat(form.deduction)  || 0,
-                school_year:     usePreviousSchoolYear
-                    ? currentSchoolYear
-                    : proposalSchoolYear,
             };
 
             const { data } = await financeSvc.post('/abms/budget-adjustment-entry', payload);
@@ -804,6 +793,10 @@ function AddAdjustmentModal({
             if (serverErrors) {
                 const mapped: FormErrors = {};
                 for (const [key, msgs] of Object.entries(serverErrors)) {
+                    if (key === 'school_year') {
+                        mapped.root = serverMsg ?? msgs[0];
+                        continue;
+                    }
                     const formKey = key === 'unit' ? 'unitId' : key as keyof FormErrors;
                     mapped[formKey] = msgs[0];
                 }
@@ -825,12 +818,12 @@ function AddAdjustmentModal({
 
     return (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+            className="abms-modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{ background: t.modalOverlay, backdropFilter: 'blur(4px)' }}
             onClick={handleBackdrop}
         >
             <div
-                className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+                className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-hidden rounded-2xl"
                 style={{ background: t.modalBg, border: `1px solid ${t.modalBorder}`, boxShadow: t.modalShadow }}
             >
                 {/* ── Header */}
@@ -866,7 +859,7 @@ function AddAdjustmentModal({
                 </div>
 
                 {/* ── Body */}
-                <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+                <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
 
                     {/* Root / server error banner */}
                     {errors.root && (
@@ -883,9 +876,9 @@ function AddAdjustmentModal({
                         </div>
                     )}
 
-                    {/* ── School Year toggle */}
+                    {/* ── Current School Year */}
                     <div
-                        className="flex items-center justify-between px-3.5 py-3 rounded-xl"
+                        className="px-3.5 py-3 rounded-xl"
                         style={{
                             background: isDark ? 'rgba(13,26,58,0.60)' : 'rgba(232,242,255,0.70)',
                             border:     `1px solid ${t.divider}`,
@@ -893,41 +886,16 @@ function AddAdjustmentModal({
                     >
                         <div>
                             <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: t.subColor }}>
-                                School Year
+                                Current School Year
                             </p>
                             <p className="text-xs font-bold mt-0.5" style={{ color: t.cellBlue }}>
-                                {effectiveSchoolYear}
+                                {currentSchoolYear ?? '—'}
                             </p>
                             <p className="text-[9px] mt-0.5" style={{ color: t.cellMuted }}>
-                                {usePreviousSchoolYear ? 'Using current school year' : 'Using proposal school year (default)'}
+                                Adjustments are limited to the current school year.
                             </p>
                         </div>
 
-                        {/* Checkbox */}
-                        <button
-                            type="button"
-                            onClick={() => setUsePreviousSchoolYear(prev => !prev)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 border"
-                            style={{
-                                background:  usePreviousSchoolYear
-                                    ? (isDark ? 'rgba(37,99,235,0.22)' : 'rgba(219,234,254,0.90)')
-                                    : 'transparent',
-                                borderColor: usePreviousSchoolYear
-                                    ? (isDark ? 'rgba(99,155,255,0.55)' : 'rgba(37,99,235,0.45)')
-                                    : t.inputBorder,
-                                color: usePreviousSchoolYear
-                                    ? (isDark ? '#60a5fa' : '#1d4ed8')
-                                    : t.cellMuted,
-                            }}
-                        >
-                            {usePreviousSchoolYear
-                                ? <CheckSquare2 className="w-3.5 h-3.5" />
-                                : <Square       className="w-3.5 h-3.5" />
-                            }
-                            <span className="text-[10px] font-bold whitespace-nowrap">
-                                Use previous school year
-                            </span>
-                        </button>
                     </div>
 
                     {/* Department / Section */}
@@ -1013,7 +981,7 @@ function AddAdjustmentModal({
                     </div>
 
                     {/* Additional + Deduction */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {/* Additional */}
                         <div>
                             <label className="block text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: t.subColor }}>
@@ -1179,12 +1147,12 @@ function ViewAdjustmentModal({
 
     return (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+            className="abms-modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{ background: t.modalOverlay, backdropFilter: 'blur(4px)' }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
-                className="relative w-full max-w-md rounded-2xl overflow-hidden"
+                className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-hidden rounded-2xl"
                 style={{ background: t.modalBg, border: `1px solid ${t.modalBorder}`, boxShadow: t.modalShadow }}
             >
                 {/* ── Header */}
@@ -1230,7 +1198,7 @@ function ViewAdjustmentModal({
                 </div>
 
                 {/* ── Body */}
-                <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 130px)' }}>
+                <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5" style={{ maxHeight: 'calc(100dvh - 8.5rem)' }}>
 
                     {/* ── School Year badge */}
                     <div
@@ -1347,7 +1315,7 @@ function ViewAdjustmentModal({
                     </div>
 
                     {/* ── Amount cards */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {/* Additional */}
                         <div
                             className="rounded-xl px-4 py-3.5 flex flex-col gap-1"
@@ -1511,12 +1479,12 @@ function EditAdjustmentModal({
 
     return (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+            className="abms-modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{ background: t.modalOverlay, backdropFilter: 'blur(4px)' }}
             onClick={e => { if (e.target === e.currentTarget && !submitting) onClose(); }}
         >
             <div
-                className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+                className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-hidden rounded-2xl"
                 style={{ background: t.modalBg, border: `1px solid ${t.modalBorder}`, boxShadow: t.modalShadow }}
             >
                 {/* ── Header */}
@@ -1552,7 +1520,7 @@ function EditAdjustmentModal({
                 </div>
 
                 {/* ── Body */}
-                <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+                <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5" style={{ maxHeight: 'calc(100dvh - 9rem)' }}>
 
                     {/* Root error banner */}
                     {errors.root && (
@@ -1649,7 +1617,7 @@ function EditAdjustmentModal({
                     </div>
 
                     {/* ── Additional + Deduction */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {/* Additional */}
                         <div>
                             <label className="block text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: t.subColor }}>
@@ -1783,7 +1751,6 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
         main_accounts,
         sub_accounts,
         adjustment_entries: initialEntries,
-        proposal_school_year,
         current_school_year,
     } = budgetadjustmententryRoute.useLoaderData();
 
@@ -1932,7 +1899,6 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
                     units={units}
                     mainAccounts={mainAccounts}
                     subAccounts={subAccounts}
-                    proposalSchoolYear={proposal_school_year ?? null}
                     currentSchoolYear={current_school_year   ?? null}
                 />
             )}

@@ -367,6 +367,7 @@ export function LiquidationUploadModal({
 
     return (
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 1000,
                 background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)',
@@ -387,7 +388,7 @@ export function LiquidationUploadModal({
                     borderRadius: 16,
                     overflow: 'hidden',
                     display: 'flex', flexDirection: 'column',
-                    maxHeight: '90vh',
+                    maxHeight: 'calc(100dvh - 24px)',
                 }}
             >
                 {/* ── Header ── */}

@@ -1,12 +1,16 @@
 # ABMS Continuity Status
 
-Last verified: 2026-07-24
+Last verified: 2026-07-28
 
 ## Current Scope
 
 The principal ABMS workflow is implemented across Budget Proposal Entry, Budget Request Entry, the role-based requisition process, and Liquidation Submission. Reporting covers budget performance, requested items, adjustments, liquidation, proposal reports, and unserved requisitions.
 
 The frontend also contains a protected Budget User Guides infographic page for users having Budget Proposal Entry or Budget Request Entry access. Its final artwork is served as static files from `apps/abms/public/infographics/`.
+
+The shared frontend shell preserves the expanded navigation and existing spacing at the 1920×1080 baseline. Below 1536 CSS pixels, navigation becomes a dismissible overlay drawer so 1366×768, 1280×720, tablet, and phone displays retain the full content width. Shared page primitives constrain long headings and action rows; dense forms stack on narrow displays, while wide data tables and print-preview paper retain local scrolling rather than widening the application viewport.
+
+All non-print ABMS dialogs are dynamic-viewport safe. Shared shadcn dialogs and alert dialogs receive global height, width, and overflow constraints, while custom administration, requisition, liquidation, attachment, account, payee, item, chat, and audit overlays use a scrollable backdrop or a fixed-header/scrollable-body/fixed-footer structure. The New Requisition Slip and Add Item actions therefore remain reachable on short displays. Report paper, RS print previews, and printable review sheets are intentionally excluded and retain their printable dimensions inside local preview scrolling.
 
 Canonical behavioral details remain in:
 
@@ -45,7 +49,7 @@ Canonical behavioral details remain in:
 - Reports return backend-calculated fixed two-decimal money strings. The frontend formats but does not recompute financial totals.
 - Current live date-range reports use inclusive application-timezone `created_at` boundaries and current stored values. They do not reconstruct period activity from audits unless a report's documented rule explicitly uses an audit event for metadata.
 - Missing or ambiguous historical relationships produce structured data-quality warnings shown as toasts.
-- Browser reports use US Letter landscape with 0.35-inch margins and the authenticated user's resolved full name.
+- Browser reports use readable shared typography on US Letter landscape with printer-safe 0.30-inch margins and the authenticated user's resolved full name.
 - Core production financial mutations use UUID idempotency keys and replay completed identical requests without repeating writes.
 - Finalized RS numbers come from a locked yearly sequence; unsaved drafts remain `0`, and finalized numbers are preserved.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.

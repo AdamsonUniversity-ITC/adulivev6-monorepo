@@ -35,7 +35,7 @@ export function Toasts({
 }: { items: ToastItem[]; isDark: boolean; onDismiss: (id: number) => void }) {
     if (items.length === 0) return null;
     return (
-        <div className="fixed bottom-5 right-5 z-[99999] flex flex-col gap-2.5" style={{ maxWidth: 360 }}>
+        <div className="fixed bottom-3 left-3 right-3 z-[99999] flex flex-col gap-2.5 sm:bottom-5 sm:left-auto sm:right-5" style={{ maxWidth: 360 }}>
             <style>{`@keyframes toast-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}`}</style>
             {items.map(item => {
                 const cfg = TOAST_CFG[item.kind];

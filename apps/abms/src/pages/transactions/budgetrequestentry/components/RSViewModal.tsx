@@ -107,6 +107,7 @@ export function RSViewModal({
     const [isDiscarding, setIsDiscarding] = useState(false);
     const [dirty, setDirty] = useState(false); // items changed since load
     const [payeeDetail, setPayeeDetail] = useState<PayeeDetailRecord | null>(null);
+    const [payeeInput, setPayeeInput] = useState('');
     const [showPayeeView, setShowPayeeView] = useState(false);
     const [showChat, setShowChat] = useState(false);
     const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -175,6 +176,7 @@ export function RSViewModal({
         setAttachedFiles([]);
         setFileViewError(null);
         setPayeeDetail(null);
+        setPayeeInput('');
         setShowPayeeView(false);
         setShowChat(false);
         setShowPrintPreview(false);
@@ -184,9 +186,11 @@ export function RSViewModal({
         setIsLoadingQuotedPreview(true);
         financeSvc.get(`/abms/budget-request-entry/${recordId}`)
             .then(res => {
-                setHeader(res.data.header);
+                const nextHeader = res.data.header as RSViewHeader;
+                setHeader(nextHeader);
                 setItems(res.data.items ?? []);
                 setPayeeDetail(res.data.payee_detail ?? null);
+                setPayeeInput(nextHeader.payee === '—' ? '' : nextHeader.payee ?? '');
             })
             .catch(() => setError('Failed to load requisition slip details.'))
             .finally(() => setLoading(false));
@@ -228,6 +232,9 @@ export function RSViewModal({
     if (!open) return null;
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
+    const isEditableCashier = canEdit && header?.rstype.trim().toLowerCase() === 'cashier';
+    const isCashierPayeeMissing = isEditableCashier && payeeInput.trim() === '';
+    const isResaveDisabled = isResaving || (!dirty && !isUnsavedRS) || items.length === 0 || isCashierPayeeMissing;
     const printRow: RSProcessRow | null = header ? {
         id: header.id,
         date: header.created_at,
@@ -380,6 +387,10 @@ export function RSViewModal({
 
     async function handleResave(overrideTotal?: number) {
         if (!header || isResaving || items.length === 0) return;
+        if (isCashierPayeeMissing) {
+            setItemActionError('Payee is required for Cashier requisitions.');
+            return;
+        }
         setIsResaving(true);
         setItemActionError(null);
         try {
@@ -387,6 +398,7 @@ export function RSViewModal({
             await financeSvc.patch(`/abms/budget-request-entry/${header.id}/save`, {
                 total_amount: overrideTotal ?? persistedTotal,
                 finalize: true,
+                ...(isEditableCashier ? { payee: payeeInput.trim() } : {}),
             });
             setDirty(false);
             onUpdated();
@@ -492,6 +504,7 @@ export function RSViewModal({
 
     const portal = createPortal(
         <div
+            className="abms-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 99999,
                 background: isDark ? 'rgba(0,0,0,0.70)' : 'rgba(0,20,60,0.42)',
@@ -609,7 +622,36 @@ export function RSViewModal({
                                 : '—'
                             )}
                             {displayField('Requested By', header.requested_by_name)}
-                            {displayField('Payee', header.payee)}
+                            {isEditableCashier ? (
+                                <div>
+                                    <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
+                                        Payee <span style={{ color: t.cellRed }}>(required)</span>
+                                    </span>
+                                    <input
+                                        value={payeeInput}
+                                        onChange={event => {
+                                            setPayeeInput(event.target.value);
+                                            setDirty(true);
+                                            setItemActionError(null);
+                                        }}
+                                        placeholder="Enter payee name…"
+                                        aria-invalid={isCashierPayeeMissing}
+                                        style={{
+                                            width: '100%',
+                                            minHeight: 32,
+                                            padding: '7px 12px',
+                                            borderRadius: 8,
+                                            border: `1px solid ${isCashierPayeeMissing ? t.cellRed : t.sectionDivider}`,
+                                            background: t.inputBg,
+                                            color: t.inputText,
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                            outline: 'none',
+                                        }}
+                                    />
+                                    {isCashierPayeeMissing && <span style={{ display: 'block', marginTop: 3, color: t.cellRed, fontSize: 9 }}>Payee is required.</span>}
+                                </div>
+                            ) : displayField('Payee', header.payee)}
                             {displayField('Total Amount', `₱ ${fmtCurrency(grandTotal)}`, true, t.cellGreen)}
                         </div>
                     )}
@@ -619,14 +661,14 @@ export function RSViewModal({
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14 }}>
                             <button
                                 onClick={() => handleResave()}
-                                disabled={isResaving || (!dirty && !isUnsavedRS) || items.length === 0}
+                                disabled={isResaveDisabled}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
-                                    background: ((!dirty && !isUnsavedRS) || items.length === 0) ? t.btnDisBg : t.btnNew.bg,
-                                    borderColor: ((!dirty && !isUnsavedRS) || items.length === 0) ? t.btnDisBorder : t.btnNew.border,
-                                    color: ((!dirty && !isUnsavedRS) || items.length === 0) ? t.btnDisText : t.btnNew.text,
+                                    background: isResaveDisabled ? t.btnDisBg : t.btnNew.bg,
+                                    borderColor: isResaveDisabled ? t.btnDisBorder : t.btnNew.border,
+                                    color: isResaveDisabled ? t.btnDisText : t.btnNew.text,
                                     opacity: isResaving ? 0.6 : 1,
-                                    cursor: (isResaving || (!dirty && !isUnsavedRS) || items.length === 0) ? 'not-allowed' : 'pointer',
+                                    cursor: isResaveDisabled ? 'not-allowed' : 'pointer',
                                 }}
                                 onMouseEnter={e => { if ((dirty || isUnsavedRS) && !isResaving && items.length > 0) (e.currentTarget as HTMLElement).style.background = t.btnNew.hover; }}
                                 onMouseLeave={e => { if ((dirty || isUnsavedRS) && !isResaving && items.length > 0) (e.currentTarget as HTMLElement).style.background = t.btnNew.bg; }}
@@ -1626,6 +1668,7 @@ export function RSViewModal({
 
             {showAttachedFiles && header && (
                 <div
+                    className="abms-modal-backdrop"
                     style={{
                         position: 'fixed', inset: 0, zIndex: 100000,
                         background: 'rgba(0,0,0,0.55)',

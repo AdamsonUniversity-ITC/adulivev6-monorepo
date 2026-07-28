@@ -9,19 +9,23 @@ interface RolePickerModalProps {
     isDark: boolean;
 }
 
-export function RolePickerModal({ matched, onConfirm, t, isDark }: RolePickerModalProps) {
+export function RolePickerModal({ matched, onConfirm, t }: RolePickerModalProps) {
     const [selected, setSelected] = useState<PermissionKey | null>(null);
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center z-50"
+        <div className="abms-modal-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4"
             style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Select requisition role"
+                className="requisition-role-dialog max-h-[calc(100dvh-1.5rem)] overflow-y-auto"
                 style={{
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     boxShadow: t.cardShadow,
                     borderRadius: 16,
-                    padding: '28px 28px 24px',
+                    padding: 'clamp(16px, 5vw, 28px)',
                     width: '100%',
                     maxWidth: 380,
                 }}
@@ -33,7 +37,7 @@ export function RolePickerModal({ matched, onConfirm, t, isDark }: RolePickerMod
                     You have access to multiple areas. Choose which one to open.
                 </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                     {matched.map((role) => {
                         const Icon = role.icon;
                         const isSelected = selected === role.key;
