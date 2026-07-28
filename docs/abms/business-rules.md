@@ -15,6 +15,11 @@ Last verified: 2026-07-28
 - Creation fails without changing balances when the current school year is not configured or no matching current-year typed-unit allocation exists.
 - Existing adjustment school years remain immutable. Editing or deleting a historical adjustment continues to resolve and reverse its originally stored school-year allocation.
 
+## Frontend Page Permission Boundaries
+
+- Budget Settings, Budget Review and Budget Review Details, Budget Transfer Account, and Budget Adjustment Entry require either general `admin-access` or `controller-access` in both the sidebar and frontend route guards. General `budget-access` alone does not authorize these pages.
+- Budget Proposal Entry uses the explicit `allow-budget-proposal-entry` permission and does not depend on general `budget-access`.
+
 ## Budget Performance Formula
 
 - A proposal participates only when its current `created_at` is inside the inclusive application-timezone From/To boundaries. Approved Budget and Balance come directly from the included allocation's latest `approved_total_cost` and `balance`.
@@ -48,6 +53,7 @@ Last verified: 2026-07-28
 
 ### Current Requisition Entry and Finalization Guards
 
+- Budget Request Entry navigation and frontend routing accept `allow-budget-request-entry`, `admin-access`, or `budget-access`. Its loader gives authenticated users with general `admin-access` or `budget-access` every Department and Section referenced by a live Budget Proposal Entry. It resolves those general permissions by name from the authenticated finance identity and does not trust browser-supplied usernames or Admin/Budget permission IDs. Other users remain limited to typed units assigned through `allow-budget-request-entry`.
 - Budget Proposal Entry and Budget Request Entry automatically select the user's Department or Section only when the combined authorized typed-unit list contains exactly one option. Users with zero or multiple authorized units retain an empty selector and must choose explicitly where applicable.
 - During initial RS creation, Print RS and Chat/Message actions are not shown. After the requisition has been created, its Budget Request Entry viewing modal provides Chat and the same printable RS preview used by Requisition Process. Unsaved requisitions with number `0` cannot be printed.
 - Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.

@@ -167,7 +167,7 @@ export const homeRoute = new Route({
 export const budgetsettingsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-settings',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-settings');
         return { data: response.data };
@@ -199,7 +199,7 @@ export const departmentRoute = new Route({
 export const budgetreviewRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-review',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-review');
         const {
@@ -224,7 +224,7 @@ export const budgetreviewRoute = new Route({
 export const budgetreviewdetailsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-review/details',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
     // Navigation state (mainAccountId, mainAccountName, unitId, unitName, unitKind,
     // current_school_year, proposal_school_year) is passed via router navigate({ state })
     // from BudgetReview.tsx and read inside BudgetReviewDetails via useRouter().state.location.state
@@ -254,7 +254,7 @@ export const userdepartmentRoute = new Route({
 export const budgettransferaccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-transfer-account',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-transfer-account');
         const { units, school_years } = response.data;
@@ -266,7 +266,7 @@ export const budgettransferaccountRoute = new Route({
 export const budgetadjustmententryRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-adjustment-entry',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-adjustment-entry');
         const { current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries } = response.data;
@@ -341,7 +341,7 @@ export const budgetproposalentryRoute = new Route({
 export const budgetrequestentryRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/budget-request-entry',
-    beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-request-entry']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-request-entry', 'admin-access', 'budget-access']),
     loader: async ({ context }) => {
         const username = context.user?.username;
         const budgetrequestpermission = await authSvc.get('/abms-permissions/');
@@ -349,21 +349,11 @@ export const budgetrequestentryRoute = new Route({
             (p: any) => p.name === 'allow-budget-request-entry'
         );
         const permissionId = permission?.id;
-        const admin = budgetrequestpermission.data.permissions.find(
-            (p: any) => p.name === 'admin-access'
-        );
-        const adminPermissionId = admin?.id;
-
-        const budget = budgetrequestpermission.data.permissions.find(
-            (p: any) => p.name === 'budget-access'
-        );
-
-        const budgetPermissionId = budget?.id;
 
         const response = await financeSvc.get(
             '/abms/budget-request-entry',
             {
-                params: { username, permissionId, adminPermissionId, budgetPermissionId }
+                params: { username, permissionId }
             }
         );
 

@@ -6,6 +6,8 @@ Last verified: 2026-07-28
 
 The principal ABMS workflow is implemented across Budget Proposal Entry, Budget Request Entry, the role-based requisition process, and Liquidation Submission. Reporting covers budget performance, requested items, adjustments, liquidation, proposal reports, and unserved requisitions.
 
+Budget Request Entry is visible and route-authorized for users having `allow-budget-request-entry`, `admin-access`, or `budget-access`. Administration and Budget general roles can select every proposal-backed Department and Section, while ordinary request-entry users remain limited to their assigned typed units.
+
 The frontend also contains a protected Budget User Guides infographic page for users having Budget Proposal Entry or Budget Request Entry access. Its final artwork is served as static files from `apps/abms/public/infographics/`.
 
 The shared frontend shell preserves the expanded navigation and existing spacing at the 1920×1080 baseline. Below 1536 CSS pixels, navigation becomes a dismissible overlay drawer so 1366×768, 1280×720, tablet, and phone displays retain the full content width. Shared page primitives constrain long headings and action rows; dense forms stack on narrow displays, while wide data tables and print-preview paper retain local scrolling rather than widening the application viewport.

@@ -84,6 +84,8 @@ The User Department Access index supports case-insensitive displayed-name search
 
 During RS creation, the account picker queries only the exact school-year typed-unit allocation and returns 10-row cursor pages ordered by account name with account ID as the tie-breaker. Account code/name search is applied before pagination and also matches parent/main account code or name. Picker rows display `Main Code - Sub Code` and `Main Name - Sub Name`, while selection and persistence continue using the child account ID and child account code. The requisition-process `requisitionId` account lookup remains an unpaginated list of only the accounts already referenced by that RS.
 
+The Budget Request Entry sidebar item and frontend route accept any of `allow-budget-request-entry`, `admin-access`, or `budget-access`. Its loader resolves organizational scope from the authenticated finance identity: general `admin-access` and `budget-access` both receive every Department and Section referenced by live proposal headers, while other request-entry users receive only their assigned `allow-budget-request-entry` typed units. The frontend no longer supplies Admin or Budget permission IDs to establish this elevated scope.
+
 ### Report Route-to-Service Map
 
 | API prefix | Controller | Primary service/projector |
@@ -118,6 +120,8 @@ Authorization combines general permissions with typed department/section assignm
 The Controller workflow uses the general `controller-access` permission. The backend decision endpoint verifies that permission independently of frontend visibility; UI role selection is not an authorization boundary.
 
 Sidebar permission declarations and `router.tsx` guards must remain identical. Controller-visible reports also enforce `controller-access` in their backend report controllers; frontend visibility alone is insufficient.
+
+Budget Settings, Budget Review (including its details route), Budget Transfer Account, and Budget Adjustment Entry are frontend-authorized only by `admin-access` or `controller-access`; general `budget-access` does not expose or route-authorize those destinations. Budget Proposal Entry remains independently gated by `allow-budget-proposal-entry`.
 
 Known authorization debt: the generic requisition-process listing and transition endpoints currently trust client-supplied role/action context and do not consistently verify the corresponding general permission server-side. The state guards described in `business-rules.md` protect workflow order, but they do not replace actor authorization. Treat this as an implementation risk until each role-specific read/write endpoint enforces its permission independently.
 
