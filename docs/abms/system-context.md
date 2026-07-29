@@ -46,7 +46,7 @@ The report pages live in `apps/abms/src/pages/reports/`:
 - `UnservedRs.tsx`
 - shared searchable filter: `shared/ReportFilterCombobox.tsx`
 
-All nine report previews use `shared/ReportPrintPortal.tsx` and `shared/report-print.css` for authoritative US Letter landscape sizing, readable shared typography, a `0.30in` printer-safe margin, and matching preview content inset. Page-local table layouts remain responsible for report-specific columns, grouping, and page-break rules.
+All nine report previews use `shared/ReportPrintPortal.tsx` and `shared/report-print.css` for authoritative US Letter landscape sizing, readable shared typography, a `0.30in` printer-safe margin, matching preview content inset, and shared overlap prevention for long metadata, headings, and table content. Page-local table layouts remain responsible for report-specific columns, grouping, and page-break rules.
 
 Routes are registered in `apps/abms/src/router.tsx`. Finance requests use the shared finance-service Axios configuration. Protected routing must derive production redirects from the Vite production URL environment setting rather than hardcoded localhost values.
 
