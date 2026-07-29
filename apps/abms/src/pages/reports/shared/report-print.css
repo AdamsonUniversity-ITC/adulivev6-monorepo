@@ -60,6 +60,39 @@
 ) h2 {
   font-size: 17px !important;
   line-height: 1.25 !important;
+  overflow-wrap: anywhere;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) header p {
+  display: grid !important;
+  grid-template-columns: minmax(165px, 22%) minmax(0, 1fr) !important;
+  align-items: start;
+  column-gap: 10px;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) header p > :is(b, strong) {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 :is(
@@ -103,6 +136,38 @@
 ) :is(th, td, caption) {
   font-size: 13px !important;
   line-height: 1.35 !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(.unit-heading, .approved-items-unit-heading, .main-title, .sub-title) {
+  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(.unit-total, .grand-total, .main-total, .report-total, .approved-items-grand-total, .approved-department-total, .university-main-total, .university-grand-total, .percentage-grand-total) {
+  max-width: 100%;
 }
 
 :is(
