@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Wallet } from 'lucide-react';
 import { Theme } from '../types.ts';
+import { formatAccountCode } from '../../../shared/accountCode';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -9,6 +10,7 @@ export interface AccountRow {
     account_id: number;
     account_parent_id: number;
     account_code: string;
+    main_account_code?: string | null;
     account_name: string;
     balance: number;
 }
@@ -166,7 +168,7 @@ export function AccountsViewModal({
                                             fontWeight: 700, fontVariantNumeric: 'tabular-nums',
                                             borderBottom: `1px solid ${t.rowBorder}`,
                                         }}>
-                                            {acc.account_code}
+                                            {formatAccountCode(acc.main_account_code, acc.account_code)}
                                         </td>
                                         <td style={{
                                             padding: '10px 16px', fontSize: 13, color: t.cellText,

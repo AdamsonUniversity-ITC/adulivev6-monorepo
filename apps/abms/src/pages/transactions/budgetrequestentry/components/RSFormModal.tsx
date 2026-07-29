@@ -6,12 +6,14 @@ import type { RSType, ThemeTokens } from '../types';
 import { fmtCurrency, formatCurrentDate, formatRequisitionNumber, getCurrentSchoolYear } from '../utils';
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
+import { formatAccountCode } from '../../shared/accountCode';
 
 
 export interface RSFormItem {
     id: number;
     accountId:number;
     accountNo: string;
+    mainAccountCode?: string | null;
     itemDescription: string;
     unitCost: string;
     quantity: string;
@@ -848,7 +850,7 @@ export function RSFormModal({
                                     </td>
                                     {/* Account No. */}
                                     <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellBlue, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
-                                        {item.accountNo || <span style={{ color: t.cellMuted, fontWeight: 400, fontStyle: 'italic' }}>—</span>}
+                                        {formatAccountCode(item.mainAccountCode, item.accountNo)}
                                     </td>
                                     {/* Item Description */}
                                     <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
@@ -977,8 +979,8 @@ export function RSFormModal({
                         display: 'flex', flexDirection: 'column', gap: 14,
                     }}
                 >
-                    {/* Payee */}
-                    <div>
+                    {/* Payee — Cashier requisitions only */}
+                    {rsType === 'cashier' && <div>
                         <label
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 6,
@@ -988,15 +990,9 @@ export function RSFormModal({
                         >
                             <User style={{ width: 12, height: 12 }} />
                             Payee
-                            {rsType === 'cashier' ? (
-                                <span style={{ color: t.cellRed, textTransform: 'none', fontSize: 9, fontWeight: 700, marginLeft: 2 }}>
-                                    (required)
-                                </span>
-                            ) : !rsHeaderData?.payeeFromModal && (
-                                <span style={{ color: t.cellAmber, textTransform: 'none', fontSize: 9, fontWeight: 600, marginLeft: 2 }}>
-                                    (optional)
-                                </span>
-                            )}
+                            <span style={{ color: t.cellRed, textTransform: 'none', fontSize: 9, fontWeight: 700, marginLeft: 2 }}>
+                                (required)
+                            </span>
                         </label>
                         {rsHeaderData?.payeeFromModal ? (
                             <div
@@ -1038,7 +1034,7 @@ export function RSFormModal({
                                 onBlur={e => { (e.target as HTMLElement).style.borderColor = t.inputBorder; }}
                             />
                         )}
-                    </div>
+                    </div>}
 
                     {/* Note */}
                     <div>

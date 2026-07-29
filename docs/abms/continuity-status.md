@@ -53,6 +53,7 @@ Canonical behavioral details remain in:
 - Budget Review and report Department/Section selectors expose only typed units with qualifying live rows in the applicable proposal, adjustment, requisition, or liquidation source. Referenced inactive units remain selectable, and report unit option panels widen within the viewport for long names.
 - Missing or ambiguous historical relationships produce structured data-quality warnings shown as toasts.
 - Browser reports use readable shared typography on US Letter landscape with printer-safe 0.30-inch margins and the authenticated user's resolved full name.
+- Every browser report preview exposes a shared `.xlsx` export beside Print. The workbook preserves the visible report hierarchy and backend totals, stores recognized money/percentage/quantity cells numerically, and applies readable wrapping and Letter-landscape settings.
 - Core production financial mutations use UUID idempotency keys and replay completed identical requests without repeating writes.
 - Finalized RS numbers come from a locked yearly sequence; unsaved drafts remain `0`, and finalized numbers are preserved.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
@@ -85,6 +86,21 @@ authentication schemas, refuses to run in production, and creates a
 reconciled proposal/account baseline. Draft requisitions, routing, returns,
 and liquidation should be exercised through the UI so transaction behavior
 is tested rather than bypassed.
+
+To add alternative funded accounts to an existing RS specifically for testing
+the Budget item editor, set `ABMS_RS_EDITING_REQUISITION_ID` to an RS currently
+at `for review` in `budget office`, then run:
+
+```bash
+php artisan db:seed --class='Modules\Abms\Database\Seeders\AbmsRsEditingAccountsSeeder'
+```
+
+This standalone local-only seeder derives the school year and exact typed
+Department/Section from the RS. It adds three idempotent demo allocations and
+matching approved proposal items, increasing the proposal totals and balance
+by the same amount. It is intentionally not called by `DatabaseSeeder`, does
+not reset balances on reruns, and rejects previously deleted demo allocations
+rather than attempting to reconstruct their financial history.
 
 The finance-service base PHPUnit `TestCase` refuses to start when the active
 connection is MySQL and the database name does not contain `test`. This guard

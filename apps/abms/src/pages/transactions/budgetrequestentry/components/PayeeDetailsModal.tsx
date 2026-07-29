@@ -69,11 +69,12 @@ function CheckRow({
 }
 
 export function PayeeDetailsModal({
-    open, onClose, onConfirm, t, isDark,
+    open, onClose, onConfirm, paymentForm, t, isDark,
 }: {
     open: boolean;
     onClose: () => void;
     onConfirm: (details: PayeeDetails) => void;
+    paymentForm: string;
     t: ThemeTokens;
     isDark: boolean;
 }) {
@@ -83,7 +84,7 @@ export function PayeeDetailsModal({
         if (!open) return;
         const resetTimer = window.setTimeout(() => setForm(EMPTY_PAYEE), 0);
         return () => window.clearTimeout(resetTimer);
-    }, [open]);
+    }, [open, paymentForm]);
 
     useEffect(() => {
         if (!open) return;
@@ -105,7 +106,12 @@ export function PayeeDetailsModal({
         setForm(prev => ({ ...prev, [key]: val }));
     }
 
-    const isValid = form.payee.trim() !== '' && (form.mopCheque || form.mopBankTransfer) &&
+    const isSupplierPayment = paymentForm === 'Payment for Supplier/Water';
+    const isHonorariumPayment = paymentForm === 'Payment for Honorarium';
+    const hasSupplierClassification = form.vatRegistered !== form.nonVatRegistered;
+    const isValid = form.payee.trim() !== ''
+        && (!isSupplierPayment || (/^\d{1,20}$/.test(form.tinNo) && hasSupplierClassification))
+        && (form.mopCheque || form.mopBankTransfer) &&
         (!form.mopBankTransfer || (form.bankName !== '' && form.accountName.trim() !== '' && form.accountNumber.trim() !== ''));
 
     const labelStyle: React.CSSProperties = {
@@ -179,7 +185,9 @@ export function PayeeDetailsModal({
 
                     {/* TIN No. */}
                     <div style={{ marginBottom: 14 }}>
-                        <label style={labelStyle}>TIN No.</label>
+                        <label style={labelStyle}>
+                            TIN No. {isSupplierPayment && <span style={{ color: '#f87171' }}>*</span>}
+                        </label>
                         <input
                             style={inputStyle}
                             value={form.tinNo}
@@ -189,39 +197,46 @@ export function PayeeDetailsModal({
                             }}
                             placeholder="Enter TIN number"
                             inputMode="numeric"
+                            maxLength={20}
                         />
                     </div>
 
                     {/* Classification checkboxes */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification</div>
-                        <CheckRow
-                            checked={form.aduEmployee}
-                            onChange={v => set('aduEmployee', v)}
-                            label="AdU Employee"
-                            t={t}
-                            isDark={isDark}
-                        />
-                        <CheckRow
-                            checked={form.nonVatRegistered}
-                            onChange={v => {
-                                set('nonVatRegistered', v);
-                                if (v) set('vatRegistered', false);
-                            }}
-                            label="Non-VAT Registered"
-                            t={t}
-                            isDark={isDark}
-                        />
-                        <CheckRow
-                            checked={form.vatRegistered}
-                            onChange={v => {
-                                set('vatRegistered', v);
-                                if (v) set('nonVatRegistered', false);
-                            }}
-                            label="VAT Registered"
-                            t={t}
-                            isDark={isDark}
-                        />
+                        {!isSupplierPayment && (
+                            <CheckRow
+                                checked={form.aduEmployee}
+                                onChange={v => set('aduEmployee', v)}
+                                label="AdU Employee"
+                                t={t}
+                                isDark={isDark}
+                            />
+                        )}
+                        {!isHonorariumPayment && (
+                            <>
+                                <CheckRow
+                                    checked={form.nonVatRegistered}
+                                    onChange={v => {
+                                        set('nonVatRegistered', v);
+                                        if (v) set('vatRegistered', false);
+                                    }}
+                                    label="Non-VAT Registered"
+                                    t={t}
+                                    isDark={isDark}
+                                />
+                                <CheckRow
+                                    checked={form.vatRegistered}
+                                    onChange={v => {
+                                        set('vatRegistered', v);
+                                        if (v) set('nonVatRegistered', false);
+                                    }}
+                                    label="VAT Registered"
+                                    t={t}
+                                    isDark={isDark}
+                                />
+                            </>
+                        )}
                     </div>
 
                     {/* Mode of Payment */}
@@ -339,7 +354,15 @@ export function PayeeDetailsModal({
                         token={t.btnNew}
                         icon={<ArrowRight className="w-3.5 h-3.5" />}
                         label="Proceed"
-                        onClick={() => { if (isValid) onConfirm(form); }}
+                        onClick={() => {
+                            if (!isValid) return;
+                            onConfirm({
+                                ...form,
+                                aduEmployee: isSupplierPayment ? false : form.aduEmployee,
+                                nonVatRegistered: isHonorariumPayment ? false : form.nonVatRegistered,
+                                vatRegistered: isHonorariumPayment ? false : form.vatRegistered,
+                            });
+                        }}
                         disabled={!isValid}
                         t={t}
                         className="w-full justify-center sm:w-auto"
