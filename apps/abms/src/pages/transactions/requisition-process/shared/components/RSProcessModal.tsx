@@ -600,6 +600,7 @@ export function RSProcessModal({
     const [pendingAction, setPendingAction] = useState<RoleAction | null>(null);
     const [showRSFiles, setShowRSFiles] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState<RSMediaFile[]>([]);
+    const [filesLoaded, setFilesLoaded] = useState(false);
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
     const [openingFileId, setOpeningFileId] = useState<number | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
@@ -616,9 +617,30 @@ export function RSProcessModal({
     }, [row.id, row.note, isEditingNote]);
 
     useEffect(() => {
+        let cancelled = false;
+
         setShowRSFiles(false);
         setUploadedFiles([]);
+        setFilesLoaded(false);
         setFileError(null);
+
+        if (!row.id) return () => { cancelled = true; };
+
+        setIsLoadingFiles(true);
+        financeSvc.get(RS_FILES_ENDPOINT(row.id))
+            .then(res => {
+                if (cancelled) return;
+                setUploadedFiles(res.data.data ?? []);
+                setFilesLoaded(true);
+            })
+            .catch(() => {
+                if (!cancelled) setFilesLoaded(false);
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoadingFiles(false);
+            });
+
+        return () => { cancelled = true; };
     }, [row.id]);
 
     // ── Payee detail state ───────────────────────────────────────────────────
@@ -864,7 +886,9 @@ export function RSProcessModal({
         try {
             const res = await financeSvc.get(RS_FILES_ENDPOINT(row.id));
             setUploadedFiles(res.data.data ?? []);
+            setFilesLoaded(true);
         } catch (err: any) {
+            setFilesLoaded(false);
             setFileError(err?.response?.data?.message ?? 'Failed to load RS files.');
         } finally {
             setIsLoadingFiles(false);
@@ -874,7 +898,7 @@ export function RSProcessModal({
     function toggleRSFiles() {
         setShowRSFiles(prev => {
             const next = !prev;
-            if (next && uploadedFiles.length === 0 && !isLoadingFiles) {
+            if (next && !filesLoaded && !isLoadingFiles) {
                 void fetchRSFiles();
             }
             return next;
@@ -1346,7 +1370,24 @@ export function RSProcessModal({
                                     );
                                 })()
                             ))}
-                            <ToolbarButton label="View Files" icon={Paperclip} t={t} isDark={isDark} tone={showRSFiles ? 'accent' : 'neutral'} onClick={toggleRSFiles} />
+                            <div style={{ position: 'relative', display: 'inline-flex' }}>
+                                <ToolbarButton label="View Files" icon={Paperclip} t={t} isDark={isDark} tone={showRSFiles ? 'accent' : 'neutral'} onClick={toggleRSFiles} />
+                                {uploadedFiles.length > 0 && (
+                                    <span
+                                        aria-label={`${uploadedFiles.length} attached ${uploadedFiles.length === 1 ? 'file' : 'files'}`}
+                                        style={{
+                                            position: 'absolute', top: 2, right: 2,
+                                            minWidth: 14, height: 14, borderRadius: 7,
+                                            background: '#ef4444', color: '#fff',
+                                            fontSize: 8, fontWeight: 700,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            padding: '0 3px', pointerEvents: 'none', lineHeight: 1,
+                                        }}
+                                    >
+                                        {uploadedFiles.length > 99 ? '99+' : uploadedFiles.length}
+                                    </span>
+                                )}
+                            </div>
                             <div style={{ width: 1, height: 28, background: t.dividerColor, margin: '0 2px', flexShrink: 0 }} />
                             <ToolbarButton label="Close" icon={X} t={t} isDark={isDark} tone="danger" onClick={onClose} />
                         </div>

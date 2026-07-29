@@ -408,8 +408,10 @@ export default function BudgetReview() {
                                         </button>
                                         {deptOpen && (
                                             <div
-                                                className="absolute top-full left-0 mt-1 z-50 rounded-xl overflow-hidden min-w-[220px]"
+                                                className="absolute top-full left-0 mt-1 z-50 rounded-xl overflow-hidden"
                                                 style={{
+                                                    width: 'min(380px, calc(100vw - 32px))',
+                                                    minWidth: '220px',
                                                     background: isDark ? 'rgba(10, 18, 38, 0.98)' : 'rgba(255,255,255,0.99)',
                                                     border: `1px solid ${t.cardBorder}`,
                                                     boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.50)' : '0 8px 32px rgba(0,48,135,0.15)',

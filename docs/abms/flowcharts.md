@@ -134,7 +134,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Load report filters] --> AX{Report backing entry}
+    A[Load report filters] --> AU[Derive typed unit options from qualifying live backing rows]
+    AU --> AV[Keep referenced inactive units and omit unreferenced directory units]
+    AV --> AX{Report backing entry}
     AX -- Requisition-backed --> AA[Return earliest live requisition date per school year and current application date]
     AX -- Adjustments --> AA2[Return earliest live adjustment date per school year and current application date]
     AA --> AB[Selecting a school year defaults From and To; user may edit either date]

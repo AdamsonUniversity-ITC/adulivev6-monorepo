@@ -78,6 +78,8 @@ Office Supplies list queries default to `item_name` ascending with an `id` tie-b
 
 The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Administration includes a `For Approval` status filter that selects current requisition headers whose status is `for approval`, while retaining `For Budget Director` as its default filter. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
 
+The shared RS Process modal preloads the selected RS attachment list and displays its total on the View Files toolbar action. This is a total-file count only, has no read/unread meaning, and reuses the preloaded list when the attachment viewer opens.
+
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
 
 The User Department Access index supports case-insensitive displayed-name search and stable A–Z/Z–A name ordering before cursor pagination. Equal displayed names use employee number as the tie-breaker, and missing teacher-directory records fall back to employee number.
@@ -101,6 +103,8 @@ The Budget Request Entry sidebar item and frontend route accept any of `allow-bu
 | `/api/abms/unserved-rs` | `UnservedRsController` | `UnservedRsReportService` |
 
 Each report prefix exposes `GET /` for filter data and `GET /preview` for calculated report output, protected by `auth:api`.
+
+Report loaders scope typed Department/Section options to qualifying live rows in each report's backing source instead of returning the entire organization directory. Proposal-backed pages use `budget_proposal_entry`; Adjustments uses `budget_adjustment_entry`; Item Requested uses eligible numbered requisitions; and Liquidation uses eligible numbered requisitions marked for liquidation or liquidated. Referenced inactive units remain available. The shared report combobox provides an opt-in, moderately wide option panel used by unit filters; it aligns inward over the report card and remains capped to the viewport.
 
 The index loaders for Budget Performance Per Department, Budget Performance Per Account, Budget Performance University, Item Requested Per Account, Items Requested By Payee, and Budget Liquidation return `requisition_first_dates` keyed by school year plus the application-timezone `current_date`. Their school-year selectors use this metadata to default From to the first live budget request entry date and To to the current date. Adjustments Per Department uses the parallel `adjustment_first_dates` contract sourced from live budget adjustments. Unserved RS does not use either default contract.
 

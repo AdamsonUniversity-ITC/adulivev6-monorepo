@@ -24,8 +24,8 @@ type Identifier = string | number;
 
 type Division = { cid: Identifier; name?: string; description?: string; division_name?: string; isactive?: Identifier };
 type Department = { cid: Identifier; division_id: Identifier; name?: string; description?: string; department_name?: string; isactive?: Identifier; kind?: string };
-type Section = { cid: Identifier; department_id: Identifier; name?: string; description?: string; section_name?: string; isactive?: Identifier; kind?: string };
-type UnitOption = { value: string; cid: string; name: string; kind: OrgKind };
+type Section = { cid: Identifier; department_id: Identifier; division_id?: Identifier; name?: string; description?: string; section_name?: string; isactive?: Identifier; kind?: string };
+type UnitOption = { value: string; cid: string; name: string; kind: OrgKind; isactive: boolean };
 
 type LoaderPayload = RequisitionDateDefaultsPayload & {
   school_years?: Array<string | { school_year?: string }>;
@@ -320,16 +320,15 @@ export default function BudgetPerformanceDepartment() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const schoolYears = useMemo(() => Array.from(new Set((payload.school_years ?? []).map(year => typeof year === 'string' ? year : year.school_year).filter((year): year is string => Boolean(year)))).sort((a, b) => b.localeCompare(a)), [payload.school_years]);
-  const divisions = useMemo(() => (payload.divisions ?? []).filter(division => active(division.isactive)), [payload.divisions]);
-  const departments = useMemo(() => (payload.departments ?? []).filter(department => active(department.isactive)), [payload.departments]);
-  const sections = useMemo(() => (payload.sections ?? []).filter(section => active(section.isactive)), [payload.sections]);
+  const divisions = useMemo(() => payload.divisions ?? [], [payload.divisions]);
+  const departments = useMemo(() => payload.departments ?? [], [payload.departments]);
+  const sections = useMemo(() => payload.sections ?? [], [payload.sections]);
   const units = useMemo<UnitOption[]>(() => {
     if (!divisionId) return [];
     const childDepartments = departments.filter(department => id(department.division_id) === divisionId);
-    const departmentIds = new Set(childDepartments.map(department => id(department.cid)));
     return [
-      ...childDepartments.map(department => ({ value: `Department:${id(department.cid)}`, cid: id(department.cid), name: orgName(department, `Department ${department.cid}`), kind: 'Department' as const })),
-      ...sections.filter(section => departmentIds.has(id(section.department_id))).map(section => ({ value: `Section:${id(section.cid)}`, cid: id(section.cid), name: orgName(section, `Section ${section.cid}`), kind: 'Section' as const })),
+      ...childDepartments.map(department => ({ value: `Department:${id(department.cid)}`, cid: id(department.cid), name: orgName(department, `Department ${department.cid}`), kind: 'Department' as const, isactive: active(department.isactive) })),
+      ...sections.filter(section => id(section.division_id) === divisionId).map(section => ({ value: `Section:${id(section.cid)}`, cid: id(section.cid), name: orgName(section, `Section ${section.cid}`), kind: 'Section' as const, isactive: active(section.isactive) })),
     ].sort((a, b) => a.name.localeCompare(b.name));
   }, [departments, sections, divisionId]);
   const schoolYearOptions = useMemo<ReportFilterOption[]>(() => schoolYears.map(year => ({ value: year, label: year })), [schoolYears]);
@@ -339,8 +338,8 @@ export default function BudgetPerformanceDepartment() {
   })), [divisions]);
   const unitOptions = useMemo<ReportFilterOption[]>(() => units.map(unit => ({
     value: unit.value,
-    label: unit.name,
-    badge: unit.kind,
+    label: unit.isactive ? unit.name : `${unit.name} (Inactive)`,
+    badge: `${unit.kind}${unit.isactive ? '' : ' · Inactive'}`,
   })), [units]);
   const selectedUnit = units.find(unit => unit.value === unitValue);
 
@@ -404,7 +403,7 @@ export default function BudgetPerformanceDepartment() {
         <div className="grid gap-5 md:grid-cols-3">
           <div className="space-y-1.5"><Label htmlFor="school-year-selector">School Year</Label><ReportFilterCombobox id="school-year-selector" options={schoolYearOptions} value={schoolYear} disabled={isLoadingPreview || schoolYearOptions.length === 0} placeholder="Select school year" searchPlaceholder="Search school year..." emptyText="No school year found." invalid={Boolean(errors.schoolYear)} errorId="school-year-error" groupLabel="Available school years" onChange={value => { const dates = getRequisitionDateDefaults(payload, value); setSchoolYear(value); setFrom(dates.from); setTo(dates.to); setPreviewError(null); setErrors(current => ({ ...current, schoolYear: undefined, from: undefined, to: undefined })); }} /><FieldError id="school-year-error">{errors.schoolYear}</FieldError></div>
           <div className="space-y-1.5"><Label htmlFor="division-selector">Office / College</Label><ReportFilterCombobox id="division-selector" options={divisionOptions} value={divisionId} disabled={isLoadingPreview || divisionOptions.length === 0} placeholder="Select office or college" searchPlaceholder="Search office or college..." emptyText="No office or college found." invalid={Boolean(errors.division)} errorId="division-error" groupLabel="Active offices and colleges" onChange={value => { setDivisionId(value); setUnitValue(''); setPreviewError(null); setErrors(current => ({ ...current, division: undefined, unit: undefined })); }} /><FieldError id="division-error">{errors.division}</FieldError></div>
-          <div className="space-y-1.5"><Label htmlFor="unit-selector">Section / Department</Label><ReportFilterCombobox id="unit-selector" options={unitOptions} value={unitValue} disabled={isLoadingPreview || previewType === 'grand' || !divisionId || unitOptions.length === 0} placeholder={previewType === 'grand' ? 'All departments and sections' : !divisionId ? 'Select an office or college first' : unitOptions.length ? 'Select section or department' : 'No active units available'} searchPlaceholder="Search section or department..." emptyText="No section or department found." invalid={Boolean(errors.unit)} errorId="unit-selector-error" groupLabel="Departments and sections" onChange={value => { setUnitValue(value); setPreviewError(null); setErrors(current => ({ ...current, unit: undefined })); }} /><FieldError id="unit-selector-error">{errors.unit}</FieldError></div>
+          <div className="space-y-1.5"><Label htmlFor="unit-selector">Section / Department</Label><ReportFilterCombobox id="unit-selector" options={unitOptions} value={unitValue} disabled={isLoadingPreview || previewType === 'grand' || !divisionId || unitOptions.length === 0} placeholder={previewType === 'grand' ? 'All departments and sections' : !divisionId ? 'Select an office or college first' : unitOptions.length ? 'Select section or department' : 'No referenced units available'} searchPlaceholder="Search section or department..." emptyText="No section or department found." invalid={Boolean(errors.unit)} errorId="unit-selector-error" groupLabel="Departments and sections" wideOptions onChange={value => { setUnitValue(value); setPreviewError(null); setErrors(current => ({ ...current, unit: undefined })); }} /><FieldError id="unit-selector-error">{errors.unit}</FieldError></div>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           <fieldset className="rounded-lg border border-[var(--abms-border)] p-4">

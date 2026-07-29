@@ -19,10 +19,11 @@ type Props = {
   errorId?: string;
   groupLabel: string;
   clearLabel?: string;
+  wideOptions?: boolean;
   onChange: (value: string) => void;
 };
 
-export function ReportFilterCombobox({ id, options, value, disabled = false, placeholder, searchPlaceholder, emptyText, invalid = false, errorId, groupLabel, clearLabel, onChange }: Props) {
+export function ReportFilterCombobox({ id, options, value, disabled = false, placeholder, searchPlaceholder, emptyText, invalid = false, errorId, groupLabel, clearLabel, wideOptions = false, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const selected = options.find(option => option.value === value);
 
@@ -34,7 +35,11 @@ export function ReportFilterCombobox({ id, options, value, disabled = false, pla
         <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+    <PopoverContent
+      align={wideOptions ? 'end' : 'start'}
+      className={wideOptions ? 'min-w-[var(--radix-popover-trigger-width)] p-0' : 'w-[var(--radix-popover-trigger-width)] p-0'}
+      style={wideOptions ? { width: 'min(28rem, calc(100vw - 2rem))' } : undefined}
+    >
       <Command>
         <CommandInput placeholder={searchPlaceholder} />
         <CommandList className="max-h-[280px]">
