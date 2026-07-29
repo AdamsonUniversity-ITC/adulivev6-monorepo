@@ -105,6 +105,15 @@ Last verified: 2026-07-28
 
 ## Report Families
 
+### Department and Section Filter Sources
+
+- Budget Review, Budget Proposal Reports, and Budget Performance per Department list only typed Departments and Sections referenced by live `budget_proposal_entry` headers.
+- Item Requested per Account lists only typed units referenced by live, numbered requisitions whose current status is neither cancelled nor disapproved.
+- Adjustments per Department lists only typed units referenced by live `budget_adjustment_entry` headers.
+- Budget Liquidation lists only typed units referenced by live, numbered, non-cancelled/non-disapproved requisitions marked for liquidation or already liquidated.
+- Referenced inactive units remain selectable and are labelled inactive. Active directory units without a qualifying backing row are omitted.
+- Report unit option panels may be moderately wider than their triggers for long names. They align inward from the trigger so they remain over the report card and stay capped to the mobile viewport.
+
 ### Budget Performance Per Department
 
 - Departmental scopes one typed department/section.

@@ -50,6 +50,7 @@ Canonical behavioral details remain in:
 - Liquidation returned amounts are reversible: a resave applies only the delta and overwrites the requisition header's latest liquidation summary atomically.
 - Reports return backend-calculated fixed two-decimal money strings. The frontend formats but does not recompute financial totals.
 - Current live date-range reports use inclusive application-timezone `created_at` boundaries and current stored values. They do not reconstruct period activity from audits unless a report's documented rule explicitly uses an audit event for metadata.
+- Budget Review and report Department/Section selectors expose only typed units with qualifying live rows in the applicable proposal, adjustment, requisition, or liquidation source. Referenced inactive units remain selectable, and report unit option panels widen within the viewport for long names.
 - Missing or ambiguous historical relationships produce structured data-quality warnings shown as toasts.
 - Browser reports use readable shared typography on US Letter landscape with printer-safe 0.30-inch margins and the authenticated user's resolved full name.
 - Core production financial mutations use UUID idempotency keys and replay completed identical requests without repeating writes.
