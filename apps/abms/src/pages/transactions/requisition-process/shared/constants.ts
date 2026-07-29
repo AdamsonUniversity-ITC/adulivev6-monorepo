@@ -114,6 +114,7 @@ const COMMON_ACTIONS = [
 ];
 
 const PAYMENT_FORM_OPTIONS = [
+    'All Except PNB Credit Card Payment',
     'Payment for Supplier/Water',
     'Reimbursement/Replenishment',
     'Payment for Honorarium',

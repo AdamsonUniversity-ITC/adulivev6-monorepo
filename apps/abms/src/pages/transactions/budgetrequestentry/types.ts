@@ -102,6 +102,7 @@ export interface AccountOption {
 export interface AddItemFormState {
     accountId: number | null;
     accountNo: string;
+    mainAccountCode?: string;
     accountName: string;
     accountParentId: string;
     balance: string;
@@ -118,6 +119,7 @@ export interface RSFormItem {
     id: number;
     account_id?: number | null;
     accountNo: string;
+    mainAccountCode?: string | null;
     itemDescription: string;
     unitCost: string;
     quantity: string;
@@ -132,6 +134,7 @@ export interface QuotedPricePreviewItem {
     sub_account_id: number | null;
     account_id: number | null;
     account_code: string;
+    main_account_code?: string | null;
     description: string;
     quantity: number;
     unit_of_measurement: string;
@@ -149,6 +152,7 @@ export interface QuotedPricePreviewAccount {
     sub_account_id: number;
     account_id: number;
     account_code: string;
+    main_account_code?: string | null;
     current_balance: number;
     net_delta: number;
     balance_after: number;

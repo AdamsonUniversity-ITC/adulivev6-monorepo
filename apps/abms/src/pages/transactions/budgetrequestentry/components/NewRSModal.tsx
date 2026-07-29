@@ -54,6 +54,7 @@ export function NewRSModal({
 }) {
     const [selected, setSelected] = useState<RSType>('stockroom');
     const [paymentForm, setPaymentForm] = useState('');
+    const [paymentFormError, setPaymentFormError] = useState<string | null>(null);
     const [showSupplyList, setShowSupplyList] = useState(false);
     const [showPayeeModal, setShowPayeeModal] = useState(false);
     const [pendingType, setPendingType] = useState<RSType>(null);
@@ -64,6 +65,7 @@ export function NewRSModal({
         const resetTimer = window.setTimeout(() => {
             setSelected('stockroom');
             setPaymentForm('');
+            setPaymentFormError(null);
             setShowSupplyList(false);
             setShowPayeeModal(false);
             setPendingType(null);
@@ -87,6 +89,10 @@ export function NewRSModal({
 
     function handleConfirm() {
         if (!selected || isLoading) return;
+        if (selected === 'cashier' && !paymentForm) {
+            setPaymentFormError('Payment form is required for Cash Valued Items.');
+            return;
+        }
         const needsPayee = PAYEE_REQUIRED_FORMS.includes(paymentForm as typeof PAYEE_REQUIRED_FORMS[number]);
         if (selected === 'cashier' && needsPayee) {
             setPendingType(selected);
@@ -212,7 +218,11 @@ export function NewRSModal({
                                 >
                                     {/* Clickable row */}
                                     <div
-                                        onClick={() => setSelected(opt.id)}
+                                        onClick={() => {
+                                            setSelected(opt.id);
+                                            setPaymentFormError(null);
+                                            if (opt.id !== 'cashier') setPaymentForm('');
+                                        }}
                                         className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150"
                                         style={{
                                             background: isSel
@@ -282,11 +292,15 @@ export function NewRSModal({
                             style={{ color: t.tableHeadText }}
                         >
                             Payment Form
+                            {selected === 'cashier' && <span style={{ color: t.cellRed }}> *</span>}
                         </label>
                         <div style={{ position: 'relative' }}>
                             <select
                                 value={paymentForm}
-                                onChange={e => setPaymentForm(e.target.value)}
+                                onChange={e => {
+                                    setPaymentForm(e.target.value);
+                                    setPaymentFormError(null);
+                                }}
                                 disabled={selected !== 'cashier'}
                                 className="w-full rounded-lg text-[11px] font-semibold px-3 py-2 border outline-none transition-all duration-150"
                                 style={{
@@ -312,6 +326,11 @@ export function NewRSModal({
                                 }}
                             />
                         </div>
+                        {paymentFormError && (
+                            <p role="alert" className="mt-1.5 text-[10px] font-semibold" style={{ color: t.cellRed }}>
+                                {paymentFormError}
+                            </p>
+                        )}
                     </div>
 
                     {/* Data Privacy notice */}
@@ -414,6 +433,7 @@ export function NewRSModal({
                     setShowPayeeModal(false);
                     onConfirm(pendingType, paymentForm, details);
                 }}
+                paymentForm={paymentForm}
                 t={t}
                 isDark={isDark}
             />

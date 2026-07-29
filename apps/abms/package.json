@@ -16,6 +16,7 @@
     "@repo/tailwind-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-router": "1.170.16",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",

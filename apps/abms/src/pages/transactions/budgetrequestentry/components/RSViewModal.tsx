@@ -21,6 +21,7 @@ import { StatusBadge } from './common';
 import { PAYEE_VIEW_REQUIRED_FORMS, PayeeDetailsViewModal } from './PayeeDetailsViewModal';
 import { RSPrintPreview } from '../../requisition-process/shared/components/RSPrintPreview';
 import type { RSLineItem, RSProcessRow } from '../../requisition-process/shared/components/RSProcessModal';
+import { formatAccountCode } from '../../shared/accountCode';
 
 export interface RSViewHeader {
     id: number;
@@ -65,6 +66,8 @@ type RawLineItem = Partial<RSFormItem> & {
     account_id?: number | string;
     accountId?: number | string;
     account_code?: string | number | null;
+    mainAccountCode?: string | number | null;
+    main_account_code?: string | number | null;
     description?: string | null;
     unit_cost?: string | number | null;
     unit_of_measurement?: string | null;
@@ -257,6 +260,7 @@ export function RSViewModal({
         id: item.id,
         account_id: item.account_id,
         account_code: item.accountNo,
+        main_account_code: item.mainAccountCode,
         description: item.itemDescription,
         quantity: Number(item.quantity) || 0,
         unit_of_measurement: item.unitOfMeasurement,
@@ -269,6 +273,7 @@ export function RSViewModal({
             id: Number(raw.id),
             account_id: Number(raw.account_id ?? raw.accountId ?? 0),
             accountNo: String(raw.accountNo ?? raw.account_code ?? ''),
+            mainAccountCode: String(raw.mainAccountCode ?? raw.main_account_code ?? ''),
             itemDescription: String(raw.itemDescription ?? raw.description ?? ''),
             unitCost: String(raw.unitCost ?? raw.unit_cost ?? '0'),
             quantity: String(raw.quantity ?? '0'),
@@ -1203,7 +1208,7 @@ export function RSViewModal({
                                                             color: t.cellBlue,
                                                         }}
                                                     >
-                                                        {item.account_code}
+                                                        {formatAccountCode(item.main_account_code, item.account_code)}
                                                     </td>
 
                                                     <td
@@ -1357,7 +1362,7 @@ export function RSViewModal({
                                                         marginBottom: 7,
                                                     }}
                                                 >
-                                                    Account {account.account_code}
+                                                    Account {formatAccountCode(account.main_account_code, account.account_code)}
                                                 </div>
 
                                                 <div
@@ -1499,7 +1504,7 @@ export function RSViewModal({
                                                 {i + 1}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellBlue, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
-                                                {item.accountNo || <span style={{ color: t.cellMuted, fontWeight: 400, fontStyle: 'italic' }}>—</span>}
+                                                {formatAccountCode(item.mainAccountCode, item.accountNo)}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
                                                 {canEdit ? (
@@ -1761,6 +1766,7 @@ export function RSViewModal({
                 open={showPayeeView}
                 onClose={() => setShowPayeeView(false)}
                 payeeName={header?.payee ?? ''}
+                paymentForm={header?.payment_form ?? null}
                 detail={payeeDetail}
                 t={t}
                 isDark={isDark}

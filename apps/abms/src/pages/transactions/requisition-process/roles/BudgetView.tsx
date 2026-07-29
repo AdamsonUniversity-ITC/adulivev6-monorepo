@@ -408,7 +408,8 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                         : `RS ${row.requisition_no} unmarked for liquidation.`);
                 } else {
                     const updated = !!res.data?.data?.is_cash_advance;
-                    setSelectedRow(prev => prev ? { ...prev, is_cash_advance: updated } : prev);
+                    const forLiquidation = !!res.data?.data?.for_liquidation;
+                    setSelectedRow(prev => prev ? { ...prev, is_cash_advance: updated, for_liquidation: forLiquidation } : prev);
                     addToast('success', updated
                         ? `RS ${row.requisition_no} tagged as cash advance.`
                         : `RS ${row.requisition_no} untagged as cash advance.`);
@@ -447,6 +448,15 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
             setSelectedRow(prev => prev ? { ...prev, note: row.note ?? null } : prev);
             setRows(prev => prev.map(r => r.id === row.id ? { ...r, note: row.note ?? null } : r));
             addToast('success', `Note saved for RS ${row.requisition_no}.`);
+            return;
+        }
+
+        // Item saving is completed atomically inside RSProcessModal. Keep the
+        // Budget modal open and synchronize the authoritative response.
+        if (action === 'Save Items') {
+            setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount } : prev);
+            setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount } : r));
+            addToast('success', `Items updated for RS ${row.requisition_no}.`);
             return;
         }
 

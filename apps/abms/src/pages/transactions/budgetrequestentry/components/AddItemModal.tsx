@@ -8,10 +8,12 @@ import { SelectSupplyModal } from './SelectSupplyModal';
 import type { RSType, SupplyItem, AccountOption } from '../types';
 import { financeSvc } from '@repo/axios-config';
 import { fmtCurrency } from '../utils';
+import { formatAccountCode } from '../../shared/accountCode';
 
 export interface AddItemFormState {
     accountId: number | null;
     accountNo: string;
+    mainAccountCode: string;
     accountName: string;
     accountParentId: string;
     balance: string;
@@ -25,6 +27,7 @@ export interface AddItemFormState {
 export const EMPTY_ITEM_FORM: AddItemFormState = {
     accountId: null,
     accountNo: '',
+    mainAccountCode: '',
     accountName: '',
     accountParentId: '',
     balance: '',
@@ -128,6 +131,7 @@ export function AddItemModal({
             ...prev,
             accountId: item.account_id,
             accountNo: item.account_code,
+            mainAccountCode: item.main_account_code ?? '',
             accountName: item.account_name,
             accountParentId: String(item.account_parent_id),
             balance: String(item.balance),
@@ -201,6 +205,7 @@ export function AddItemModal({
             const newItem: RSFormItem = {
                 id: saved.id,
                 accountNo: saved.account_code,
+                mainAccountCode: form.mainAccountCode,
                 itemDescription: saved.description,
                 unitCost: String(saved.unit_cost),
                 quantity: String(saved.quantity),
@@ -418,7 +423,7 @@ export function AddItemModal({
                             )}
 
                             <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2">
-                                {displayOnlyField('Account No.', form.accountNo, true, t.cellBlue)}
+                                {displayOnlyField('Account No.', formatAccountCode(form.mainAccountCode, form.accountNo), true, t.cellBlue)}
                                 {displayOnlyField('Account Name', form.accountName)}
                             </div>
                             {displayOnlyField(

@@ -16,7 +16,11 @@ export interface PayeeDetailRecord {
     bank_address: string | null;
 }
 
-export const PAYEE_VIEW_REQUIRED_FORMS = ['Payment for Supplier/Water', 'Reimbursement/Replenishment'];
+export const PAYEE_VIEW_REQUIRED_FORMS = [
+    'Payment for Supplier/Water',
+    'Payment for Honorarium',
+    'Reimbursement/Replenishment',
+];
 
 function ReadonlyCheck({
     checked,
@@ -49,17 +53,20 @@ function ReadonlyCheck({
 }
 
 export function PayeeDetailsViewModal({
-    open, onClose, payeeName, detail, t, isDark,
+    open, onClose, payeeName, paymentForm, detail, t, isDark,
 }: {
     open: boolean;
     onClose: () => void;
     payeeName: string;
+    paymentForm: string | null;
     detail: PayeeDetailRecord | null;
     t: ThemeTokens;
     isDark: boolean;
 }) {
     if (!open) return null;
 
+    const isSupplierPayment = paymentForm === 'Payment for Supplier/Water';
+    const isHonorariumPayment = paymentForm === 'Payment for Honorarium';
     const labelStyle: React.CSSProperties = {
         fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
         color: t.tableHeadText, marginBottom: 5, display: 'block',
@@ -156,9 +163,15 @@ export function PayeeDetailsViewModal({
                     {/* Classification */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification</div>
-                        <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" t={t} isDark={isDark} />
-                        <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" t={t} isDark={isDark} />
-                        <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" t={t} isDark={isDark} />
+                        {!isSupplierPayment && (
+                            <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" t={t} isDark={isDark} />
+                        )}
+                        {!isHonorariumPayment && (
+                            <>
+                                <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" t={t} isDark={isDark} />
+                                <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" t={t} isDark={isDark} />
+                            </>
+                        )}
                     </div>
 
                     {/* Mode of Payment */}

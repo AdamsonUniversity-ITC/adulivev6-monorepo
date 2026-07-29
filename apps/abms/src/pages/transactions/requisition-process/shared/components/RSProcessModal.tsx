@@ -15,6 +15,11 @@ import { PermissionKey } from '../constants.ts';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import echo from '../../../../../lib/echo';
 import { RSPrintPreview } from './RSPrintPreview';
+import { formatAccountCode } from '../../../shared/accountCode';
+import {
+    EditableAccountPickerModal,
+    type EditableAccountOption,
+} from './EditableAccountPickerModal';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,6 +29,7 @@ export interface RSLineItem {
     id: number;
     account_id?: number | null;
     account_code: string;
+    main_account_code?: string | null;
     description: string;
     quantity: number;
     unit_of_measurement: string;
@@ -31,6 +37,16 @@ export interface RSLineItem {
     total_cost: number;
     quoted_price?: number | null;
     isreviewed?: boolean;
+}
+
+interface EditableItemDraft {
+    account_id: number;
+    account_code: string;
+    main_account_code?: string | null;
+    description: string;
+    quantity: number;
+    unit_cost: number;
+    unit_of_measurement: string;
 }
 
 export interface RSProcessRow {
@@ -108,7 +124,11 @@ interface PayeeDetailRecord {
     bank_address: string | null;
 }
 
-const PAYEE_VIEW_REQUIRED_FORMS = ['Payment for Supplier/Water', 'Reimbursement/Replenishment'];
+const PAYEE_VIEW_REQUIRED_FORMS = [
+    'Payment for Supplier/Water',
+    'Payment for Honorarium',
+    'Reimbursement/Replenishment',
+];
 
 const RS_FILES_ENDPOINT = (rsId: number) => `abms/budget-request-entry/${rsId}/files`;
 const RS_FILE_URL_ENDPOINT = (rsId: number, mediaId: number) => `abms/budget-request-entry/${rsId}/files/${mediaId}/url`;
@@ -657,20 +677,14 @@ export function RSProcessModal({
             .catch(() => { /* payee detail is optional — silently ignore */ });
     }, [row.id]);
 
-    // ── Item editing state (admin-only) ──────────────────────────────────────
-    // Admin can edit quantity / UOM / unit cost on existing line items, but
-    // only while the entry sits at the Budget Director stage — the same
-    // status that gates the 'Disapprove' button for this role. Account code,
-    // description, and adding/removing items are intentionally out of scope:
-    // this only ever mutates the three fields below on items that already
-    // exist, and the backend recomputes total_cost itself rather than
-    // trusting whatever the client multiplies out.
-    const canEditItems = roleKey === 'admin-access'
-        && (row.status ?? '').toLowerCase() === 'for budget director';
+    // ── Item editing state (Budget review only) ──────────────────────────────
+    const canEditItems = roleKey === 'budget-access'
+        && (row.status ?? '').toLowerCase() === 'for review'
+        && (row.location ?? '').toLowerCase() === 'budget office';
+    const isStockroomRequest = (row.rstype ?? '').toLowerCase() === 'stockroom';
     const [isEditingItems, setIsEditingItems] = useState(false);
-    const [itemDrafts, setItemDrafts] = useState<Record<number, {
-        quantity: number; unit_cost: number; unit_of_measurement: string;
-    }>>({});
+    const [itemDrafts, setItemDrafts] = useState<Record<number, EditableItemDraft>>({});
+    const [accountPickerItemId, setAccountPickerItemId] = useState<number | null>(null);
     const [isSavingItems, setIsSavingItems] = useState(false);
     const [itemsError, setItemsError] = useState<string | null>(null);
 
@@ -702,6 +716,7 @@ export function RSProcessModal({
     interface QuotedPricePreviewItem {
         id: number;
         account_code: string;
+        main_account_code?: string | null;
         description: string;
         quantity: number;
         unit_of_measurement: string;
@@ -773,7 +788,7 @@ export function RSProcessModal({
             const res = await financeSvc.put(`/abms/requisition-process/${row.id}/accept-quoted-prices`);
             setAcceptPreviewOpen(false);
             const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
-            const updatedTotal: number = res.data?.data?.total_amount ?? row.total_amount;
+            const updatedTotal = Number(res.data?.data?.total_amount ?? row.total_amount);
             onAction?.('Accept Quoted Prices', { ...row, items: updatedItems, total_amount: updatedTotal });
         } catch (err: any) {
             setAcceptError(err?.response?.data?.message ?? 'Failed to accept quoted prices. No changes were applied.');
@@ -960,8 +975,12 @@ export function RSProcessModal({
         const drafts: typeof itemDrafts = {};
         (row.items ?? []).forEach(item => {
             drafts[item.id] = {
+                account_id: Number(item.account_id ?? 0),
+                account_code: item.account_code,
+                main_account_code: item.main_account_code,
+                description: item.description,
                 quantity: item.quantity,
-                unit_cost: item.unit_cost,
+                unit_cost: Number(item.unit_cost),
                 unit_of_measurement: item.unit_of_measurement ?? '',
             };
         });
@@ -972,14 +991,23 @@ export function RSProcessModal({
 
     function cancelEditingItems() {
         setItemDrafts({});
+        setAccountPickerItemId(null);
         setItemsError(null);
         setIsEditingItems(false);
     }
 
-    function updateItemDraft(itemId: number, patch: Partial<{
-        quantity: number; unit_cost: number; unit_of_measurement: string;
-    }>) {
+    function updateItemDraft(itemId: number, patch: Partial<EditableItemDraft>) {
         setItemDrafts(prev => ({ ...prev, [itemId]: { ...prev[itemId], ...patch } }));
+    }
+
+    function selectDraftAccount(account: EditableAccountOption) {
+        if (accountPickerItemId === null) return;
+        updateItemDraft(accountPickerItemId, {
+            account_id: account.account_id,
+            account_code: account.account_code,
+            main_account_code: account.main_account_code,
+        });
+        setAccountPickerItemId(null);
     }
 
     async function handleSaveItems() {
@@ -990,14 +1018,22 @@ export function RSProcessModal({
             const payload = {
                 items: Object.entries(itemDrafts).map(([id, d]) => ({
                     id: Number(id),
+                    account_id: d.account_id,
+                    description: d.description,
                     quantity: d.quantity,
                     unit_cost: d.unit_cost,
                     unit_of_measurement: d.unit_of_measurement,
                 })),
             };
             const res = await financeSvc.put(`/abms/requisition-process/${row.id}/items`, payload);
-            const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
-            const updatedTotal: number = res.data?.data?.total_amount ?? row.total_amount;
+            const updatedItems: RSLineItem[] = (res.data?.items ?? row.items ?? []).map((item: RSLineItem) => ({
+                ...item,
+                account_id: Number(item.account_id ?? 0),
+                quantity: Number(item.quantity),
+                unit_cost: Number(item.unit_cost),
+                total_cost: Number(item.total_cost),
+            }));
+            const updatedTotal = Number(res.data?.data?.total_amount ?? row.total_amount);
             setIsEditingItems(false);
             setItemDrafts({});
             onAction?.('Save Items', { ...row, items: updatedItems, total_amount: updatedTotal });
@@ -1169,9 +1205,19 @@ export function RSProcessModal({
     // the Save button / giving instant feedback. The backend re-validates
     // and is the actual source of truth; this never substitutes for it.
     const draftsValid = !isEditingItems || Object.values(itemDrafts).every(d =>
-        Number.isInteger(d.quantity) && d.quantity >= 1 &&
-        typeof d.unit_cost === 'number' && d.unit_cost > 0 &&
-        d.unit_of_measurement.trim().length > 0
+        Number.isInteger(d.account_id) && d.account_id > 0
+        && Number.isInteger(d.quantity) && d.quantity >= 1
+        && (
+            isStockroomRequest
+            || (
+                d.description.trim().length > 0
+                && typeof d.unit_cost === 'number'
+                && Number.isFinite(d.unit_cost)
+                && d.unit_cost > 0
+                && Math.abs((d.unit_cost * 100) - Math.round(d.unit_cost * 100)) < 0.000001
+                && d.unit_of_measurement.trim().length > 0
+            )
+        )
     );
 
     // Client-side mirror of the backend's validation for the quoted-price
@@ -1579,7 +1625,7 @@ export function RSProcessModal({
                                     )}
                                 </button>
 
-                                {/* Admin item-editing controls — only when gated open above */}
+                                {/* Budget item-editing controls — only during Budget review */}
                                 {canEditItems && itemsExpanded && lineItems.length > 0 && (
                                     isEditingItems ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -1591,7 +1637,7 @@ export function RSProcessModal({
                                             <button
                                                 onClick={handleSaveItems}
                                                 disabled={isSavingItems || !draftsValid}
-                                                title={!draftsValid ? 'Quantity must be a whole number ≥ 1 and unit cost must be greater than 0' : 'Save item changes'}
+                                                title={!draftsValid ? 'Complete every required item field before saving' : 'Save item changes'}
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                                     padding: '5px 12px', borderRadius: 8,
@@ -1764,7 +1810,7 @@ export function RSProcessModal({
                             {itemsExpanded && (
                                 <div style={{ overflowX: 'auto' }}>
                                     {lineItems.length > 0 ? (
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isEditingItems ? 820 : 600 }}>
                                             <thead>
                                                 <tr style={{ background: t.tableHeadBg }}>
                                                     {(showQuotedPriceColumn
@@ -1809,10 +1855,58 @@ export function RSProcessModal({
                                                             onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
                                                         >
                                                             <td style={itemTdStyle(t, totalCols, 0, 'left', false, true)}>
-                                                                {item.account_code}
+                                                                {rowEditing ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={isSavingItems}
+                                                                        onClick={() => setAccountPickerItemId(item.id)}
+                                                                        title="Select another eligible account"
+                                                                        style={{
+                                                                            display: 'flex',
+                                                                            width: '100%',
+                                                                            minWidth: 150,
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'space-between',
+                                                                            gap: 8,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: 6,
+                                                                            border: `1px solid ${t.inputBorder}`,
+                                                                            background: t.inputBg,
+                                                                            color: t.cellBlue,
+                                                                            fontSize: 11,
+                                                                            fontWeight: 800,
+                                                                            fontFamily: "'JetBrains Mono', monospace",
+                                                                            textAlign: 'left',
+                                                                            cursor: isSavingItems ? 'not-allowed' : 'pointer',
+                                                                        }}
+                                                                    >
+                                                                        <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                                                                            {formatAccountCode(draft.main_account_code, draft.account_code)}
+                                                                        </span>
+                                                                        <Pencil style={{ width: 11, height: 11, flexShrink: 0 }} />
+                                                                    </button>
+                                                                ) : (
+                                                                    formatAccountCode(item.main_account_code, item.account_code)
+                                                                )}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 1, 'left', false, false)}>
-                                                                {item.description}
+                                                                {rowEditing && !isStockroomRequest ? (
+                                                                    <textarea
+                                                                        rows={2}
+                                                                        maxLength={500}
+                                                                        value={draft.description}
+                                                                        disabled={isSavingItems}
+                                                                        onChange={e => updateItemDraft(item.id, { description: e.target.value })}
+                                                                        style={{
+                                                                            ...inputStyle,
+                                                                            minWidth: 180,
+                                                                            maxWidth: 260,
+                                                                            resize: 'vertical',
+                                                                            textAlign: 'left',
+                                                                            lineHeight: 1.35,
+                                                                        }}
+                                                                    />
+                                                                ) : item.description}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 2, 'right', false, true)}>
                                                                 {rowEditing ? (
@@ -1828,7 +1922,7 @@ export function RSProcessModal({
                                                                 ) : item.quantity}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 3, 'right', true, false)}>
-                                                                {rowEditing ? (
+                                                                {rowEditing && !isStockroomRequest ? (
                                                                     <input
                                                                         type="text" maxLength={50}
                                                                         value={draft.unit_of_measurement}
@@ -1839,7 +1933,7 @@ export function RSProcessModal({
                                                                 ) : (item.unit_of_measurement || '—')}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 4, 'right', false, true)}>
-                                                                {rowEditing ? (
+                                                                {rowEditing && !isStockroomRequest ? (
                                                                     <input
                                                                         type="number" min={0.01} step={0.01}
                                                                         value={draft.unit_cost}
@@ -2115,7 +2209,7 @@ export function RSProcessModal({
                                                 background: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
                                                 flexShrink: 0,
                                             }} />
-                                            {row.for_liquidation ? 'For Liquidation' : 'Mark For Liquidation'}
+                                            For Liquidation - Supplier
                                         </button>
                                     )}
                                 {(roleKey === 'admin-access' || roleKey === 'budget-access')
@@ -2142,7 +2236,7 @@ export function RSProcessModal({
                                                 background: row.is_cash_advance ? CASH_ADVANCE_COLOR : t.cellMuted,
                                                 flexShrink: 0,
                                             }} />
-                                            {row.is_cash_advance ? 'Cash Advance' : 'Mark Cash Advance'}
+                                            For Liquidation - Cash Advance
                                         </button>
                                     )}
                             </div>
@@ -2394,7 +2488,7 @@ export function RSProcessModal({
                                                                     </label>
                                                                 </td>
                                                                 <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, fontVariantNumeric: 'tabular-nums', borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, whiteSpace: 'nowrap' }}>
-                                                                    {item.account_code}
+                                                                    {formatAccountCode(item.main_account_code, item.account_code)}
                                                                 </td>
                                                                 <td style={{ padding: '9px 12px', fontSize: 11, color: t.cellText, borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                     {item.description}
@@ -2642,6 +2736,15 @@ export function RSProcessModal({
                 </>
             )}
 
+            <EditableAccountPickerModal
+                open={isEditingItems && accountPickerItemId !== null}
+                requisitionId={row.id}
+                onClose={() => setAccountPickerItemId(null)}
+                onSelect={selectDraftAccount}
+                t={t}
+                isDark={isDark}
+            />
+
             {/* ── Chat modal ─────────────────────────────────────────────────── */}
             <RSChatModal
                 open={showChat}
@@ -2667,6 +2770,7 @@ export function RSProcessModal({
                 open={showPayeeView}
                 onClose={() => setShowPayeeView(false)}
                 payeeName={row.payee ?? ''}
+                paymentForm={row.payment_form ?? null}
                 detail={payeeDetail}
                 t={t}
                 isDark={isDark}
@@ -2687,17 +2791,20 @@ export function RSProcessModal({
 // PayeeDetailsViewModal — read-only view of payee details
 // ─────────────────────────────────────────────────────────────────────────────
 function PayeeDetailsViewModal({
-    open, onClose, payeeName, detail, t, isDark,
+    open, onClose, payeeName, paymentForm, detail, t, isDark,
 }: {
     open: boolean;
     onClose: () => void;
     payeeName: string;
+    paymentForm: string | null;
     detail: PayeeDetailRecord | null;
     t: Theme;
     isDark: boolean;
 }) {
     if (!open) return null;
 
+    const isSupplierPayment = paymentForm === 'Payment for Supplier/Water';
+    const isHonorariumPayment = paymentForm === 'Payment for Honorarium';
     const labelStyle: React.CSSProperties = {
         fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
         color: t.tableHeadText, marginBottom: 5, display: 'block',
@@ -2811,9 +2918,15 @@ function PayeeDetailsViewModal({
                     {/* Classification */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification</div>
-                        <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" />
-                        <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" />
-                        <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" />
+                        {!isSupplierPayment && (
+                            <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" />
+                        )}
+                        {!isHonorariumPayment && (
+                            <>
+                                <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" />
+                                <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" />
+                            </>
+                        )}
                     </div>
 
                     {/* Mode of Payment */}

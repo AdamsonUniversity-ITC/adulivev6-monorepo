@@ -104,6 +104,47 @@ flowchart TD
     R --> S[Open transaction; lock header and items]
     S --> T[Re-resolve and lock each allocation and proposal]
     T --> V[Apply refunds and delete; rollback all on any failure]
+
+    CA[Enable Cash Advance tag on eligible Cashier RS] --> CB[Set is_cash_advance and for_liquidation true together]
+    CB --> CC[Include RS in liquidation queue]
+    CD[Disable Cash Advance tag] --> CE[Clear is_cash_advance and preserve for_liquidation]
+```
+
+## Requisition Header Payee Rules
+
+```mermaid
+flowchart TD
+    A[Create requisition header] --> B{Cashier request?}
+    B -- No --> C[Discard payment form and payee details]
+    C --> D[Create Stockroom or Logistics draft]
+    B -- Yes --> E{Payment form selected?}
+    E -- No --> X[Return validation error]
+    E -- Yes --> F{Supplier/Water?}
+    F -- Yes --> G[Require numeric TIN and exactly one VAT classification]
+    G --> H[Force AdU Employee false]
+    F -- No --> I{Honorarium?}
+    I -- Yes --> J[Force VAT and Non-VAT false]
+    I -- No --> K[Apply normal Cashier payee rules]
+    H --> L[Create Cashier draft and payee details]
+    J --> L
+    K --> L
+```
+
+## Budget Review RS Item Editing
+
+```mermaid
+flowchart TD
+    A[Budget user opens an RS] --> B{For review at Budget Office?}
+    B -- No --> X[Hide editor and reject writes]
+    B -- Yes --> C[Load uniquely allocated accounts from RS year and typed unit]
+    C --> D[Edit account and quantity plus non-Stockroom description UOM and unit cost]
+    D --> E[Lock header items destination accounts allocations and proposals in ID order]
+    E --> F[Aggregate old-account refunds and destination-account debits in integer cents]
+    F --> G{Mappings valid and every projected balance in range?}
+    G -- No --> X
+    G -- Yes --> H[Update allocation and proposal balances]
+    H --> I[Update item account fields and backend-calculated totals]
+    I --> J[Recalculate the complete RS header total and commit once]
 ```
 
 ## Requisition Finalization and Quoted-Price Preview
@@ -428,6 +469,21 @@ The shared Requisition Slip is the portrait exception: its screen preview is
 8.5 by 11 inches, and print mode uses a 0.2-inch Letter page margin with no
 duplicate inner print padding. Requisition Process and Budget Request Entry
 both consume this same component.
+
+## Uniform Report Excel Export
+
+```mermaid
+flowchart LR
+    A[Open any ABMS report preview] --> B[Shared portal adds Export to Excel beside Print]
+    B --> C[Read the active rendered preview only]
+    C --> D[Preserve titles filters groups rows subtotals totals and footer]
+    D --> E[Keep IDs codes requisition numbers labels and dates as text]
+    D --> F[Write recognized money percentages and quantities as numeric cells]
+    E --> G[Apply wrapping widths fills borders and hierarchy styles]
+    F --> G
+    G --> H[Generate Letter-landscape XLSX in an on-demand browser chunk]
+    H --> I[Download descriptive filename without changing report data]
+```
 
 ## Idempotent Financial Mutation
 

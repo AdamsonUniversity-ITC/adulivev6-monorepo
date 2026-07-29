@@ -426,7 +426,8 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
                         : `RS ${row.requisition_no} unmarked for liquidation.`);
                 } else {
                     const updated = !!res.data?.data?.is_cash_advance;
-                    setSelectedRow(prev => prev ? { ...prev, is_cash_advance: updated } : prev);
+                    const forLiquidation = !!res.data?.data?.for_liquidation;
+                    setSelectedRow(prev => prev ? { ...prev, is_cash_advance: updated, for_liquidation: forLiquidation } : prev);
                     addToast('success', updated
                         ? `RS ${row.requisition_no} tagged as cash advance.`
                         : `RS ${row.requisition_no} untagged as cash advance.`);

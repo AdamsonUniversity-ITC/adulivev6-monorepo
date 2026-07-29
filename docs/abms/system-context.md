@@ -46,7 +46,7 @@ The report pages live in `apps/abms/src/pages/reports/`:
 - `UnservedRs.tsx`
 - shared searchable filter: `shared/ReportFilterCombobox.tsx`
 
-All nine report previews use `shared/ReportPrintPortal.tsx` and `shared/report-print.css` for authoritative US Letter landscape sizing, readable shared typography, a `0.30in` printer-safe margin, matching preview content inset, and shared overlap prevention for long metadata, headings, and table content. Page-local table layouts remain responsible for report-specific columns, grouping, and page-break rules.
+All nine report previews use `shared/ReportPrintPortal.tsx` and `shared/report-print.css` for authoritative US Letter landscape sizing, readable shared typography, a `0.30in` printer-safe margin, matching preview content inset, and shared overlap prevention for long metadata, headings, and table content. Page-local table layouts remain responsible for report-specific columns, grouping, and page-break rules. The same portal injects `shared/ReportExcelButton.tsx` beside Print; `shared/reportExcel.ts` dynamically loads ExcelJS and converts the active rendered preview into a styled `.xlsx` workbook without fetching or recalculating report data.
 
 Routes are registered in `apps/abms/src/router.tsx`. Finance requests use the shared finance-service Axios configuration. Protected routing must derive production redirects from the Vite production URL environment setting rather than hardcoded localhost values.
 
@@ -78,6 +78,10 @@ Office Supplies list queries default to `item_name` ascending with an `id` tie-b
 
 The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Administration includes a `For Approval` status filter that selects current requisition headers whose status is `for approval`, while retaining `For Budget Director` as its default filter. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
 
+The shared Requisition Process payment-form filter includes `All Except PNB Credit Card Payment`. The backend treats it as a query sentinel before cursor pagination, returning only populated payment forms whose trimmed, case-insensitive value is not PNB Credit Card Payment; existing individual options remain exact filters.
+
+Budget Request Entry treats payment form and payee details as Cashier-only header data. The New RS modal requires a payment form for Cash Valued Items, while Stockroom and Logistics omit Payee entry and the API strips any stale values submitted for those types. Supplier/Water payees require a numeric TIN and exactly one VAT classification with AdU Employee disabled; Honorarium payees retain the AdU Employee option but omit and clear VAT classifications.
+
 The shared RS Process modal preloads the selected RS attachment list and displays its total on the View Files toolbar action. This is a total-file count only, has no read/unread meaning, and reuses the preloaded list when the attachment viewer opens.
 
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
@@ -85,6 +89,18 @@ The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Con
 The User Department Access index supports case-insensitive displayed-name search and stable A–Z/Z–A name ordering before cursor pagination. Equal displayed names use employee number as the tie-breaker, and missing teacher-directory records fall back to employee number.
 
 During RS creation, the account picker queries only the exact school-year typed-unit allocation and returns 10-row cursor pages ordered by account name with account ID as the tie-breaker. Account code/name search is applied before pagination and also matches parent/main account code or name. Picker rows display `Main Code - Sub Code` and `Main Name - Sub Name`, while selection and persistence continue using the child account ID and child account code. The requisition-process `requisitionId` account lookup remains an unpaginated list of only the accounts already referenced by that RS.
+
+Budget-role item review uses `GET /api/abms/requisition-process/{id}/editable-accounts` for searchable 10-row cursor pages of uniquely allocated live accounts derived from the RS school year and exact typed owner. `PUT /api/abms/requisition-process/{id}/items` independently verifies authenticated `budget-access` plus `for review` at Budget Office, then applies item/account changes and exact balance transfers atomically. Administration no longer receives the item-edit control.
+
+Local environments may seed three alternative funded accounts for a specific
+editable RS with `AbmsRsEditingAccountsSeeder` and
+`ABMS_RS_EDITING_REQUISITION_ID`. The seeder derives the proposal scope from
+the RS, reconciles the new allocation and proposal totals atomically, is
+idempotent, and is never part of the default database seeder.
+
+Saved RS item and account read responses expose `main_account_code` separately from the stored child `account_code`, allowing Budget Request Entry and Requisition Process to consistently render `parent - child` without changing financial payload identity. The visible tagging actions read `For Liquidation - Supplier` and `For Liquidation - Cash Advance`, while continuing to submit the established `For Liquidation` and `Cash Advance` action keys.
+
+The Requisition Process `Cash Advance` action now synchronizes liquidation eligibility: enabling it also sets `for_liquidation`, while disabling it preserves the liquidation flag. Administration and Budget modal state consumes both flags from the same response.
 
 The Budget Request Entry sidebar item and frontend route accept any of `allow-budget-request-entry`, `admin-access`, or `budget-access`. Its loader resolves organizational scope from the authenticated finance identity: general `admin-access` and `budget-access` both receive every Department and Section referenced by live proposal headers, while other request-entry users receive only their assigned `allow-budget-request-entry` typed units. The frontend no longer supplies Admin or Budget permission IDs to establish this elevated scope.
 

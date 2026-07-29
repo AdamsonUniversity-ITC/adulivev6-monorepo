@@ -14,6 +14,12 @@
   max-width: 11in !important;
 }
 
+.abms-letter-actions,
+.report-preview-actions,
+.report-actions {
+  flex-wrap: wrap;
+}
+
 .abms-letter-sheet,
 .budget-report,
 .account-report,
