@@ -1,4 +1,11 @@
 import { Button } from "@repo/ui/components/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select"
 import type { ColumnDef, Row } from "@tanstack/react-table"
 import { X } from "lucide-react"
 import * as React from "react"
@@ -21,6 +28,10 @@ import {
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
 import { PendingStatusBadge } from "@/routes/my-leave/-leave-status-badge"
+import {
+  CLASSIFICATION_FILTER_OPTIONS,
+  EMPLOYMENT_TYPE_FILTER_OPTIONS,
+} from "./-report-employment-filters"
 
 const NOT_PRINTED_ROW_CLASS =
   "bg-amber-50/80 hover:bg-amber-50 border-l-2 border-l-amber-400"
@@ -61,11 +72,15 @@ type FiledLeaveAfterCutoffDataTableProps = {
   isError?: boolean
   dateFrom: string
   dateTo: string
+  employmentTypeFilter: string
+  classificationFilter: string
   hasPrintHistory: boolean
   printedApplicationIds: ReadonlySet<number>
   remainingCount: number
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
+  onEmploymentTypeFilterChange: (value: string) => void
+  onClassificationFilterChange: (value: string) => void
   onClearFilters: () => void
   onRowClick: (row: FiledLeaveReportRow) => void
 }
@@ -78,11 +93,15 @@ export function FiledLeaveAfterCutoffDataTable({
   isError = false,
   dateFrom,
   dateTo,
+  employmentTypeFilter,
+  classificationFilter,
   hasPrintHistory,
   printedApplicationIds,
   remainingCount,
   onDateFromChange,
   onDateToChange,
+  onEmploymentTypeFilterChange,
+  onClassificationFilterChange,
   onClearFilters,
   onRowClick,
 }: FiledLeaveAfterCutoffDataTableProps) {
@@ -199,7 +218,11 @@ export function FiledLeaveAfterCutoffDataTable({
   )
 
   const hasActiveFilters =
-    tanstack.hook.keyword.trim() !== "" || dateFrom !== "" || dateTo !== ""
+    tanstack.hook.keyword.trim() !== "" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    employmentTypeFilter !== "all" ||
+    classificationFilter !== "all"
 
   const handleRowClick = React.useCallback(
     (row: Row<FiledLeaveReportRow>) => {
@@ -248,7 +271,7 @@ export function FiledLeaveAfterCutoffDataTable({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <label className="space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Leave date from
@@ -271,6 +294,48 @@ export function FiledLeaveAfterCutoffDataTable({
               onChange={(event) => onDateToChange(event.target.value)}
               className="h-9 rounded-lg border-slate-300 bg-background shadow-sm"
             />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              Employment type
+            </span>
+            <Select
+              value={employmentTypeFilter}
+              onValueChange={onEmploymentTypeFilterChange}
+            >
+              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+                <SelectValue placeholder="All employment types" />
+              </SelectTrigger>
+              <SelectContent>
+                {EMPLOYMENT_TYPE_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              Classification
+            </span>
+            <Select
+              value={classificationFilter}
+              onValueChange={onClassificationFilterChange}
+            >
+              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+                <SelectValue placeholder="All classifications" />
+              </SelectTrigger>
+              <SelectContent>
+                {CLASSIFICATION_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         </div>
 

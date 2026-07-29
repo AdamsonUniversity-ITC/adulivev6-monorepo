@@ -45,6 +45,8 @@ function FiledLeaveAfterCutoffPage() {
 
   const [dateFrom, setDateFrom] = React.useState("")
   const [dateTo, setDateTo] = React.useState("")
+  const [employmentTypeFilter, setEmploymentTypeFilter] = React.useState("all")
+  const [classificationFilter, setClassificationFilter] = React.useState("all")
   const [isSheetOpen, setIsSheetOpen] = React.useState(false)
   const [activeRequest, setActiveRequest] = React.useState<HrApprovalRow | null>(
     null,
@@ -64,8 +66,24 @@ function FiledLeaveAfterCutoffPage() {
   const hasDateRange = dateFrom !== "" && dateTo !== ""
 
   const printStatusParams = React.useMemo(
-    () => (hasDateRange ? { date_from: dateFrom, date_to: dateTo } : null),
-    [dateFrom, dateTo, hasDateRange],
+    () =>
+      hasDateRange
+        ? {
+            date_from: dateFrom,
+            date_to: dateTo,
+            classification:
+              classificationFilter !== "all" ? classificationFilter : undefined,
+            employment_type:
+              employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
+          }
+        : null,
+    [
+      dateFrom,
+      dateTo,
+      hasDateRange,
+      classificationFilter,
+      employmentTypeFilter,
+    ],
   )
 
   const { data: printStatus, isPending: isPrintStatusPending } =
@@ -73,7 +91,14 @@ function FiledLeaveAfterCutoffPage() {
 
   React.useEffect(() => {
     tanstackHook.setPage(1)
-  }, [tanstackHook.keyword, dateFrom, dateTo, tanstackHook.setPage])
+  }, [
+    tanstackHook.keyword,
+    dateFrom,
+    dateTo,
+    employmentTypeFilter,
+    classificationFilter,
+    tanstackHook.setPage,
+  ])
 
   const listParams = React.useMemo(
     () => ({
@@ -82,8 +107,20 @@ function FiledLeaveAfterCutoffPage() {
       search: tanstackHook.keyword.trim() || undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
+      classification:
+        classificationFilter !== "all" ? classificationFilter : undefined,
+      employment_type:
+        employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
     }),
-    [tanstackHook.page, tanstackHook.rows, tanstackHook.keyword, dateFrom, dateTo],
+    [
+      tanstackHook.page,
+      tanstackHook.rows,
+      tanstackHook.keyword,
+      dateFrom,
+      dateTo,
+      classificationFilter,
+      employmentTypeFilter,
+    ],
   )
 
   const { data, isPending, isFetching, isError } = useFiledLeaveAfterCutoffReport(listParams)
@@ -102,6 +139,8 @@ function FiledLeaveAfterCutoffPage() {
     tanstackHook.setKeyword("")
     setDateFrom("")
     setDateTo("")
+    setEmploymentTypeFilter("all")
+    setClassificationFilter("all")
     tanstackHook.setPage(1)
   }, [tanstackHook])
 
@@ -122,6 +161,10 @@ function FiledLeaveAfterCutoffPage() {
         const response = await fetchFiledLeaveAfterCutoffReport({
           date_from: dateFrom,
           date_to: dateTo,
+          classification:
+            classificationFilter !== "all" ? classificationFilter : undefined,
+          employment_type:
+            employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
           all: true,
           exclude_printed: mode === "remaining",
         })
@@ -161,7 +204,7 @@ function FiledLeaveAfterCutoffPage() {
         setIsPrinting(false)
       }
     },
-    [dateFrom, dateTo, hasDateRange, leaveTypeNames, queryClient],
+    [dateFrom, dateTo, hasDateRange, leaveTypeNames, queryClient, classificationFilter, employmentTypeFilter],
   )
 
   const showPrintRemaining =
@@ -275,11 +318,15 @@ function FiledLeaveAfterCutoffPage() {
             isError={isError && !paginatedResponse}
             dateFrom={dateFrom}
             dateTo={dateTo}
+            employmentTypeFilter={employmentTypeFilter}
+            classificationFilter={classificationFilter}
             hasPrintHistory={printStatus?.has_print_history === true}
             printedApplicationIds={printedApplicationIds}
             remainingCount={printStatus?.remaining_count ?? 0}
             onDateFromChange={setDateFrom}
             onDateToChange={setDateTo}
+            onEmploymentTypeFilterChange={setEmploymentTypeFilter}
+            onClassificationFilterChange={setClassificationFilter}
             onClearFilters={handleClearFilters}
             onRowClick={handleRowClick}
           />
@@ -306,6 +353,8 @@ function FiledLeaveAfterCutoffPage() {
             search: "",
             dateFrom,
             dateTo,
+            employmentType: employmentTypeFilter,
+            classification: classificationFilter,
           }}
         />
       ) : null}

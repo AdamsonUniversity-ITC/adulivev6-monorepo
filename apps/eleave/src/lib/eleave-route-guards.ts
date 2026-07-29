@@ -51,11 +51,12 @@ export async function requireForApprovalAccess({
   context,
 }: GuardContext): Promise<void> {
   try {
-    const profile = await context.queryClient.ensureQueryData(
-      myHrProfileQueryOptions,
-    )
+    const [authUser, profile] = await Promise.all([
+      context.queryClient.ensureQueryData(authUserQueryOptions),
+      context.queryClient.ensureQueryData(myHrProfileQueryOptions),
+    ])
 
-    if (!canAccessForApproval(profile)) {
+    if (!canAccessForApproval(profile, authUser)) {
       throw redirect({ to: "/forbidden" })
     }
   } catch (error) {

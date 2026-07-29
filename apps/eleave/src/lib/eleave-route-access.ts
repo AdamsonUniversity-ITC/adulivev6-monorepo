@@ -76,7 +76,7 @@ export function canAccessEleaveRoute(
     case "hrApproval":
       return canAccessHrApproval(user)
     case "forApproval":
-      return canAccessForApproval(profile)
+      return canAccessForApproval(profile, user)
     default:
       return true
   }

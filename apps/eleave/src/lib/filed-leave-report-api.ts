@@ -14,6 +14,8 @@ export type FiledLeaveReportDepartmentParams = {
   date_from?: string
   date_to?: string
   status?: string
+  classification?: string
+  employment_type?: string
 }
 
 export type FiledLeaveReportListParams = FiledLeaveReportDepartmentParams & {

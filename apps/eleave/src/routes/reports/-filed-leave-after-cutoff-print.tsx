@@ -11,6 +11,10 @@ import {
 import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import type { FiledLeaveReportRow } from "@/lib/map-filed-leave-report-row"
 import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
+import {
+  resolveClassificationLabel,
+  resolveEmploymentTypeLabel,
+} from "./-report-employment-filters"
 import * as React from "react"
 
 type FiledLeaveAfterCutoffPrintProps = {
@@ -20,6 +24,8 @@ type FiledLeaveAfterCutoffPrintProps = {
     search: string
     dateFrom: string
     dateTo: string
+    employmentType: string
+    classification: string
   }
   printedAt: Date
   subtitle?: string
@@ -119,36 +125,56 @@ export function FiledLeaveAfterCutoffPrint({
               <dd className="inline">{filterSummary.search}</dd>
             </div>
           ) : null}
+          {filterSummary.employmentType !== "all" ? (
+            <div>
+              <dt className="inline font-medium">Employment type: </dt>
+              <dd className="inline">
+                {resolveEmploymentTypeLabel(filterSummary.employmentType)}
+              </dd>
+            </div>
+          ) : null}
+          {filterSummary.classification !== "all" ? (
+            <div>
+              <dt className="inline font-medium">Classification: </dt>
+              <dd className="inline">
+                {resolveClassificationLabel(filterSummary.classification)}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </header>
 
       <table className="w-full table-fixed border-collapse border border-slate-300 text-xs">
         <colgroup>
           <col className="w-[14%]" />
-          <col className="w-[11%]" />
-          <col className="w-[20%]" />
-          <col className="w-[18%]" />
+          <col className="w-[13%]" />
+          <col className="w-[19%]" />
+          <col className="w-[17%]" />
           <col className="w-[19%]" />
           <col className="w-[18%]" />
         </colgroup>
         <thead>
           <tr className="bg-slate-100">
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Name
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold whitespace-nowrap text-slate-500">
-              Date of Approval
+            <th className="border border-slate-300 px-1.5 py-2 text-center text-[11px] font-bold leading-tight text-slate-500">
+              Date of
+              <br />
+              Approval
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Details
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold whitespace-nowrap text-slate-500">
-              Date of Leave
+            <th className="border border-slate-300 px-1.5 py-2 text-center text-[11px] font-bold leading-tight text-slate-500">
+              Date of
+              <br />
+              Leave
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Reasons
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               HR Remarks
             </th>
           </tr>

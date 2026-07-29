@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthUser } from "@/hooks/use-auth-user"
 import { useForApprovalLeaveApplications } from "@/hooks/use-for-approval-leave-applications"
-import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useLeaveTypeNames } from "@/hooks/use-leave-types"
 import { resolveEmployeeNo } from "@/lib/fetch-auth-user"
 import {
   getEmployeeAvatarUrl,
@@ -47,7 +47,7 @@ const matchesStatusFilter = (
 function ForApprovalPage() {
   const { data: authUser } = useAuthUser()
   const viewerEmpNo = resolveEmployeeNo(authUser ?? {})
-  const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: allLeaveTypes = [] } = useLeaveTypeNames()
   const {
     data: response,
     isLoading,
@@ -56,8 +56,8 @@ function ForApprovalPage() {
   } = useForApprovalLeaveApplications()
 
   const leaveTypeNames = React.useMemo(
-    () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
-    [leaveTypes],
+    () => new Map(allLeaveTypes.map((type) => [type.id, type.leave_name])),
+    [allLeaveTypes],
   )
 
   const rows = React.useMemo(

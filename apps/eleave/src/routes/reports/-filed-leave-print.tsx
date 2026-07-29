@@ -8,6 +8,10 @@ import {
 import type { LeaveTypeRecord } from "@/lib/leave-types-api"
 import type { FiledLeaveReportRow } from "@/lib/map-filed-leave-report-row"
 import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
+import {
+  resolveClassificationLabel,
+  resolveEmploymentTypeLabel,
+} from "./-report-employment-filters"
 import * as React from "react"
 
 type FiledLeavePrintProps = {
@@ -19,6 +23,8 @@ type FiledLeavePrintProps = {
     dateTo: string
     status: string
     department: string
+    employmentType: string
+    classification: string
   }
   printedAt: Date
 }
@@ -119,25 +125,41 @@ export function FiledLeavePrint({
               <dd className="inline">{filterSummary.department}</dd>
             </div>
           ) : null}
+          {filterSummary.employmentType !== "all" ? (
+            <div>
+              <dt className="inline font-medium">Employment type: </dt>
+              <dd className="inline">
+                {resolveEmploymentTypeLabel(filterSummary.employmentType)}
+              </dd>
+            </div>
+          ) : null}
+          {filterSummary.classification !== "all" ? (
+            <div>
+              <dt className="inline font-medium">Classification: </dt>
+              <dd className="inline">
+                {resolveClassificationLabel(filterSummary.classification)}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </header>
 
       <table className="w-full border-collapse border border-slate-300 text-xs">
         <thead>
           <tr className="bg-slate-100">
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Name
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Details
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Date of Leave
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               Reasons
             </th>
-            <th className="border border-slate-300 px-3 py-2 text-center font-semibold text-slate-500">
+            <th className="border border-slate-300 px-3 py-2 text-center font-bold text-slate-500">
               HR Remarks
             </th>
           </tr>

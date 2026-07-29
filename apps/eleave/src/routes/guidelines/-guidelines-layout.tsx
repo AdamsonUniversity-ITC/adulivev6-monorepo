@@ -6,7 +6,7 @@ export const AWOL_NOTICE =
   "Except for sick leave and emergency leave applications, all absences without official leave approval from HRMDO are unauthorized and shall be considered as absence without official leave (AWOL), which shall be a sufficient cause for dismissal."
 
 export const HRMDO_CONTACT =
-  "Please see any of the regular staff of the HRMDO for inquiries."
+  "For inquiries, please coordinate with any of the regular staff of the HRMDO."
 
 type GuidelinesPageShellProps = {
   badge: string

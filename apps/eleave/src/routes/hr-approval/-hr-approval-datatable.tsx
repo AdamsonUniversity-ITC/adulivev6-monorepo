@@ -19,6 +19,7 @@ import {
   type HrApprovalRow,
 } from "@/lib/map-hr-approval-row"
 import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
+import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
 
 function mapToRecordPagination(
   response: PaginatedLeaveApplicationsResponse | undefined,
@@ -125,6 +126,12 @@ export function HrApprovalDataTable({
                       <p className="text-muted-foreground text-sm leading-relaxed">
                         {row.department} • {row.leaveType} • {row.dates} • {row.days}{" "}
                         day{row.days === 1 ? "" : "s"}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        Filed on{" "}
+                        <span className="font-medium">
+                          {formatDateShort(row.record.date_filed)}
+                        </span>
                       </p>
                     </div>
                   </div>
