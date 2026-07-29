@@ -4,7 +4,7 @@ import * as React from "react"
 import { useDataTable } from "@/components/shared/datatable"
 import { useAuthUser } from "@/hooks/use-auth-user"
 import { useHrApprovalLeaveApplications } from "@/hooks/use-hr-approval-leave-applications"
-import { useLeaveTypes } from "@/hooks/use-leave-types"
+import { useLeaveTypeNames } from "@/hooks/use-leave-types"
 import { collectLeavePeriodYears } from "@/lib/leave-date-year"
 import type { HrApprovalRow } from "@/lib/map-hr-approval-row"
 import { HrApprovalDataTable } from "@/routes/hr-approval/-hr-approval-datatable"
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/hr-approval/")({
 
 function HrApprovalPage() {
   const { data: authUser } = useAuthUser()
-  const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: allLeaveTypes = [] } = useLeaveTypeNames()
   const tanstackHook = useDataTable()
 
   const permissions = authUser?.permissions ?? []
@@ -102,8 +102,15 @@ function HrApprovalPage() {
   const isListLoading = isPending || isFetching
 
   const leaveTypeNames = React.useMemo(
-    () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
-    [leaveTypes],
+    () => new Map(allLeaveTypes.map((type) => [type.id, type.leave_name])),
+    [allLeaveTypes],
+  )
+
+  // HR assigns approved types for other employees, so offer every active type
+  // rather than only the ones the signed-in HR user may file for themselves.
+  const leaveTypes = React.useMemo(
+    () => allLeaveTypes.filter((type) => type.is_active),
+    [allLeaveTypes],
   )
 
   const years = React.useMemo(() => {

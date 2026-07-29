@@ -10,6 +10,8 @@ export type FiledLeaveAfterCutoffReportListParams = {
   search?: string
   date_from?: string
   date_to?: string
+  classification?: string
+  employment_type?: string
   all?: boolean
   exclude_printed?: boolean
 }
@@ -32,6 +34,8 @@ export type AfterCutoffPrintStatus = {
 export type AfterCutoffPrintStatusParams = {
   date_from: string
   date_to: string
+  classification?: string
+  employment_type?: string
 }
 
 export type RecordAfterCutoffPrintParams = {

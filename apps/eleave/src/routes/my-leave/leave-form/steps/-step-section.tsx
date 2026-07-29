@@ -7,6 +7,7 @@ type StepSectionProps = {
   icon: LucideIcon
   title: string
   description?: string
+  headerAction?: ReactNode
   children: ReactNode
   className?: string
 }
@@ -15,6 +16,7 @@ export function StepSection({
   icon: Icon,
   title,
   description,
+  headerAction,
   children,
   className,
 }: StepSectionProps) {
@@ -35,13 +37,20 @@ export function StepSection({
           <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-xl">
             <Icon className="size-4" />
           </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-            {description ? (
-              <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
-                {description}
-              </p>
-            ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+                {description ? (
+                  <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                    {description}
+                  </p>
+                ) : null}
+              </div>
+              {headerAction ? (
+                <div className="shrink-0">{headerAction}</div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

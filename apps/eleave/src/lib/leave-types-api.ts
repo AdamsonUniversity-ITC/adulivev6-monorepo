@@ -17,6 +17,18 @@ export async function fetchLeaveTypes(): Promise<LeaveTypeRecord[]> {
   return response.data.data
 }
 
+/**
+ * Every leave type, unfiltered by viewer visibility, for labelling applications
+ * filed by other employees. Use fetchLeaveTypes for filing options instead.
+ */
+export async function fetchLeaveTypeNames(): Promise<LeaveTypeRecord[]> {
+  const response = await hrmdoSvc.get<{ data: LeaveTypeRecord[] }>(
+    "v1/leave-types/names",
+  )
+
+  return response.data.data
+}
+
 export async function fetchAdminLeaveTypes(): Promise<LeaveTypeRecord[]> {
   const response = await hrmdoSvc.get<{ data: LeaveTypeRecord[] }>(
     "v1/leave-types/admin",

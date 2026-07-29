@@ -29,6 +29,10 @@ import {
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
 import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
+import {
+  CLASSIFICATION_FILTER_OPTIONS,
+  EMPLOYMENT_TYPE_FILTER_OPTIONS,
+} from "./-report-employment-filters"
 
 function mapToRecordPagination(
   response: PaginatedLeaveApplicationsResponse | undefined,
@@ -68,11 +72,15 @@ type FiledLeaveDataTableProps = {
   dateTo: string
   statusFilter: string
   departmentFilter: string
+  employmentTypeFilter: string
+  classificationFilter: string
   departments: FiledLeaveReportDepartment[]
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onDepartmentFilterChange: (value: string) => void
+  onEmploymentTypeFilterChange: (value: string) => void
+  onClassificationFilterChange: (value: string) => void
   onClearFilters: () => void
   onRowClick: (row: FiledLeaveReportRow) => void
 }
@@ -87,11 +95,15 @@ export function FiledLeaveDataTable({
   dateTo,
   statusFilter,
   departmentFilter,
+  employmentTypeFilter,
+  classificationFilter,
   departments,
   onDateFromChange,
   onDateToChange,
   onStatusFilterChange,
   onDepartmentFilterChange,
+  onEmploymentTypeFilterChange,
+  onClassificationFilterChange,
   onClearFilters,
   onRowClick,
 }: FiledLeaveDataTableProps) {
@@ -195,7 +207,9 @@ export function FiledLeaveDataTable({
     dateFrom !== "" ||
     dateTo !== "" ||
     statusFilter !== "all" ||
-    departmentFilter !== "all"
+    departmentFilter !== "all" ||
+    employmentTypeFilter !== "all" ||
+    classificationFilter !== "all"
 
   const handleRowClick = React.useCallback(
     (row: Row<FiledLeaveReportRow>) => {
@@ -233,7 +247,7 @@ export function FiledLeaveDataTable({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Leave date from
@@ -289,6 +303,48 @@ export function FiledLeaveDataTable({
                 {departments.map((department) => (
                   <SelectItem key={department.id} value={String(department.id)}>
                     {department.sec_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              Employment type
+            </span>
+            <Select
+              value={employmentTypeFilter}
+              onValueChange={onEmploymentTypeFilterChange}
+            >
+              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+                <SelectValue placeholder="All employment types" />
+              </SelectTrigger>
+              <SelectContent>
+                {EMPLOYMENT_TYPE_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              Classification
+            </span>
+            <Select
+              value={classificationFilter}
+              onValueChange={onClassificationFilterChange}
+            >
+              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+                <SelectValue placeholder="All classifications" />
+              </SelectTrigger>
+              <SelectContent>
+                {CLASSIFICATION_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>

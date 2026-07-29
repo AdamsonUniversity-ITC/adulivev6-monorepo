@@ -40,6 +40,10 @@ export function canAccessDeveloperFeatures(user: AuthUser | undefined): boolean 
 
 export function canAccessForApproval(
   profile: Pick<EmployeeHrProfile, "is_supervisor" | "is_manager"> | undefined,
+  user?: AuthUser,
 ): boolean {
-  return Boolean(profile?.is_supervisor || profile?.is_manager)
+  return (
+    canAccessDeveloperFeatures(user) ||
+    Boolean(profile?.is_supervisor || profile?.is_manager)
+  )
 }

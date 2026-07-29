@@ -18,6 +18,7 @@ import { type ForApprovalRow } from "@/lib/map-for-approval-row"
 import { resolveViewerApprovalStatus } from "@/lib/resolve-viewer-approval-status"
 import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
+import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
 
 import {
   Sheet,
@@ -181,30 +182,35 @@ export const ViewForApprovalSheet = ({
                   </div>
                 </div>
 
-                <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                        Leave Type
-                      </p>
-                      <p className="font-medium">{activeRequest.leaveType}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                        Covered Dates
-                      </p>
-                      <p className="font-medium">
-                        {activeRequest.dates}
-                        <span className="text-muted-foreground text-xs">
-                          {" "}
-                          • {activeRequest.days} day
-                          {activeRequest.days === 1 ? "" : "s"}
-                        </span>
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm sm:grid-cols-3">
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Leave Type
+                    </p>
+                    <p className="font-medium">{activeRequest.leaveType}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Covered Dates
+                    </p>
+                    <p className="font-medium">
+                      {activeRequest.dates}
+                      <span className="text-muted-foreground text-xs">
+                        {" "}
+                        • {activeRequest.days} day
+                        {activeRequest.days === 1 ? "" : "s"}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Date Filed
+                    </p>
+                    <p className="font-medium">
+                      {formatDateShort(activeRequest.record.date_filed)}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-3">
                     <p className="text-muted-foreground text-xs uppercase tracking-wide">
                       Reason for Leave
                     </p>
@@ -212,14 +218,13 @@ export const ViewForApprovalSheet = ({
                       {activeRequest.record.reason?.trim() || "—"}
                     </p>
                   </div>
-                  <div>
+                  <div className="sm:col-span-3">
                     <p className="text-muted-foreground text-xs uppercase tracking-wide">
                       Address while on leave
                     </p>
                     <p className="font-medium whitespace-pre-wrap">
                       {activeRequest.record.address?.trim() || "—"}
                     </p>
-                  </div>
                   </div>
                 </div>
 

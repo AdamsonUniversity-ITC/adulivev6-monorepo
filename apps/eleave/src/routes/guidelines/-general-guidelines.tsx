@@ -23,15 +23,16 @@ export function GeneralGuidelines() {
         <GuidelinesSummaryGrid>
           <GuidelinesSummaryCard
             label="Filing"
-            text="Submit early and complete the required forms."
+            text="Requests for Vacation Leave, Special Purpose Leave, and Birthday Leave shall be submitted at least three (3) days prior to the intended date of absence, while Emergency Leave and Sick Leave shall be applied immediately upon the employee's return to work.
+Employees returning from a Leave of Absence (one month or more), Sick Leave, Maternity Leave, or Educational Leave must secure a Return-to-Work Slip from the HRMDO for payroll account reactivation."
           />
           <GuidelinesSummaryCard
             label="Coverage"
-            text="Applies to sick, emergency, vacation, educational, and family leave types."
+            text="This applies to Vacation Leave/Sick Leave, Birthday Leave, Emergency Leave, Special Purpose Leave, Leave of Absence, Educational Leave, Paternity Leave, Maternity Leave, Solo Parent Leave, and all other leave types."
           />
           <GuidelinesSummaryCard
             label="Support"
-            text="HRMDO may request certificates, clearances, and agreements."
+            text="HRMDO may request medical certificate, clearances, agreements, or any related document as an attachment to the leave application."
           />
         </GuidelinesSummaryGrid>
 
@@ -49,16 +50,16 @@ export function GeneralGuidelines() {
             <GuidelinesBulletList>
               <GuidelinesBullet>
                 Application for such leave shall be filed immediately upon
-                employee&apos;s return.
+                employee&apos;s return to work.
               </GuidelinesBullet>
               <GuidelinesBullet>
-                Application for SL for four days or more shall be charged against
-                SSS Benefits and is considered leave without pay.
+                Application for SL-SSS for four (4) days or more shall be charged against SSS Benefits and considered leave without pay.
               </GuidelinesBullet>
               <GuidelinesBullet>
-                SSS form should be sent to the employer within five days of
-                sickness or injury. A medical certificate from the University
-                Physician is required by HRMDO prior to approval of sick leave.
+                SSS form should be sent to the employer within five (5) days of
+                sickness or injury. Employees must submit a Medical Certificate
+                from their attending physician to the HRMDO prior to approval of
+                sick leave.
               </GuidelinesBullet>
             </GuidelinesBulletList>
           </GuidelinesNumberedInstructionItem>
@@ -66,7 +67,7 @@ export function GeneralGuidelines() {
           <GuidelinesNumberedInstructionItem number={2} title="Emergency Leave (EL)">
             <GuidelinesBulletList>
               <GuidelinesBullet>
-                Permanent Faculty Member or employee shall be allowed an emergency
+                Permanent employee shall be allowed an emergency
                 leave with pay of five(5) days. Leaves shall be considered
                 emergency only in the following cases:
               </GuidelinesBullet>
@@ -77,11 +78,10 @@ export function GeneralGuidelines() {
               </GuidelinesBullet>
               <GuidelinesBullet nested>
                 Due to natural calamities or force majeure i.e. typhoon, flooded
-                area, jeepney strike, burglary or fire in one&apos;s residence, 9th
-                day of death, 40th day of death.
+                area, jeepney strike, burglary or fire in one&apos;s residence.
               </GuidelinesBullet>
               <GuidelinesBullet nested>
-                On year death anniversary of immediate family member.
+                9th day of death, 40th day of death, or one year death anniversary of immediate family member.
               </GuidelinesBullet>
             </GuidelinesBulletList>
           </GuidelinesNumberedInstructionItem>
@@ -97,7 +97,7 @@ export function GeneralGuidelines() {
                 the scheduled date of leave.
               </GuidelinesBullet>
               <GuidelinesBullet>
-                Faculty member/employee shall avail of/use only his/her{" "}
+                Permanent employee shall avail of/use only his/her{" "}
                 <span className="font-semibold text-slate-950">earned VL credit</span>{" "}
                 for a given period i.e. 2.75 days of leave credit for each month of
                 active service.
@@ -146,7 +146,7 @@ export function GeneralGuidelines() {
           </GuidelinesNumberedInstructionItem>
         </GuidelinesInstructionsSection>
 
-        <GuidelinesFooterNote note="If without justifiable reason whatsoever I failed to report after the expiration of the period of my leave, it is clearly understood that I have resigned voluntarily." />
+        <GuidelinesFooterNote note="An employee who fails to report for work after the expiration of his or her approved leave without justifiable reason shall be deemed to have voluntarily resigned." />
       </GuidelinesNoticeCard>
     </GuidelinesPageShell>
   )

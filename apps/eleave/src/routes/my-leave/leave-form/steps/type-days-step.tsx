@@ -20,7 +20,11 @@ import { useLeaveTypes } from "@/hooks/use-leave-types"
 import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import { cn } from "@/lib/utils"
 
-import { getSelectableDayPortionOptions, type LeaveFormValues } from "../schema"
+import {
+  getSelectableDayPortionOptions,
+  type DayPortion,
+  type LeaveFormValues,
+} from "../schema"
 import { formatLeaveDay, formatLeaveDayCount, sumLeaveDayCredits } from "../utils"
 import { StepSection, stepFieldClassName } from "./-step-section"
 
@@ -29,13 +33,34 @@ type TypeDaysStepProps = {
   canSelectEvening: boolean
 }
 
+function getCommonDayPortion(leaveDays: LeaveFormValues["leave_days"]): DayPortion | "" {
+  if (leaveDays.length === 0) return ""
+
+  const firstPortion = leaveDays[0]?.day_portion
+  if (!firstPortion) return ""
+
+  return leaveDays.every((day) => day.day_portion === firstPortion)
+    ? firstPortion
+    : ""
+}
+
 export function TypeDaysStep({ form, canSelectEvening }: TypeDaysStepProps) {
   const leaveDays = form.watch("leave_days")
   const dateFrom = form.watch("date_from")
   const dateTo = form.watch("date_to")
   const leaveTypeId = form.watch("leave_type_id")
   const totalDays = sumLeaveDayCredits(leaveDays)
+  const bulkDayPortion = getCommonDayPortion(leaveDays)
   const { data: leaveTypes = [], isLoading, isError } = useLeaveTypes()
+
+  const applyDayPortionToAll = (portion: DayPortion) => {
+    form.setValue(
+      "leave_days",
+      leaveDays.map((day) => ({ ...day, day_portion: portion })),
+      { shouldDirty: true, shouldValidate: true },
+    )
+    form.clearErrors("leave_days")
+  }
 
   const syncLeaveTypeTimingError = React.useCallback(
     (nextLeaveTypeId: string) => {
@@ -124,6 +149,28 @@ export function TypeDaysStep({ form, canSelectEvening }: TypeDaysStepProps) {
         icon={CalendarDays}
         title="Leave days"
         description="Set the day portion for each date in your range."
+        headerAction={
+          leaveDays.length >= 2 ? (
+            <Select
+              onValueChange={(value) => applyDayPortionToAll(value as DayPortion)}
+              value={bulkDayPortion || undefined}
+            >
+              <SelectTrigger className={cn("h-9 w-40", stepFieldClassName)}>
+                <SelectValue placeholder="Apply to all" />
+              </SelectTrigger>
+              <SelectContent>
+                {getSelectableDayPortionOptions(
+                  canSelectEvening,
+                  bulkDayPortion,
+                ).map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : undefined
+        }
       >
         {totalDays > 0 ? (
           <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2">

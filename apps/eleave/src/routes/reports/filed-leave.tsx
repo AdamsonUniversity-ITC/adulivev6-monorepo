@@ -39,6 +39,8 @@ function FiledLeavePage() {
   const [dateTo, setDateTo] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState("all")
   const [departmentFilter, setDepartmentFilter] = React.useState("all")
+  const [employmentTypeFilter, setEmploymentTypeFilter] = React.useState("all")
+  const [classificationFilter, setClassificationFilter] = React.useState("all")
   const [isSheetOpen, setIsSheetOpen] = React.useState(false)
   const [activeRequest, setActiveRequest] = React.useState<HrApprovalRow | null>(
     null,
@@ -60,6 +62,8 @@ function FiledLeavePage() {
     dateTo,
     statusFilter,
     departmentFilter,
+    employmentTypeFilter,
+    classificationFilter,
     tanstackHook.setPage,
   ])
 
@@ -69,8 +73,19 @@ function FiledLeavePage() {
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
+      classification:
+        classificationFilter !== "all" ? classificationFilter : undefined,
+      employment_type:
+        employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
     }),
-    [tanstackHook.keyword, dateFrom, dateTo, statusFilter],
+    [
+      tanstackHook.keyword,
+      dateFrom,
+      dateTo,
+      statusFilter,
+      classificationFilter,
+      employmentTypeFilter,
+    ],
   )
 
   const { data: departments = [] } = useFiledLeaveReportDepartments(departmentParams)
@@ -98,6 +113,10 @@ function FiledLeavePage() {
       date_to: dateTo || undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
       section_id: departmentFilter !== "all" ? departmentFilter : undefined,
+      classification:
+        classificationFilter !== "all" ? classificationFilter : undefined,
+      employment_type:
+        employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
     }),
     [
       tanstackHook.page,
@@ -107,6 +126,8 @@ function FiledLeavePage() {
       dateTo,
       statusFilter,
       departmentFilter,
+      classificationFilter,
+      employmentTypeFilter,
     ],
   )
 
@@ -127,6 +148,8 @@ function FiledLeavePage() {
     setDateTo("")
     setStatusFilter("all")
     setDepartmentFilter("all")
+    setEmploymentTypeFilter("all")
+    setClassificationFilter("all")
     tanstackHook.setPage(1)
   }, [tanstackHook])
 
@@ -208,11 +231,15 @@ function FiledLeavePage() {
             dateTo={dateTo}
             statusFilter={statusFilter}
             departmentFilter={departmentFilter}
+            employmentTypeFilter={employmentTypeFilter}
+            classificationFilter={classificationFilter}
             departments={departments}
             onDateFromChange={setDateFrom}
             onDateToChange={setDateTo}
             onStatusFilterChange={setStatusFilter}
             onDepartmentFilterChange={setDepartmentFilter}
+            onEmploymentTypeFilterChange={setEmploymentTypeFilter}
+            onClassificationFilterChange={setClassificationFilter}
             onClearFilters={handleClearFilters}
             onRowClick={handleRowClick}
           />
@@ -240,6 +267,8 @@ function FiledLeavePage() {
             dateTo,
             status: statusFilter,
             department: departmentLabel,
+            employmentType: employmentTypeFilter,
+            classification: classificationFilter,
           }}
         />
       ) : null}

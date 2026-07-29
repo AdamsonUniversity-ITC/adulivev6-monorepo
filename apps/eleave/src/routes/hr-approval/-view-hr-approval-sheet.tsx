@@ -4,6 +4,21 @@ import * as React from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@repo/ui/components/table"
+import {
   getDayPortionLabel,
   isWholeDayPortion,
   SPLIT_DAY_PORTION_OPTIONS,
@@ -34,6 +49,7 @@ import {
   resolveOverallStatusFromHrDayStatuses,
 } from "@/lib/resolve-hr-overall-status"
 import type { DayPortion } from "@/routes/my-leave/leave-form/schema"
+import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
 import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
 import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
 import { OtherInformationSection } from "@/components/shared/other-information-section"
@@ -45,6 +61,7 @@ import {
   requiredPortionWeight,
   shouldWarnInsufficientVlCredits,
 } from "@/lib/hr-approval-vl-eligibility"
+import { cn } from "@/lib/utils"
 
 import {
   Sheet,
@@ -54,14 +71,21 @@ import {
   SheetTitle,
 } from "../../components/ui/sheet.js"
 
-const leaveTypeSelectClassName =
-  "h-9 w-40 max-w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+const leaveTypeSelectTriggerClassName = "h-9 w-40 max-w-full"
+const approvalStatusSelectTriggerClassName = "h-9 w-44 max-w-full"
+const dayPortionSelectTriggerClassName = "h-9 w-28 max-w-full"
 
-const approvalStatusSelectClassName =
-  "h-9 w-44 max-w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+const APPROVAL_STATUS_OPTIONS: { value: HrApprovalStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "approved_with_pay", label: "Approved With Pay" },
+  { value: "approved_without_pay", label: "Approved Without Pay" },
+  { value: "disapproved", label: "Disapproved" },
+  { value: "cancelled", label: "Cancelled" },
+]
 
-const dayPortionSelectClassName =
-  "h-9 w-28 max-w-full rounded-lg border border-slate-300 bg-background px-2.5 text-sm shadow-sm transition-colors focus:border-primary"
+const tableHeadClassName =
+  "h-auto border-b border-slate-200 bg-slate-50 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+const tableCellClassName = "border-b border-slate-200 px-3 py-3 align-top"
 
 function summarizeLeaveType(decisions: HrApprovalDayDecision[]): string {
   const labels = decisions.flatMap((entry) => {
@@ -86,6 +110,29 @@ function resolveDraftStatuses(dailyDraft: HrApprovalDayDecision[]): string[] {
   )
 }
 
+function getCommonApprovalStatus(
+  dailyDraft: HrApprovalDayDecision[],
+): HrApprovalStatus | null {
+  const statuses: HrApprovalStatus[] = []
+
+  for (const entry of dailyDraft) {
+    statuses.push(entry.status1)
+    if (entry.isSplit) {
+      if (entry.status2 == null) {
+        return null
+      }
+      statuses.push(entry.status2)
+    }
+  }
+
+  if (statuses.length === 0) return null
+
+  const firstStatus = statuses[0]
+  if (!firstStatus) return null
+
+  return statuses.every((status) => status === firstStatus) ? firstStatus : null
+}
+
 type ViewHrApprovalSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -100,35 +147,29 @@ function ApprovalStatusSelect({
   value,
   onChange,
   allowEmpty = false,
+  emptyLabel = "Select status",
 }: {
   value: HrApprovalStatus | null
   onChange: (value: HrApprovalStatus | null) => void
   allowEmpty?: boolean
+  emptyLabel?: string
 }) {
   return (
-    <select
-      value={value ?? (allowEmpty ? "" : "pending")}
-      onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-        const nextValue = event.target.value
-        onChange(
-          nextValue === ""
-            ? null
-            : (nextValue as HrApprovalStatus),
-        )
-      }}
-      className={approvalStatusSelectClassName}
+    <Select
+      value={value ?? undefined}
+      onValueChange={(nextValue) => onChange(nextValue as HrApprovalStatus)}
     >
-      {allowEmpty ? (
-        <option value="" disabled>
-          Select status
-        </option>
-      ) : null}
-      <option value="pending">Pending</option>
-      <option value="approved_with_pay">Approved With Pay</option>
-      <option value="approved_without_pay">Approved Without Pay</option>
-      <option value="disapproved">Disapproved</option>
-      <option value="cancelled">Cancelled</option>
-    </select>
+      <SelectTrigger className={approvalStatusSelectTriggerClassName}>
+        <SelectValue placeholder={allowEmpty ? emptyLabel : "Pending"} />
+      </SelectTrigger>
+      <SelectContent>
+        {APPROVAL_STATUS_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -136,7 +177,7 @@ function LeaveTypeSelect({
   value,
   leaveTypes,
   onChange,
-  allowEmpty = false,
+  allowEmpty: _allowEmpty = false,
   isLeaveTypeDisabled,
 }: {
   value: number | null
@@ -146,29 +187,51 @@ function LeaveTypeSelect({
   isLeaveTypeDisabled?: (leaveType: LeaveTypeRecord) => boolean
 }) {
   return (
-    <select
-      value={value ?? ""}
-      onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-        const nextValue = event.target.value
-        onChange(nextValue ? Number(nextValue) : null)
-      }}
-      className={leaveTypeSelectClassName}
+    <Select
+      value={value != null ? String(value) : undefined}
+      onValueChange={(nextValue) => onChange(Number(nextValue))}
     >
-      {allowEmpty ? (
-        <option value="" disabled>
-          Select leave type
-        </option>
-      ) : null}
-      {leaveTypes.map((option) => (
-        <option
-          key={option.id}
-          value={option.id}
-          disabled={isLeaveTypeDisabled?.(option) ?? false}
-        >
-          {option.leave_name}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger className={leaveTypeSelectTriggerClassName}>
+        <SelectValue placeholder="Select leave type" />
+      </SelectTrigger>
+      <SelectContent>
+        {leaveTypes.map((option) => (
+          <SelectItem
+            key={option.id}
+            value={String(option.id)}
+            disabled={isLeaveTypeDisabled?.(option) ?? false}
+          >
+            {option.leave_name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function DayPortionSelect({
+  value,
+  onChange,
+}: {
+  value: DayPortion | null
+  onChange: (value: DayPortion | null) => void
+}) {
+  return (
+    <Select
+      value={value ?? undefined}
+      onValueChange={(nextValue) => onChange(nextValue as DayPortion)}
+    >
+      <SelectTrigger className={dayPortionSelectTriggerClassName}>
+        <SelectValue placeholder="Select portion" />
+      </SelectTrigger>
+      <SelectContent>
+        {SPLIT_DAY_PORTION_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -213,12 +276,14 @@ export const ViewHrApprovalSheet = ({
   }, [open])
 
   React.useEffect(() => {
-    if (activeRequest) {
+    // Depends on `open` too: reopening the same row keeps the identical
+    // activeRequest reference, so the draft would otherwise stay cleared.
+    if (open && activeRequest) {
       setDailyDraft(activeRequest.dailyDecisions.map((entry) => ({ ...entry })))
       setIsApplyConfirmOpen(false)
       setActionError(null)
     }
-  }, [activeRequest])
+  }, [open, activeRequest])
 
   const hrApprovalMutation = useMutation({
     mutationFn: async (payload: HrApprovalPayload) => submitHrApproval(payload),
@@ -287,6 +352,17 @@ export const ViewHrApprovalSheet = ({
         entry.dayNumber === dayNumber ? updater(entry) : entry,
       ),
     )
+  }
+
+  const applyApprovalStatusToAll = (status: HrApprovalStatus) => {
+    setDailyDraft((current) =>
+      current.map((entry) => ({
+        ...entry,
+        status1: status,
+        status2: entry.isSplit ? status : entry.status2,
+      })),
+    )
+    setActionError(null)
   }
 
   const toggleSplit = (dayNumber: number, checked: boolean) => {
@@ -459,6 +535,10 @@ export const ViewHrApprovalSheet = ({
   const displayDecisions = readOnly
     ? (activeRequest?.dailyDecisions ?? [])
     : dailyDraft
+  const showBulkApprovalStatus = !readOnly && dailyDraft.length >= 2
+  const bulkApprovalStatus = showBulkApprovalStatus
+    ? getCommonApprovalStatus(dailyDraft)
+    : null
 
   const formatStatusLabel = (status: HrApprovalStatus | null | undefined) => {
     if (!status) {
@@ -514,23 +594,37 @@ export const ViewHrApprovalSheet = ({
               </div>
             </div>
 
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm">
-              <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm sm:grid-cols-4">
               <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Covered Dates
-                  </p>
-                  <p className="font-medium">{activeRequest.dates}<span className="text-muted-foreground text-xs"> • {activeRequest.days} day{activeRequest.days === 1 ? "" : "s"}</span></p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Leave Type
-                  </p>
-                  <p className="font-medium">
-                    {summarizeLeaveType(displayDecisions) || activeRequest.leaveType}
-                  </p>
-                </div>
-                <div>
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Covered Dates
+                </p>
+                <p className="font-medium">
+                  {activeRequest.dates}
+                  <span className="text-muted-foreground text-xs">
+                    {" "}
+                    • {activeRequest.days} day
+                    {activeRequest.days === 1 ? "" : "s"}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Leave Type
+                </p>
+                <p className="font-medium">
+                  {summarizeLeaveType(displayDecisions) || activeRequest.leaveType}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Date Filed
+                </p>
+                <p className="font-medium">
+                  {formatDateShort(activeRequest.record.date_filed)}
+                </p>
+              </div>
+              <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">
                   Overall Status
                 </p>
@@ -538,25 +632,22 @@ export const ViewHrApprovalSheet = ({
                   <OverallStatusBadge status={displayStatus} />
                 </div>
               </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Reason for Leave
-                  </p>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {activeRequest.record.reason?.trim() || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                    Address while on leave
-                  </p>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {activeRequest.record.address?.trim() || "—"}
-                  </p>
-                </div>
+              <div className="sm:col-span-4">
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Reason for Leave
+                </p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {activeRequest.record.reason?.trim() || "—"}
+                </p>
+              </div>
+              <div className="sm:col-span-4">
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  Address while on leave
+                </p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {activeRequest.record.address?.trim() || "—"}
+                </p>
               </div>
             </div>
 
@@ -589,80 +680,116 @@ export const ViewHrApprovalSheet = ({
                 <p className="text-destructive mb-3 text-sm">{actionError}</p>
               ) : null}
 
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="min-w-[1180px] w-full border-separate border-spacing-0">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Date
-                      </th>
-                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Split
-                      </th>
-                      <th className="w-36 border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <div className="rounded-lg border border-slate-200">
+                <Table className="min-w-[1180px]">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className={tableHeadClassName}>Date</TableHead>
+                      <TableHead className={tableHeadClassName}>Split</TableHead>
+                      <TableHead className={cn(tableHeadClassName, "w-36")}>
                         Day Portion
-                      </th>
-                      <th className="w-40 border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      </TableHead>
+                      <TableHead className={cn(tableHeadClassName, "w-40")}>
                         Leave Type
-                      </th>
-                      <th className="w-44 border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Approval Status
-                      </th>
-                      <th className="border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      </TableHead>
+                      <TableHead className={cn(tableHeadClassName, "w-44")}>
+                        {showBulkApprovalStatus ? (
+                          <div className="space-y-2 normal-case tracking-normal">
+                            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Approval Status
+                            </span>
+                            <ApprovalStatusSelect
+                              value={
+                                bulkApprovalStatus === "pending"
+                                  ? null
+                                  : bulkApprovalStatus
+                              }
+                              allowEmpty
+                              emptyLabel="Apply to all"
+                              onChange={(nextStatus) => {
+                                if (nextStatus) {
+                                  applyApprovalStatusToAll(nextStatus)
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          "Approval Status"
+                        )}
+                      </TableHead>
+                      <TableHead className={tableHeadClassName}>
                         HR Remarks
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {readOnly
                       ? displayDecisions.map((entry) => {
                           const rowSpan = entry.isSplit ? 2 : 1
 
                           return (
                             <React.Fragment key={entry.dayNumber}>
-                              <tr className="align-top">
-                                <td
+                              <TableRow className="hover:bg-transparent">
+                                <TableCell
                                   rowSpan={rowSpan}
-                                  className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
+                                  className={cn(
+                                    tableCellClassName,
+                                    "text-sm font-semibold text-slate-700",
+                                  )}
                                 >
                                   {entry.actualDate}
-                                </td>
-                                <td
+                                </TableCell>
+                                <TableCell
                                   rowSpan={rowSpan}
-                                  className="border-b border-slate-200 px-3 py-3 text-sm"
+                                  className={cn(tableCellClassName, "text-sm")}
                                 >
                                   {entry.isSplit ? "Split day" : "—"}
-                                </td>
-                                <td className="w-36 border-b border-slate-200 px-3 py-3 text-sm">
+                                </TableCell>
+                                <TableCell
+                                  className={cn(tableCellClassName, "w-36 text-sm")}
+                                >
                                   {entry.isSplit
                                     ? getDayPortionLabel(entry.approvedDayPortion1 ?? entry.requestedPortion)
                                     : getDayPortionLabel(entry.requestedPortion)}
-                                </td>
-                                <td className="w-40 border-b border-slate-200 px-3 py-3 text-sm">
+                                </TableCell>
+                                <TableCell
+                                  className={cn(tableCellClassName, "w-40 text-sm")}
+                                >
                                   {entry.leaveType1}
-                                </td>
-                                <td className="w-44 border-b border-slate-200 px-3 py-3 text-sm">
+                                </TableCell>
+                                <TableCell
+                                  className={cn(tableCellClassName, "w-44 text-sm")}
+                                >
                                   {formatStatusLabel(entry.status1)}
-                                </td>
-                                <td
+                                </TableCell>
+                                <TableCell
                                   rowSpan={rowSpan}
-                                  className="border-b border-slate-200 px-3 py-3 text-sm whitespace-pre-wrap"
+                                  className={cn(
+                                    tableCellClassName,
+                                    "whitespace-pre-wrap text-sm",
+                                  )}
                                 >
                                   {entry.hrRemarks?.trim() || "—"}
-                                </td>
-                              </tr>
+                                </TableCell>
+                              </TableRow>
                               {entry.isSplit ? (
-                                <tr className="align-top">
-                                  <td className="w-36 border-b border-slate-200 px-3 py-3 text-sm">
+                                <TableRow className="hover:bg-transparent">
+                                  <TableCell
+                                    className={cn(tableCellClassName, "w-36 text-sm")}
+                                  >
                                     {getDayPortionLabel(entry.approvedDayPortion2 ?? entry.requestedPortion)}
-                                  </td>
-                                  <td className="w-40 border-b border-slate-200 px-3 py-3 text-sm">
+                                  </TableCell>
+                                  <TableCell
+                                    className={cn(tableCellClassName, "w-40 text-sm")}
+                                  >
                                     {entry.leaveType2 || "—"}
-                                  </td>
-                                  <td className="w-44 border-b border-slate-200 px-3 py-3 text-sm">
+                                  </TableCell>
+                                  <TableCell
+                                    className={cn(tableCellClassName, "w-44 text-sm")}
+                                  >
                                     {formatStatusLabel(entry.status2)}
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                               ) : null}
                             </React.Fragment>
                           )
@@ -682,29 +809,15 @@ export const ViewHrApprovalSheet = ({
                               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                                 {portionLabel}
                               </p>
-                              <select
-                                value={value ?? ""}
-                                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-                                  const nextPortion = event.target.value
+                              <DayPortionSelect
+                                value={value}
+                                onChange={(nextPortion) => {
                                   updateEntry(entry.dayNumber, (current) => ({
                                     ...current,
-                                    [portionField]:
-                                      nextPortion === ""
-                                        ? null
-                                        : (nextPortion as DayPortion),
+                                    [portionField]: nextPortion,
                                   }))
                                 }}
-                                className={dayPortionSelectClassName}
-                              >
-                                <option value="" disabled>
-                                  Select portion
-                                </option>
-                                {SPLIT_DAY_PORTION_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                              />
                             </div>
                           )
                         }
@@ -807,10 +920,13 @@ export const ViewHrApprovalSheet = ({
 
                       return (
                         <React.Fragment key={entry.dayNumber}>
-                          <tr className="align-top">
-                            <td
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell
                               rowSpan={rowSpan}
-                              className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700"
+                              className={cn(
+                                tableCellClassName,
+                                "text-sm font-semibold text-slate-700",
+                              )}
                             >
                               {entry.actualDate}
                               {shouldWarnInsufficientVlCredits(
@@ -832,10 +948,10 @@ export const ViewHrApprovalSheet = ({
                                   Insufficient VL credits.
                                 </p>
                               ) : null}
-                            </td>
-                            <td
+                            </TableCell>
+                            <TableCell
                               rowSpan={rowSpan}
-                              className="border-b border-slate-200 px-3 py-3"
+                              className={tableCellClassName}
                             >
                               {canSplit ? (
                                 <label className="inline-flex items-center gap-2 text-sm">
@@ -852,19 +968,19 @@ export const ViewHrApprovalSheet = ({
                               ) : (
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}
-                            </td>
-                            <td className="w-36 border-b border-slate-200 px-3 py-3">
+                            </TableCell>
+                            <TableCell className={cn(tableCellClassName, "w-36")}>
                               {renderPortionControls("approvedDayPortion1", "Portion 1")}
-                            </td>
-                            <td className="w-40 border-b border-slate-200 px-3 py-3">
+                            </TableCell>
+                            <TableCell className={cn(tableCellClassName, "w-40")}>
                               {renderLeaveTypeControls(1, "Portion 1")}
-                            </td>
-                            <td className="w-44 border-b border-slate-200 px-3 py-3">
+                            </TableCell>
+                            <TableCell className={cn(tableCellClassName, "w-44")}>
                               {renderStatusControls(1, "Portion 1")}
-                            </td>
-                            <td
+                            </TableCell>
+                            <TableCell
                               rowSpan={rowSpan}
-                              className="border-b border-slate-200 px-3 py-3"
+                              className={cn(tableCellClassName, "whitespace-normal")}
                             >
                               <textarea
                                 value={entry.hrRemarks}
@@ -878,27 +994,27 @@ export const ViewHrApprovalSheet = ({
                                 rows={entry.isSplit ? 4 : 1}
                                 className="min-h-9 w-full resize-none rounded-lg border border-slate-300 bg-background px-2.5 py-2 text-sm shadow-sm transition-colors focus:border-primary"
                               />
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
 
                           {entry.isSplit ? (
-                            <tr className="align-top">
-                              <td className="w-36 border-b border-slate-200 px-3 py-3">
+                            <TableRow className="hover:bg-transparent">
+                              <TableCell className={cn(tableCellClassName, "w-36")}>
                                 {renderPortionControls("approvedDayPortion2", "Portion 2")}
-                              </td>
-                              <td className="w-40 border-b border-slate-200 px-3 py-3">
+                              </TableCell>
+                              <TableCell className={cn(tableCellClassName, "w-40")}>
                                 {renderLeaveTypeControls(2, "Portion 2")}
-                              </td>
-                              <td className="w-44 border-b border-slate-200 px-3 py-3">
+                              </TableCell>
+                              <TableCell className={cn(tableCellClassName, "w-44")}>
                                 {renderStatusControls(2, "Portion 2")}
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ) : null}
                         </React.Fragment>
                       )
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
 
