@@ -123,11 +123,23 @@ flowchart TD
     F -- Yes --> G[Require numeric TIN and exactly one VAT classification]
     G --> H[Force AdU Employee false]
     F -- No --> I{Honorarium?}
-    I -- Yes --> J[Force VAT and Non-VAT false]
+    I -- Yes --> J[Require numeric TIN and exactly one AdU or Non AdU Employee classification]
+    J --> JA[Force VAT and Non-VAT false]
     I -- No --> K[Apply normal Cashier payee rules]
     H --> L[Create Cashier draft and payee details]
-    J --> L
+    JA --> L
     K --> L
+```
+
+## Requisition Process Today Worklist
+
+```mermaid
+flowchart TD
+    A[Budget or Administration selects RS to Process Today] --> B[Apply organizational school-year date search and sort filters]
+    B --> C[Include null blank and non-PNB payment forms across every RS type]
+    C --> D[Exclude trimmed case-insensitive exact PNB Credit Card Payment]
+    D --> E[Apply stable cursor pagination]
+    E --> F[Return rows for the normal RS process modal]
 ```
 
 ## Budget Review RS Item Editing

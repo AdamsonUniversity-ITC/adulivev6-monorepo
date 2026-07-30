@@ -260,6 +260,7 @@ function BudgetRequestEntryInner({
                                 payee: payeeDetails.payee,
                                 tin: payeeDetails.tinNo || null,
                                 is_adu_employee: payeeDetails.aduEmployee,
+                                is_non_adu_employee: payeeDetails.nonAduEmployee,
                                 is_vat_registered: payeeDetails.vatRegistered,
                                 is_non_vat_registered: payeeDetails.nonVatRegistered,
                                 is_cheque: payeeDetails.mopCheque,

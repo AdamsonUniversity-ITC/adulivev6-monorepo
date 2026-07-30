@@ -2918,12 +2918,15 @@ function PayeeDetailsViewModal({
                     {/* Classification */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification</div>
-                        {!isSupplierPayment && (
-                            <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" />
-                        )}
-                        {!isHonorariumPayment && (
+                        {isHonorariumPayment && (
                             <>
-                                <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" />
+                                <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" />
+                                <ReadonlyCheck checked={!!detail && !detail.is_adu_employee} label="Non AdU Employee" />
+                            </>
+                        )}
+                        {isSupplierPayment && (
+                            <>
+                                <ReadonlyCheck checked={!!detail && !detail.is_vat_registered} label="Non-VAT Registered" />
                                 <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" />
                             </>
                         )}

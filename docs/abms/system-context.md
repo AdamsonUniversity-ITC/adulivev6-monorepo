@@ -78,7 +78,9 @@ Office Supplies list queries default to `item_name` ascending with an `id` tie-b
 
 The requisition-process frontend has role-specific views for Budget, Administration, Controller, Logistics/Purchasing, Accounting, Stockroom, and Cashier. Administration includes a `For Approval` status filter that selects current requisition headers whose status is `for approval`, while retaining `For Budget Director` as its default filter. Controller decisions use `PATCH /api/abms/requisition-process/{id}/controller-approval`; general requisition transitions continue through `PUT /api/abms/requisition-process/{id}`. Department-facing requisition review also exposes a read-only quoted-price projection at `GET /api/abms/budget-request-entry/{id}/quoted-price-preview`.
 
-The shared Requisition Process payment-form filter includes `All Except PNB Credit Card Payment`. The backend treats it as a query sentinel before cursor pagination, returning only populated payment forms whose trimmed, case-insensitive value is not PNB Credit Card Payment; existing individual options remain exact filters.
+The shared Requisition Process payment-form filter includes `All Except PNB Credit Card Payment`. The backend treats it as a query sentinel before cursor pagination, returning only populated payment forms whose trimmed, case-insensitive value is not PNB Credit Card Payment; existing individual options remain exact filters. Separately, Budget and Administration status pills include the `RS to Process Today` worklist sentinel, which returns every RS type including null/blank payment forms and excludes only trimmed, case-insensitive PNB Credit Card Payment. Other roles do not receive this status option.
+
+The shared filter action card contains only Requery; the obsolete View RS action has been removed, and Requery spans the available action width and height above the liquidation legend with a proportionally enlarged label and refresh icon.
 
 Budget Request Entry treats payment form and payee details as Cashier-only header data. The New RS modal requires a payment form for Cash Valued Items, while Stockroom and Logistics omit Payee entry and the API strips any stale values submitted for those types. Supplier/Water payees require a numeric TIN and exactly one VAT classification with AdU Employee disabled; Honorarium payees retain the AdU Employee option but omit and clear VAT classifications.
 
@@ -99,6 +101,8 @@ the RS, reconciles the new allocation and proposal totals atomically, is
 idempotent, and is never part of the default database seeder.
 
 Saved RS item and account read responses expose `main_account_code` separately from the stored child `account_code`, allowing Budget Request Entry and Requisition Process to consistently render `parent - child` without changing financial payload identity. The visible tagging actions read `For Liquidation - Supplier` and `For Liquidation - Cash Advance`, while continuing to submit the established `For Liquidation` and `Cash Advance` action keys.
+
+Cashier Payee Details enforce payment-form-specific classification at both the React form and `StoreBudgetRequisitionRequest`. Supplier/Water uses VAT versus Non-VAT, while Honorarium uses AdU Employee versus Non AdU Employee and also requires TIN. The shared RS print preview uses the stored header payment form to omit inapplicable classification fields.
 
 The Requisition Process `Cash Advance` action now synchronizes liquidation eligibility: enabling it also sets `for_liquidation`, while disabling it preserves the liquidation flag. Administration and Budget modal state consumes both flags from the same response.
 

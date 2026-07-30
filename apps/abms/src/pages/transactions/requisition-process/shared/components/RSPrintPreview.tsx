@@ -41,6 +41,15 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
     const modeOfPayment = payeeDetail
         ? [payeeDetail.is_cheque && 'Cheque', payeeDetail.is_bank && 'Bank Transfer'].filter(Boolean).join(', ')
         : '';
+    const isSupplierPayment = row.payment_form === 'Payment for Supplier/Water';
+    const isHonorariumPayment = row.payment_form === 'Payment for Honorarium';
+    const classification = payeeDetail
+        ? isSupplierPayment
+            ? (payeeDetail.is_vat_registered ? 'VAT Registered' : 'Non-VAT Registered')
+            : isHonorariumPayment
+                ? (payeeDetail.is_adu_employee ? 'AdU Employee' : 'Non AdU Employee')
+                : ''
+        : '';
     const selectedRsType = (row.rstype || '').toLowerCase();
     const isSelectedRsType = (id: typeof RS_TYPE_OPTIONS[number]['id']) => selectedRsType.includes(id)
         || (id === 'stockroom' && (selectedRsType.includes('office supplies') || selectedRsType.includes('wico')))
@@ -129,18 +138,19 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
                         <div><i>Note:</i><span>{row.note || '—'}</span></div>
                         <div><i>RS Type:</i><strong>{rsTypeLabel}</strong></div>
                         <div><i>Payee:</i><strong>{row.payee || '—'}</strong></div>
+                        {row.payment_form && <div><i>Payment Form:</i><span>{row.payment_form}</span></div>}
                         {payeeDetail && <div className="rs-payee-summary">
                             <i>Payee Details:</i>
                             <span>
-                                TIN: {payeeDetail.tin || '—'} · {payeeDetail.is_vat_registered ? 'VAT Registered' : 'Non-VAT Registered'}
-                                {' · '}{payeeDetail.is_adu_employee ? 'AdU Employee' : 'Non-AdU Employee'}
+                                TIN: {payeeDetail.tin || '—'}
+                                {classification && ` · ${classification}`}
                                 {modeOfPayment && ` · ${modeOfPayment}`}
                                 {payeeDetail.is_bank && payeeDetail.bank_name && ` · ${payeeDetail.bank_name}`}
                                 {payeeDetail.is_bank && payeeDetail.account_name && ` / ${payeeDetail.account_name}`}
                                 {payeeDetail.is_bank && payeeDetail.account_number && ` / ${payeeDetail.account_number}`}
+                                {payeeDetail.is_bank && payeeDetail.bank_address && ` / ${payeeDetail.bank_address}`}
                             </span>
                         </div>}
-                        {!payeeDetail && row.payment_form && <div><i>Mode of Payment:</i><span>{row.payment_form}</span></div>}
                     </section>
                     <div className="rs-signing-space" />
                 </section>

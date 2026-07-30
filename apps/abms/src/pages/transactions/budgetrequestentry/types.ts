@@ -61,6 +61,7 @@ export interface PayeeDetails {
     payee: string;
     tinNo: string;
     aduEmployee: boolean;
+    nonAduEmployee: boolean;
     nonVatRegistered: boolean;
     vatRegistered: boolean;
     mopCheque: boolean;

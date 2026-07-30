@@ -59,7 +59,8 @@ Last verified: 2026-07-28
 - During initial RS creation, Print RS and Chat/Message actions are not shown. After the requisition has been created, its Budget Request Entry viewing modal provides Chat and the same printable RS preview used by Requisition Process. Unsaved requisitions with number `0` cannot be printed.
 - Payment form and payee data belong only to Cashier requisitions. Cashier header creation requires a nonblank payment form; Stockroom and Logistics creation neither displays a Payee field nor persists client-supplied payment-form or payee details.
 - `Payment for Supplier/Water` requires Payee, a numeric TIN, and exactly one of VAT Registered or Non-VAT Registered. AdU Employee is not offered for this form and is normalized to false by the backend.
-- `Payment for Honorarium` requires Payee details but does not offer VAT or Non-VAT classification. Both VAT classification inputs are normalized to false by the backend.
+- `Payment for Honorarium` requires Payee, a numeric TIN, and exactly one of AdU Employee or Non AdU Employee. It does not offer VAT or Non-VAT classification, and both VAT inputs are normalized to false by the backend.
+- Shared RS printing projects payee details by payment form: Supplier/Water prints only its TIN, VAT classification, and applicable payment/bank details; Honorarium prints only its TIN, employee classification, and applicable payment/bank details.
 - Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.
 - Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
 - The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
@@ -90,6 +91,7 @@ Last verified: 2026-07-28
 ### Requisition Role Filter Defaults
 
 - Initial status filters are role-specific: Budget Office uses `For Review`, Administration uses `For Budget Director`, Controller uses `For Controller`, Purchasing/Logistics uses `For Pricing`, and Stockroom uses `To Process RS`.
+- Only Budget and Administration display the `RS to Process Today` pseudo-status.
 - Administration's display label `For Budget Director` maps to the backend's legacy `For Certification` filter token, which resolves database status `for budget director`.
 - Accounting and Cashier retain the shared `All` default. Users may still select `All` or combine non-All statuses after the initial load.
 
@@ -112,6 +114,7 @@ Last verified: 2026-07-28
 - Saving returned amounts does not set `is_approve` and does not clear `for_liquidation`; approval remains a separate action.
 - Enabling the Cash Advance tag on an eligible Cashier RS atomically sets both `is_cash_advance` and `for_liquidation` true. Disabling Cash Advance clears only `is_cash_advance` and preserves the liquidation tag, because the RS may still require liquidation independently.
 - The Requisition Process `All Except PNB Credit Card Payment` filter includes requisitions with any nonblank payment form other than a trimmed, case-insensitive PNB Credit Card Payment value. Null and blank payment forms are not treated as another payment form.
+- Budget and Administration additionally expose the pseudo-status `RS to Process Today`. It is a worklist label rather than a stored status: it includes every RS type and null, blank, or non-PNB payment forms, excluding only a trimmed, case-insensitive exact `PNB Credit Card Payment`. Other filter families and cursor pagination still apply.
 
 ## Report Families
 

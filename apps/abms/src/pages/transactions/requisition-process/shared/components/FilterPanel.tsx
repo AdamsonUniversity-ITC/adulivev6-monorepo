@@ -579,7 +579,14 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
 
                             {hasActions && (
                                 <div style={{ ...filterCard, justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: 8,
+                                        flexWrap: 'wrap',
+                                        width: '100%',
+                                        flex: 1,
+                                        minHeight: 0,
+                                    }}>
                                         {config.actions!.map(action => (
                                             <FilterActionButton
                                                 key={action.label}
@@ -588,6 +595,8 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                                 variant={action.variant ?? 'secondary'}
                                                 onClick={action.onClick}
                                                 t={t}
+                                                fullWidth={config.actions!.length === 1}
+                                                fullHeight={config.actions!.length === 1}
                                             />
                                         ))}
                                     </div>

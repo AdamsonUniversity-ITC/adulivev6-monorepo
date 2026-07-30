@@ -1,4 +1,4 @@
-import { DollarSign, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, Eye, BadgeCheck } from 'lucide-react';
+import { DollarSign, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, BadgeCheck } from 'lucide-react';
 import { FilterPanelConfig } from './types';
 
 export const ROLES = [
@@ -38,6 +38,7 @@ export const ALL_DEPARTMENTS = [
 // Budget Office status filters
 const BUDGET_STATUS_OPTIONS = [
     { label: 'All' },
+    { label: 'RS to Process Today' },
     { label: 'For Review' },
     { label: 'Reprocess' },
     { label: 'For Certification' },
@@ -53,6 +54,10 @@ const ADMIN_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.map(option =>
         ? { label: 'For Budget Director' }
         : option
 ).concat({ label: 'For Approval' });
+
+const GENERAL_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.filter(
+    option => option.label !== 'RS to Process Today'
+);
 
 // Logistics / Purchasing-specific status filters
 const LOGISTICS_STATUS_OPTIONS = [
@@ -110,7 +115,6 @@ const COMMON_SORT_COLUMNS = ['Date', 'Requisition No.', 'Department/Section', 'R
 // Shared action buttons (onClick wired at runtime in each view)
 const COMMON_ACTIONS = [
     { label: 'Requery', icon: RefreshCw, variant: 'secondary' as const },
-    { label: 'View RS', icon: Eye, variant: 'primary' as const },
 ];
 
 const PAYMENT_FORM_OPTIONS = [
@@ -170,7 +174,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'accounting-access': {
-        status: { options: BUDGET_STATUS_OPTIONS },
+        status: { options: GENERAL_STATUS_OPTIONS },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -188,7 +192,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'cashier-access': {
-        status: { options: BUDGET_STATUS_OPTIONS },
+        status: { options: GENERAL_STATUS_OPTIONS },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
