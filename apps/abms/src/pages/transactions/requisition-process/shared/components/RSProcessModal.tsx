@@ -67,7 +67,7 @@ export interface RSProcessRow {
     is_cash_advance?: boolean;
     /** 0 = pending, 1 = approved, 2 = disapproved by Controller */
     is_controlled?: number;
-    /** RS type (e.g. "Cashier") — used to gate certain actions; not displayed. */
+    /** RS type (e.g. "Cashier") — used for workflow gates and client-facing display. */
     rstype?: string | null;
     // Extended fields (populated when modal fetches detail)
     payee?: string | null;
@@ -132,6 +132,17 @@ const PAYEE_VIEW_REQUIRED_FORMS = [
 
 const RS_FILES_ENDPOINT = (rsId: number) => `abms/budget-request-entry/${rsId}/files`;
 const RS_FILE_URL_ENDPOINT = (rsId: number, mediaId: number) => `abms/budget-request-entry/${rsId}/files/${mediaId}/url`;
+const RS_TYPE_DISPLAY_LABELS: Record<string, string> = {
+    stockroom: 'For Office Supplies',
+    logistics: 'For Purchase',
+    cashier: 'For Cash Valued Items',
+};
+
+function requestTypeDisplayLabel(rsType: string | null | undefined): string | null {
+    const normalized = rsType?.trim().toLowerCase() ?? '';
+
+    return RS_TYPE_DISPLAY_LABELS[normalized] ?? null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Role action configs — what buttons each role sees
@@ -1099,6 +1110,7 @@ export function RSProcessModal({
     const statusLower = (row.status ?? '').toLowerCase();
     const locationLower = (row.location ?? '').toLowerCase();
     const statusColors = getStatusColors(row.status, t, isDark);
+    const requestTypeLabel = requestTypeDisplayLabel(row.rstype);
     const isTerminal = TERMINAL_STATUSES.includes(statusLower);
     const isUnsaved = !row.requisition_no || String(row.requisition_no).trim() === '0' || statusLower === 'unsaved';
 
@@ -1539,12 +1551,33 @@ export function RSProcessModal({
                             </span>
                         </div>
 
-                        {/* Row 2 right: Date */}
+                        {/* Row 2 right: Date + request type badge */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexShrink: 0 }}>
                             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: t.labelColor }}>
                                 Date
                             </span>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: t.cellText }}>{row.date}</span>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: t.accentColor }}>{row.date}</span>
+                            {requestTypeLabel && (
+                                <span
+                                    aria-label={`Request Type: ${requestTypeLabel}`}
+                                    title={`Request Type: ${requestTypeLabel}`}
+                                    style={{
+                                        padding: '3px 10px',
+                                        borderRadius: 20,
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        letterSpacing: '0.07em',
+                                        textTransform: 'uppercase',
+                                        background: t.dropdownSelected,
+                                        color: t.accentColor,
+                                        border: `1px solid ${t.cardBorder}`,
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    {requestTypeLabel}
+                                </span>
+                            )}
                         </div>
                     </div>
 
