@@ -1,4 +1,5 @@
 import type { DeptOption, LineItem } from './types';
+import { organizationalUnitKey } from '../../../lib/organizationalUnit';
 
 interface BudgetProposalApiItem {
     id?: number;
@@ -48,5 +49,14 @@ export const mapApiItemToCopiedLineItem = (item: BudgetProposalApiItem): LineIte
     totalAmount: String(item.total_cost ?? ''),
 });
 
-export const getDeptName = (departments: DeptOption[], sections: DeptOption[], selectedDept: string) =>
-    [...departments, ...sections].find(o => o.id === selectedDept)?.name ?? '';
+export const getDeptName = (
+    departments: DeptOption[],
+    sections: DeptOption[],
+    selectedDept: string,
+    selectedDeptKind: 'Department' | 'Section',
+) => {
+    const selectedValue = organizationalUnitKey(selectedDeptKind, selectedDept);
+    return [...departments, ...sections]
+        .find(option => organizationalUnitKey(option.kind, option.id) === selectedValue)
+        ?.name ?? '';
+};

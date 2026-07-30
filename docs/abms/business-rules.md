@@ -6,6 +6,7 @@ Last verified: 2026-07-28
 
 - Account identity is the positive `accounts.id`. Codes and SAP numbers are non-unique labels.
 - A typed unit key is `department:{id}` or `section:{id}`. Never merge these namespaces.
+- A combined Department/Section dropdown must store or compare the complete typed key. A raw `cid` alone is not a valid UI selection identity because a Department and Section may legitimately share it.
 - A proposal allocation is the tuple of school year, typed unit, proposal, and child account represented by `budget_proposal_entry` plus `sub_accounts`.
 - Current account hierarchy and organization relationships are used for report grouping. Emit a warning when a current relationship cannot be established reliably.
 

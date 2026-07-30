@@ -12,6 +12,7 @@ import { NewRSModal } from './components/NewRSModal';
 import { RSFormModal } from './components/RSFormModal';
 import { RSViewModal } from './components/RSViewModal';
 import { PageHeader } from '../../../components/ui/Page';
+import { organizationalUnitKey } from '../../../lib/organizationalUnit';
 
 function BudgetRequestEntryInner({
     t, isDark,
@@ -39,7 +40,9 @@ function BudgetRequestEntryInner({
     const [filterByDate, setFilterByDate] = useState(false);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [selectedDept, setSelectedDept] = useState(() => deptOptions.length === 1 ? deptOptions[0].id : '');
+    const [selectedDept, setSelectedDept] = useState(() =>
+        deptOptions.length === 1 ? organizationalUnitKey(deptOptions[0].kind, deptOptions[0].id) : ''
+    );
     const [search, setSearch] = useState('');
 
     // ── Table state ───────────────────────────────────────────────────────────
@@ -123,7 +126,7 @@ function BudgetRequestEntryInner({
 
     // ── Handlers ──────────────────────────────────────────────────────────────
     const buildParams = (cursor?: string | null) => {
-        const selectedOpt = deptOptions.find(d => d.id === selectedDept);
+        const selectedOpt = deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept);
         const params: Record<string, string> = {
             schoolYear: activeSchoolYear,
             perPage: String(perPage),
@@ -244,7 +247,7 @@ function BudgetRequestEntryInner({
                     if (!type) return;
                     setIsCreatingRS(true);
                     try {
-                        const selectedOpt = deptOptions.find(d => d.id === selectedDept);
+                        const selectedOpt = deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept);
                         const res = await financeSvc.post('/abms/budget-request-entry', {
                             rstype: type,
                             department_id: selectedOpt?.kind === 'Department' ? selectedOpt.id : null,
@@ -299,7 +302,7 @@ function BudgetRequestEntryInner({
                 rsHeaderId={rsHeaderId}
                 rsHeaderData={rsHeaderData}
                 department={
-                    deptOptions.find(d => d.id === selectedDept)?.name ?? '—'
+                    deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept)?.name ?? '—'
                 }
                 onClose={() => setShowRSForm(false)}
                 onSaveSuccess={(rsNumber) => {
@@ -327,8 +330,8 @@ function BudgetRequestEntryInner({
                 }}
                 t={t}
                 isDark={isDark}
-                departmentId={deptOptions.find(d => d.id === selectedDept && d.kind === 'Department')?.id ?? ''}
-                sectionId={deptOptions.find(d => d.id === selectedDept && d.kind === 'Section')?.id ?? ''}
+                departmentId={deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept && d.kind === 'Department')?.id ?? ''}
+                sectionId={deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept && d.kind === 'Section')?.id ?? ''}
                 currentSchoolYear={activeSchoolYear}
             />
 
@@ -446,7 +449,7 @@ function BudgetRequestEntryInner({
                                     ? `${dateFrom || '—'} → ${dateTo || '—'}`
                                     : null,
                                 selectedDept
-                                    ? deptOptions.find(d => d.id === selectedDept)?.name
+                                    ? deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept)?.name
                                     : null,
                             ].filter(Boolean).join(' · ')}
                         </span>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, ChevronDown, Eye, Info, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import type { BtnToken, DeptOption, ThemeTokens, ToastItem, Status, ToastKind } from '../types';
+import { organizationalUnitKey } from '../../../../lib/organizationalUnit';
 
 export const TOAST_CFG: Record<ToastKind, {
     dark: { bg: string; border: string; text: string };
@@ -137,7 +138,7 @@ export function DeptDropdown({
     const filtered = query.trim()
         ? sorted.filter(o => o.name.toLowerCase().includes(query.toLowerCase()))
         : sorted;
-    const selected = sorted.find(o => o.id === value) ?? null;
+    const selected = sorted.find(o => organizationalUnitKey(o.kind, o.id) === value) ?? null;
 
     useEffect(() => {
         function handler(e: MouseEvent) {
@@ -224,10 +225,11 @@ export function DeptDropdown({
                     )}
 
                     {filtered.map((item, idx) => {
-                        const isSel = item.id === value;
+                        const optionValue = organizationalUnitKey(item.kind, item.id);
+                        const isSel = optionValue === value;
                         return (
                             <button
-                                key={item.id}
+                                key={optionValue}
                                 type="button"
                                 className="group flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-all duration-100"
                                 style={{
@@ -236,7 +238,7 @@ export function DeptDropdown({
                                     fontWeight: isSel ? 600 : 400,
                                     borderBottom: idx < filtered.length - 1 ? `1px solid ${t.dropdownDivider}` : 'none',
                                 }}
-                                onClick={() => { onChange(item.id); setOpen(false); setQuery(''); }}
+                                onClick={() => { onChange(optionValue); setOpen(false); setQuery(''); }}
                                 onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = t.dropdownHover; }}
                                 onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                             >

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import type { DeptOption, ThemeTokens } from '../types';
+import { organizationalUnitKey } from '../../../../lib/organizationalUnit';
 
 interface DeptSelectProps {
     value: string;
@@ -21,7 +22,8 @@ export function DeptSelect({ value, valueKind, onChange, departments, sections, 
         ...sections.map(s => ({ ...s, kind: 'Section' as const })),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    const selected = mergedList.find(o => o.id === value && o.kind === valueKind) ?? null;
+    const selectedValue = value && valueKind ? organizationalUnitKey(valueKind, value) : '';
+    const selected = mergedList.find(o => organizationalUnitKey(o.kind, o.id) === selectedValue) ?? null;
     const filteredList = search.trim()
         ? mergedList.filter(o => o.name.toLowerCase().includes(search.trim().toLowerCase()))
         : mergedList;
@@ -89,10 +91,11 @@ export function DeptSelect({ value, valueKind, onChange, departments, sections, 
                             </div>
                         ) : (
                             filteredList.map((item, idx) => {
-                                const isSelected = item.id === value && item.kind === valueKind;
+                                const optionValue = organizationalUnitKey(item.kind, item.id);
+                                const isSelected = optionValue === selectedValue;
                                 return (
                                     <button
-                                        key={`${item.kind}-${item.id}`}
+                                        key={optionValue}
                                         type="button"
                                         className="group w-full text-left px-4 py-2 text-sm transition-all duration-100 flex items-start justify-between gap-3"
                                         style={{

@@ -45,6 +45,7 @@ Canonical behavioral details remain in:
 
 - Use account IDs as identity. Account codes and SAP numbers are display values and may repeat.
 - Use typed organizational keys: `department:{id}` and `section:{id}` remain distinct when their numeric IDs match.
+- Combined Department/Section selectors in Budget Proposal Entry, Budget Request Entry, Requisition Process, and reports must compare and key options by that typed identity; API requests still send the raw ID together with the matching unit type.
 - Financial writes that affect allocations or balances must remain atomic and lock the affected records.
 - Requisition refund and reversal paths resolve modern items by stored `account_id`; ambiguous legacy code-only mappings fail safely.
 - Liquidation returned amounts are reversible: a resave applies only the delta and overwrites the requisition header's latest liquidation summary atomically.
