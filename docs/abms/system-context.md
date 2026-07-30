@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-07-28
+Last verified: 2026-07-30
 
 ## Purpose
 
@@ -124,7 +124,7 @@ The Budget Request Entry sidebar item and frontend route accept any of `allow-bu
 
 Each report prefix exposes `GET /` for filter data and `GET /preview` for calculated report output, protected by `auth:api`.
 
-Report loaders scope typed Department/Section options to qualifying live rows in each report's backing source instead of returning the entire organization directory. Proposal-backed pages use `budget_proposal_entry`; Adjustments uses `budget_adjustment_entry`; Item Requested uses eligible numbered requisitions; and Liquidation uses eligible numbered requisitions marked for liquidation or liquidated. Referenced inactive units remain available. The shared report combobox provides an opt-in, moderately wide option panel used by unit filters; it aligns inward over the report card and remains capped to the viewport.
+Report loaders scope typed Department/Section options to qualifying live rows in each report's backing source instead of returning the entire organization directory. Proposal-backed pages use `budget_proposal_entry`; Adjustments uses `budget_adjustment_entry`; Item Requested uses eligible numbered requisitions; and Liquidation uses eligible numbered requisitions marked for liquidation or liquidated. Referenced inactive units remain available. Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation also accept typed `allow-budget-request-entry` or `allow-budget-proposal-entry` access; for users without a report-wide Admin/Budget/Controller role, their qualifying unit options are intersected with the union of those typed assignments and their previews must remain within one selected unit. The frontend defaults an only unit and otherwise requires selection. The shared report combobox provides an opt-in, moderately wide option panel used by unit filters; it aligns inward over the report card and remains capped to the viewport.
 
 The index loaders for Budget Performance Per Department, Budget Performance Per Account, Budget Performance University, Item Requested Per Account, Items Requested By Payee, and Budget Liquidation return `requisition_first_dates` keyed by school year plus the application-timezone `current_date`. Their school-year selectors use this metadata to default From to the first live budget request entry date and To to the current date. Adjustments Per Department uses the parallel `adjustment_first_dates` contract sourced from live budget adjustments. Unserved RS does not use either default contract.
 
@@ -144,6 +144,8 @@ Authorization combines general permissions with typed department/section assignm
 The Controller workflow uses the general `controller-access` permission. The backend decision endpoint verifies that permission independently of frontend visibility; UI role selection is not an authorization boundary.
 
 Sidebar permission declarations and `router.tsx` guards must remain identical. Controller-visible reports also enforce `controller-access` in their backend report controllers; frontend visibility alone is insufficient.
+
+The four entry-permission-accessible reports return `unit_scope_restricted` from their index loaders. Scoped users cannot use grand, university-wide, or all-unit variants, and each preview endpoint rejects a typed unit outside the authenticated user's assignments. General `admin-access`, `budget-access`, and `controller-access` preserve the existing report-wide behavior.
 
 Budget Settings, Budget Review (including its details route), Budget Transfer Account, and Budget Adjustment Entry are frontend-authorized only by `admin-access` or `controller-access`; general `budget-access` does not expose or route-authorize those destinations. Budget Proposal Entry remains independently gated by `allow-budget-proposal-entry`.
 

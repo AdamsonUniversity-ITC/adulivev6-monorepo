@@ -390,7 +390,7 @@ export const requesitionprocessRoute = new Route({
 export const budgetperformancedepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-performance-department',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-performance-per-department');
 
@@ -423,7 +423,7 @@ export const budgetperformanceuniversityRoute = new Route({
 export const itemrequestedperaccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/item-requested-per-account',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/item-requested-per-account');
 
@@ -456,7 +456,7 @@ export const adjustmentsperdepartmentRoute = new Route({
 export const budgetliquidationRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-liquidation',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-liquidation');
 
@@ -467,7 +467,7 @@ export const budgetliquidationRoute = new Route({
 export const budgetproposalreportsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-proposal-reports',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-proposal-reports');
 
