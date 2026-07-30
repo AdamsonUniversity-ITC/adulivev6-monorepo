@@ -17,6 +17,7 @@ const LIQUIDATION_COLOR = '#eab308';
 function InlineDeptSelect({
     options,
     value,
+    valueKind,
     onChange,
     placeholder,
     t,
@@ -24,6 +25,7 @@ function InlineDeptSelect({
 }: {
     options: DeptOption[];
     value: string | null;
+    valueKind: 'Department' | 'Section' | null;
     onChange: (item: DeptOption) => void;
     placeholder?: string;
     t: Theme;
@@ -32,7 +34,7 @@ function InlineDeptSelect({
     const [open, setOpen] = useState(false);
 
     const sorted = [...options].sort((a, b) => a.name.localeCompare(b.name));
-    const selected = sorted.find(o => o.id === value) ?? null;
+    const selected = sorted.find(o => o.id === value && o.kind === valueKind) ?? null;
 
     const handleSelect = (item: DeptOption) => {
         onChange(item);
@@ -109,7 +111,7 @@ function InlineDeptSelect({
                     zIndex: 50,
                 }}>
                     {sorted.map((item, idx) => {
-                        const isSel = item.id === value;
+                        const isSel = item.id === value && item.kind === valueKind;
                         return (
                             <button
                                 key={`${item.kind}-${item.id}`}
@@ -307,6 +309,7 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             <InlineDeptSelect
                                                 options={deptOptions}
                                                 value={state.selectedDeptId ?? null}
+                                                valueKind={state.selectedDeptKind}
                                                 onChange={handleDeptOptionSelect}
                                                 placeholder={config.department!.placeholder}
                                                 t={t}
