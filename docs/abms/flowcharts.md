@@ -185,6 +185,26 @@ flowchart TD
 
 ## Live Date-Range Report Projection
 
+### Scoped Report Access
+
+```mermaid
+flowchart TD
+    A[Open one of four scoped-capable reports] --> B{Admin, Budget, or Controller?}
+    B -->|Yes| C[Return all qualifying source-backed units]
+    B -->|No| D[Resolve typed Request and Proposal Entry assignments]
+    D --> E{At least one assignment?}
+    E -->|No| F[Return 403]
+    E -->|Yes| G[Intersect assignments with qualifying report rows]
+    G --> H{Exactly one eligible unit?}
+    H -->|Yes| I[Frontend selects typed unit automatically]
+    H -->|No| J[User selects one typed unit]
+    I --> K[Preview revalidates typed unit scope]
+    J --> K
+    K --> L{Assigned typed unit and single-unit mode?}
+    L -->|No| M[Return 403]
+    L -->|Yes| N[Build existing read-only report]
+```
+
 ```mermaid
 flowchart TD
     A[Load report filters] --> AU[Derive typed unit options from qualifying live backing rows]

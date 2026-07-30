@@ -40,7 +40,7 @@ type Preview = {
   grand_total: Totals;
   data_quality: { complete: boolean; warnings: Array<{ code: string; message: string }>; calculation_timezone: string; inclusive_from: string; inclusive_to: string };
 };
-type LoaderPayload = RequisitionDateDefaultsPayload & { school_years?: string[]; units?: Unit[] };
+type LoaderPayload = RequisitionDateDefaultsPayload & { school_years?: string[]; units?: Unit[]; unit_scope_restricted?: boolean };
 type PreviewType = 'summary' | 'detailed';
 type LiquidationScope = 'both' | 'for_liquidation' | 'liquidated';
 type Errors = Partial<Record<'schoolYear' | 'unit' | 'from' | 'to', string>>;
@@ -141,7 +141,7 @@ export default function BudgetLiquidation() {
   const loader = budgetliquidationRoute.useLoaderData() as { data?: { data?: LoaderPayload } | LoaderPayload };
   const payload = ((loader?.data as { data?: LoaderPayload })?.data ?? loader?.data ?? {}) as LoaderPayload;
   const [schoolYear, setSchoolYear] = useState('');
-  const [allUnits, setAllUnits] = useState(true);
+  const [allUnits, setAllUnits] = useState(payload.unit_scope_restricted !== true);
   const [unitValue, setUnitValue] = useState('');
   const [scope, setScope] = useState<LiquidationScope>('both');
   const [cashAdvances, setCashAdvances] = useState(false);
@@ -155,7 +155,16 @@ export default function BudgetLiquidation() {
   const [loading, setLoading] = useState(false);
   const schoolYears = useMemo(() => Array.from(new Set(Array.isArray(payload.school_years) ? payload.school_years.filter((year): year is string => typeof year === 'string' && Boolean(year)) : [])).sort((a, b) => b.localeCompare(a)), [payload.school_years]);
   const units = useMemo(() => (Array.isArray(payload.units) ? payload.units.filter(validUnit) : []).sort((a, b) => a.name.localeCompare(b.name) || a.type.localeCompare(b.type) || a.id - b.id), [payload.units]);
+  const unitScopeRestricted = payload.unit_scope_restricted === true;
   const selectedUnit = units.find(unit => `${unit.type}:${unit.id}` === unitValue);
+
+  useEffect(() => {
+    if (unitScopeRestricted && allUnits) setAllUnits(false);
+    if (units.length === 1 && !unitValue) {
+      setAllUnits(false);
+      setUnitValue(`${units[0].type}:${units[0].id}`);
+    }
+  }, [allUnits, unitScopeRestricted, units, unitValue]);
 
   const openPreview = async () => {
     const next: Errors = {};
@@ -191,7 +200,7 @@ export default function BudgetLiquidation() {
       <div className="space-y-1.5"><Label htmlFor="liquidation-scope">Liquidation Status</Label><ReportFilterCombobox id="liquidation-scope" options={[{ value: 'both', label: 'Both' }, { value: 'for_liquidation', label: 'For Liquidation' }, { value: 'liquidated', label: 'Liquidated' }]} value={scope} disabled={loading} placeholder="Select status" searchPlaceholder="Search status..." emptyText="No status found." groupLabel="Liquidation statuses" onChange={value => { setScope(value as LiquidationScope); setPreviewError(null); }} /></div>
     </div>
     <div className="grid gap-6 md:grid-cols-2">
-      <fieldset className="rounded-lg border border-[var(--abms-border)] p-4"><legend className="px-2 text-sm font-semibold text-[var(--abms-primary)]">Report Options</legend><RadioGroup value={previewType} onValueChange={value => { const next = value as PreviewType; setPreviewType(next); if (next === 'detailed') setSummaryPerAccount(false); setPreviewError(null); }} className="space-y-3"><div className="flex items-center gap-2"><RadioGroupItem id="liquidation-summary" value="summary" /><Label htmlFor="liquidation-summary">Summary</Label></div><div className="flex items-center gap-2"><RadioGroupItem id="liquidation-detailed" value="detailed" /><Label htmlFor="liquidation-detailed">Detailed</Label></div></RadioGroup><div className="mt-4 space-y-3 border-t border-[var(--abms-border)] pt-4"><div className="flex items-center gap-2"><Checkbox id="liquidation-all-units" checked={allUnits} disabled={loading} onCheckedChange={checked => { const enabled = checked === true; setAllUnits(enabled); if (enabled) setUnitValue(''); setErrors(current => ({ ...current, unit: undefined })); setPreviewError(null); }} /><Label htmlFor="liquidation-all-units">All Departments / Sections</Label></div><div className="flex items-center gap-2"><Checkbox id="liquidation-cash-advances" checked={cashAdvances} disabled={loading} onCheckedChange={checked => { setCashAdvances(checked === true); setPreviewError(null); }} /><Label htmlFor="liquidation-cash-advances">Cash Advances Only</Label></div><div className="flex items-center gap-2"><Checkbox id="liquidation-summary-account" checked={summaryPerAccount} disabled={loading || previewType === 'detailed'} onCheckedChange={checked => { setSummaryPerAccount(checked === true); setPreviewError(null); }} /><Label htmlFor="liquidation-summary-account">Summary per Department and Account</Label></div></div></fieldset>
+      <fieldset className="rounded-lg border border-[var(--abms-border)] p-4"><legend className="px-2 text-sm font-semibold text-[var(--abms-primary)]">Report Options</legend><RadioGroup value={previewType} onValueChange={value => { const next = value as PreviewType; setPreviewType(next); if (next === 'detailed') setSummaryPerAccount(false); setPreviewError(null); }} className="space-y-3"><div className="flex items-center gap-2"><RadioGroupItem id="liquidation-summary" value="summary" /><Label htmlFor="liquidation-summary">Summary</Label></div><div className="flex items-center gap-2"><RadioGroupItem id="liquidation-detailed" value="detailed" /><Label htmlFor="liquidation-detailed">Detailed</Label></div></RadioGroup><div className="mt-4 space-y-3 border-t border-[var(--abms-border)] pt-4"><div className="flex items-center gap-2"><Checkbox id="liquidation-all-units" checked={allUnits} disabled={loading || unitScopeRestricted} onCheckedChange={checked => { const enabled = checked === true; setAllUnits(enabled); if (enabled) setUnitValue(''); setErrors(current => ({ ...current, unit: undefined })); setPreviewError(null); }} /><Label htmlFor="liquidation-all-units">All Departments / Sections{unitScopeRestricted ? ' (Requires report-wide access)' : ''}</Label></div><div className="flex items-center gap-2"><Checkbox id="liquidation-cash-advances" checked={cashAdvances} disabled={loading} onCheckedChange={checked => { setCashAdvances(checked === true); setPreviewError(null); }} /><Label htmlFor="liquidation-cash-advances">Cash Advances Only</Label></div><div className="flex items-center gap-2"><Checkbox id="liquidation-summary-account" checked={summaryPerAccount} disabled={loading || previewType === 'detailed'} onCheckedChange={checked => { setSummaryPerAccount(checked === true); setPreviewError(null); }} /><Label htmlFor="liquidation-summary-account">Summary per Department and Account</Label></div></div></fieldset>
       <fieldset className="rounded-lg border border-[var(--abms-border)] p-4"><legend className="px-2 text-sm font-semibold text-[var(--abms-primary)]">R.S. Date</legend><div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="liquidation-from">From</Label><Input id="liquidation-from" type="date" value={from} disabled={loading} onChange={event => { setFrom(event.target.value); setErrors(current => ({ ...current, from: undefined, to: undefined })); setPreviewError(null); }} className="mt-1.5" /><FieldError>{errors.from}</FieldError></div><div><Label htmlFor="liquidation-to">To</Label><Input id="liquidation-to" type="date" min={from || undefined} value={to} disabled={loading} onChange={event => { setTo(event.target.value); setErrors(current => ({ ...current, to: undefined })); setPreviewError(null); }} className="mt-1.5" /><FieldError>{errors.to}</FieldError></div></div></fieldset>
     </div>
     {previewError && <Alert variant="destructive"><AlertTriangle /><AlertTitle>Unable to generate preview</AlertTitle><AlertDescription>{previewError}</AlertDescription></Alert>}

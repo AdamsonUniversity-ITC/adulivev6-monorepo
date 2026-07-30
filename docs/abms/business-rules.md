@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-07-28
+Last verified: 2026-07-30
 
 ## Shared Financial Identity
 
@@ -20,6 +20,8 @@ Last verified: 2026-07-28
 
 - Budget Settings, Budget Review and Budget Review Details, Budget Transfer Account, and Budget Adjustment Entry require either general `admin-access` or `controller-access` in both the sidebar and frontend route guards. General `budget-access` alone does not authorize these pages.
 - Budget Proposal Entry uses the explicit `allow-budget-proposal-entry` permission and does not depend on general `budget-access`.
+- Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept either existing report-wide `admin-access`/`budget-access`/`controller-access` or a typed assignment under `allow-budget-request-entry`/`allow-budget-proposal-entry`. Entry-permission-only users are restricted to the union of their assigned typed units; report-wide users retain unrestricted qualifying-unit options.
+- Scoped report users must select one assigned Department or Section. Grand, university-wide, and all-unit modes are rejected server-side because they bypass typed-unit scope. A single eligible returned unit is selected by the frontend automatically; multiple units remain unselected for an explicit user choice.
 
 ## Budget Performance Formula
 
@@ -122,6 +124,7 @@ Last verified: 2026-07-28
 
 - Budget Review, Budget Proposal Reports, and Budget Performance per Department list only typed Departments and Sections referenced by live `budget_proposal_entry` headers.
 - Item Requested per Account lists only typed units referenced by live, numbered requisitions whose current status is neither cancelled nor disapproved.
+- For the four entry-permission-accessible reports, qualifying source-backed units are additionally intersected with the authenticated user's typed request/proposal entry assignments. Preview authorization rechecks the submitted unit type and ID; a Department and Section sharing the same numeric ID never authorize one another.
 - Adjustments per Department lists only typed units referenced by live `budget_adjustment_entry` headers.
 - Budget Liquidation lists only typed units referenced by live, numbered, non-cancelled/non-disapproved requisitions marked for liquidation or already liquidated.
 - Referenced inactive units remain selectable and are labelled inactive. Active directory units without a qualifying backing row are omitted.

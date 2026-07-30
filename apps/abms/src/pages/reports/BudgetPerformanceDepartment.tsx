@@ -32,6 +32,7 @@ type LoaderPayload = RequisitionDateDefaultsPayload & {
   divisions?: Division[];
   departments?: Department[];
   sections?: Section[];
+  unit_scope_restricted?: boolean;
 };
 
 type Errors = Partial<Record<'schoolYear' | 'division' | 'unit' | 'from' | 'to', string>>;
@@ -323,6 +324,11 @@ export default function BudgetPerformanceDepartment() {
   const divisions = useMemo(() => payload.divisions ?? [], [payload.divisions]);
   const departments = useMemo(() => payload.departments ?? [], [payload.departments]);
   const sections = useMemo(() => payload.sections ?? [], [payload.sections]);
+  const unitScopeRestricted = payload.unit_scope_restricted === true;
+  const allUnitOptions = useMemo<UnitOption[]>(() => [
+    ...departments.map(department => ({ value: `Department:${id(department.cid)}`, cid: id(department.cid), name: orgName(department, `Department ${department.cid}`), kind: 'Department' as const, isactive: active(department.isactive) })),
+    ...sections.map(section => ({ value: `Section:${id(section.cid)}`, cid: id(section.cid), name: orgName(section, `Section ${section.cid}`), kind: 'Section' as const, isactive: active(section.isactive) })),
+  ], [departments, sections]);
   const units = useMemo<UnitOption[]>(() => {
     if (!divisionId) return [];
     const childDepartments = departments.filter(department => id(department.division_id) === divisionId);
@@ -342,6 +348,24 @@ export default function BudgetPerformanceDepartment() {
     badge: `${unit.kind}${unit.isactive ? '' : ' · Inactive'}`,
   })), [units]);
   const selectedUnit = units.find(unit => unit.value === unitValue);
+
+  useEffect(() => {
+    if (unitScopeRestricted && previewType === 'grand') {
+      setPreviewType('departmental');
+    }
+  }, [previewType, unitScopeRestricted]);
+
+  useEffect(() => {
+    if (allUnitOptions.length !== 1 || unitValue) return;
+    const onlyUnit = allUnitOptions[0];
+    const source = onlyUnit.kind === 'Department'
+      ? departments.find(department => id(department.cid) === onlyUnit.cid)
+      : sections.find(section => id(section.cid) === onlyUnit.cid);
+    const nextDivisionId = id(source?.division_id);
+    if (!nextDivisionId) return;
+    setDivisionId(nextDivisionId);
+    setUnitValue(onlyUnit.value);
+  }, [allUnitOptions, departments, sections, unitValue]);
 
   const openPreview = async () => {
     const next: Errors = {};
@@ -410,7 +434,7 @@ export default function BudgetPerformanceDepartment() {
             <legend className="px-2 text-sm font-semibold text-[var(--abms-primary)]">Report Options</legend>
             <RadioGroup value={previewType} onValueChange={value => { setPreviewType(value as PreviewType); setPreviewError(null); setErrors(current => ({ ...current, unit: undefined })); }} className="space-y-3">
               <div className="flex items-center gap-2"><RadioGroupItem id="departmental" value="departmental" /><Label htmlFor="departmental">Summary (Departmental)</Label></div>
-              <div className="flex items-center gap-2"><RadioGroupItem id="grand" value="grand" /><Label htmlFor="grand">Summary (Grand)</Label></div>
+              <div className="flex items-center gap-2"><RadioGroupItem id="grand" value="grand" disabled={unitScopeRestricted} /><Label htmlFor="grand">Summary (Grand){unitScopeRestricted ? ' (Requires report-wide access)' : ''}</Label></div>
               <div className="flex items-center gap-2"><RadioGroupItem id="detailed" value="detailed" /><Label htmlFor="detailed">Detailed</Label></div>
             </RadioGroup>
           </fieldset>
