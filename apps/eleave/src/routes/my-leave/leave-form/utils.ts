@@ -112,8 +112,10 @@ export function formatLeaveDayCount(totalDays: number): string {
   const display = Number.isInteger(totalDays)
     ? String(totalDays)
     : totalDays.toFixed(1)
+  // Half days read as "0.5 day"; only totals above one day are plural.
+  const isSingular = totalDays > 0 && totalDays <= 1
 
-  return `${display} day${totalDays === 1 ? "" : "s"}`
+  return `${display} day${isSingular ? "" : "s"}`
 }
 
 export const EMERGENCY_LEAVE_CODE = "el"

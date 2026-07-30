@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  getAvailableBirthdayCredits,
   getAvailablePaternityCredits,
+  getLeaveCreditValidationMessage,
   getPaternityCreditValidationMessage,
   getRequestedLeaveDaysWeight,
 } from "./paternity-leave-credits"
@@ -29,9 +31,21 @@ describe("paternity-leave-credits", () => {
     ).toBe(1.5)
   })
 
-  it("returns null when leave type is not paternity", () => {
+  it("computes available BL as credits minus pending", () => {
     expect(
-      getPaternityCreditValidationMessage({
+      getAvailableBirthdayCredits([
+        {
+          leave_code: "bl",
+          credits: 1,
+          pending_filed_leave: 0.5,
+        },
+      ]),
+    ).toBe(0.5)
+  })
+
+  it("returns null when leave type does not use credit validation", () => {
+    expect(
+      getLeaveCreditValidationMessage({
         leaveCode: "ml",
         leaveDays: [{ day_portion: "wholeday" }],
         balances: [{ leave_code: "ml", credits: 0, pending_filed_leave: 0 }],
@@ -65,5 +79,35 @@ describe("paternity-leave-credits", () => {
         balances: [{ leave_code: "pl", credits: 2, pending_filed_leave: 1.5 }],
       }),
     ).toBe("Insufficient Paternity Leave credits for the selected dates.")
+  })
+
+  it("passes when birthday credits exactly match weighted days", () => {
+    expect(
+      getLeaveCreditValidationMessage({
+        leaveCode: "bl",
+        leaveDays: [{ day_portion: "am" }],
+        balances: [{ leave_code: "bl", credits: 1, pending_filed_leave: 0.5 }],
+      }),
+    ).toBeNull()
+  })
+
+  it("fails when birthday credits are insufficient", () => {
+    expect(
+      getLeaveCreditValidationMessage({
+        leaveCode: "bl",
+        leaveDays: [{ day_portion: "wholeday" }],
+        balances: [{ leave_code: "bl", credits: 1, pending_filed_leave: 0.5 }],
+      }),
+    ).toBe("Insufficient Birthday Leave credits for the selected dates.")
+  })
+
+  it("fails when birthday balance row is missing", () => {
+    expect(
+      getLeaveCreditValidationMessage({
+        leaveCode: "bl",
+        leaveDays: [{ day_portion: "wholeday" }],
+        balances: [],
+      }),
+    ).toBe("Insufficient Birthday Leave credits for the selected dates.")
   })
 })

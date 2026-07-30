@@ -23,7 +23,7 @@ import {
 import { resolveViewerApprovalStatus } from "@/lib/resolve-viewer-approval-status"
 import { ViewForApprovalSheet } from "@/routes/for-approval/-view-for-approval-sheet"
 import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
-import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
+import { formatDateShort, formatLeaveDayCount } from "@/routes/my-leave/leave-form/utils"
 
 export const Route = createFileRoute("/for-approval/")({
   component: ForApprovalPage,
@@ -212,8 +212,8 @@ function ForApprovalPage() {
                     <div className="space-y-0">
                       <p className="text-sm font-semibold">{row.employeeName}</p>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        {row.leaveType} • {row.dates} • {row.days} day
-                        {row.days === 1 ? "" : "s"}
+                        {row.leaveType} • {row.dates} •{" "}
+                        {formatLeaveDayCount(row.days)}
                       </p>
                       <p className="text-muted-foreground text-sm">
                         Filed on{" "}

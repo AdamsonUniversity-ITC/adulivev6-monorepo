@@ -2,7 +2,12 @@ import {
   formatEmployeeName,
   getEmployeeDepartment,
 } from "@/lib/employee-teacher-display"
-import { mapApiDayPortion, mapDayPortionToApiLabel, isWholeDayPortion } from "@/lib/day-portion"
+import {
+  getDayPortionWeight,
+  mapApiDayPortion,
+  mapDayPortionToApiLabel,
+  isWholeDayPortion,
+} from "@/lib/day-portion"
 import { mapApiHrStatusToSlug, mapSlugToApiHrStatus, type HrApprovalStatus } from "@/lib/hr-approval-status"
 import type { HrApprovalItemPayload, LeaveApplicationRecord } from "@/lib/leave-applications-api"
 import { resolveHrOverallStatus } from "@/lib/resolve-hr-overall-status"
@@ -108,6 +113,31 @@ export function hasPendingHrDayDecision(entry: HrApprovalDayDecision): boolean {
   return false
 }
 
+/** Credit weight for filed/scheduled days (AM/PM/Evening = 0.5, Whole Day = 1). */
+export function sumHrApprovalDayCredits(
+  decisions: Array<
+    Pick<
+      HrApprovalDayDecision,
+      | "isSplit"
+      | "requestedPortion"
+      | "approvedDayPortion1"
+      | "approvedDayPortion2"
+    >
+  >,
+): number {
+  return decisions.reduce((total, entry) => {
+    if (entry.isSplit) {
+      return (
+        total +
+        getDayPortionWeight(entry.approvedDayPortion1 ?? "") +
+        getDayPortionWeight(entry.approvedDayPortion2 ?? "")
+      )
+    }
+
+    return total + getDayPortionWeight(entry.requestedPortion)
+  }, 0)
+}
+
 export function mapLeaveApplicationToHrApprovalRow(
   record: LeaveApplicationRecord,
   leaveTypeNames: Map<number, string>,
@@ -171,7 +201,7 @@ export function mapLeaveApplicationToHrApprovalRow(
     department: getEmployeeDepartment(record.employee_teacher),
     leaveType: summarizeLeaveType(dailyDecisions),
     dates: formatDateRange(record.date_from, record.date_to),
-    days: dailyDecisions.length,
+    days: sumHrApprovalDayCredits(dailyDecisions),
     year: Number.isFinite(year) ? year : new Date().getFullYear(),
     status: resolveHrOverallStatus(record),
     dailyDecisions,

@@ -55,7 +55,9 @@ import type { DayPortion } from "./leave-form/schema"
 import {
   formatDateRange,
   formatLeaveDay,
+  formatLeaveDayCount,
   getDayPortionLabel,
+  sumLeaveDayCredits,
 } from "./leave-form/utils"
 
 const PORTION_STYLES: Record<DayPortion, string> = {
@@ -346,6 +348,8 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
     (a, b) => a.leave_date.localeCompare(b.leave_date),
   )
   const dayCount = applicationDates.length || leaveDays.length
+  const creditSum = sumLeaveDayCredits(leaveDays)
+  const dayCredits = creditSum > 0 ? creditSum : dayCount
   const partialCount = applicationDates.length
     ? applicationDates.filter((day) => {
         const display = resolveDisplayDayPortion(
@@ -466,7 +470,11 @@ export function LeaveDetailView({ leaveId }: LeaveDetailViewProps) {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <StatPill icon={CalendarDays} label="Days" value={dayCount} />
+            <StatPill
+              icon={CalendarDays}
+              label="Days"
+              value={formatLeaveDayCount(dayCredits)}
+            />
             <StatPill
               icon={Sun}
               label="Whole day"

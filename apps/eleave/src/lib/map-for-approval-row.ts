@@ -5,7 +5,10 @@ import {
   coerceOverallStatus,
   type LeaveOverallStatus,
 } from "@/routes/my-leave/-leave-status"
-import { formatDateRange } from "@/routes/my-leave/leave-form/utils"
+import {
+  formatDateRange,
+  sumLeaveDayCredits,
+} from "@/routes/my-leave/leave-form/utils"
 
 export type ForApprovalRow = {
   id: string
@@ -23,6 +26,7 @@ export function mapLeaveApplicationToForApprovalRow(
   leaveTypeName: string,
 ): ForApprovalRow {
   const leaveDays = resolveLeaveDaysFromRecord(record)
+  const creditDays = sumLeaveDayCredits(leaveDays)
   const year = Number(record.date_from?.slice(0, 4))
 
   return {
@@ -34,7 +38,8 @@ export function mapLeaveApplicationToForApprovalRow(
     ),
     leaveType: leaveTypeName,
     dates: formatDateRange(record.date_from, record.date_to),
-    days: leaveDays.length,
+    // syncLeaveDays fallback may leave empty portions (weight 0); fall back to date count.
+    days: creditDays > 0 ? creditDays : leaveDays.length,
     year: Number.isFinite(year) ? year : new Date().getFullYear(),
     overallStatus: coerceOverallStatus(record.overall_status),
   }

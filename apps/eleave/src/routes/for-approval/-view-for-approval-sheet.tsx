@@ -18,7 +18,7 @@ import { type ForApprovalRow } from "@/lib/map-for-approval-row"
 import { resolveViewerApprovalStatus } from "@/lib/resolve-viewer-approval-status"
 import { SupportingDocumentsSection } from "@/components/shared/supporting-documents-section"
 import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
-import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
+import { formatDateShort, formatLeaveDayCount } from "@/routes/my-leave/leave-form/utils"
 
 import {
   Sheet,
@@ -197,8 +197,7 @@ export const ViewForApprovalSheet = ({
                       {activeRequest.dates}
                       <span className="text-muted-foreground text-xs">
                         {" "}
-                        • {activeRequest.days} day
-                        {activeRequest.days === 1 ? "" : "s"}
+                        • {formatLeaveDayCount(activeRequest.days)}
                       </span>
                     </p>
                   </div>

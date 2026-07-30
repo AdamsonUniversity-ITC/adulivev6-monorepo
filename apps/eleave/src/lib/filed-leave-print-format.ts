@@ -23,9 +23,10 @@ type DetailGroup = {
 
 function formatDayCount(weight: number): string {
   const normalized = Math.round(weight * 2) / 2
-  const label = normalized === 1 ? "1 Day" : `${normalized} Days`
+  // Half days read as "0.5 Day"; only totals above one day are plural.
+  const isSingular = normalized > 0 && normalized <= 1
 
-  return label
+  return `${normalized} Day${isSingular ? "" : "s"}`
 }
 
 function resolveLeaveTypeCode(

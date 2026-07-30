@@ -29,9 +29,7 @@ import {
 } from "@/lib/leave-applications-api"
 import { mapLeaveApplicationToRow } from "@/lib/map-leave-application-to-row"
 import { buildLeaveApplyFormData } from "@/lib/map-leave-form-to-apply-payload"
-import { getPaternityCreditValidationMessage } from "@/lib/paternity-leave-credits"
 import { isLeaveApplicationPendingOnly } from "@/lib/is-leave-application-pending-only"
-import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import {
   leaveFormDefaults,
   leaveFormSchema,
@@ -52,6 +50,11 @@ import {
   mapLeaveRowToFormValues,
   syncLeaveDays,
 } from "./utils"
+import {
+  clearResolvedLeaveFormErrors,
+  getLeaveTypeBusinessError,
+  type LeaveFormRules,
+} from "./validation"
 
 type LeaveFormProps = {
   mode: "create" | "edit"
@@ -75,6 +78,12 @@ function applyApiFieldErrors(
 ) {
   for (const [field, message] of Object.entries(errors)) {
     if (!message) continue
+
+    // date_filed is not a form field; surface filing-date business rules on leave type.
+    if (field === "date_filed") {
+      setError("leave_type_id", { message })
+      continue
+    }
 
     if (
       field === "date_from" ||
@@ -115,6 +124,28 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
     resolver: zodResolver(leaveFormSchema),
     defaultValues: leaveFormDefaults,
   })
+
+  const validationRules = React.useMemo<LeaveFormRules>(
+    () => ({
+      canSelectEvening,
+      leaveTypes,
+      leaveBalances,
+      birthdate: myHrProfile?.birthdate,
+    }),
+    [canSelectEvening, leaveBalances, leaveTypes, myHrProfile?.birthdate],
+  )
+
+  // Step navigation validates manually, so the form never revalidates on change and
+  // messages from an earlier Next/Submit attempt would otherwise stay on screen.
+  React.useEffect(() => {
+    const subscription = form.watch((_values, { name }) => {
+      if (!name) return
+
+      clearResolvedLeaveFormErrors(form, name, validationRules)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [form, validationRules])
 
   React.useEffect(() => {
     if (!isEdit || !leaveId || !leaveApplicationsLoaded || blockedEditRedirected.current) {
@@ -261,29 +292,13 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
         return false
       }
 
-      const leaveType = leaveTypes.find(
-        (type) => String(type.id) === values.leave_type_id,
+      const businessError = getLeaveTypeBusinessError(
+        { ...values, leave_days: syncedDays },
+        validationRules,
       )
-      if (leaveType) {
-        const timingError = validateLeaveFilingTiming(
-          leaveType,
-          values.date_from,
-          values.date_to,
-        )
-        if (timingError) {
-          form.setError("leave_type_id", { message: timingError })
-          return false
-        }
-
-        const paternityCreditError = getPaternityCreditValidationMessage({
-          leaveCode: leaveType.leave_code,
-          leaveDays: syncedDays,
-          balances: leaveBalances,
-        })
-        if (paternityCreditError) {
-          form.setError("leave_type_id", { message: paternityCreditError })
-          return false
-        }
+      if (businessError) {
+        form.setError(businessError.field, { message: businessError.message })
+        return false
       }
 
       return true
@@ -339,18 +354,15 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
       return
     }
 
-    const selectedLeaveType = leaveTypes.find(
-      (type) => String(type.id) === values.leave_type_id,
-    )
-    const paternityCreditError = getPaternityCreditValidationMessage({
-      leaveCode: selectedLeaveType?.leave_code,
-      leaveDays: values.leave_days,
-      balances: leaveBalances,
-    })
-    if (paternityCreditError) {
-      form.setError("leave_type_id", { message: paternityCreditError })
-      toast.error(paternityCreditError)
-      setCurrentStep(2)
+    const businessError = getLeaveTypeBusinessError(values, validationRules)
+    if (businessError) {
+      form.setError(businessError.field, { message: businessError.message })
+      toast.error(businessError.message)
+      setCurrentStep(
+        businessError.field === "date_from" || businessError.field === "date_to"
+          ? 1
+          : 2,
+      )
       return
     }
 
@@ -377,7 +389,11 @@ export function LeaveForm({ mode, leaveId }: LeaveFormProps) {
 
         if (fieldErrors.date_from || fieldErrors.date_to) {
           setCurrentStep(1)
-        } else if (fieldErrors.leave_type_id || fieldErrors.leave_days) {
+        } else if (
+          fieldErrors.leave_type_id ||
+          fieldErrors.leave_days ||
+          fieldErrors.date_filed
+        ) {
           setCurrentStep(2)
         } else if (
           fieldErrors.reason ||

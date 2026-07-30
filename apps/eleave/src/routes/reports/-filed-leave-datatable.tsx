@@ -28,6 +28,7 @@ import {
   mapLeaveApplicationsToFiledLeaveReportRows,
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
+import { formatLeaveDayCount } from "@/routes/my-leave/leave-form/utils"
 import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
 import {
   CLASSIFICATION_FILTER_OPTIONS,
@@ -137,11 +138,11 @@ export function FiledLeaveDataTable({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{displayName}</p>
+                <p className="truncate text-sm font-semibold">{displayName}</p>
                 <p className="text-muted-foreground text-xs tabular-nums">
                   {item.employeeNo}
                 </p>
-                <p className="text-muted-foreground text-xs">{item.department}</p>
+                <p className="text-muted-foreground truncate text-xs">{item.department}</p>
               </div>
             </div>
           )
@@ -157,7 +158,7 @@ export function FiledLeaveDataTable({
             <div className="flex flex-col gap-0.5 py-1">
               <p className="text-sm">{item.leaveType}</p>
               <p className="text-muted-foreground text-xs">
-                {item.dates} · {item.days} day{item.days === 1 ? "" : "s"}
+                {item.dates} · {formatLeaveDayCount(item.days)}
               </p>
             </div>
           )
@@ -170,12 +171,12 @@ export function FiledLeaveDataTable({
           const item = row.original
 
           return (
-            <div className="flex max-w-xs flex-col gap-0.5 py-1">
-              <p className="line-clamp-1 text-sm" title={item.record.reason}>
+            <div className="flex max-w-xs min-w-0 flex-col gap-0.5 py-1">
+              <p className="line-clamp-1 whitespace-normal text-sm" title={item.record.reason}>
                 {item.record.reason?.trim() || "—"}
               </p>
               <p
-                className="text-muted-foreground line-clamp-1 text-xs"
+                className="text-muted-foreground line-clamp-1 whitespace-normal text-xs"
                 title={item.approvalsLabel}
               >
                 {item.approvalsLabel}
@@ -192,7 +193,7 @@ export function FiledLeaveDataTable({
           const label = item.hrRemarksLabel || "—"
 
           return (
-            <p className="line-clamp-2 max-w-xs text-sm" title={label}>
+            <p className="line-clamp-2 max-w-xs min-w-0 whitespace-normal text-sm" title={label}>
               {label}
             </p>
           )
@@ -227,7 +228,7 @@ export function FiledLeaveDataTable({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -247,8 +248,8 @@ export function FiledLeaveDataTable({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <label className="space-y-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="min-w-0 space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Leave date from
             </span>
@@ -256,11 +257,11 @@ export function FiledLeaveDataTable({
               type="date"
               value={dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
-              className="h-9 rounded-lg border-slate-300 bg-background shadow-sm"
+              className="h-9 w-full min-w-0 rounded-lg border-slate-300 bg-background shadow-sm"
             />
           </label>
 
-          <label className="space-y-1">
+          <label className="min-w-0 space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Leave date to
             </span>
@@ -268,16 +269,16 @@ export function FiledLeaveDataTable({
               type="date"
               value={dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
-              className="h-9 rounded-lg border-slate-300 bg-background shadow-sm"
+              className="h-9 w-full min-w-0 rounded-lg border-slate-300 bg-background shadow-sm"
             />
           </label>
 
-          <label className="space-y-1">
+          <label className="min-w-0 space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Status
             </span>
             <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+              <SelectTrigger className="h-9 w-full min-w-0 rounded-lg border-slate-300 shadow-sm">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -290,12 +291,12 @@ export function FiledLeaveDataTable({
             </Select>
           </label>
 
-          <label className="space-y-1">
+          <label className="min-w-0 space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Department
             </span>
             <Select value={departmentFilter} onValueChange={onDepartmentFilterChange}>
-              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+              <SelectTrigger className="h-9 w-full min-w-0 rounded-lg border-slate-300 shadow-sm">
                 <SelectValue placeholder="All departments" />
               </SelectTrigger>
               <SelectContent>
@@ -309,7 +310,7 @@ export function FiledLeaveDataTable({
             </Select>
           </label>
 
-          <label className="space-y-1">
+          <label className="min-w-0 space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Employment type
             </span>
@@ -317,7 +318,7 @@ export function FiledLeaveDataTable({
               value={employmentTypeFilter}
               onValueChange={onEmploymentTypeFilterChange}
             >
-              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+              <SelectTrigger className="h-9 w-full min-w-0 rounded-lg border-slate-300 shadow-sm">
                 <SelectValue placeholder="All employment types" />
               </SelectTrigger>
               <SelectContent>
@@ -330,7 +331,7 @@ export function FiledLeaveDataTable({
             </Select>
           </label>
 
-          <label className="space-y-1">
+          <label className="min-w-0 space-y-1">
             <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
               Classification
             </span>
@@ -338,7 +339,7 @@ export function FiledLeaveDataTable({
               value={classificationFilter}
               onValueChange={onClassificationFilterChange}
             >
-              <SelectTrigger className="h-9 w-full rounded-lg border-slate-300 shadow-sm">
+              <SelectTrigger className="h-9 w-full min-w-0 rounded-lg border-slate-300 shadow-sm">
                 <SelectValue placeholder="All classifications" />
               </SelectTrigger>
               <SelectContent>
@@ -369,6 +370,7 @@ export function FiledLeaveDataTable({
         columns={columns}
         styles={{
           searchbar: "pl-8",
+          wrapper: "min-w-0",
         }}
       />
 
