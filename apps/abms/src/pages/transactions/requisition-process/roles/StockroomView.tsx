@@ -47,6 +47,7 @@ export interface StockroomRow {
     location: string | null;
     from: string | null;
     for_liquidation?: boolean;
+    rstype?: string | null;
     note?: string | null;
 }
 

@@ -59,6 +59,7 @@ Canonical behavioral details remain in:
 - Finalized RS numbers come from a locked yearly sequence; unsaved drafts remain `0`, and finalized numbers are preserved.
 - Cashier Payee Details require form-specific classification: Supplier/Water uses VAT/Non-VAT, while Honorarium requires TIN and AdU/Non AdU Employee. Shared RS printing omits classifications that do not belong to the selected payment form.
 - Requisition Process Budget and Administration roles expose `RS to Process Today`, a worklist filter that includes every RS type and excludes only PNB Credit Card Payment; the filter action card now uses a single full-width Requery action.
+- The shared RS Process modal displays the stored RS type as `For Office Supplies`, `For Purchase`, or `For Cash Valued Items` in its unchanged metadata grid.
 - Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept typed Budget Request/Proposal Entry permissions. Entry-permission-only users see and may preview only the union of their assigned typed units, with a sole eligible unit selected automatically.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
 
