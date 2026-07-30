@@ -36,6 +36,8 @@ export type LeaveApplicationRecord = {
   cancellation_reason?: string | null
   cancelled_by?: string | null
   cancelled_by_teacher?: EmployeeTeacherRecord | null
+  hr_remarks_code?: string | null
+  hr_remarks?: string | null
   approver1_idno: string | null
   approver1_status: string | null
   approver1_remarks: string | null
@@ -219,6 +221,8 @@ export type HrApprovalItemPayload = {
 }
 
 export type HrApprovalPayload = {
+  hr_remarks_code?: string | null
+  hr_remarks?: string | null
   items: HrApprovalItemPayload[]
 }
 

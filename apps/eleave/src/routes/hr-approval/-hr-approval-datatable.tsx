@@ -19,7 +19,7 @@ import {
   type HrApprovalRow,
 } from "@/lib/map-hr-approval-row"
 import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
-import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
+import { formatDateShort, formatLeaveDayCount } from "@/routes/my-leave/leave-form/utils"
 
 function mapToRecordPagination(
   response: PaginatedLeaveApplicationsResponse | undefined,
@@ -124,8 +124,8 @@ export function HrApprovalDataTable({
                         {row.record.employee_no}
                       </p>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        {row.department} • {row.leaveType} • {row.dates} • {row.days}{" "}
-                        day{row.days === 1 ? "" : "s"}
+                        {row.department} • {row.leaveType} • {row.dates} •{" "}
+                        {formatLeaveDayCount(row.days)}
                       </p>
                       <p className="text-muted-foreground text-sm">
                         Filed on{" "}

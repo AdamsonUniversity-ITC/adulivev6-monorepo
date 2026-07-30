@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table"
+import { Textarea } from "@/components/ui/textarea"
 import {
   getDayPortionLabel,
   isWholeDayPortion,
@@ -40,16 +41,24 @@ import {
   canSplitLeaveDayDecision,
   hasHrApprovalDayDecisionChanged,
   mapChangedHrApprovalDayDecisionToPayloadItem,
+  mapHrApprovalDayDecisionToPayloadItem,
   mapLeaveApplicationsToHrApprovalRows,
   type HrApprovalDayDecision,
   type HrApprovalRow,
 } from "@/lib/map-hr-approval-row"
 import {
+  HR_REMARK_OPTIONS,
+  HR_REMARK_OTHERS_CODE,
+  isHrRemarkOthers,
+  normalizeHrRemarkCode,
+  resolveHrRemarkDisplayText,
+} from "@/lib/hr-remark-options"
+import {
   flattenHrStatusesFromDayDecision,
   resolveOverallStatusFromHrDayStatuses,
 } from "@/lib/resolve-hr-overall-status"
 import type { DayPortion } from "@/routes/my-leave/leave-form/schema"
-import { formatDateShort } from "@/routes/my-leave/leave-form/utils"
+import { formatDateShort, formatLeaveDayCount } from "@/routes/my-leave/leave-form/utils"
 import { OverallStatusBadge } from "@/routes/my-leave/-leave-status-badge"
 import { ForApprovalWorkflowTable } from "@/routes/for-approval/-for-approval-workflow-table"
 import { OtherInformationSection } from "@/components/shared/other-information-section"
@@ -247,6 +256,8 @@ export const ViewHrApprovalSheet = ({
   const queryClient = useQueryClient()
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = React.useState(false)
   const [dailyDraft, setDailyDraft] = React.useState<HrApprovalDayDecision[]>([])
+  const [hrRemarksCode, setHrRemarksCode] = React.useState<string>("")
+  const [hrRemarksCustom, setHrRemarksCustom] = React.useState("")
   const [actionError, setActionError] = React.useState<string | null>(null)
   const {
     data: leaveBalances = [],
@@ -271,6 +282,8 @@ export const ViewHrApprovalSheet = ({
     if (!open) {
       setIsApplyConfirmOpen(false)
       setDailyDraft([])
+      setHrRemarksCode("")
+      setHrRemarksCustom("")
       setActionError(null)
     }
   }, [open])
@@ -280,6 +293,13 @@ export const ViewHrApprovalSheet = ({
     // activeRequest reference, so the draft would otherwise stay cleared.
     if (open && activeRequest) {
       setDailyDraft(activeRequest.dailyDecisions.map((entry) => ({ ...entry })))
+      const savedCode = normalizeHrRemarkCode(activeRequest.record.hr_remarks_code) ?? ""
+      setHrRemarksCode(savedCode)
+      setHrRemarksCustom(
+        savedCode === HR_REMARK_OTHERS_CODE
+          ? (activeRequest.record.hr_remarks?.trim() ?? "")
+          : "",
+      )
       setIsApplyConfirmOpen(false)
       setActionError(null)
     }
@@ -330,7 +350,9 @@ export const ViewHrApprovalSheet = ({
       const fieldErrors = getValidationFieldErrors(error)
       const itemError = fieldErrors
         ? Object.entries(fieldErrors).find(([field]) =>
-            field.startsWith("items."),
+            field.startsWith("items.") ||
+            field === "hr_remarks" ||
+            field === "hr_remarks_code",
           )?.[1]
         : null
 
@@ -397,6 +419,24 @@ export const ViewHrApprovalSheet = ({
     })
   }
 
+  const hasApplicationHrRemarksChanged = (): boolean => {
+    const savedCode = normalizeHrRemarkCode(activeRequest?.record.hr_remarks_code)
+    const draftCode = normalizeHrRemarkCode(hrRemarksCode)
+
+    if (savedCode !== draftCode) {
+      return true
+    }
+
+    if (!isHrRemarkOthers(draftCode)) {
+      return false
+    }
+
+    const savedText = activeRequest?.record.hr_remarks?.trim() ?? ""
+    const draftText = hrRemarksCustom.trim()
+
+    return savedText !== draftText
+  }
+
   const buildPayload = (): HrApprovalPayload | null => {
     const applicationDatesById = new Map(
       (activeRequest?.record.leave_application_dates ?? []).map((applicationDate) => [
@@ -405,7 +445,8 @@ export const ViewHrApprovalSheet = ({
       ]),
     )
 
-    const items = dailyDraft
+    const remarksDirty = hasApplicationHrRemarksChanged()
+    let items = dailyDraft
       .map((entry) => {
         const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
 
@@ -417,11 +458,26 @@ export const ViewHrApprovalSheet = ({
       })
       .filter((item): item is NonNullable<typeof item> => item != null)
 
+    // Backend requires at least one day item; when only application remarks changed,
+    // resubmit every current day decision so the save can proceed.
+    if (items.length === 0 && remarksDirty) {
+      items = dailyDraft
+        .map((entry) => mapHrApprovalDayDecisionToPayloadItem(entry))
+        .filter((item): item is NonNullable<typeof item> => item != null)
+    }
+
     if (items.length === 0) {
       return null
     }
 
-    return { items }
+    const code = normalizeHrRemarkCode(hrRemarksCode)
+    const custom = isHrRemarkOthers(code) ? hrRemarksCustom : null
+
+    return {
+      hr_remarks_code: code,
+      hr_remarks: resolveHrRemarkDisplayText(code, custom),
+      items,
+    }
   }
 
   const validateDraft = (): string | null => {
@@ -441,8 +497,14 @@ export const ViewHrApprovalSheet = ({
       )
     })
 
-    if (!hasChangedDecision) {
-      return "No changes to apply. Update at least one day before saving."
+    const remarksDirty = hasApplicationHrRemarksChanged()
+
+    if (!hasChangedDecision && !remarksDirty) {
+      return "No changes to apply. Update at least one day or HR remarks before saving."
+    }
+
+    if (isHrRemarkOthers(hrRemarksCode) && hrRemarksCustom.trim() === "") {
+      return "Enter custom HR remarks when Others is selected."
     }
 
     for (const entry of dailyDraft) {
@@ -490,7 +552,7 @@ export const ViewHrApprovalSheet = ({
 
     const payload = buildPayload()
     if (!payload) {
-      setActionError("No changes to apply. Update at least one day before saving.")
+      setActionError("No changes to apply. Update at least one day or HR remarks before saving.")
       setIsApplyConfirmOpen(false)
       return
     }
@@ -521,7 +583,7 @@ export const ViewHrApprovalSheet = ({
     [activeRequest?.record.leave_application_dates],
   )
 
-  const hasDirtyChanges = dailyDraft.some((entry) => {
+  const hasDirtyDayChanges = dailyDraft.some((entry) => {
     const applicationDate = applicationDatesById.get(entry.leaveApplicationDateId)
 
     return (
@@ -529,6 +591,7 @@ export const ViewHrApprovalSheet = ({
       hasHrApprovalDayDecisionChanged(entry, applicationDate)
     )
   })
+  const hasDirtyChanges = hasDirtyDayChanges || hasApplicationHrRemarksChanged()
 
   const draftStatus = resolveOverallStatusFromHrDayStatuses(resolveDraftStatuses(dailyDraft))
   const displayStatus = readOnly ? (activeRequest?.status ?? "pending") : draftStatus
@@ -603,8 +666,7 @@ export const ViewHrApprovalSheet = ({
                   {activeRequest.dates}
                   <span className="text-muted-foreground text-xs">
                     {" "}
-                    • {activeRequest.days} day
-                    {activeRequest.days === 1 ? "" : "s"}
+                    • {formatLeaveDayCount(activeRequest.days)}
                   </span>
                 </p>
               </div>
@@ -1015,6 +1077,53 @@ export const ViewHrApprovalSheet = ({
                     })}
                   </TableBody>
                 </Table>
+              </div>
+
+              <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                  HR Remarks
+                </p>
+                {readOnly ? (
+                  <p className="text-sm font-medium whitespace-pre-wrap">
+                    {activeRequest.record.hr_remarks?.trim() || "—"}
+                  </p>
+                ) : (
+                  <>
+                    <Select
+                      value={hrRemarksCode || undefined}
+                      onValueChange={(value) => {
+                        setHrRemarksCode(value)
+                        if (!isHrRemarkOthers(value)) {
+                          setHrRemarksCustom("")
+                        }
+                        setActionError(null)
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-full max-w-xl rounded-lg border-slate-300 bg-background shadow-sm">
+                        <SelectValue placeholder="Select HR remarks" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {HR_REMARK_OPTIONS.map((option) => (
+                          <SelectItem key={option.code} value={option.code}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isHrRemarkOthers(hrRemarksCode) ? (
+                      <Textarea
+                        value={hrRemarksCustom}
+                        onChange={(event) => {
+                          setHrRemarksCustom(event.target.value)
+                          setActionError(null)
+                        }}
+                        placeholder="Enter custom HR remarks"
+                        rows={3}
+                        className="max-w-xl resize-y bg-background"
+                      />
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
 

@@ -16,8 +16,9 @@ import { CalendarDays, ClipboardList } from "lucide-react"
 import * as React from "react"
 import type { UseFormReturn } from "react-hook-form"
 
+import { useLeaveBalances } from "@/hooks/use-leave-balances"
+import { useMyEmployeeHrProfile } from "@/hooks/use-employee-hr-profile"
 import { useLeaveTypes } from "@/hooks/use-leave-types"
-import { validateLeaveFilingTiming } from "@/lib/validate-leave-filing-timing"
 import { cn } from "@/lib/utils"
 
 import {
@@ -26,6 +27,11 @@ import {
   type LeaveFormValues,
 } from "../schema"
 import { formatLeaveDay, formatLeaveDayCount, sumLeaveDayCredits } from "../utils"
+import {
+  clearResolvedLeaveFormErrors,
+  getLeaveTypeBusinessError,
+  type LeaveFormRules,
+} from "../validation"
 import { StepSection, stepFieldClassName } from "./-step-section"
 
 type TypeDaysStepProps = {
@@ -52,6 +58,8 @@ export function TypeDaysStep({ form, canSelectEvening }: TypeDaysStepProps) {
   const totalDays = sumLeaveDayCredits(leaveDays)
   const bulkDayPortion = getCommonDayPortion(leaveDays)
   const { data: leaveTypes = [], isLoading, isError } = useLeaveTypes()
+  const { data: leaveBalances = [] } = useLeaveBalances()
+  const { data: myHrProfile } = useMyEmployeeHrProfile()
 
   const applyDayPortionToAll = (portion: DayPortion) => {
     form.setValue(
@@ -59,38 +67,35 @@ export function TypeDaysStep({ form, canSelectEvening }: TypeDaysStepProps) {
       leaveDays.map((day) => ({ ...day, day_portion: portion })),
       { shouldDirty: true, shouldValidate: true },
     )
-    form.clearErrors("leave_days")
   }
 
-  const syncLeaveTypeTimingError = React.useCallback(
-    (nextLeaveTypeId: string) => {
-      if (!nextLeaveTypeId || !dateFrom || !dateTo) {
-        form.clearErrors("leave_type_id")
-        return
-      }
-
-      const leaveType = leaveTypes.find((type) => String(type.id) === nextLeaveTypeId)
-      if (!leaveType) {
-        form.clearErrors("leave_type_id")
-        return
-      }
-
-      const message = validateLeaveFilingTiming(leaveType, dateFrom, dateTo)
-      if (message) {
-        form.setError("leave_type_id", { message })
-        return
-      }
-
-      form.clearErrors("leave_type_id")
-    },
-    [dateFrom, dateTo, form, leaveTypes],
+  const validationRules = React.useMemo<LeaveFormRules>(
+    () => ({
+      canSelectEvening,
+      leaveTypes,
+      leaveBalances,
+      birthdate: myHrProfile?.birthdate,
+    }),
+    [canSelectEvening, leaveBalances, leaveTypes, myHrProfile?.birthdate],
   )
 
-  React.useEffect(() => {
-    if (leaveTypeId) {
-      syncLeaveTypeTimingError(leaveTypeId)
+  const syncLeaveTypeBusinessErrors = React.useCallback(() => {
+    const businessError = getLeaveTypeBusinessError(
+      form.getValues(),
+      validationRules,
+    )
+
+    if (businessError) {
+      form.setError(businessError.field, { message: businessError.message })
+      return
     }
-  }, [leaveTypeId, syncLeaveTypeTimingError])
+
+    clearResolvedLeaveFormErrors(form, "leave_type_id", validationRules)
+  }, [form, validationRules])
+
+  React.useEffect(() => {
+    syncLeaveTypeBusinessErrors()
+  }, [dateFrom, dateTo, leaveDays, leaveTypeId, syncLeaveTypeBusinessErrors])
 
   return (
     <div className="space-y-4">
@@ -108,7 +113,7 @@ export function TypeDaysStep({ form, canSelectEvening }: TypeDaysStepProps) {
               <Select
                 onValueChange={(value) => {
                   field.onChange(value)
-                  syncLeaveTypeTimingError(value)
+                  syncLeaveTypeBusinessErrors()
                 }}
                 value={field.value}
                 disabled={isLoading || isError}

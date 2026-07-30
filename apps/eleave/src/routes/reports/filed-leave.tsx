@@ -8,6 +8,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router"
 import { FolderOpen, Printer } from "lucide-react"
 import * as React from "react"
+import ReactDOM from "react-dom"
 
 import { useDataTable } from "@/components/shared/datatable"
 import {
@@ -174,22 +175,27 @@ function FiledLeavePage() {
         mapLeaveApplicationsToFiledLeaveReportRows(records, leaveTypeNames),
       )
 
-      setPrintRows(rows)
-      setPrintedAt(new Date())
-      window.requestAnimationFrame(() => window.print())
+      // Commit the print markup before window.print() so the print snapshot
+      // includes every row instead of the previous (or empty) render.
+      ReactDOM.flushSync(() => {
+        setPrintRows(rows)
+        setPrintedAt(new Date())
+      })
+
+      window.print()
     } finally {
       setIsPrinting(false)
     }
   }, [leaveTypeNames, listParams])
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-6 sm:space-y-8">
       <div className="flex flex-col gap-3 rounded-2xl border border-amber-200/80 bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.14),_transparent_55%),linear-gradient(90deg,_#fef3c7_0%,_#fffbeb_52%,_#ffffff_100%)] p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
-        <div>
+        <div className="min-w-0">
           <p className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-amber-900 shadow-sm">
             Reports
           </p>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="mt-3 text-xl font-semibold tracking-tight sm:text-3xl">
             Filed Leave
           </h1>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base">
@@ -200,7 +206,7 @@ function FiledLeavePage() {
         <Button
           type="button"
           size="lg"
-          className="shadow-sm"
+          className="w-full shadow-sm sm:w-auto"
           onClick={() => void handlePrint()}
           disabled={isPrinting}
         >
@@ -210,17 +216,19 @@ function FiledLeavePage() {
       </div>
 
       <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="border-b bg-muted/20 px-6 py-5">
+        <CardHeader className="border-b bg-muted/20 px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
             <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
               <FolderOpen className="size-4" />
             </div>
             <div>
-              <CardTitle className="text-lg">Leave applications</CardTitle>
+              <CardTitle className="text-base sm:text-lg">
+                Leave applications
+              </CardTitle>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="px-6 py-5">
+        <CardContent className="min-w-0 px-4 py-4 sm:px-6 sm:py-5">
           <FiledLeaveDataTable
             tanstack={{ hook: tanstackHook }}
             response={paginatedResponse}

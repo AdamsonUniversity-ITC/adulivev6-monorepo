@@ -16,6 +16,7 @@ import {
   resolveEmploymentTypeLabel,
 } from "./-report-employment-filters"
 import * as React from "react"
+import ReactDOM from "react-dom"
 
 type FiledLeaveAfterCutoffPrintProps = {
   rows: FiledLeaveReportRow[]
@@ -76,7 +77,7 @@ export function FiledLeaveAfterCutoffPrint({
     filterSummary.dateTo,
   )
 
-  return (
+  return ReactDOM.createPortal(
     <section
       className="eleave-filed-leave-after-cutoff-print hidden print:block"
       aria-hidden
@@ -84,19 +85,19 @@ export function FiledLeaveAfterCutoffPrint({
       <style>{`
         @media print {
           @page {
-            margin: 0.25in;
+            margin: 0.25in 0.25in 0.5in 0.25in;
           }
-          body * {
-            visibility: hidden;
+          html,
+          body {
+            height: auto !important;
+            overflow: visible !important;
           }
-          .eleave-filed-leave-after-cutoff-print,
-          .eleave-filed-leave-after-cutoff-print * {
-            visibility: visible;
+          body > *:not(.eleave-filed-leave-after-cutoff-print) {
+            display: none !important;
           }
           .eleave-filed-leave-after-cutoff-print {
-            position: absolute;
-            left: 0;
-            top: 0;
+            display: block !important;
+            position: static;
             width: 100%;
             padding: 0;
           }
@@ -220,6 +221,7 @@ export function FiledLeaveAfterCutoffPrint({
       <p className="mt-3 text-xs text-slate-600">
         {rows.length} leave application{rows.length === 1 ? "" : "s"}
       </p>
-    </section>
+    </section>,
+    document.body,
   )
 }

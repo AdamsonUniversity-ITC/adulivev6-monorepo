@@ -54,12 +54,12 @@ function RootComponent() {
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="min-w-0 overflow-x-hidden">
           <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger />
             <span className="font-medium">E-Leave</span>
           </header>
-          <div className="flex flex-1 flex-col p-4">
+          <div className="flex min-w-0 flex-1 flex-col p-4">
             <Outlet />
           </div>
         </SidebarInset>
