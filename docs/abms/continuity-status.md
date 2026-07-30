@@ -57,6 +57,8 @@ Canonical behavioral details remain in:
 - Every browser report preview exposes a shared `.xlsx` export beside Print. The workbook preserves the visible report hierarchy and backend totals, stores recognized money/percentage/quantity cells numerically, and applies readable wrapping and Letter-landscape settings.
 - Core production financial mutations use UUID idempotency keys and replay completed identical requests without repeating writes.
 - Finalized RS numbers come from a locked yearly sequence; unsaved drafts remain `0`, and finalized numbers are preserved.
+- Cashier Payee Details require form-specific classification: Supplier/Water uses VAT/Non-VAT, while Honorarium requires TIN and AdU/Non AdU Employee. Shared RS printing omits classifications that do not belong to the selected payment form.
+- Requisition Process Budget and Administration roles expose `RS to Process Today`, a worklist filter that includes every RS type and excludes only PNB Credit Card Payment; the filter action card now uses a single full-width Requery action.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
 
 ## Resume Checklist

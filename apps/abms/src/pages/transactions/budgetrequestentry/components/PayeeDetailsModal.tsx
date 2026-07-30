@@ -10,6 +10,7 @@ export interface PayeeDetails {
     payee: string;
     tinNo: string;
     aduEmployee: boolean;
+    nonAduEmployee: boolean;
     nonVatRegistered: boolean;
     vatRegistered: boolean;
     mopCheque: boolean;
@@ -24,6 +25,7 @@ export const EMPTY_PAYEE: PayeeDetails = {
     payee: '',
     tinNo: '',
     aduEmployee: false,
+    nonAduEmployee: false,
     nonVatRegistered: false,
     vatRegistered: false,
     mopCheque: false,
@@ -109,8 +111,11 @@ export function PayeeDetailsModal({
     const isSupplierPayment = paymentForm === 'Payment for Supplier/Water';
     const isHonorariumPayment = paymentForm === 'Payment for Honorarium';
     const hasSupplierClassification = form.vatRegistered !== form.nonVatRegistered;
+    const hasHonorariumClassification = form.aduEmployee !== form.nonAduEmployee;
     const isValid = form.payee.trim() !== ''
-        && (!isSupplierPayment || (/^\d{1,20}$/.test(form.tinNo) && hasSupplierClassification))
+        && (!(isSupplierPayment || isHonorariumPayment) || /^\d{1,20}$/.test(form.tinNo))
+        && (!isSupplierPayment || hasSupplierClassification)
+        && (!isHonorariumPayment || hasHonorariumClassification)
         && (form.mopCheque || form.mopBankTransfer) &&
         (!form.mopBankTransfer || (form.bankName !== '' && form.accountName.trim() !== '' && form.accountNumber.trim() !== ''));
 
@@ -186,7 +191,7 @@ export function PayeeDetailsModal({
                     {/* TIN No. */}
                     <div style={{ marginBottom: 14 }}>
                         <label style={labelStyle}>
-                            TIN No. {isSupplierPayment && <span style={{ color: '#f87171' }}>*</span>}
+                            TIN No. {(isSupplierPayment || isHonorariumPayment) && <span style={{ color: '#f87171' }}>*</span>}
                         </label>
                         <input
                             style={inputStyle}
@@ -203,17 +208,32 @@ export function PayeeDetailsModal({
 
                     {/* Classification checkboxes */}
                     <div style={{ marginBottom: 16 }}>
-                        <div style={sectionHead}>Classification</div>
-                        {!isSupplierPayment && (
-                            <CheckRow
-                                checked={form.aduEmployee}
-                                onChange={v => set('aduEmployee', v)}
-                                label="AdU Employee"
-                                t={t}
-                                isDark={isDark}
-                            />
+                        <div style={sectionHead}>Classification <span style={{ color: '#f87171' }}>*</span></div>
+                        {isHonorariumPayment && (
+                            <>
+                                <CheckRow
+                                    checked={form.aduEmployee}
+                                    onChange={v => {
+                                        set('aduEmployee', v);
+                                        if (v) set('nonAduEmployee', false);
+                                    }}
+                                    label="AdU Employee"
+                                    t={t}
+                                    isDark={isDark}
+                                />
+                                <CheckRow
+                                    checked={form.nonAduEmployee}
+                                    onChange={v => {
+                                        set('nonAduEmployee', v);
+                                        if (v) set('aduEmployee', false);
+                                    }}
+                                    label="Non AdU Employee"
+                                    t={t}
+                                    isDark={isDark}
+                                />
+                            </>
                         )}
-                        {!isHonorariumPayment && (
+                        {isSupplierPayment && (
                             <>
                                 <CheckRow
                                     checked={form.nonVatRegistered}
@@ -359,6 +379,7 @@ export function PayeeDetailsModal({
                             onConfirm({
                                 ...form,
                                 aduEmployee: isSupplierPayment ? false : form.aduEmployee,
+                                nonAduEmployee: isSupplierPayment ? false : form.nonAduEmployee,
                                 nonVatRegistered: isHonorariumPayment ? false : form.nonVatRegistered,
                                 vatRegistered: isHonorariumPayment ? false : form.vatRegistered,
                             });

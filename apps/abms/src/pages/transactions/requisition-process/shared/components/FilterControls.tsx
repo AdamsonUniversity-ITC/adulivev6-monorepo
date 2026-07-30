@@ -100,9 +100,19 @@ interface FilterActionButtonProps {
     variant?: 'secondary' | 'primary';
     onClick?: () => void;
     t: Theme;
+    fullWidth?: boolean;
+    fullHeight?: boolean;
 }
 
-export function FilterActionButton({ label, icon: Icon, variant = 'secondary', onClick, t }: FilterActionButtonProps) {
+export function FilterActionButton({
+    label,
+    icon: Icon,
+    variant = 'secondary',
+    onClick,
+    t,
+    fullWidth = false,
+    fullHeight = false,
+}: FilterActionButtonProps) {
     const style = variant === 'primary' ? t.btnPrimary : t.btnRefresh;
     return (
         <button
@@ -110,10 +120,10 @@ export function FilterActionButton({ label, icon: Icon, variant = 'secondary', o
             style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 5,
+                gap: fullHeight ? 8 : 5,
                 padding: '6px 13px',
                 borderRadius: 7,
-                fontSize: 11,
+                fontSize: fullHeight ? 15 : 11,
                 fontWeight: 700,
                 border: `1px solid ${style.border}`,
                 background: style.bg,
@@ -121,11 +131,18 @@ export function FilterActionButton({ label, icon: Icon, variant = 'secondary', o
                 cursor: 'pointer',
                 transition: 'background .14s ease',
                 whiteSpace: 'nowrap',
+                width: fullWidth ? '100%' : undefined,
+                height: fullHeight ? '100%' : undefined,
+                minHeight: fullHeight ? 44 : undefined,
+                justifyContent: fullWidth ? 'center' : undefined,
             }}
             onMouseEnter={e => (e.currentTarget.style.background = style.hover)}
             onMouseLeave={e => (e.currentTarget.style.background = style.bg)}
         >
-            <Icon style={{ width: 11, height: 11 }} />
+            <Icon style={{
+                width: fullHeight ? 15 : 11,
+                height: fullHeight ? 15 : 11,
+            }} />
             {label}
         </button>
     );

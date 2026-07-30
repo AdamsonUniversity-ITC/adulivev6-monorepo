@@ -163,12 +163,15 @@ export function PayeeDetailsViewModal({
                     {/* Classification */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification</div>
-                        {!isSupplierPayment && (
-                            <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" t={t} isDark={isDark} />
-                        )}
-                        {!isHonorariumPayment && (
+                        {isHonorariumPayment && (
                             <>
-                                <ReadonlyCheck checked={!!detail && !detail.is_vat_registered && !detail.is_adu_employee} label="Non-VAT Registered" t={t} isDark={isDark} />
+                                <ReadonlyCheck checked={!!detail?.is_adu_employee} label="AdU Employee" t={t} isDark={isDark} />
+                                <ReadonlyCheck checked={!!detail && !detail.is_adu_employee} label="Non AdU Employee" t={t} isDark={isDark} />
+                            </>
+                        )}
+                        {isSupplierPayment && (
+                            <>
+                                <ReadonlyCheck checked={!!detail && !detail.is_vat_registered} label="Non-VAT Registered" t={t} isDark={isDark} />
                                 <ReadonlyCheck checked={!!detail?.is_vat_registered} label="VAT Registered" t={t} isDark={isDark} />
                             </>
                         )}
