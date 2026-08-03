@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-07-30
+Last verified: 2026-08-03
 
 ## Purpose
 
@@ -85,6 +85,8 @@ The shared filter action card contains only Requery; the obsolete View RS action
 Budget Request Entry treats payment form and payee details as Cashier-only header data. The New RS modal requires a payment form for Cash Valued Items, while Stockroom and Logistics omit Payee entry and the API strips any stale values submitted for those types. Supplier/Water payees require a numeric TIN and exactly one VAT classification with AdU Employee disabled; Honorarium payees retain the AdU Employee option but omit and clear VAT classifications.
 
 The shared RS Process modal preloads the selected RS attachment list and displays its total on the View Files toolbar action. This is a total-file count only, has no read/unread meaning, and reuses the preloaded list when the attachment viewer opens. Its existing information band also displays a compact request-type badge after the Date, styled consistently with the RS number/status metadata and without adding a grid row: Stockroom is `For Office Supplies`, Logistics is `For Purchase`, and Cashier is `For Cash Valued Items`.
+
+The shared RS print preview used by Requisition Process and Budget Request Entry defaults to US Letter portrait and exposes its paper selector beside Print. Fixed presets include Half Legal Crosswise (`8.5in × 7in`) plus Letter, Legal, and A4 in portrait and landscape orientations; the screen sheet follows the selected dimensions. Printer Default / Any Paper uses CSS `@page size: auto` so the browser and installed printer driver control the physical paper. Half Legal uses a dedicated compact layout, while long item lists may continue to another page rather than overlap or silently omit content.
 
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
 

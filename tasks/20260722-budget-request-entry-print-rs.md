@@ -22,6 +22,9 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Do not show Print RS for an unsaved requisition whose requisition number is `0`.
 - Keep Print RS absent from the initial creation modal.
 - Preserve existing view, editing, chat, file, and save behavior.
+- Keep US Letter portrait as the default and add a paper selector beside Print in the shared preview.
+- Support Half Legal Crosswise (`8.5in × 7in`), Letter/Legal/A4 portrait and landscape, and Printer Default / Any Paper.
+- Make fixed-format previews reflect their paper dimensions and use compact, readable half-legal spacing without overlapping content.
 
 ---
 
@@ -35,6 +38,10 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Closing the preview returns to the same RS view.
 - An unsaved RS with requisition number `0` has no Print RS action.
 - Initial RS creation has no Print RS action.
+- Selecting Half Legal Crosswise applies an `8.5in × 7in` preview and print page while retaining all RS sections.
+- Selecting a fixed Letter, Legal, or A4 preset applies its matching dimensions and orientation.
+- Selecting Printer Default / Any Paper uses `@page size: auto` so the browser and printer driver control the paper.
+- Paper controls are excluded from print, and long requisitions flow to another page rather than overlap or disappear.
 - Targeted lint and the ABMS production build succeed.
 
 ---
@@ -43,7 +50,7 @@ Allow the requester to print a created requisition from the Budget Request Entry
 
 **Inputs:**
 
-- A created Budget Request Entry requisition header, items, and optional payee details.
+- A created Budget Request Entry requisition header, items, optional payee details, and selected paper format.
 
 **Outputs:**
 
@@ -75,6 +82,8 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Missing account ID or account resolution failure.
 - Empty or legacy note, payment form, or requester name.
 - Preview closed without printing.
+- A printer driver that does not expose a selected physical paper size.
+- Long descriptions or item lists that require another printed page.
 
 ---
 
@@ -84,3 +93,4 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Printing is read-only and does not change requisition or balance state.
 - Verification: targeted ESLint, the ABMS production build, and diff checks passed. The shared Requisition Process preview is reused without backend changes.
 - Follow-up: raised the shared print overlay above the Budget Request Entry modal stacking layers after verifying the view modal uses z-index `99999`.
+- Follow-up (2026-08-03): added shared paper presets and compact Half Legal Crosswise output. Full-project lint still has unrelated existing debt; targeted `RSPrintPreview.tsx` lint, build, and diff checks pass.

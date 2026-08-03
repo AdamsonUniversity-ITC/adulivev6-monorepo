@@ -1,6 +1,6 @@
 # ABMS Continuity Status
 
-Last verified: 2026-07-30
+Last verified: 2026-08-03
 
 ## Current Scope
 
@@ -60,6 +60,7 @@ Canonical behavioral details remain in:
 - Cashier Payee Details require form-specific classification: Supplier/Water uses VAT/Non-VAT, while Honorarium requires TIN and AdU/Non AdU Employee. Shared RS printing omits classifications that do not belong to the selected payment form.
 - Requisition Process Budget and Administration roles expose `RS to Process Today`, a worklist filter that includes every RS type and excludes only PNB Credit Card Payment; the filter action card now uses a single full-width Requery action.
 - The shared RS Process modal displays the stored RS type as `For Office Supplies`, `For Purchase`, or `For Cash Valued Items` in its unchanged metadata grid.
+- The shared RS print preview defaults to US Letter portrait and offers Half Legal Crosswise (`8.5in × 7in`), common Letter/Legal/A4 portrait and landscape presets, and a browser-controlled Printer Default / Any Paper mode.
 - Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept typed Budget Request/Proposal Entry permissions. Entry-permission-only users see and may preview only the union of their assigned typed units, with a sole eligible unit selected automatically.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
 
