@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-08-03
+Last verified: 2026-08-04
 
 ## Shared Financial Identity
 
@@ -231,7 +231,7 @@ Last verified: 2026-08-03
 - Shared report typography uses a 15px base, 13px table cells, 26px/17px primary titles, 15px/14px group headings, 11px badges, and 12px footers for improved readability. Report-specific column widths, indentation, and alignment remain authoritative; content may flow onto additional pages instead of being reduced to fit.
 - Shared report metadata reserves a responsive label column and an explicit label/value gap. Long metadata, headings, unit/account names, and table text wrap within their assigned printable area instead of overlapping adjacent content; total blocks remain capped to the report width.
 - Tables must remain within the printable width and repeat table headers across printed pages.
-- The shared Requisition Slip preview used by Requisition Process and Budget Request Entry defaults to US Letter portrait (`8.5in × 11in`) and uses `0.2in` browser page margins. Its paper selector also supports Half Legal Crosswise (`8.5in × 7in`), Letter/Legal/A4 portrait and landscape presets, and Printer Default / Any Paper (`@page size: auto`). Fixed presets make the preview match the declared print sheet; half-legal output uses compact spacing while long content flows to another page instead of overlapping.
+- The shared Requisition Slip preview used by Requisition Process and Budget Request Entry defaults to US Letter portrait (`8.5in × 11in`) with a `0.2in` margin. Its selector also supports Half Legal Crosswise (`8.5in × 7in`), Letter/Legal/A4 portrait and landscape presets, and Printer Default / Any Paper (`@page size: auto`). Non-default fixed formats use matching `0.3in` preview/print safety margins and explicit physical content dimensions instead of fluid print width. Half-legal output uses compact spacing; printers without custom half-legal media can print it on the top half of full Legal portrait paper and cut at the guide. Long content flows to another page instead of overlapping.
 - Do not render hardcoded page numbers because browser pagination depends on content and print settings.
 - Allow long account and requisition groups to flow across pages while keeping individual rows, headings, subtotals, totals, and footers together where practical.
 
