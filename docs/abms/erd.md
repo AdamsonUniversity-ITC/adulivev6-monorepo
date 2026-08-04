@@ -288,7 +288,7 @@ erDiagram
 ## Relationship and Integrity Notes
 
 - `accounts.parent_id` is the only account hierarchy. Duplicate root and sibling codes are valid; root and child uniqueness triggers/indexes have been removed or relaxed. Lookup indexes may remain non-unique.
-- `sub_accounts.account_id` normally references a child account and `sub_accounts.proposal_id` references its owning proposal. Its name is historical; it represents an allocation.
+- `sub_accounts.account_id` normally references a child account and `sub_accounts.proposal_id` references its owning proposal. Its name is historical; it represents an allocation. A positive Budget Adjustment may create a missing allocation under one existing current-year typed-unit proposal with `total_cost`, `approved_total_cost`, and `unused_amount` at zero and `balance` equal to the adjustment net; it does not create a proposal item or change approved/proposed totals.
 - A requisition item's `account_id` is its current authoritative allocation identity. During the guarded Budget-review stage it may be reassigned only by atomically refunding the old scoped allocation and debiting the new scoped allocation; `account_code` is refreshed from the selected server-side Account for display and audit history.
 - Proposal, adjustment, and requisition ownership uses a department/section XOR. Database columns are nullable, so requests and services enforce the invariant.
 - Organization and teacher relations cross database connections and may not have physical foreign keys.

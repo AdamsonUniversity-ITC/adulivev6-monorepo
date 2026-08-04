@@ -208,6 +208,14 @@ interface AdjustmentEntry {
     sub_account:  Account | null;
 }
 
+interface CreateAdjustmentResponse {
+    entry: AdjustmentEntry;
+    allocation_created?: boolean;
+    allocation_id?: number;
+    allocation_balance?: string;
+    proposal_balance?: string;
+}
+
 interface CursorPage<T> {
     data:          T[];
     next_cursor:   string | null;
@@ -706,7 +714,7 @@ function AddAdjustmentModal({
     currentSchoolYear,
 }: {
     onClose:            () => void;
-    onSuccess:          (entry: AdjustmentEntry) => void;
+    onSuccess:          (entry: AdjustmentEntry, allocationCreated: boolean) => void;
     t:                  typeof T.dark;
     isDark:             boolean;
     units:              UnitOption[];
@@ -782,9 +790,9 @@ function AddAdjustmentModal({
                 deduction:       parseFloat(form.deduction)  || 0,
             };
 
-            const { data } = await financeSvc.post('/abms/budget-adjustment-entry', payload);
+            const { data } = await financeSvc.post<CreateAdjustmentResponse>('/abms/budget-adjustment-entry', payload);
 
-            onSuccess(data.entry as AdjustmentEntry);
+            onSuccess(data.entry, data.allocation_created === true);
             onClose();
         } catch (err: any) {
             const serverErrors = err?.response?.data?.errors as Record<string, string[]> | undefined;
@@ -1810,15 +1818,17 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
     }, [searchRaw, fetchEntries]);
 
     // ── On successful create: prepend to list + show toast ───────────────────
-    function handleEntryCreated(newEntry: AdjustmentEntry) {
+    function handleEntryCreated(newEntry: AdjustmentEntry, allocationCreated: boolean) {
         setEntries(prev => {
             if (!prev) return prev;
             return { ...prev, data: [newEntry, ...prev.data] };
         });
         addToast(
             'success',
-            'Adjustment entry saved',
-            `"${newEntry.description}" was created successfully.`,
+            allocationCreated ? 'Account allocation created' : 'Adjustment entry saved',
+            allocationCreated
+                ? `"${newEntry.description}" created the account allocation and added its opening balance.`
+                : `"${newEntry.description}" was created successfully.`,
         );
     }
 

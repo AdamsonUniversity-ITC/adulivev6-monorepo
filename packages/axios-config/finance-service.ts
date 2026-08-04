@@ -17,7 +17,7 @@ type IdempotentConfig = InternalAxiosRequestConfig & {
     __financialFingerprint?: string;
 };
 
-const financialMutation = /^\/?abms\/(?:budget-proposal-entry\/save|budget-request-entry(?:\/?$|\/items(?:\/\d+)?$|\/\d+\/items$|\/\d+\/save$|\/\d+$)|requisition-process\/\d+(?:\/items|\/quoted-prices|\/accept-quoted-prices)?$|liquidation-submission\/rs\/\d+\/returned-amounts$)/;
+const financialMutation = /^\/?abms\/(?:budget-proposal-entry\/save|budget-adjustment-entry(?:\/?$|\/\d+$)|budget-request-entry(?:\/?$|\/items(?:\/\d+)?$|\/\d+\/items$|\/\d+\/save$|\/\d+$)|requisition-process\/\d+(?:\/items|\/quoted-prices|\/accept-quoted-prices)?$|liquidation-submission\/rs\/\d+\/returned-amounts$)/;
 const storagePrefix = 'abms-financial-idempotency:';
 
 const createUuid = (): string => {

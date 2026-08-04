@@ -13,8 +13,10 @@ Last verified: 2026-08-04
 ## Budget Adjustment Entry
 
 - New adjustment entries always use `budget_settings.current_school_year`; the backend derives this value and does not trust a client-supplied school year.
-- Creation fails without changing balances when the current school year is not configured or no matching current-year typed-unit allocation exists.
+- Creation resolves exactly one live proposal by current school year and typed Department/Section. When its selected child account has no current or historical allocation, a positive net adjustment creates a zero-proposed/zero-approved allocation whose opening balance equals the adjustment net; proposal items and approved/proposed totals remain unchanged.
+- A missing allocation is not created for a zero/negative net adjustment, a missing/duplicate proposal, duplicate allocation, or matching soft-deleted allocation. All such cases fail without partial writes.
 - Existing adjustment school years remain immutable. Editing or deleting a historical adjustment continues to resolve and reverse its originally stored school-year allocation.
+- Adjustment create, update, and delete use integer cents, locked atomic balance changes, the Proposal Entry typed-unit advisory lock where creation is possible, transaction retries, and financial idempotency keys. Reversal retains an adjustment-created allocation at zero and fails if its funds have already been consumed.
 
 ## Frontend Page Permission Boundaries
 

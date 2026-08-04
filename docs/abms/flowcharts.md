@@ -57,12 +57,17 @@ flowchart TD
     A[Open add-adjustment modal] --> B[Display current school year from Budget Settings]
     B --> C[Submit typed unit, account IDs, description, and amounts]
     C --> D[Backend resolves current school year from Budget Settings]
-    D --> E{Current year configured and exact allocation exists?}
-    E -- No --> X[Return validation error; change nothing]
-    E -- Yes --> F[Lock current-year allocation and proposal]
-    F --> G{Resulting balances remain nonnegative?}
-    G -- No --> X
-    G -- Yes --> H[Create adjustment with current school year and update balances atomically]
+    D --> E[Resolve and lock exactly one typed-unit proposal]
+    E --> F{Exact live allocation exists?}
+    F -- Yes --> G[Lock existing allocation]
+    F -- No --> H{Positive net and no deleted or duplicate allocation?}
+    H -- No --> X[Return validation error; change nothing]
+    H -- Yes --> I[Create zero-approved allocation with opening balance]
+    G --> J[Project allocation and proposal balances in integer cents]
+    I --> J
+    J --> K{Balances nonnegative and within schema range?}
+    K -- No --> X
+    K -- Yes --> L[Create adjustment and commit allocation and proposal balances atomically]
 ```
 
 ## Requisition and Balance Lifecycle
