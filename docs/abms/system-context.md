@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-08-03
+Last verified: 2026-08-04
 
 ## Purpose
 
@@ -86,7 +86,7 @@ Budget Request Entry treats payment form and payee details as Cashier-only heade
 
 The shared RS Process modal preloads the selected RS attachment list and displays its total on the View Files toolbar action. This is a total-file count only, has no read/unread meaning, and reuses the preloaded list when the attachment viewer opens. Its existing information band also displays a compact request-type badge after the Date, styled consistently with the RS number/status metadata and without adding a grid row: Stockroom is `For Office Supplies`, Logistics is `For Purchase`, and Cashier is `For Cash Valued Items`.
 
-The shared RS print preview used by Requisition Process and Budget Request Entry defaults to US Letter portrait and exposes its paper selector beside Print. Fixed presets include Half Legal Crosswise (`8.5in × 7in`) plus Letter, Legal, and A4 in portrait and landscape orientations; the screen sheet follows the selected dimensions. Printer Default / Any Paper uses CSS `@page size: auto` so the browser and installed printer driver control the physical paper. Half Legal uses a dedicated compact layout, while long item lists may continue to another page rather than overlap or silently omit content.
+The shared RS print preview used by Requisition Process and Budget Request Entry defaults to US Letter portrait and exposes its paper selector beside Print. Fixed presets include Half Legal Crosswise (`8.5in × 7in`) plus Letter, Legal, and A4 in portrait and landscape orientations; the screen sheet follows the selected dimensions. Printer Default / Any Paper uses CSS `@page size: auto` so the browser and installed printer driver control the physical paper. Fixed formats declare both their CSS page and explicit printable content dimensions so a driver fallback does not stretch the layout. Half Legal uses compact spacing and matching `0.3in` preview/print safety margins. When a printer cannot register custom `8.5in × 7in` media, Half Legal on Full Legal Sheet prints the compact RS in the top half of standard Legal portrait paper with a crosswise cut guide. Long item lists may continue to another page rather than overlap or silently omit content.
 
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
 

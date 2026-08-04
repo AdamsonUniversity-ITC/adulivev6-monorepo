@@ -25,6 +25,8 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Keep US Letter portrait as the default and add a paper selector beside Print in the shared preview.
 - Support Half Legal Crosswise (`8.5in × 7in`), Letter/Legal/A4 portrait and landscape, and Printer Default / Any Paper.
 - Make fixed-format previews reflect their paper dimensions and use compact, readable half-legal spacing without overlapping content.
+- Keep fixed-format print canvases at explicit physical dimensions so a driver fallback does not stretch the RS to fill a different sheet.
+- Offer Half Legal on Full Legal Sheet as a reliable fallback for printer drivers that do not support custom `8.5in × 7in` media.
 
 ---
 
@@ -42,6 +44,8 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Selecting a fixed Letter, Legal, or A4 preset applies its matching dimensions and orientation.
 - Selecting Printer Default / Any Paper uses `@page size: auto` so the browser and printer driver control the paper.
 - Paper controls are excluded from print, and long requisitions flow to another page rather than overlap or disappear.
+- Half Legal on Full Legal Sheet prints the compact RS on the top half of standard Legal portrait paper and shows a crosswise cut guide.
+- Fixed paper previews and printed sheets use the same per-format printer-safe margin.
 - Targeted lint and the ABMS production build succeed.
 
 ---
@@ -94,3 +98,5 @@ Allow the requester to print a created requisition from the Budget Request Entry
 - Verification: targeted ESLint, the ABMS production build, and diff checks passed. The shared Requisition Process preview is reused without backend changes.
 - Follow-up: raised the shared print overlay above the Budget Request Entry modal stacking layers after verifying the view modal uses z-index `99999`.
 - Follow-up (2026-08-03): added shared paper presets and compact Half Legal Crosswise output. Full-project lint still has unrelated existing debt; targeted `RSPrintPreview.tsx` lint, build, and diff checks pass.
+- Follow-up (2026-08-04): physical-printer hardening uses explicit fixed-format print dimensions, matching preview/print margins, and a full-Legal-sheet fallback for drivers without custom half-legal media.
+- Verification (2026-08-04): targeted `RSPrintPreview.tsx` ESLint, ABMS production build, and diff checks pass. Physical tray/media behavior remains dependent on the installed printer driver.

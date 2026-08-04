@@ -17,14 +17,15 @@ const RS_TYPE_OPTIONS = [
 ] as const;
 
 const RS_PAPER_OPTIONS = [
-    { id: 'letter-portrait', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', pageSize: 'Letter portrait' },
-    { id: 'half-legal-crosswise', label: 'Half Legal — Crosswise (8.5 × 7 in)', width: '8.5in', height: '7in', pageSize: '8.5in 7in' },
-    { id: 'legal-portrait', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', pageSize: 'Legal portrait' },
-    { id: 'a4-portrait', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', pageSize: 'A4 portrait' },
-    { id: 'letter-landscape', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', pageSize: 'Letter landscape' },
-    { id: 'legal-landscape', label: 'Legal — Landscape (14 × 8.5 in)', width: '14in', height: '8.5in', pageSize: 'Legal landscape' },
-    { id: 'a4-landscape', label: 'A4 — Landscape (297 × 210 mm)', width: '297mm', height: '210mm', pageSize: 'A4 landscape' },
-    { id: 'printer-default', label: 'Printer Default / Any Paper', width: '8.5in', height: '11in', pageSize: 'auto' },
+    { id: 'letter-portrait', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.2in', compact: false },
+    { id: 'half-legal-crosswise', label: 'Half Legal — Cut Paper (8.5 × 7 in)', width: '8.5in', height: '7in', layoutHeight: '7in', pageSize: '8.5in 7in', margin: '.3in', compact: true },
+    { id: 'half-legal-on-legal', label: 'Half Legal — On Full Legal Sheet', width: '8.5in', height: '14in', layoutHeight: '7in', pageSize: 'Legal portrait', margin: '.3in', compact: true },
+    { id: 'legal-portrait', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
+    { id: 'a4-portrait', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', layoutHeight: '297mm', pageSize: 'A4 portrait', margin: '.3in', compact: false },
+    { id: 'letter-landscape', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Letter landscape', margin: '.3in', compact: false },
+    { id: 'legal-landscape', label: 'Legal — Landscape (14 × 8.5 in)', width: '14in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Legal landscape', margin: '.3in', compact: false },
+    { id: 'a4-landscape', label: 'A4 — Landscape (297 × 210 mm)', width: '297mm', height: '210mm', layoutHeight: '210mm', pageSize: 'A4 landscape', margin: '.3in', compact: false },
+    { id: 'printer-default', label: 'Printer Default / Any Paper', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'auto', margin: '.3in', compact: false },
 ] as const;
 
 type RsPaperId = typeof RS_PAPER_OPTIONS[number]['id'];
@@ -74,8 +75,14 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
     const [printAccountCodes, setPrintAccountCodes] = useState<Record<number, string>>({});
     const [paperId, setPaperId] = useState<RsPaperId>('letter-portrait');
     const selectedPaper = RS_PAPER_OPTIONS.find(option => option.id === paperId) ?? RS_PAPER_OPTIONS[0];
-    const isHalfLegal = paperId === 'half-legal-crosswise';
+    const isHalfLegal = selectedPaper.compact;
     const isPrinterDefault = paperId === 'printer-default';
+    const isHalfLegalOnLegal = paperId === 'half-legal-on-legal';
+    const printWidth = `calc(${selectedPaper.width} - ${selectedPaper.margin} - ${selectedPaper.margin})`;
+    const printMediaHeight = `calc(${selectedPaper.height} - ${selectedPaper.margin} - ${selectedPaper.margin})`;
+    const printLayoutHeight = isHalfLegalOnLegal
+        ? `calc(${selectedPaper.layoutHeight} - ${selectedPaper.margin})`
+        : `calc(${selectedPaper.layoutHeight} - ${selectedPaper.margin} - ${selectedPaper.margin})`;
 
     useEffect(() => {
         let active = true;
@@ -132,7 +139,7 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             style={{ width: selectedPaper.width, minHeight: selectedPaper.height }}
             onClick={event => event.stopPropagation()}
         >
-            <div className="rs-sheet">
+            <div className="rs-sheet" style={{ width: selectedPaper.width, minHeight: selectedPaper.layoutHeight, padding: selectedPaper.margin }}>
                 <header className="rs-report-header">
                     <div className="rs-title">
                         <h1>ADAMSON UNIVERSITY</h1>
@@ -196,6 +203,7 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
                     <p>“In compliance with the requirement of the Data Privacy Act, we would like to secure your consent on the general use and sharing of information obtained from you in the course of transaction/s with any employee of the Adu Finance department. These data, which includes your sensitive or personal information, may be collected, processed or stored in accordance with the AdU retention and disposal policies for legitimate purposes. They may be used to implement transactions which you request, allow or authorize, and to comply with the AdU internal policies and its reporting obligations to government authorities under applicable laws.”</p>
                 </footer>
             </div>
+            {isHalfLegalOnLegal && <div className="rs-half-legal-cut-guide" aria-hidden="true"><span>Cut crosswise here after printing</span></div>}
         </article>
         <style>{`
             .rs-print-overlay{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.76);overflow:auto;padding:70px 20px 40px}
@@ -204,7 +212,7 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             .rs-paper-selector{display:flex;align-items:center;gap:8px;border:1px solid #000;border-radius:7px;background:#fff;color:#000;padding:5px 8px 5px 10px;font:700 12px Arial}
             .rs-paper-selector select{max-width:min(330px,45vw);border:0;background:#fff;color:#000;padding:4px 24px 4px 4px;font:600 12px Arial;cursor:pointer;outline:none}
             .rs-print-page{box-sizing:border-box;margin:auto;background:#fff;color:#000;padding:0;font:13.5px Arial,sans-serif;box-shadow:0 10px 40px #000}
-            .rs-sheet{box-sizing:border-box;min-height:inherit;padding:.2in;display:flex;flex-direction:column}
+            .rs-sheet{box-sizing:border-box;display:flex;flex-direction:column}
             .rs-report-header{min-height:17mm}
             .rs-review-dates{display:grid;grid-template-columns:auto 1fr;align-self:flex-start;gap:4px 9px;width:66mm;font-size:11px;padding:0 0 2.5mm}
             .rs-title{text-align:center}.rs-title h1{font-size:27px;font-weight:500;letter-spacing:.6px;margin:0;color:#000}.rs-title h2{font-size:17px;margin:4px 0 0;color:#000}
@@ -226,7 +234,6 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             .rs-footer{font-size:9.5px;line-height:1.28;padding-top:4mm;text-align:justify}
             .rs-footer p{margin:2mm 0 0}
             .rs-paper-half-legal{font-size:11.5px}
-            .rs-paper-half-legal .rs-sheet{padding:.15in}
             .rs-paper-half-legal .rs-report-header{min-height:10mm}
             .rs-paper-half-legal .rs-title h1{font-size:22px}
             .rs-paper-half-legal .rs-title h2{font-size:14px;margin-top:2px}
@@ -252,17 +259,20 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
             .rs-paper-half-legal .rs-controller-signature div{height:3mm}
             .rs-paper-half-legal .rs-footer{font-size:8px;line-height:1.18;padding-top:1.5mm}
             .rs-paper-half-legal .rs-footer p{margin-top:1mm}
+            .rs-half-legal-cut-guide{box-sizing:border-box;width:100%;border-top:1px dashed #64748b;color:#64748b;text-align:center;font:10px Arial,sans-serif;line-height:1}
+            .rs-half-legal-cut-guide span{position:relative;top:-6px;background:#fff;padding:0 8px}
             @media(max-width:720px){.rs-print-overlay{padding:118px 12px 28px}.rs-print-toolbar{left:12px;right:12px;top:12px;flex-wrap:wrap}.rs-paper-selector{order:3;flex:1 0 100%}.rs-paper-selector select{max-width:none;min-width:0;flex:1}}
             @media print{
                 html,body{margin:0!important;padding:0!important;width:auto!important;min-height:auto!important}
                 body>*:not(.rs-print-overlay){display:none!important}
                 body *{visibility:hidden!important}.rs-print-page,.rs-print-page *{visibility:visible!important}
                 .rs-print-overlay{position:static!important;width:auto!important;background:none!important;padding:0!important}
-                .rs-print-page{position:static!important;width:100%!important;min-height:calc(${selectedPaper.height} - .4in)!important;margin:0!important;padding:0!important;box-shadow:none!important}
-                .rs-sheet{min-height:inherit!important;padding:0!important}
+                .rs-print-page{position:static!important;width:${isPrinterDefault ? '100%' : printWidth}!important;min-height:${isPrinterDefault ? 'auto' : printMediaHeight}!important;margin:0!important;padding:0!important;box-shadow:none!important}
+                .rs-sheet{width:${isPrinterDefault ? '100%' : printWidth}!important;min-height:${isPrinterDefault ? 'auto' : printLayoutHeight}!important;padding:${isHalfLegalOnLegal ? `0 0 ${selectedPaper.margin}` : '0'}!important}
                 .rs-paper-printer-default,.rs-paper-printer-default .rs-sheet{min-height:auto!important}
                 .rs-print-toolbar{display:none!important}
-                @page{size:${selectedPaper.pageSize};margin:.2in}
+                .rs-half-legal-cut-guide{width:${printWidth}!important}
+                @page{size:${selectedPaper.pageSize};margin:${selectedPaper.margin}}
             }
         `}</style>
     </div>, document.body);
