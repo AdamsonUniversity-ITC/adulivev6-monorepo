@@ -188,6 +188,22 @@ flowchart TD
     T --> U[Do not mutate items, allocations, proposals, or header]
 ```
 
+## Logistics Quoted-Price Confirmation
+
+```mermaid
+flowchart TD
+    A[Logistics enters every quoted price] --> B{Every draft is finite and positive?}
+    B -- No --> C[Keep Save disabled and continue editing]
+    B -- Yes --> D[Open read-only verification modal]
+    D --> E[Show account item quantity UOM quoted unit price line total and grand total]
+    E --> F{User decision}
+    F -- Back or close --> G[Return to editing with drafts preserved]
+    F -- Confirm and Save --> H[Call existing idempotent quoted-price endpoint once]
+    H --> I{Save succeeds?}
+    I -- No --> J[Keep review open and show server error]
+    I -- Yes --> K[Close pricing and forward RS to Budget Office]
+```
+
 ## Live Date-Range Report Projection
 
 ### Scoped Report Access
