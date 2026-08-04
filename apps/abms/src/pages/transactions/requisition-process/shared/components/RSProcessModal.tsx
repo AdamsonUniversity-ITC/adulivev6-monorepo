@@ -713,7 +713,9 @@ export function RSProcessModal({
         && (row.location ?? '').toLowerCase() === 'logistics';
     const [isPricingItems, setIsPricingItems] = useState(false);
     const [priceDrafts, setPriceDrafts] = useState<Record<number, number>>({});
+    const [quotedPriceConfirmationOpen, setQuotedPriceConfirmationOpen] = useState(false);
     const [isSavingPrices, setIsSavingPrices] = useState(false);
+    const savingPricesRef = useRef(false);
     const [pricesError, setPricesError] = useState<string | null>(null);
 
     // ── Accept quoted prices (admin-only, for approval stage) ────────────────
@@ -1062,11 +1064,13 @@ export function RSProcessModal({
             drafts[item.id] = item.quoted_price ?? 0;
         });
         setPriceDrafts(drafts);
+        setQuotedPriceConfirmationOpen(false);
         setPricesError(null);
         setIsPricingItems(true);
     }
 
     function cancelPricingItems() {
+        setQuotedPriceConfirmationOpen(false);
         setPriceDrafts({});
         setPricesError(null);
         setIsPricingItems(false);
@@ -1076,8 +1080,15 @@ export function RSProcessModal({
         setPriceDrafts(prev => ({ ...prev, [itemId]: quoted_price }));
     }
 
+    function openQuotedPriceConfirmation() {
+        if (isSavingPrices || !priceDraftsValid) return;
+        setPricesError(null);
+        setQuotedPriceConfirmationOpen(true);
+    }
+
     async function handleSaveQuotedPrices() {
-        if (isSavingPrices) return;
+        if (savingPricesRef.current) return;
+        savingPricesRef.current = true;
         setIsSavingPrices(true);
         setPricesError(null);
         try {
@@ -1090,6 +1101,7 @@ export function RSProcessModal({
             const res = await financeSvc.put(`/abms/requisition-process/${row.id}/quoted-prices`, payload);
             const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
             const updatedEntry = res.data?.data ?? {};
+            setQuotedPriceConfirmationOpen(false);
             setIsPricingItems(false);
             setPriceDrafts({});
             onAction?.('Save Quoted Prices', {
@@ -1102,6 +1114,7 @@ export function RSProcessModal({
         } catch (err: any) {
             setPricesError(err?.response?.data?.message ?? 'Failed to save quoted prices. No changes were applied.');
         } finally {
+            savingPricesRef.current = false;
             setIsSavingPrices(false);
         }
     }
@@ -1235,7 +1248,21 @@ export function RSProcessModal({
     // Client-side mirror of the backend's validation for the quoted-price
     // save button — every drafted quoted price must be a number > 0.
     const priceDraftsValid = !isPricingItems || Object.values(priceDrafts).every(v =>
-        typeof v === 'number' && v > 0 && !Number.isNaN(v)
+        typeof v === 'number' && Number.isFinite(v) && v > 0
+    );
+
+    const quotedPriceConfirmationItems = lineItems.map(item => {
+        const quotedPrice = Number(priceDrafts[item.id] ?? 0);
+
+        return {
+            ...item,
+            quotedPrice,
+            quotedTotal: quotedPrice * Number(item.quantity),
+        };
+    });
+    const quotedPriceConfirmationTotal = quotedPriceConfirmationItems.reduce(
+        (total, item) => total + item.quotedTotal,
+        0,
     );
 
     // Live recalculated grand total while editing, so the admin can see the
@@ -1759,9 +1786,9 @@ export function RSProcessModal({
                                                 </span>
                                             )}
                                             <button
-                                                onClick={handleSaveQuotedPrices}
+                                                onClick={openQuotedPriceConfirmation}
                                                 disabled={isSavingPrices || !priceDraftsValid}
-                                                title={!priceDraftsValid ? 'Every quoted price must be greater than 0' : 'Save quoted prices and forward to Budget Office'}
+                                                title={!priceDraftsValid ? 'Every quoted price must be greater than 0' : 'Review quoted prices before saving'}
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                                     padding: '5px 12px', borderRadius: 8,
@@ -1775,9 +1802,9 @@ export function RSProcessModal({
                                             >
                                                 {isSavingPrices
                                                     ? <RefreshCw style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} />
-                                                    : <Save style={{ width: 12, height: 12 }} />
+                                                    : <Eye style={{ width: 12, height: 12 }} />
                                                 }
-                                                {isSavingPrices ? 'Saving…' : 'Save'}
+                                                {isSavingPrices ? 'Saving…' : 'Review & Save'}
                                             </button>
                                             <button
                                                 onClick={cancelPricingItems}
@@ -2336,6 +2363,235 @@ export function RSProcessModal({
             </div>
 
             {/* ── Confirmation modal — shown before any onAction actually fires ── */}
+            {/* ── Logistics quoted-price review + confirmation modal ───────── */}
+            {quotedPriceConfirmationOpen && createPortal(
+                <div
+                    className="abms-modal-backdrop"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="quoted-price-confirmation-title"
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 85,
+                        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '24px 16px',
+                    }}
+                    onClick={e => {
+                        if (e.target === e.currentTarget && !isSavingPrices) {
+                            setQuotedPriceConfirmationOpen(false);
+                        }
+                    }}
+                >
+                    <div
+                        style={{
+                            background: t.cardBg,
+                            border: `1px solid ${t.cardBorder}`,
+                            borderRadius: 14,
+                            boxShadow: t.cardShadow,
+                            width: '100%',
+                            maxWidth: 780,
+                            maxHeight: 'calc(100dvh - 24px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                            padding: '14px 20px',
+                            background: t.cardHeaderBg,
+                            borderBottom: `1px solid ${t.cardHeaderBorder}`,
+                            flexShrink: 0,
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                <div style={{
+                                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                                    background: isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.75)',
+                                    border: `1px solid ${isDark ? 'rgba(96,165,250,0.35)' : 'rgba(37,99,235,0.24)'}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <Calculator style={{ width: 15, height: 15, color: isDark ? '#93c5fd' : '#1d4ed8' }} />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div id="quoted-price-confirmation-title" style={{ fontSize: 14, fontWeight: 700, color: t.titleColor }}>
+                                        Verify Quoted Prices
+                                    </div>
+                                    <div style={{ fontSize: 10, color: t.cellMuted, marginTop: 1 }}>
+                                        RS {row.requisition_no} · Review every amount before saving
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                aria-label="Close quoted price confirmation"
+                                onClick={() => { if (!isSavingPrices) setQuotedPriceConfirmationOpen(false); }}
+                                disabled={isSavingPrices}
+                                style={{
+                                    width: 28, height: 28, borderRadius: 8, border: 'none',
+                                    background: 'transparent', color: t.cellMuted,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: isSavingPrices ? 'not-allowed' : 'pointer', flexShrink: 0,
+                                }}
+                            >
+                                <X style={{ width: 15, height: 15 }} />
+                            </button>
+                        </div>
+
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+                            <div style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 9,
+                                padding: '11px 13px', marginBottom: 14, borderRadius: 10,
+                                background: isDark ? 'rgba(245,158,11,0.10)' : 'rgba(254,243,199,0.65)',
+                                border: `1px solid ${isDark ? 'rgba(245,158,11,0.32)' : 'rgba(217,119,6,0.28)'}`,
+                                color: isDark ? '#fcd34d' : '#92400e', fontSize: 11, lineHeight: 1.5,
+                            }}>
+                                <AlertTriangle style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
+                                <span>
+                                    Confirm that the supplier quoted prices below are correct. Saving will forward this RS to the Budget Office.
+                                </span>
+                            </div>
+
+                            {pricesError && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 9,
+                                    padding: '11px 13px', marginBottom: 14, borderRadius: 10,
+                                    background: isDark ? 'rgba(239,68,68,0.10)' : 'rgba(254,242,242,0.90)',
+                                    border: `1px solid ${isDark ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.30)'}`,
+                                    color: isDark ? '#fca5a5' : '#b91c1c', fontSize: 11, lineHeight: 1.5,
+                                }}>
+                                    <AlertCircle style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
+                                    <span>{pricesError}</span>
+                                </div>
+                            )}
+
+                            <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${t.cardBorder}` }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
+                                    <thead>
+                                        <tr style={{ background: t.tableHeadBg }}>
+                                            {['Account', 'Description', 'Quantity', 'Quoted Price', 'Quoted Total'].map((column, index, columns) => (
+                                                <th key={column} style={{
+                                                    padding: '10px 12px', fontSize: 9, fontWeight: 700,
+                                                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                                                    color: t.tableHeadText,
+                                                    borderBottom: `2px solid ${t.tableHeadBorder}`,
+                                                    borderRight: index < columns.length - 1 ? `1px solid ${t.tableHeadBorder}` : 'none',
+                                                    textAlign: index >= 2 ? 'right' : 'left', whiteSpace: 'nowrap',
+                                                }}>
+                                                    {column}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {quotedPriceConfirmationItems.map((item, index) => (
+                                            <tr key={item.id} style={{ background: index % 2 === 0 ? t.rowEvenBg : t.rowOddBg }}>
+                                                <td style={{
+                                                    padding: '10px 12px', fontSize: 11, color: t.cellText,
+                                                    borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`,
+                                                    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                                                }}>
+                                                    {formatAccountCode(item.main_account_code, item.account_code)}
+                                                </td>
+                                                <td style={{
+                                                    padding: '10px 12px', fontSize: 11, color: t.cellText,
+                                                    borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`,
+                                                    minWidth: 180, maxWidth: 280, whiteSpace: 'normal', overflowWrap: 'anywhere',
+                                                }}>
+                                                    {item.description}
+                                                </td>
+                                                <td style={{
+                                                    padding: '10px 12px', fontSize: 11, color: t.cellText,
+                                                    borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`,
+                                                    textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+                                                }}>
+                                                    {item.quantity} {item.unit_of_measurement}
+                                                </td>
+                                                <td style={{
+                                                    padding: '10px 12px', fontSize: 12, color: isDark ? '#93c5fd' : '#1d4ed8',
+                                                    borderBottom: `1px solid ${t.rowBorder}`, borderRight: `1px solid ${t.rowBorder}`,
+                                                    textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                                }}>
+                                                    {formatAmount(item.quotedPrice)}
+                                                </td>
+                                                <td style={{
+                                                    padding: '10px 12px', fontSize: 12, color: t.cellText,
+                                                    borderBottom: `1px solid ${t.rowBorder}`,
+                                                    textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                                }}>
+                                                    {formatAmount(item.quotedTotal)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style={{ background: isDark ? 'rgba(37,99,235,0.14)' : 'rgba(219,234,254,0.65)' }}>
+                                            <td colSpan={4} style={{
+                                                padding: '11px 12px', fontSize: 11, fontWeight: 700,
+                                                color: t.titleColor, textAlign: 'right',
+                                                borderTop: `2px solid ${t.tableHeadBorder}`,
+                                            }}>
+                                                Total Quoted Amount
+                                            </td>
+                                            <td style={{
+                                                padding: '11px 12px', fontSize: 14, fontWeight: 800,
+                                                color: isDark ? '#93c5fd' : '#1d4ed8', textAlign: 'right', whiteSpace: 'nowrap',
+                                                borderTop: `2px solid ${t.tableHeadBorder}`, fontVariantNumeric: 'tabular-nums',
+                                            }}>
+                                                {formatAmount(quotedPriceConfirmationTotal)}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+                            padding: '12px 20px',
+                            borderTop: `1px solid ${t.cardHeaderBorder}`,
+                            background: t.cardHeaderBg, flexShrink: 0, flexWrap: 'wrap',
+                        }}>
+                            <button
+                                type="button"
+                                onClick={() => setQuotedPriceConfirmationOpen(false)}
+                                disabled={isSavingPrices}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                    border: `1px solid ${t.cardBorder}`,
+                                    background: 'transparent', color: t.cellMuted,
+                                    cursor: isSavingPrices ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                Back to Editing
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSaveQuotedPrices}
+                                disabled={isSavingPrices || !priceDraftsValid}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                                    padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                    border: 'none', minWidth: 154,
+                                    background: (isSavingPrices || !priceDraftsValid)
+                                        ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')
+                                        : (isDark ? 'rgba(37,99,235,0.78)' : '#1d4ed8'),
+                                    color: (isSavingPrices || !priceDraftsValid) ? t.cellMuted : '#ffffff',
+                                    cursor: (isSavingPrices || !priceDraftsValid) ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                {isSavingPrices
+                                    ? <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />
+                                    : <Save style={{ width: 13, height: 13 }} />
+                                }
+                                {isSavingPrices ? 'Saving…' : 'Confirm & Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body,
+            )}
+
             {/* ── Accept Quoted Prices preview + confirmation modal ──────────── */}
             {acceptPreviewOpen && createPortal(
                 <>
