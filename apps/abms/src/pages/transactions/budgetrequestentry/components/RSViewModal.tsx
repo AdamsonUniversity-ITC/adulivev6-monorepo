@@ -1790,6 +1790,7 @@ export function RSViewModal({
                     row={printRow}
                     items={printItems}
                     payeeDetail={payeeDetail}
+                    printedBy={currentUser.name || currentUser.id || '—'}
                     onClose={() => setShowPrintPreview(false)}
                 />
             )}

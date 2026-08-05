@@ -51,8 +51,8 @@ function valuesOf(value: unknown): Record<string, unknown> {
     try { return JSON.parse(value) as Record<string, unknown>; } catch { return {}; }
 }
 
-export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
-    row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; onClose: () => void;
+export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: {
+    row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; onClose: () => void;
 }) {
     const money = (value: number | null | undefined) => new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
     const printedAt = new Date();
@@ -207,7 +207,7 @@ export function RSPrintPreview({ row, items, payeeDetail, onClose }: {
                     <section className="rs-certification">
                         <div className="rs-print-info">
                             <span>Print Date: {printDate}</span><span>Print Time: {printTime}</span>
-                            <span>Printed By: {row.requested_by || '—'}</span>
+                            <span>Printed By: {printedBy || '—'}</span>
                         </div>
                         <div className="rs-budget-certification">
                             <span>Budget Certified By:</span>
