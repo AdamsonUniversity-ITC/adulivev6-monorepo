@@ -3069,6 +3069,7 @@ export function RSProcessModal({
                     row={row}
                     items={row.items ?? []}
                     payeeDetail={payeeDetail}
+                    printedBy={currentUser.name || currentUser.id || '—'}
                     onClose={() => setShowPrintPreview(false)}
                 />
             )}
