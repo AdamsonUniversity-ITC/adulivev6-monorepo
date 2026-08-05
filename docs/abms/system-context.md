@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-08-04
+Last verified: 2026-08-05
 
 ## Purpose
 
@@ -24,7 +24,7 @@ This directory is the durable architecture memory for the AdULive ABMS finance d
 
 ABMS spans several databases/services:
 
-- The finance database owns accounts, proposals, allocations, adjustments, requisitions, settings, statuses, permissions, audits, and media.
+- The finance database owns accounts, proposals, allocations, adjustments, requisitions, settings, statuses, permissions, audits, append-only RS print events, and media.
 - `db116_adamson` owns the organization directory: divisions, departments, sections, and division types.
 - `aduollms` owns teacher/employee directory data used for names such as `printed_by` and `requested_by`.
 - Authentication and permission identity values are shared across services and are not always protected by physical cross-database foreign keys.
@@ -95,6 +95,8 @@ The shared RS Process modal preloads the selected RS attachment list and display
 The shared RS print preview used by Requisition Process and Budget Request Entry defaults to US Letter portrait and exposes its paper selector beside Print. Fixed presets include Half Legal Crosswise (`8.5in × 7in`), institution Half Legal/Long Bond (`8.5in × 6.5in`), Letter, standard Legal (`8.5in × 14in`), Institution Legal / Long Bond (`8.5in × 13in`), and A4 in portrait and landscape orientations; the screen sheet follows the selected dimensions. Both half formats provide an exact custom page, a recommended Letter-media legacy mode, and a full source-sheet placement where applicable. Every `6.5in` institution-half variant retains normal RS typography, keeps the centered title fixed, and moves Date Reviewed/Certified `8mm` upward into the left side of the title band. Its signing spacer consumes remaining vertical room and can shrink to zero as item rows increase; users choose a larger preset when content cannot fit naturally. The signature-line height remains `3mm`. Its recommended legacy and full-sheet legacy-driver variants use identical typography and a `0.15in` top inset. The latter retains a full `8.5in × 13in` screen preview but sends a Letter print canvas to prevent older drivers from scaling an unsupported 13-inch CSS page; the full physical institution sheet must be loaded at the printer and its trailing two inches remain blank. Printer Default / Any Paper uses CSS `@page size: auto` so the browser and installed printer driver control the physical paper. Other fixed formats declare both their CSS page and explicit printable dimensions. The browser page margin is zero to remove the URL/date header-footer area, while the RS sheet itself retains internal printer-safe spacing in preview and print. Legacy modes preserve the RS in the upper target area with reduced top spacing and an unlabeled dashed cut guide. Long item lists may continue to another page rather than overlap or silently omit content.
 
 Both RS print entry points pass the authenticated current user into the shared preview for `Printed By`; the requisition’s original requester remains separate and unchanged.
+
+The shared Print button posts to `POST /api/abms/budget-request-entry/{id}/print-events` through the financial-idempotency contract before invoking `window.print()`. The endpoint rejects missing, soft-deleted, or zero-number drafts and snapshots the authenticated user ID, employee number, and teacher-resolved full name in `budget_request_entry_print_events`; it ignores client identity fields. A recording failure leaves the preview and paper selection open. The existing `GET /api/abms/budget-request-entry/{id}/audit-history` response keeps its top-level `audits` array but merges Laravel audit rows and print rows into a stable newest-first timeline with source-qualified keys. Print events never enter OwenIt `audits`, so report and financial-history readers remain unchanged.
 
 The shared dashboard at `/` exposes authorized role and typed-unit scopes. A Controller role scope reports pending, approved, and disapproved Controller decisions for the selected school year; its current work queue contains only requisitions with `status = on process` and `is_controlled = 0`.
 

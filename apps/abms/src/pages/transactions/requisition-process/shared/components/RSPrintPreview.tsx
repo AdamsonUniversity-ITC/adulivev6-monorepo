@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
@@ -55,7 +55,10 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
     row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; onClose: () => void;
 }) {
     const money = (value: number | null | undefined) => new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
-    const printedAt = new Date();
+    const [printedAt, setPrintedAt] = useState(() => new Date());
+    const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+    const [printError, setPrintError] = useState<string | null>(null);
+    const printRequestInFlight = useRef(false);
     const printDate = formatDate(printedAt);
     const printTime = printedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
     const modeOfPayment = payeeDetail
@@ -98,6 +101,29 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             ? '.08in .3in .3in'
             : selectedPaper.margin;
 
+    const handlePrint = async () => {
+        if (printRequestInFlight.current) return;
+
+        printRequestInFlight.current = true;
+        setIsPreparingPrint(true);
+        setPrintError(null);
+
+        try {
+            const response = await financeSvc.post(`/abms/budget-request-entry/${row.id}/print-events`);
+            const confirmedAt = new Date(response.data?.data?.created_at ?? Date.now());
+            setPrintedAt(Number.isNaN(confirmedAt.getTime()) ? new Date() : confirmedAt);
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+            window.print();
+        } catch (error: unknown) {
+            const apiMessage = (error as { response?: { data?: { message?: string } } })
+                .response?.data?.message;
+            setPrintError(apiMessage || 'Print history could not be recorded. Please try again.');
+        } finally {
+            printRequestInFlight.current = false;
+            setIsPreparingPrint(false);
+        }
+    };
+
     useEffect(() => {
         let active = true;
         financeSvc.get(`/abms/budget-request-entry/${row.id}/audit-history`)
@@ -137,16 +163,17 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
         return () => { active = false; };
     }, [items]);
 
-    return createPortal(<div className="rs-print-overlay" onClick={onClose}>
+    return createPortal(<div className="rs-print-overlay" onClick={() => { if (!isPreparingPrint) onClose(); }}>
         <div className="rs-print-toolbar" onClick={event => event.stopPropagation()}>
+            {printError && <span className="rs-print-error" role="alert">{printError}</span>}
             <label className="rs-paper-selector">
                 <span>Paper</span>
-                <select value={paperId} onChange={event => setPaperId(event.target.value as RsPaperId)} aria-label="Requisition Slip paper size">
+                <select value={paperId} disabled={isPreparingPrint} onChange={event => setPaperId(event.target.value as RsPaperId)} aria-label="Requisition Slip paper size">
                     {RS_PAPER_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
                 </select>
             </label>
-            <button onClick={() => window.print()}><Printer size={16} /> Print</button>
-            <button onClick={onClose}><X size={16} /> Close</button>
+            <button onClick={handlePrint} disabled={isPreparingPrint}><Printer size={16} /> {isPreparingPrint ? 'Preparing…' : 'Print'}</button>
+            <button onClick={onClose} disabled={isPreparingPrint}><X size={16} /> Close</button>
         </div>
         <article
             className={`rs-print-page${isHalfLegal ? ' rs-paper-half-legal' : ''}${isHalfInstitutionLegal ? ' rs-paper-half-institution' : ''}${isPrinterDefault ? ' rs-paper-printer-default' : ''}`}
@@ -223,6 +250,8 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             .rs-print-overlay{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.76);overflow:auto;padding:70px 20px 40px}
             .rs-print-toolbar{position:fixed;right:24px;top:18px;z-index:200001;display:flex;align-items:stretch;gap:8px;max-width:calc(100vw - 48px)}
             .rs-print-toolbar button{display:flex;align-items:center;gap:7px;border:1px solid #000;border-radius:7px;background:#fff;color:#000;padding:9px 15px;font:700 12px Arial;cursor:pointer}
+            .rs-print-toolbar button:disabled,.rs-paper-selector select:disabled{cursor:not-allowed;opacity:.6}
+            .rs-print-error{display:flex;align-items:center;max-width:340px;border:1px solid #dc2626;border-radius:7px;background:#fff;color:#b91c1c;padding:7px 10px;font:700 11px/1.3 Arial}
             .rs-paper-selector{display:flex;align-items:center;gap:8px;border:1px solid #000;border-radius:7px;background:#fff;color:#000;padding:5px 8px 5px 10px;font:700 12px Arial}
             .rs-paper-selector select{max-width:min(330px,45vw);border:0;background:#fff;color:#000;padding:4px 24px 4px 4px;font:600 12px Arial;cursor:pointer;outline:none}
             .rs-print-page{box-sizing:border-box;margin:auto;background:#fff;color:#000;padding:0;font:13.5px Arial,sans-serif;box-shadow:0 10px 40px #000}

@@ -1,7 +1,7 @@
 
 # ABMS Finance Domain ERD
 
-Last verified: 2026-07-23
+Last verified: 2026-08-05
 
 This is the complete logical ERD for the ABMS-owned finance domain and the external entities it relies on. Cross-database and polymorphic links are logical unless a migration explicitly defines a foreign key.
 
@@ -188,6 +188,15 @@ erDiagram
         json new_values
         datetime created_at
     }
+    BUDGET_REQUEST_ENTRY_PRINT_EVENTS {
+        bigint id PK
+        bigint budget_request_entry_id FK
+        bigint user_id "authenticated user snapshot"
+        string username "employee-number snapshot"
+        string user_name "resolved full-name snapshot"
+        datetime created_at
+        datetime updated_at
+    }
     MEDIA {
         bigint id PK
         string model_type
@@ -282,6 +291,7 @@ erDiagram
     BUDGET_ADJUSTMENT_ENTRY ||--o{ AUDITS : "polymorphic audit"
     BUDGET_REQUEST_ENTRY ||--o{ AUDITS : "polymorphic audit"
     BUDGET_REQUEST_ENTRY_ITEMS ||--o{ AUDITS : "polymorphic audit"
+    BUDGET_REQUEST_ENTRY ||--o{ BUDGET_REQUEST_ENTRY_PRINT_EVENTS : "printed through"
     BUDGET_REQUEST_ENTRY ||--o{ MEDIA : "polymorphic attachments"
 ```
 
@@ -293,6 +303,7 @@ erDiagram
 - Proposal, adjustment, and requisition ownership uses a department/section XOR. Database columns are nullable, so requests and services enforce the invariant.
 - Organization and teacher relations cross database connections and may not have physical foreign keys.
 - `audits` and `media` use type-and-ID polymorphic relationships. The arrows above document logical auditable/media owners rather than separate foreign keys.
+- `budget_request_entry_print_events` is a dedicated append-only history stream. Each row belongs to one numbered requisition and snapshots the authenticated printer identity; there are no update/delete APIs, user deduplication, or historical backfill. Its rows are merged with audit records only when reading RS Process History and never participate in audit-based financial reconstruction.
 - Permission identity and catalog records may live behind authentication/permission services. Their IDs are logical references in finance tables.
 - Many business tables use soft deletes. Current operational queries and live date-ranged reports exclude trashed rows unless a specific report contract explicitly says otherwise.
 - A saved liquidation summary is stored on `budget_request_entry`: returned amount is the sum of live item returns, liquidated amount is live item total cost less that return, and the username/date identify the latest successful save. This does not itself approve or remove the requisition from the liquidation queue.

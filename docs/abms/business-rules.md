@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-08-04
+Last verified: 2026-08-05
 
 ## Shared Financial Identity
 
@@ -66,6 +66,10 @@ Last verified: 2026-08-04
 - `Payment for Honorarium` requires Payee, a numeric TIN, and exactly one of AdU Employee or Non AdU Employee. It does not offer VAT or Non-VAT classification, and both VAT inputs are normalized to false by the backend.
 - Shared RS printing projects payee details by payment form: Supplier/Water prints only its TIN, VAT classification, and applicable payment/bank details; Honorarium prints only its TIN, employee classification, and applicable payment/bank details.
 - Shared RS printing resolves `Printed By` from the authenticated user opening the print preview, not from the requisition requester/creator. This is print-time attribution only and does not alter stored ownership.
+- A deliberate Print-button click for a numbered live RS must record one append-only print event before the browser dialog opens. Opening or closing the preview and changing paper presets do not create events. `Printed` means the browser dialog was initiated; it does not prove that paper or a PDF was produced.
+- Print identity comes only from the authenticated backend user. The event snapshots user ID, username/employee number, and teacher-resolved full name, falling back to authenticated name and then username; client identity values are ignored.
+- Print-event creation uses the shared UUID idempotency contract. A retry of one interrupted click replays the original response, while a later deliberate click receives a new key and appends another row.
+- Requisition Process History merges append-only print rows with OwenIt audit rows at read time using source-qualified keys and stable newest-first ordering. Print rows have no old/new changes block and remain outside `audits`, report selection, and financial audit reconstruction.
 - Stockroom requisition items must be selected from the live Office Supplies catalog. The selected catalog ID is required; description, unit cost, and unit of measurement are copied from the server-side catalog record and cannot be supplied manually. Quantity remains requester-entered because it represents the amount being requested.
 - Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
 - The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
