@@ -1,6 +1,6 @@
 import React, { useEffect, useState, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Sun, Moon, X } from 'lucide-react';
+import { ExternalLink, Menu, Sun, Moon, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/ui/components/avatar';
 import Sidebar from '../components/Sidebar';
 import { useTheme } from '../context/useTheme';
@@ -15,6 +15,11 @@ import PageTransitionLoader from '../components/PageTransitionLoader';
 interface LayoutProps {
   children?: ReactNode | ((isDark: boolean) => ReactNode);
 }
+
+const ADU_LIVE_URL = (
+  import.meta.env.VITE_ADU_LIVE_PRODUCTION_URL?.trim()
+  || 'https://live.adamson.edu.ph'
+).replace(/\/+$/, '');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Layout design tokens (Modern Adamson Futuristic)
@@ -325,6 +330,24 @@ const AdamsonBudgetLayout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Right: toggle + user */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <motion.a
+              href={ADU_LIVE_URL}
+              aria-label="Go to AdU Live"
+              title="Go to AdU Live"
+              whileTap={{ scale: 0.96 }}
+              className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border px-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 sm:px-3"
+              style={{
+                background: t.toggleBg,
+                borderColor: t.toggleBorder,
+                color: t.toggleColor,
+              }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = t.toggleHoverBg)}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = t.toggleBg)}
+            >
+              <ExternalLink className="h-4 w-4" />
+              <span className="hidden text-xs font-semibold sm:inline">AdU Live</span>
+            </motion.a>
+
             <ThemeToggle
               isDark={isDark}
               onToggle={toggleTheme}

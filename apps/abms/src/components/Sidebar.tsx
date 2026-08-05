@@ -436,13 +436,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
-            <motion.div
+            <motion.button
+              type="button"
               key={`brand-open-${themeKey}`}
+              aria-label="Go to ABMS dashboard"
+              title="Go to Dashboard"
+              disabled={isNavigating}
+              onClick={() => navigate({ to: '/' })}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2 }}
-              className="flex items-center gap-3 min-w-0"
+              className="flex min-w-0 items-center gap-3 rounded-lg border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-wait disabled:opacity-65"
             >
               <div className="flex-shrink-0 flex items-center justify-center w-12 h-12">
                 <AdamsonLogo size={48} /> {/* Slightly larger logo */}
@@ -468,19 +473,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, isDark, isNavigatin
                   SYSTEM
                 </p> */}
               </div>
-            </motion.div>
+            </motion.button>
           ) : (
-            <motion.div
+            <motion.button
+              type="button"
               key={`brand-closed-${themeKey}`}
+              aria-label="Go to ABMS dashboard"
+              title="Go to Dashboard"
+              disabled={isNavigating}
+              onClick={() => navigate({ to: '/' })}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex items-center justify-center w-full"
+              className="flex w-full items-center justify-center rounded-lg border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-wait disabled:opacity-65"
             >
               <div className="flex items-center justify-center w-12 h-12">
                 <AdamsonLogo size={44} />
               </div>
-            </motion.div>
+            </motion.button>
           )}
         </AnimatePresence>
 
