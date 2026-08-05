@@ -12,6 +12,8 @@ The frontend also contains a protected Budget User Guides infographic page for u
 
 The shared frontend shell preserves the expanded navigation and existing spacing at the 1920×1080 baseline. Below 1536 CSS pixels, navigation becomes a dismissible overlay drawer so 1366×768, 1280×720, tablet, and phone displays retain the full content width. Shared page primitives constrain long headings and action rows; dense forms stack on narrow displays, while wide data tables and print-preview paper retain local scrolling rather than widening the application viewport.
 
+Global shell navigation includes a compact AdU Live redirect beside the theme toggle and a clickable Adamson/ABMS sidebar brand that returns to the dashboard in both expanded and collapsed states.
+
 All non-print ABMS dialogs are dynamic-viewport safe. Shared shadcn dialogs and alert dialogs receive global height, width, and overflow constraints, while custom administration, requisition, liquidation, attachment, account, payee, item, chat, and audit overlays use a scrollable backdrop or a fixed-header/scrollable-body/fixed-footer structure. The New Requisition Slip and Add Item actions therefore remain reachable on short displays. Report paper, RS print previews, and printable review sheets are intentionally excluded and retain their printable dimensions inside local preview scrolling.
 
 Canonical behavioral details remain in:
