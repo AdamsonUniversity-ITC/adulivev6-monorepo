@@ -89,9 +89,11 @@ interface ChatMessage {
 
 interface AuditRecord {
     id: number;
+    history_key: string;
+    source: 'audit' | 'print';
     event: string;
-    user_id: string;
-    username: string;
+    user_id: string | number | null;
+    username: string | null;
     user_name: string;
     created_at: string;
     old_values: Record<string, any>;
@@ -3928,7 +3930,7 @@ function RSAuditHistoryModal({
                         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
                             {audits.map((audit, idx) => (
                                 <div
-                                    key={audit.id ?? idx}
+                                    key={audit.history_key ?? `${audit.source ?? 'audit'}:${audit.id ?? idx}`}
                                     style={{
                                         padding: '12px 18px',
                                         borderBottom: idx < audits.length - 1 ? `1px solid ${t.rowBorder}` : 'none',

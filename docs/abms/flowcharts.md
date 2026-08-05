@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-07-28
+Last verified: 2026-08-05
 
 ## System Context
 
@@ -13,6 +13,7 @@ flowchart LR
     API --> ORG[(db116_adamson organization directory)]
     API --> PEOPLE[(aduollms teacher directory)]
     FDB --> AUDIT[(OwenIt audits)]
+    FDB --> PRINTS[(Append-only RS print events)]
     FDB --> MEDIA[(Spatie media)]
     API --> FE
     FE --> PREVIEW[Screen preview, toast warnings, browser print]
@@ -522,6 +523,26 @@ The shared Requisition Slip is the portrait exception: its screen preview is
 8.5 by 11 inches, and print mode uses a 0.2-inch Letter page margin with no
 duplicate inner print padding. Requisition Process and Budget Request Entry
 both consume this same component.
+
+## Auditable RS Printing
+
+```mermaid
+flowchart TD
+    A[Open shared RS print preview] --> B[Choose paper preset]
+    B --> C[Click Print]
+    C --> D[Disable controls and show Preparing]
+    D --> E[POST authenticated print event with UUID idempotency key]
+    E --> F{Event recorded or replayed?}
+    F -- No --> G[Keep preview and preset open; show retryable error]
+    F -- Yes --> H[Refresh footer print date and time]
+    H --> I[Open browser print dialog]
+    I --> J[Later history request]
+    J --> K[Load OwenIt audits and print events separately]
+    K --> L[Map source-qualified history rows]
+    L --> M[Merge with stable newest-first order]
+```
+
+Opening, closing, or changing paper creates no event. `Printed` records dialog initiation only. Print events remain outside OwenIt audits and therefore outside report and financial-history reconstruction.
 
 ## Uniform Report Excel Export
 

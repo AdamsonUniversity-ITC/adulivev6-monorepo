@@ -1,6 +1,6 @@
 # ABMS Continuity Status
 
-Last verified: 2026-08-04
+Last verified: 2026-08-05
 
 ## Current Scope
 
@@ -63,6 +63,7 @@ Canonical behavioral details remain in:
 - Requisition Process Budget and Administration roles expose `RS to Process Today`, a worklist filter that includes every RS type and excludes only PNB Credit Card Payment; the filter action card now uses a single full-width Requery action.
 - The shared RS Process modal displays the stored RS type as `For Office Supplies`, `For Purchase`, or `For Cash Valued Items` in its unchanged metadata grid.
 - The shared RS print preview defaults to US Letter portrait and offers Half Legal Crosswise (`8.5in × 7in`), institution Half Legal/Long Bond (`8.5in × 6.5in`), Letter, standard `8.5in × 14in` Legal, institution `8.5in × 13in` Legal/Long Bond, A4 portrait and landscape presets, and a browser-controlled Printer Default / Any Paper mode. Both half formats have exact, legacy-Letter, and applicable full-sheet choices. Fixed formats retain explicit physical dimensions during printing; safety margins live inside the RS while the CSS page margin stays zero to prevent browser URL/date headers from shifting the layout. Older drivers that scale unsupported custom media can use a recommended Letter-media compatibility mode with reduced top spacing and an unlabeled dashed cut guide.
+- Every shared RS Print-button click first appends an authenticated, idempotent print event and then opens the browser print dialog. Requisition Process History merges these `Printed` rows with Laravel audit rows without placing print activity in `audits`; reports and audit-based finance reconstruction therefore remain unaffected.
 - Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept typed Budget Request/Proposal Entry permissions. Entry-permission-only users see and may preview only the union of their assigned typed units, with a sole eligible unit selected automatically.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
 - Budget Adjustment Entry can open a previously unallocated child account only through a deliberate positive current-year adjustment under exactly one typed-unit proposal. The runtime allocation starts with zero proposed/approved/unused amounts, receives only the net balance, and remains at zero after safe reversal; no migration or deployment-time data mutation supports this behavior.
