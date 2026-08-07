@@ -68,6 +68,7 @@ Canonical behavioral details remain in:
 - Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept typed Budget Request/Proposal Entry permissions. Entry-permission-only users see and may preview only the union of their assigned typed units, with a sole eligible unit selected automatically.
 - Core monetary storage is standardized to `DECIMAL(15,2)` and affordability decisions use exact integer-cent arithmetic.
 - Budget Adjustment Entry can open a previously unallocated child account only through a deliberate positive current-year adjustment under exactly one typed-unit proposal. The runtime allocation starts with zero proposed/approved/unused amounts, receives only the net balance, and remains at zero after safe reversal; no migration or deployment-time data mutation supports this behavior.
+- Budget Request Entry dialogs ignore backdrop clicks and Escape, requiring explicit closure. Persisted number-`0` items can be edited one at a time: Cashier/Logistics permit Account, Description, Quantity, and Unit Cost with fixed UOM; Stockroom permits Account and Quantity only. Account moves refund/debit exact typed-unit allocations and reconcile proposal/item/header balances atomically in cents.
 
 ## Resume Checklist
 

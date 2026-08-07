@@ -76,16 +76,11 @@ export function NewRSModal({
     useEffect(() => {
         if (!open) return;
         const previousOverflow = document.body.style.overflow;
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && !showPayeeModal) onClose();
-        };
         document.body.style.overflow = 'hidden';
-        document.addEventListener('keydown', closeOnEscape);
         return () => {
             document.body.style.overflow = previousOverflow;
-            document.removeEventListener('keydown', closeOnEscape);
         };
-    }, [onClose, open, showPayeeModal]);
+    }, [open]);
 
     function handleConfirm() {
         if (!selected || isLoading) return;
@@ -111,7 +106,6 @@ export function NewRSModal({
                 background: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,20,60,0.40)',
                 backdropFilter: 'blur(4px)',
             }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <style>{`
                 @keyframes modal-in {
@@ -122,7 +116,6 @@ export function NewRSModal({
 
             <div
                 className="mx-auto flex min-h-full w-full max-w-[1116px] flex-col items-center justify-start gap-3 lg:flex-row lg:items-center lg:justify-center lg:gap-4"
-                onClick={e => { if (e.target === e.currentTarget) onClose(); }}
             >
                 {/* Supply list panel — shown to the left when toggled */}
                 {showSupplyList && (
@@ -170,6 +163,7 @@ export function NewRSModal({
                     </div>
                     <button
                         onClick={onClose}
+                        disabled={isLoading}
                         className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150"
                         style={{
                             background: 'transparent',
@@ -400,6 +394,7 @@ export function NewRSModal({
                             icon={<X className="w-3.5 h-3.5" />}
                             label="Cancel"
                             onClick={onClose}
+                            disabled={isLoading}
                             t={t}
                             className="w-full justify-center sm:w-auto"
                         />

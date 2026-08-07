@@ -17,7 +17,7 @@ export interface AccountOption {
 
 export function SelectAccountModal({
     open, onClose, onSelect, t, isDark,
-    departmentId, sectionId, currentSchoolYear,
+    departmentId, sectionId, currentSchoolYear, requisitionId,
 }: {
     open: boolean;
     onClose: () => void;
@@ -27,6 +27,7 @@ export function SelectAccountModal({
     departmentId: string;
     sectionId: string;
     currentSchoolYear: string;
+    requisitionId?: number | null;
 }) {
     const [items, setItems] = useState<AccountOption[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,14 +47,20 @@ export function SelectAccountModal({
         setCurrentCursor(cursor);
         setPage(targetPage);
 
-        const params: Record<string, string> = { currentSchoolYear };
-        if (departmentId) params.departmentId = departmentId;
-        else params.sectionId = sectionId;
+        const params: Record<string, string> = {};
+        if (!requisitionId) {
+            params.currentSchoolYear = currentSchoolYear;
+            if (departmentId) params.departmentId = departmentId;
+            else params.sectionId = sectionId;
+        }
         if (query) params.search = query;
         if (cursor) params.cursor = cursor;
 
         try {
-            const { data } = await financeSvc.get('/abms/budget-request-entry/accounts', { params });
+            const endpoint = requisitionId
+                ? `/abms/budget-request-entry/${requisitionId}/editable-accounts`
+                : '/abms/budget-request-entry/accounts';
+            const { data } = await financeSvc.get(endpoint, { params });
             if (sequence !== requestSequence.current) return;
             setItems(data?.accounts ?? []);
             setNextCursor(data?.next_cursor ?? null);
@@ -64,14 +71,14 @@ export function SelectAccountModal({
         } finally {
             if (sequence === requestSequence.current) setLoading(false);
         }
-    }, [currentSchoolYear, departmentId, sectionId]);
+    }, [currentSchoolYear, departmentId, requisitionId, sectionId]);
 
     useEffect(() => {
         if (!open) return;
         requestSequence.current += 1;
         setSearch(''); setItems([]); setLoading(true); setError(null);
         setNextCursor(null); setPrevCursor(null); setCurrentCursor(null); setPage(1);
-    }, [open, departmentId, sectionId, currentSchoolYear]);
+    }, [open, departmentId, sectionId, currentSchoolYear, requisitionId]);
 
     useEffect(() => {
         if (!open) return;
@@ -98,7 +105,6 @@ export function SelectAccountModal({
                 background: isDark ? 'rgba(0,0,0,0.80)' : 'rgba(0,20,60,0.52)',
                 backdropFilter: 'blur(6px)',
             }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <style>{`
                 @keyframes acct-in {

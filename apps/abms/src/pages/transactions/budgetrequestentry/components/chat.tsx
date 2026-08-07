@@ -37,7 +37,6 @@ export function ChatModal({
                     animation: 'modal-overlay-in .20s ease',
                     backdropFilter: 'blur(2px)',
                 }}
-                onClick={onClose}
             />
             {/* Modal card */}
             <div

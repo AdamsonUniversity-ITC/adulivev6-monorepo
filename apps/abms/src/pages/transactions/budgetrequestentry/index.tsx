@@ -321,7 +321,7 @@ function BudgetRequestEntryInner({
                             await financeSvc.delete(`/abms/budget-request-entry/${rsHeaderId}`);
                         } catch {
                             addToast('error', 'Failed to discard the Requisition Slip. Please try again.');
-                            return;
+                            throw new Error('Failed to discard the Requisition Slip.');
                         }
                     }
                     setShowRSForm(false);

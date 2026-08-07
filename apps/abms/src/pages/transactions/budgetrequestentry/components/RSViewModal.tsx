@@ -518,7 +518,6 @@ export function RSViewModal({
                 padding: '24px 16px',
                 overflowY: 'auto',
             }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <style>{`
                 @keyframes rsview-in {
@@ -1680,7 +1679,6 @@ export function RSViewModal({
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         padding: 16,
                     }}
-                    onClick={() => setShowAttachedFiles(false)}
                 >
                     <div
                         onClick={e => e.stopPropagation()}

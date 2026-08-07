@@ -137,6 +137,25 @@ flowchart TD
     K --> L
 ```
 
+## Draft Requisition Item Editing
+
+```mermaid
+flowchart TD
+    A[Open persisted number-0 item] --> B[Load accounts from stored school year and typed unit]
+    B --> C[Edit permitted fields]
+    C --> D[Lock draft header item accounts allocations and proposals]
+    D --> E{Still number 0 and mappings exact?}
+    E -- No --> X[Return 422 without writes]
+    E -- Yes --> F{Account changed?}
+    F -- No --> G[Apply new total minus old total]
+    F -- Yes --> H[Refund full old total and debit full new total]
+    G --> I[Validate projected balances and DECIMAL range]
+    H --> I
+    I -- Invalid --> X
+    I -- Valid --> J[Update balances item and header total atomically]
+    J --> K[Replace UI row from authoritative response]
+```
+
 ## Requisition Process Today Worklist
 
 ```mermaid
