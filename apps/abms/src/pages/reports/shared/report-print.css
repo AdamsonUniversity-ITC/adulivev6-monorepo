@@ -140,10 +140,99 @@
   .liquidation-report,
   .proposal-report
 ) :is(th, td, caption) {
+  box-sizing: border-box;
   font-size: 13px !important;
   line-height: 1.35 !important;
   overflow-wrap: anywhere;
   word-break: normal;
+}
+
+/*
+ * Budget Performance has six monetary columns. Reserve enough horizontal space
+ * for DECIMAL(15,2) values and let the descriptive account column wrap instead
+ * of allowing a number to run into its neighbour.
+ */
+:is(.budget-report-table, .account-report-table, .university-report-table)
+  :is(th, td):first-child {
+  width: 16% !important;
+}
+
+:is(.budget-report-table, .account-report-table, .university-report-table)
+  :is(th, td):not(:first-child) {
+  width: 14% !important;
+  padding-right: 3px !important;
+  padding-left: 3px !important;
+  font-size: 12px !important;
+  overflow-wrap: normal !important;
+  white-space: nowrap;
+}
+
+/* Totals must keep each financial value intact. Labels may wrap when needed. */
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(.report-total, .subtotal, .unit-total, .grand-total) td:not(:first-child),
+:is(
+  .abms-letter-sheet,
+  .budget-report,
+  .account-report,
+  .university-report,
+  .requested-report,
+  .payee-report,
+  .adjustment-report,
+  .liquidation-report,
+  .proposal-report
+) :is(.unit-total, .grand-total, .main-total, .report-total, .detail-grand-total, .location-total, .approved-items-grand-total, .approved-department-total, .university-main-total, .university-grand-total, .percentage-grand-total) > :is(b, strong) {
+  min-width: 0;
+  overflow-wrap: normal !important;
+  white-space: nowrap;
+}
+
+/* The liquidation totals previously reserved only 95px for each amount. */
+.liquidation-report :is(.unit-total, .grand-total) {
+  width: 100% !important;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(138px, max-content)
+    minmax(0, 1fr) minmax(138px, max-content)
+    minmax(0, 1fr) minmax(138px, max-content) !important;
+}
+
+/* Proposal total bands use explicit money columns so large values cannot collide. */
+.proposal-report :is(.main-total, .grand-total) {
+  width: min(72%, 760px) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(145px, max-content) minmax(145px, max-content) !important;
+}
+
+.proposal-report :is(.university-main-total, .university-grand-total, .percentage-grand-total) {
+  width: min(86%, 900px) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(85px, max-content) minmax(145px, max-content) minmax(145px, max-content) !important;
+}
+
+.proposal-report .approved-items-grand-total {
+  width: min(58%, 610px) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(70px, max-content) minmax(145px, max-content) !important;
+}
+
+.proposal-report .approved-department-total {
+  width: min(76%, 800px) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(70px, max-content) minmax(145px, max-content) minmax(145px, max-content) !important;
+}
+
+/* Unserved RS has its own paper class, but follows the same total-value rule. */
+.unserved-report :is(th, td) {
+  box-sizing: border-box;
+}
+
+.unserved-report :is(.subtotal, .location-total, .grand-total) :is(td, b) {
+  overflow-wrap: normal !important;
+  white-space: nowrap;
 }
 
 :is(

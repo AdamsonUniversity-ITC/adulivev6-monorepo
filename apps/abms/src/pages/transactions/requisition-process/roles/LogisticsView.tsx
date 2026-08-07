@@ -440,6 +440,14 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
             return;
         }
 
+        // Description saving is completed by the modal's Logistics-only
+        // endpoint. Keep this RS in place and sync only its authoritative items.
+        if (action === 'Save Items') {
+            setSelectedRow(prev => prev ? { ...prev, items: row.items } : prev);
+            addToast('success', `Item descriptions updated for RS ${row.requisition_no}.`);
+            return;
+        }
+
         // 'Save Quoted Prices' — modal already did the PUT (per-item quoted
         // prices + the status/location transition to Budget Office). Close
         // the modal and refresh so the RS drops off this logistics queue.

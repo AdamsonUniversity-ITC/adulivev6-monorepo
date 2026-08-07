@@ -1,6 +1,6 @@
 # ABMS Financial and Reporting Rules
 
-Last verified: 2026-08-05
+Last verified: 2026-08-07
 
 ## Shared Financial Identity
 
@@ -24,14 +24,15 @@ Last verified: 2026-08-05
 - Budget Proposal Entry uses the explicit `allow-budget-proposal-entry` permission and does not depend on general `budget-access`.
 - Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept either existing report-wide `admin-access`/`budget-access`/`controller-access` or a typed assignment under `allow-budget-request-entry`/`allow-budget-proposal-entry`. Entry-permission-only users are restricted to the union of their assigned typed units; report-wide users retain unrestricted qualifying-unit options.
 - Scoped report users must select one assigned Department or Section. Grand, university-wide, and all-unit modes are rejected server-side because they bypass typed-unit scope. A single eligible returned unit is selected by the frontend automatically; multiple units remain unselected for an explicit user choice.
+- Liquidation Submission is unrestricted only for authenticated users with general `admin-access` or `budget-access`. Every other authorized user is backend-scoped to typed `allow-budget-request-entry` assignments; omitted or manipulated filters cannot widen that scope. Restricted users never receive an All Departments option, and one eligible assigned unit is selected and locked automatically.
 
 ## Budget Performance Formula
 
-- A proposal participates only when its current `created_at` is inside the inclusive application-timezone From/To boundaries. Approved Budget and Balance come directly from the included allocation's latest `approved_total_cost` and `balance`.
+- A Budget Performance proposal participates when its `school_year` and requested typed organizational/account scope match. Proposal `created_at` is not constrained by From/To because the proposal and its allocations establish the school-year baseline. Approved Budget and Balance come directly from the included allocation's latest `approved_total_cost` and `balance`.
 - Adjustment Additional and Deduction come from the latest values of live adjustment entries created inside the range.
 - Released and Unused Amount come from the latest `total_cost` and `unused_amount` of live items whose current live requisition header was created inside the range.
 - Balance is a stored current allocation value and is not recomputed from the other displayed period columns.
-- A later update to any included current row intentionally changes a report for the row's original creation date. An update does not move an entry into a range when its `created_at` is outside that range.
+- A later update to an included adjustment or requisition row intentionally changes a report for the row's original creation date. An update does not move that period activity into a range when its `created_at` is outside that range.
 - Aggregate by typed unit and child allocation first, then roll up to a parent, division, or university level. This prevents cross-unit and cross-account leakage.
 - Return all financial fields as backend-formatted two-decimal strings. Category, group, and grand totals are calculated by the backend.
 - Root account code `355` is CAPEX; every other root account is NON-CAPEX.
@@ -78,6 +79,7 @@ Last verified: 2026-08-05
 - `Reprocess RS` uses the dedicated database status `reprocess`, sets `location = department`, records the prior location in `from`, and resets Controller decision state. Reprocess actions are hidden once an entry is already in `reprocess`.
 - Department-side item editing is allowed only for unsaved requisitions or entries with `status = reprocess` and `location = department`. Editable rows may change description, quantity, unit cost, and unit of measurement; every save recalculates item totals and applies only the account/proposal balance delta inside one transaction.
 - Requisition Process item editing is separately available only to an authenticated user with general `budget-access` while the RS has `status = for review` and `location = budget office`. Administration and every other role are rejected by the backend even if a browser submits the same request.
+- Logistics description editing uses a separate idempotent endpoint and requires authenticated general `logistics-access` while the RS has `status = for pricing` or `for purchase` and `location = logistics`. Each submitted row may contain only its existing item ID and a nonblank description; account, quantity, UOM, unit cost, quoted price, item/header totals, allocations, and proposal balances remain unchanged.
 - During Budget review, Cashier and Logistics items may change Account, Description, Quantity, Unit of Measurement, and Unit Cost. Stockroom items may change only Account and Quantity; their stored catalog-derived Description, Unit of Measurement, and Unit Cost are retained regardless of client input. This path never adds or removes items.
 - A Budget-review account reassignment resolves both allocations by account ID within the RS school year and exact typed unit. It refunds the old item total to the source allocation, debits the recalculated total from the destination allocation, aggregates all item effects per allocation/proposal, and validates every projected balance before writing.
 - Budget-review item edits lock the header, items, destination accounts, allocations, and proposals in deterministic ID order and calculate in integer cents. Missing/ambiguous allocations, negative or overflowing projected balances, liquidation metadata, or nonzero item unused amounts reject the complete batch without changing balances, items, or the header total.

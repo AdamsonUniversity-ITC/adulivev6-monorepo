@@ -690,10 +690,14 @@ export function RSProcessModal({
             .catch(() => { /* payee detail is optional — silently ignore */ });
     }, [row.id]);
 
-    // ── Item editing state (Budget review only) ──────────────────────────────
-    const canEditItems = roleKey === 'budget-access'
+    // ── Item editing state ───────────────────────────────────────────────────
+    const canBudgetEditItems = roleKey === 'budget-access'
         && (row.status ?? '').toLowerCase() === 'for review'
         && (row.location ?? '').toLowerCase() === 'budget office';
+    const canLogisticsEditDescriptions = roleKey === 'logistics-access'
+        && ['for pricing', 'for purchase'].includes((row.status ?? '').toLowerCase())
+        && (row.location ?? '').toLowerCase() === 'logistics';
+    const canEditItems = canBudgetEditItems || canLogisticsEditDescriptions;
     const isStockroomRequest = (row.rstype ?? '').toLowerCase() === 'stockroom';
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [itemDrafts, setItemDrafts] = useState<Record<number, EditableItemDraft>>({});
@@ -1030,17 +1034,27 @@ export function RSProcessModal({
         setIsSavingItems(true);
         setItemsError(null);
         try {
-            const payload = {
-                items: Object.entries(itemDrafts).map(([id, d]) => ({
-                    id: Number(id),
-                    account_id: d.account_id,
-                    description: d.description,
-                    quantity: d.quantity,
-                    unit_cost: d.unit_cost,
-                    unit_of_measurement: d.unit_of_measurement,
-                })),
-            };
-            const res = await financeSvc.put(`/abms/requisition-process/${row.id}/items`, payload);
+            const payload = canLogisticsEditDescriptions
+                ? {
+                    items: Object.entries(itemDrafts).map(([id, draft]) => ({
+                        id: Number(id),
+                        description: draft.description,
+                    })),
+                }
+                : {
+                    items: Object.entries(itemDrafts).map(([id, draft]) => ({
+                        id: Number(id),
+                        account_id: draft.account_id,
+                        description: draft.description,
+                        quantity: draft.quantity,
+                        unit_cost: draft.unit_cost,
+                        unit_of_measurement: draft.unit_of_measurement,
+                    })),
+                };
+            const endpoint = canLogisticsEditDescriptions
+                ? `/abms/requisition-process/${row.id}/item-descriptions`
+                : `/abms/requisition-process/${row.id}/items`;
+            const res = await financeSvc.put(endpoint, payload);
             const updatedItems: RSLineItem[] = (res.data?.items ?? row.items ?? []).map((item: RSLineItem) => ({
                 ...item,
                 account_id: Number(item.account_id ?? 0),
@@ -1231,21 +1245,25 @@ export function RSProcessModal({
     // Client-side mirror of the backend's validation — purely for disabling
     // the Save button / giving instant feedback. The backend re-validates
     // and is the actual source of truth; this never substitutes for it.
-    const draftsValid = !isEditingItems || Object.values(itemDrafts).every(d =>
-        Number.isInteger(d.account_id) && d.account_id > 0
-        && Number.isInteger(d.quantity) && d.quantity >= 1
-        && (
-            isStockroomRequest
-            || (
-                d.description.trim().length > 0
-                && typeof d.unit_cost === 'number'
-                && Number.isFinite(d.unit_cost)
-                && d.unit_cost > 0
-                && Math.abs((d.unit_cost * 100) - Math.round(d.unit_cost * 100)) < 0.000001
-                && d.unit_of_measurement.trim().length > 0
-            )
-        )
-    );
+    const draftsValid = !isEditingItems || Object.values(itemDrafts).every(d => {
+        if (canLogisticsEditDescriptions) {
+            return d.description.trim().length > 0 && d.description.length <= 500;
+        }
+
+        return Number.isInteger(d.account_id) && d.account_id > 0
+            && Number.isInteger(d.quantity) && d.quantity >= 1
+            && (
+                isStockroomRequest
+                || (
+                    d.description.trim().length > 0
+                    && typeof d.unit_cost === 'number'
+                    && Number.isFinite(d.unit_cost)
+                    && d.unit_cost > 0
+                    && Math.abs((d.unit_cost * 100) - Math.round(d.unit_cost * 100)) < 0.000001
+                    && d.unit_of_measurement.trim().length > 0
+                )
+            );
+    });
 
     // Client-side mirror of the backend's validation for the quoted-price
     // save button — every drafted quoted price must be a number > 0.
@@ -1687,8 +1705,8 @@ export function RSProcessModal({
                                     )}
                                 </button>
 
-                                {/* Budget item-editing controls — only during Budget review */}
-                                {canEditItems && itemsExpanded && lineItems.length > 0 && (
+                                {/* Budget full-item or Logistics description-only controls */}
+                                {canEditItems && !isPricingItems && itemsExpanded && lineItems.length > 0 && (
                                     isEditingItems ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                             {itemsError && (
@@ -1699,7 +1717,9 @@ export function RSProcessModal({
                                             <button
                                                 onClick={handleSaveItems}
                                                 disabled={isSavingItems || !draftsValid}
-                                                title={!draftsValid ? 'Complete every required item field before saving' : 'Save item changes'}
+                                                title={!draftsValid
+                                                    ? 'Complete every required item field before saving'
+                                                    : canLogisticsEditDescriptions ? 'Save item description changes' : 'Save item changes'}
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                                     padding: '5px 12px', borderRadius: 8,
@@ -1734,7 +1754,7 @@ export function RSProcessModal({
                                     ) : (
                                         <button
                                             onClick={startEditingItems}
-                                            title="Edit items"
+                                            title={canLogisticsEditDescriptions ? 'Edit item descriptions' : 'Edit items'}
                                             style={{
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 width: 24, height: 24, borderRadius: 6, border: 'none',
@@ -1779,7 +1799,7 @@ export function RSProcessModal({
                                 )}
 
                                 {/* Logistics quoted-price controls — only when gated open above */}
-                                {canPriceItems && itemsExpanded && lineItems.length > 0 && (
+                                {canPriceItems && !isEditingItems && itemsExpanded && lineItems.length > 0 && (
                                     isPricingItems ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                             {pricesError && (
@@ -1872,7 +1892,7 @@ export function RSProcessModal({
                             {itemsExpanded && (
                                 <div style={{ overflowX: 'auto' }}>
                                     {lineItems.length > 0 ? (
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isEditingItems ? 820 : 600 }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isEditingItems && canBudgetEditItems ? 820 : 600 }}>
                                             <thead>
                                                 <tr style={{ background: t.tableHeadBg }}>
                                                     {(showQuotedPriceColumn
@@ -1900,7 +1920,7 @@ export function RSProcessModal({
                                                     const rowEditing = isEditingItems && !!draft;
                                                     const priceDraft = priceDrafts[item.id];
                                                     const rowPricing = isPricingItems && priceDraft !== undefined;
-                                                    const liveTotal = rowEditing ? draft.quantity * draft.unit_cost : item.total_cost;
+                                                    const liveTotal = rowEditing && canBudgetEditItems ? draft.quantity * draft.unit_cost : item.total_cost;
                                                     const rowBg = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg;
                                                     const inputStyle: React.CSSProperties = {
                                                         width: '100%', maxWidth: 90, padding: '4px 8px',
@@ -1917,7 +1937,7 @@ export function RSProcessModal({
                                                             onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
                                                         >
                                                             <td style={itemTdStyle(t, totalCols, 0, 'left', false, true)}>
-                                                                {rowEditing ? (
+                                                                {rowEditing && canBudgetEditItems ? (
                                                                     <button
                                                                         type="button"
                                                                         disabled={isSavingItems}
@@ -1952,7 +1972,7 @@ export function RSProcessModal({
                                                                 )}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 1, 'left', false, false)}>
-                                                                {rowEditing && !isStockroomRequest ? (
+                                                                {rowEditing && (canLogisticsEditDescriptions || !isStockroomRequest) ? (
                                                                     <textarea
                                                                         rows={2}
                                                                         maxLength={500}
@@ -1971,7 +1991,7 @@ export function RSProcessModal({
                                                                 ) : item.description}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 2, 'right', false, true)}>
-                                                                {rowEditing ? (
+                                                                {rowEditing && canBudgetEditItems ? (
                                                                     <input
                                                                         type="number" min={1} step={1}
                                                                         value={draft.quantity}
@@ -1984,7 +2004,7 @@ export function RSProcessModal({
                                                                 ) : item.quantity}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 3, 'right', true, false)}>
-                                                                {rowEditing && !isStockroomRequest ? (
+                                                                {rowEditing && canBudgetEditItems && !isStockroomRequest ? (
                                                                     <input
                                                                         type="text" maxLength={50}
                                                                         value={draft.unit_of_measurement}
@@ -1995,7 +2015,7 @@ export function RSProcessModal({
                                                                 ) : (item.unit_of_measurement || '—')}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 4, 'right', false, true)}>
-                                                                {rowEditing && !isStockroomRequest ? (
+                                                                {rowEditing && canBudgetEditItems && !isStockroomRequest ? (
                                                                     <input
                                                                         type="number" min={0.01} step={0.01}
                                                                         value={draft.unit_cost}
@@ -2033,7 +2053,7 @@ export function RSProcessModal({
                                                         </tr>
                                                     );
                                                 })}
-                                                {isEditingItems && (
+                                                {isEditingItems && canBudgetEditItems && (
                                                     <tr style={{ background: isDark ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.05)' }}>
                                                         <td colSpan={totalCols - 1} style={{
                                                             padding: '10px 14px', fontSize: 11, fontWeight: 700,
@@ -3028,7 +3048,7 @@ export function RSProcessModal({
             )}
 
             <EditableAccountPickerModal
-                open={isEditingItems && accountPickerItemId !== null}
+                open={isEditingItems && canBudgetEditItems && accountPickerItemId !== null}
                 requisitionId={row.id}
                 onClose={() => setAccountPickerItemId(null)}
                 onSelect={selectDraftAccount}

@@ -1,10 +1,10 @@
 # ABMS Continuity Status
 
-Last verified: 2026-08-05
+Last verified: 2026-08-07
 
 ## Current Scope
 
-The principal ABMS workflow is implemented across Budget Proposal Entry, Budget Request Entry, the role-based requisition process, and Liquidation Submission. Reporting covers budget performance, requested items, adjustments, liquidation, proposal reports, and unserved requisitions.
+The principal ABMS workflow is implemented across Budget Proposal Entry, Budget Request Entry, the role-based requisition process, and Liquidation Submission. Liquidation Submission enforces authenticated typed-unit confidentiality for non-Administration/non-Budget users and locks a sole assigned unit in its filter. Reporting covers budget performance, requested items, adjustments, liquidation, proposal reports, and unserved requisitions.
 
 Budget Request Entry is visible and route-authorized for users having `allow-budget-request-entry`, `admin-access`, or `budget-access`. Administration and Budget general roles can select every proposal-backed Department and Section, while ordinary request-entry users remain limited to their assigned typed units.
 
@@ -52,16 +52,17 @@ Canonical behavioral details remain in:
 - Requisition refund and reversal paths resolve modern items by stored `account_id`; ambiguous legacy code-only mappings fail safely.
 - Liquidation returned amounts are reversible: a resave applies only the delta and overwrites the requisition header's latest liquidation summary atomically.
 - Reports return backend-calculated fixed two-decimal money strings. The frontend formats but does not recompute financial totals.
-- Current live date-range reports use inclusive application-timezone `created_at` boundaries and current stored values. They do not reconstruct period activity from audits unless a report's documented rule explicitly uses an audit event for metadata.
+- Current live date-range reports use inclusive application-timezone `created_at` boundaries for period activity and current stored values. Budget Performance proposal/allocation baselines are selected by school year and typed scope rather than proposal creation date. Reports do not reconstruct period activity from audits unless a report's documented rule explicitly uses an audit event for metadata.
 - Budget Review and report Department/Section selectors expose only typed units with qualifying live rows in the applicable proposal, adjustment, requisition, or liquidation source. Referenced inactive units remain selectable, and report unit option panels widen within the viewport for long names.
 - Missing or ambiguous historical relationships produce structured data-quality warnings shown as toasts.
-- Browser reports use readable shared typography on US Letter landscape with printer-safe 0.30-inch margins and the authenticated user's resolved full name.
+- Browser reports use readable shared typography on US Letter landscape with printer-safe 0.30-inch margins and the authenticated user's resolved full name. Financial table columns and total bands reserve non-wrapping numeric space through the supported `DECIMAL(15,2)` width so large values do not overlap.
 - Every browser report preview exposes a shared `.xlsx` export beside Print. The workbook preserves the visible report hierarchy and backend totals, stores recognized money/percentage/quantity cells numerically, and applies readable wrapping and Letter-landscape settings.
 - Core production financial mutations use UUID idempotency keys and replay completed identical requests without repeating writes.
 - Finalized RS numbers come from a locked yearly sequence; unsaved drafts remain `0`, and finalized numbers are preserved.
 - Cashier Payee Details require form-specific classification: Supplier/Water uses VAT/Non-VAT, while Honorarium requires TIN and AdU/Non AdU Employee. Shared RS printing omits classifications that do not belong to the selected payment form.
 - Requisition Process Budget and Administration roles expose `RS to Process Today`, a worklist filter that includes every RS type and excludes only PNB Credit Card Payment; the filter action card now uses a single full-width Requery action.
 - The shared RS Process modal displays the stored RS type as `For Office Supplies`, `For Purchase`, or `For Cash Valued Items` in its unchanged metadata grid.
+- At the Logistics pricing/purchase stage, authenticated Logistics users have a description-only RS item editor. Its dedicated locked/idempotent endpoint accepts no other item fields and leaves every financial and account value unchanged; quoted-price entry remains a separate control.
 - The shared RS print preview defaults to US Letter portrait and offers Half Legal Crosswise (`8.5in × 7in`), institution Half Legal/Long Bond (`8.5in × 6.5in`), Letter, standard `8.5in × 14in` Legal, institution `8.5in × 13in` Legal/Long Bond, A4 portrait and landscape presets, and a browser-controlled Printer Default / Any Paper mode. Both half formats have exact, legacy-Letter, and applicable full-sheet choices. Fixed formats retain explicit physical dimensions during printing; safety margins live inside the RS while the CSS page margin stays zero to prevent browser URL/date headers from shifting the layout. Older drivers that scale unsupported custom media can use a recommended Letter-media compatibility mode with reduced top spacing and an unlabeled dashed cut guide.
 - Every shared RS Print-button click first appends an authenticated, idempotent print event and then opens the browser print dialog. Requisition Process History merges these `Printed` rows with Laravel audit rows without placing print activity in `audits`; reports and audit-based finance reconstruction therefore remain unaffected.
 - Budget Performance Per Department, Item Requested Per Account, Budget Proposal Reports, and Budget Liquidation accept typed Budget Request/Proposal Entry permissions. Entry-permission-only users see and may preview only the union of their assigned typed units, with a sole eligible unit selected automatically.
