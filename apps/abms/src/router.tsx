@@ -491,26 +491,7 @@ export const liquidationsubmissionRoute = new Route({
     path: '/transactions/liquidation-submission',
     beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-request-entry', 'budget-access', 'admin-access']),
     loader: async () => {
-        const liquidationpermission = await authSvc.get('/abms-permissions/');
-        const permission = liquidationpermission.data.permissions.find(
-            (p: any) => p.name === 'allow-budget-request-entry'
-        );
-        const permissionid = permission?.id;
-        const budget = liquidationpermission.data.permissions.find(
-            (p: any) => p.name === 'budget-access'
-        );
-        const budgetid = budget?.id;
-        const admin = liquidationpermission.data.permissions.find(
-            (p: any) => p.name === 'admin-access'
-        );
-        const adminid = admin?.id;
-
-
-        const data = await financeSvc.get('abms/liquidation-submission', {
-            params: {
-                permissionid, budgetid, adminid,
-            },
-        });
+        const data = await financeSvc.get('abms/liquidation-submission');
 
         return { data }
     },

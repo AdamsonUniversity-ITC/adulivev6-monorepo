@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-08-05
+Last verified: 2026-08-07
 
 ## Purpose
 
@@ -106,6 +106,8 @@ During RS creation, the account picker queries only the exact school-year typed-
 
 Budget-role item review uses `GET /api/abms/requisition-process/{id}/editable-accounts` for searchable 10-row cursor pages of uniquely allocated live accounts derived from the RS school year and exact typed owner. `PUT /api/abms/requisition-process/{id}/items` independently verifies authenticated `budget-access` plus `for review` at Budget Office, then applies item/account changes and exact balance transfers atomically. Administration no longer receives the item-edit control.
 
+Logistics item-description maintenance is isolated at `PUT /api/abms/requisition-process/{id}/item-descriptions`. It independently verifies authenticated `logistics-access` and the existing `for pricing`/`for purchase` stage at Logistics, locks the RS and submitted items, and accepts only item IDs plus required descriptions. It does not reuse the Budget financial editor and cannot change any account, quantity, UOM, price, total, allocation, or proposal value. The shared modal keeps description editing separate from quoted-price editing.
+
 Local environments may seed three alternative funded accounts for a specific
 editable RS with `AbmsRsEditingAccountsSeeder` and
 `ABMS_RS_EDITING_REQUISITION_ID`. The seeder derives the proposal scope from
@@ -163,7 +165,7 @@ Budget Settings, Budget Review (including its details route), Budget Transfer Ac
 
 Known authorization debt: the generic requisition-process listing and transition endpoints currently trust client-supplied role/action context and do not consistently verify the corresponding general permission server-side. The state guards described in `business-rules.md` protect workflow order, but they do not replace actor authorization. Treat this as an implementation risk until each role-specific read/write endpoint enforces its permission independently.
 
-Every report with From and To filters selects live proposal, adjustment, or requisition headers through inclusive application-timezone `created_at` boundaries and reads the latest stored header, item, allocation, and balance fields. Updates made after the selected To date intentionally change the report for the entry's original date, while an entry created outside the range remains excluded even if updated inside it. Date-ranged report services do not query OwenIt audits. Current relationship or legacy account-mapping problems still produce structured data-quality warnings; the UI displays warnings as toasts while printed report bodies remain focused on report data.
+Date-ranged reports select period activity through inclusive application-timezone `created_at` boundaries and read the latest stored header and item values. Budget Performance is the deliberate exception for its proposal baseline: proposals and their current allocations are selected by school year plus typed organizational/account scope, while From/To applies to adjustment and requisition activity. Updates made after the selected To date intentionally change included activity for its original date, while activity created outside the range remains excluded even if updated inside it. Date-ranged report services do not query OwenIt audits. Current relationship or legacy account-mapping problems still produce structured data-quality warnings; the UI displays warnings as toasts while printed report bodies remain focused on report data.
 
 ## Documentation Maintenance
 

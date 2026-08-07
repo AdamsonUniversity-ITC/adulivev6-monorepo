@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-08-05
+Last verified: 2026-08-07
 
 ## System Context
 
@@ -148,6 +148,25 @@ flowchart TD
     E --> F[Return rows for the normal RS process modal]
 ```
 
+## Liquidation Submission Unit Scope
+
+```mermaid
+flowchart TD
+    A[Open Liquidation Submission] --> B{Authenticated Admin or Budget access?}
+    B -- Yes --> C[Return all referenced typed unit options]
+    C --> D[Allow one unit or All Departments]
+    B -- No --> E[Resolve typed Budget Request Entry assignments]
+    E --> F{How many assigned units?}
+    F -- Zero --> X[Reject RS query]
+    F -- One --> G[Default and lock the sole typed unit]
+    F -- Multiple --> H[Require one assigned typed unit selection]
+    G --> I[Backend applies exact Department or Section scope]
+    H --> I
+    I --> J{Submitted typed unit is assigned?}
+    J -- No --> X
+    J -- Yes --> K[Return only matching liquidation RS rows]
+```
+
 ## Budget Review RS Item Editing
 
 ```mermaid
@@ -205,6 +224,21 @@ flowchart TD
     I -- Yes --> K[Close pricing and forward RS to Budget Office]
 ```
 
+## Logistics RS Item Description Editing
+
+```mermaid
+flowchart TD
+    A[Logistics user opens an RS at Logistics] --> B{For pricing or for purchase?}
+    B -- No --> X[Hide editor and reject writes]
+    B -- Yes --> C[Edit Description text areas only]
+    C --> D[Submit item IDs and descriptions to dedicated idempotent endpoint]
+    D --> E[Verify authenticated logistics-access and lock RS and submitted items]
+    E --> F{Every item belongs to the RS and every description is valid?}
+    F -- No --> X
+    F -- Yes --> G[Update descriptions atomically]
+    G --> H[Return authoritative items without changing accounts quantities prices totals or balances]
+```
+
 ## Live Date-Range Report Projection
 
 ### Scoped Report Access
@@ -238,8 +272,11 @@ flowchart TD
     AA2 --> AB
     AB --> B[Authorize and validate dates, scope, and preview type]
     B --> C[Convert dates to explicit application-timezone start and end strings]
-    C --> D[Select live proposal, adjustment, or requisition headers by created_at]
-    D --> E[Exclude entries created outside the range even if updated inside it]
+    C --> D{Budget Performance proposal baseline?}
+    D -->|Yes| DP[Select live proposals by school year and typed scope without a proposal date filter]
+    D -->|No| DA[Select live adjustment or requisition activity by created_at]
+    DP --> F
+    DA --> E[Exclude period activity created outside the range even if updated inside it]
     E --> F[Load latest stored headers, items, allocations, and balances]
     F --> G[Resolve current typed units and account IDs]
     G --> H{Current identity and relationships valid?}

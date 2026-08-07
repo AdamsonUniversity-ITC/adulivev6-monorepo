@@ -113,8 +113,17 @@ export function Checkbox({
 // DeptDropdown
 // ─────────────────────────────────────────────────────────────────────────────
 export function DeptDropdown({
-    value, onChange, t, isDark, options,
-}: { value: string; onChange: (id: string, kind: 'Department' | 'Section' | '') => void; options: DeptOption[]; t: typeof T.dark; isDark: boolean }) {
+    value, valueKind, onChange, t, isDark, options, allowAll = true, disabled = false,
+}: {
+    value: string;
+    valueKind: 'Department' | 'Section' | '';
+    onChange: (id: string, kind: 'Department' | 'Section' | '') => void;
+    options: DeptOption[];
+    t: typeof T.dark;
+    isDark: boolean;
+    allowAll?: boolean;
+    disabled?: boolean;
+}) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const ref = useRef<HTMLDivElement>(null);
@@ -124,7 +133,7 @@ export function DeptDropdown({
     const filtered = query.trim()
         ? sorted.filter(o => o.name.toLowerCase().includes(query.toLowerCase()))
         : sorted;
-    const selected = sorted.find(o => o.id === value) ?? null;
+    const selected = sorted.find(o => String(o.id) === value && o.kind === valueKind) ?? null;
 
     useEffect(() => {
         function handler(e: MouseEvent) {
@@ -151,30 +160,35 @@ export function DeptDropdown({
         <div className="relative w-full" ref={ref}>
             <button
                 type="button"
-                onClick={() => { setOpen(p => !p); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); }}
+                disabled={disabled}
+                onClick={() => { if (!disabled) { setOpen(p => !p); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); } }}
                 className="flex w-full items-center gap-2 rounded-xl border py-2 pl-3 pr-2.5 text-xs font-semibold outline-none transition-all duration-150"
                 style={{
                     background: t.inputBg,
                     borderColor: open ? (isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)') : t.inputBorder,
                     color: selected ? t.inputText : t.inputPlaceholder,
                     minWidth: 0,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.82 : 1,
                 }}
             >
                 <span className="flex-1 text-left truncate">
-                    {selected?.name ?? 'All departments…'}
+                    {selected?.name ?? (allowAll ? 'All departments…' : 'Select department / section…')}
                 </span>
                 {selected && (
                     <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0" style={kindStyle(selected.kind)}>
                         {selected.kind === 'Department' ? 'Dept' : 'Sec'}
                     </span>
                 )}
-                <ChevronDown
-                    className="w-3 h-3 shrink-0 transition-transform duration-150"
-                    style={{ color: t.cellMuted, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                />
+                {!disabled && (
+                    <ChevronDown
+                        className="w-3 h-3 shrink-0 transition-transform duration-150"
+                        style={{ color: t.cellMuted, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    />
+                )}
             </button>
 
-            {open && (
+            {open && !disabled && (
                 <div
                     className="absolute top-full left-0 mt-1 z-[200] rounded-xl overflow-hidden"
                     style={{
@@ -195,7 +209,7 @@ export function DeptDropdown({
                         />
                     </div>
 
-                    {value && (
+                    {allowAll && value && (
                         <button
                             type="button"
                             className="w-full text-left px-3 py-2 text-xs transition-all duration-100"
@@ -209,10 +223,10 @@ export function DeptDropdown({
                     )}
 
                     {filtered.map((item, idx) => {
-                        const isSel = item.id === value;
+                        const isSel = String(item.id) === value && item.kind === valueKind;
                         return (
                             <button
-                                key={item.id}
+                                key={`${item.kind}:${item.id}`}
                                 type="button"
                                 className="group flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-all duration-100"
                                 style={{
@@ -221,7 +235,7 @@ export function DeptDropdown({
                                     fontWeight: isSel ? 600 : 400,
                                     borderBottom: idx < filtered.length - 1 ? `1px solid ${t.dropdownDivider}` : 'none',
                                 }}
-                                onClick={() => { onChange(item.id, item.kind); setOpen(false); setQuery(''); }}
+                                onClick={() => { onChange(String(item.id), item.kind); setOpen(false); setQuery(''); }}
                                 onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = t.dropdownHover; }}
                                 onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                             >

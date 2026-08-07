@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lock, RefreshCw } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import AdamsonBudgetLayout from '../../../layouts/Screenlayout';
@@ -14,11 +14,14 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
     const { data } = liquidationsubmissionRoute.useLoaderData();
 
     const isAdmin: boolean = (data?.data?.isadmin ?? 0) === 1;
+    const unrestricted: boolean = data?.data?.unrestricted ?? isAdmin;
 
-    const deptOptions: DeptOption[] = [
-        ...(data?.data?.department ?? []),
-        ...(data?.data?.sections ?? []),
-    ];
+    const departments = data?.data?.department;
+    const sections = data?.data?.sections;
+    const deptOptions: DeptOption[] = useMemo(() => [
+        ...(departments ?? []),
+        ...(sections ?? []),
+    ], [departments, sections]);
 
     const [selectedDeptId, setSelectedDeptId] = useState('');
     const [selectedDeptKind, setSelectedDeptKind] = useState<'Department' | 'Section' | ''>('');
@@ -30,6 +33,16 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
     const [queried, setQueried] = useState(false);
 
     const [selectedRow, setSelectedRow] = useState<LiquidationRecord | null>(null);
+
+    const selectionLocked = !unrestricted && deptOptions.length === 1;
+    const soleAssignedUnit = selectionLocked ? deptOptions[0] : null;
+
+    useEffect(() => {
+        if (!soleAssignedUnit) return;
+
+        setSelectedDeptId(String(soleAssignedUnit.id));
+        setSelectedDeptKind(soleAssignedUnit.kind);
+    }, [soleAssignedUnit]);
 
     function handleRowUpdate(updated: Partial<LiquidationRecord>) {
         if (!selectedRow) return;
@@ -91,11 +104,16 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
             );
         } catch (err) {
             console.error('Failed to fetch liquidation records:', err);
-            addToast('error', 'Failed to load records', 'Could not retrieve liquidation records. Please try again.');
+            const message = typeof err === 'object' && err !== null && 'response' in err
+                ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+                : undefined;
+            addToast('error', 'Failed to load records', message ?? 'Could not retrieve liquidation records. Please try again.');
         } finally {
             setIsLoading(false);
         }
     }, [selectedDeptId, selectedDeptKind, ascending, addToast]);
+
+    const requeryDisabled = isLoading || (!unrestricted && (!selectedDeptId || !selectedDeptKind));
 
     const TABLE_COLS = [
         'Date', 'Requisition No.', 'Department / Section',
@@ -120,10 +138,13 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                     <div className="min-w-0 w-full">
                         <DeptDropdown
                             value={selectedDeptId}
+                            valueKind={selectedDeptKind}
                             onChange={handleDeptChange}
                             options={deptOptions}
                             t={t}
                             isDark={isDark}
+                            allowAll={unrestricted}
+                            disabled={selectionLocked}
                         />
                     </div>
 
@@ -134,16 +155,16 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
 
                     <button
                         onClick={fetchRecords}
-                        disabled={isLoading}
+                        disabled={requeryDisabled}
                         className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-bold transition-all duration-150 select-none sm:w-auto"
                         style={{
-                            background: isLoading ? t.btnDisBg : t.btnRefresh.bg,
-                            borderColor: isLoading ? t.btnDisBorder : t.btnRefresh.border,
-                            color: isLoading ? t.btnDisText : t.btnRefresh.text,
-                            cursor: isLoading ? 'not-allowed' : 'pointer',
+                            background: requeryDisabled ? t.btnDisBg : t.btnRefresh.bg,
+                            borderColor: requeryDisabled ? t.btnDisBorder : t.btnRefresh.border,
+                            color: requeryDisabled ? t.btnDisText : t.btnRefresh.text,
+                            cursor: requeryDisabled ? 'not-allowed' : 'pointer',
                         }}
-                        onMouseEnter={e => { if (!isLoading) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
-                        onMouseLeave={e => { if (!isLoading) (e.currentTarget as HTMLElement).style.background = isLoading ? t.btnDisBg : t.btnRefresh.bg; }}
+                        onMouseEnter={e => { if (!requeryDisabled) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
+                        onMouseLeave={e => { if (!requeryDisabled) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.bg; }}
                     >
                         <RefreshCw className={`w-3.5 h-3.5${isLoading ? ' animate-spin' : ''}`} />
                         {isLoading ? 'Loading…' : 'Requery'}
