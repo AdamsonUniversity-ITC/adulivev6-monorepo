@@ -91,16 +91,11 @@ export function PayeeDetailsModal({
     useEffect(() => {
         if (!open) return;
         const previousOverflow = document.body.style.overflow;
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') onClose();
-        };
         document.body.style.overflow = 'hidden';
-        document.addEventListener('keydown', closeOnEscape);
         return () => {
             document.body.style.overflow = previousOverflow;
-            document.removeEventListener('keydown', closeOnEscape);
         };
-    }, [onClose, open]);
+    }, [open]);
 
     if (!open) return null;
 
@@ -142,7 +137,6 @@ export function PayeeDetailsModal({
                 background: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,20,60,0.45)',
                 backdropFilter: 'blur(4px)',
             }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
                 role="dialog"

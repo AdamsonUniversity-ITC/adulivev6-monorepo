@@ -1,26 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, CheckCircle2, Paperclip, Plus, Save, StickyNote, Trash2, X, ClipboardList, User, UploadCloud, FileIcon, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Paperclip, PencilLine, Plus, Save, StickyNote, Trash2, X, ClipboardList, User, UploadCloud, FileIcon, RefreshCw } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import type { RSType, ThemeTokens } from '../types';
+import type { RSFormItem, RSType, ThemeTokens } from '../types';
 import { fmtCurrency, formatCurrentDate, formatRequisitionNumber, getCurrentSchoolYear } from '../utils';
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
-
-
-export interface RSFormItem {
-    id: number;
-    accountId:number;
-    accountNo: string;
-    mainAccountCode?: string | null;
-    itemDescription: string;
-    unitCost: string;
-    quantity: string;
-    unitOfMeasurement: string;
-    totalCost: number;
-}
-
 const PNB_CREDIT_CARD_PAYMENT = 'PNB Credit Card Payment';
 
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
@@ -218,7 +204,6 @@ export function AttachmentsModal({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 16,
             }}
-            onClick={onClose}
         >
             <div
                 onClick={e => e.stopPropagation()}
@@ -473,8 +458,10 @@ export function RSFormModal({
     const [note, setNote] = useState('');
     const [hoveredRow, setHoveredRow] = useState<number | null>(null);
     const [showAddItem, setShowAddItem] = useState(false);
+    const [editingItem, setEditingItem] = useState<RSFormItem | null>(null);
     const [showAttachments, setShowAttachments] = useState(false);
     const [isSavingRS, setIsSavingRS] = useState(false);
+    const [isDiscarding, setIsDiscarding] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [payeeInput, setPayeeInput] = useState('');
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -483,7 +470,9 @@ export function RSFormModal({
             setItems([]);
             setNote('');
             setShowAddItem(false);
+            setEditingItem(null);
             setIsSavingRS(false);
+            setIsDiscarding(false);
             setIsSaved(false);
             setPayeeInput(rsHeaderData?.payee ?? '');
             setSaveError(null);
@@ -497,16 +486,45 @@ export function RSFormModal({
     const currentDate = formatCurrentDate();
 
     function handleSaveItem(item: RSFormItem) {
-        setItems(prev => [...prev, item]);
+        setItems(prev => prev.some(existing => existing.id === item.id)
+            ? prev.map(existing => existing.id === item.id ? item : existing)
+            : [...prev, item]);
+        setEditingItem(null);
+    }
+
+    function openNewItem() {
+        setEditingItem(null);
+        setShowAddItem(true);
+    }
+
+    function openEditItem(item: RSFormItem) {
+        setEditingItem(item);
+        setShowAddItem(true);
+    }
+
+    async function handleDiscard() {
+        if (isDiscarding || isSavingRS) return;
+        setIsDiscarding(true);
+        setSaveError(null);
+        try {
+            await onDiscard();
+        } catch (error: unknown) {
+            const data = (error as { response?: { data?: { message?: string } } }).response?.data;
+            setSaveError(data?.message ?? 'The requisition slip could not be discarded. Please try again.');
+        } finally {
+            setIsDiscarding(false);
+        }
     }
 
     async function removeItem(id: number) {
+        setSaveError(null);
         try {
             await financeSvc.delete(`/abms/budget-request-entry/items/${id}`);
-        } catch {
-            // item may not yet be persisted (edge case); proceed with local removal
+            setItems(prev => prev.filter(item => item.id !== id));
+        } catch (error: unknown) {
+            const data = (error as { response?: { data?: { message?: string } } }).response?.data;
+            setSaveError(data?.message ?? 'The item could not be removed. No local changes were made.');
         }
-        setItems(prev => prev.filter(item => item.id !== id));
     }
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
@@ -571,13 +589,15 @@ export function RSFormModal({
         label: string,
         onClick: () => void,
         color: { bg: string; border: string; text: string; hover: string },
+        disabled = false,
     ) => {
         return (
             <button
                 onClick={onClick}
+                disabled={disabled}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
-                style={{ background: color.bg, borderColor: color.border, color: color.text }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = color.hover; }}
+                style={{ background: color.bg, borderColor: color.border, color: color.text, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}
+                onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = color.hover; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = color.bg; }}
             >
                 {icon}{label}
@@ -595,11 +615,6 @@ export function RSFormModal({
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
                 padding: '24px 16px',
                 overflowY: 'auto',
-            }}
-            onClick={e => {
-                if (e.target !== e.currentTarget) return;
-                if (isSaved) onClose();
-                else void onDiscard();
             }}
         >
             <style>{`
@@ -652,7 +667,8 @@ export function RSFormModal({
                         </div>
                         {/* Close button */}
                         <button
-                            onClick={isSaved ? onClose : onDiscard}
+                            onClick={isSaved ? onClose : () => void handleDiscard()}
+                            disabled={isDiscarding || isSavingRS}
                             className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0"
                             style={{ background: 'transparent', borderColor: t.cardBorder, color: t.cellMuted }}
                             onMouseEnter={e => {
@@ -753,8 +769,9 @@ export function RSFormModal({
                         {iconBtn(
                             <Plus className="w-3.5 h-3.5" />,
                             'New Item',
-                            () => setShowAddItem(true),
+                            openNewItem,
                             t.btnRefresh,
+                            isDiscarding || isSavingRS,
                         )}
                         {iconBtn(
                             <Paperclip className="w-3.5 h-3.5" />,
@@ -766,25 +783,27 @@ export function RSFormModal({
                                 text: isDark ? '#c4b5fd' : '#7c3aed',
                                 hover: isDark ? 'rgba(167,139,250,0.20)' : 'rgba(221,214,254,0.80)',
                             },
+                            isDiscarding || isSavingRS,
                         )}
                         <div style={{ flex: 1 }} />
                         {iconBtn(
                             <X className="w-3.5 h-3.5" />,
-                            isSaved ? 'Close' : 'Discard / Close',
-                            isSaved ? onClose : onDiscard,
+                            isDiscarding ? 'Discarding…' : isSaved ? 'Close' : 'Discard / Close',
+                            isSaved ? onClose : () => void handleDiscard(),
                             {
                                 bg: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                 border: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
                                 text: isDark ? t.cellRed : '#b91c1c',
                                 hover: isDark ? 'rgba(248,113,113,0.20)' : 'rgba(254,226,226,0.90)',
                             },
+                            isDiscarding || isSavingRS,
                         )}
                     </div>
                 </div>
 
                 {/* ── Items Table ── */}
                 <div style={{ flex: 1, overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                             <tr style={{ background: t.tableHeadBg }}>
                                 {[
@@ -795,7 +814,7 @@ export function RSFormModal({
                                     { label: 'Qty', w: '70px', align: 'right' },
                                     { label: 'Unit', w: '80px', align: 'right' },
                                     { label: 'Total Cost', w: '120px', align: 'right' },
-                                    { label: '', w: '38px', align: 'center' },
+                                    { label: 'Actions', w: '132px', align: 'center' },
                                 ].map((col, i, arr) => (
                                     <th
                                         key={col.label || `col-${i}`}
@@ -825,7 +844,7 @@ export function RSFormModal({
                                         <Plus className="w-6 h-6 mx-auto mb-2 opacity-25" style={{ color: t.cellMuted }} />
                                         No items yet. Click{' '}
                                         <button
-                                            onClick={() => setShowAddItem(true)}
+                                            onClick={openNewItem}
                                             style={{ color: t.cellBlue, fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'inherit' }}
                                         >
                                             New Item
@@ -872,12 +891,20 @@ export function RSFormModal({
                                     <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellGreen, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                                         ₱ {fmtCurrency(item.totalCost)}
                                     </td>
-                                    {/* Delete */}
-                                    <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                    {/* Actions */}
+                                    <td style={{ padding: '4px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                        <button
+                                            onClick={() => openEditItem(item)}
+                                            title="Edit item"
+                                            style={{ minHeight: 28, padding: '4px 9px', marginRight: 4, borderRadius: 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: t.btnRefresh.bg, border: `1px solid ${t.btnRefresh.border}`, cursor: 'pointer', color: t.btnRefresh.text, fontSize: 10, fontWeight: 700 }}
+                                        >
+                                            <PencilLine style={{ width: 12, height: 12 }} />
+                                            Edit
+                                        </button>
                                         <button
                                             onClick={() => removeItem(item.id)}
                                             title="Remove item"
-                                            style={{ width: 24, height: 24, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: t.cellMuted, transition: 'all .12s ease' }}
+                                            style={{ width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: t.cellMuted, transition: 'all .12s ease' }}
                                             onMouseEnter={e => {
                                                 (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.14)' : 'rgba(254,226,226,0.70)';
                                                 (e.currentTarget as HTMLElement).style.color = t.cellRed;
@@ -1071,7 +1098,7 @@ export function RSFormModal({
             {/* Add Item Modal — rendered inside same portal overlay context */}
             <AddItemModal
                 open={showAddItem}
-                onClose={() => setShowAddItem(false)}
+                onClose={() => { setShowAddItem(false); setEditingItem(null); }}
                 onSave={handleSaveItem}
                 t={t}
                 isDark={isDark}
@@ -1080,6 +1107,7 @@ export function RSFormModal({
                 currentSchoolYear={currentSchoolYear}
                 rsHeaderId={rsHeaderId}
                 rsType={rsType}
+                editingItem={editingItem}
             />
             <AttachmentsModal
                 open={showAttachments}

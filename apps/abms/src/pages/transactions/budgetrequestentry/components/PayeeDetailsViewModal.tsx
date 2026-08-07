@@ -96,7 +96,6 @@ export function PayeeDetailsViewModal({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '20px',
             }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
                 role="dialog"

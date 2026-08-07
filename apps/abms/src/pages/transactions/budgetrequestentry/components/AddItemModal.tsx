@@ -61,7 +61,7 @@ export type AddItemSchemaErrors = Partial<Record<keyof AddItemFormState | 'balan
 
 export function AddItemModal({
     open, onClose, onSave, t, isDark,
-    departmentId, sectionId, currentSchoolYear, rsHeaderId, rsType,
+    departmentId, sectionId, currentSchoolYear, rsHeaderId, rsType, editingItem = null,
 }: {
     open: boolean;
     onClose: () => void;
@@ -73,6 +73,7 @@ export function AddItemModal({
     currentSchoolYear: string;
     rsHeaderId: number | null;
     rsType?: RSType;
+    editingItem?: RSFormItem | null;
 }) {
     const [form, setForm] = useState<AddItemFormState>(EMPTY_ITEM_FORM);
     // Preserved form while pickers are open
@@ -81,19 +82,32 @@ export function AddItemModal({
     const [showAccountPicker, setShowAccountPicker] = useState(false);
     const [itemFromSupply, setItemFromSupply] = useState(false);
     const [errors, setErrors] = useState<AddItemSchemaErrors>({});
+    const isEditing = editingItem !== null;
 
     // Derived: account has been chosen
     const accountSelected = !!form.accountNo;
 
     useEffect(() => {
         if (open) {
-            setForm(EMPTY_ITEM_FORM);
+            setForm(editingItem ? {
+                accountId: editingItem.account_id,
+                accountNo: editingItem.accountNo,
+                mainAccountCode: editingItem.mainAccountCode ?? '',
+                accountName: editingItem.accountName ?? '',
+                accountParentId: editingItem.accountParentId ? String(editingItem.accountParentId) : 'existing',
+                balance: String(editingItem.availableBalance ?? ''),
+                itemDescription: editingItem.itemDescription,
+                unitCost: editingItem.unitCost,
+                quantity: editingItem.quantity,
+                unitOfMeasurement: editingItem.unitOfMeasurement,
+                officeSupplyId: null,
+            } : EMPTY_ITEM_FORM);
             setShowSupplyPicker(false);
             setShowAccountPicker(false);
-            setItemFromSupply(false);
+            setItemFromSupply(rsType === 'stockroom' && editingItem !== null);
             setErrors({});
         }
-    }, [open]);
+    }, [editingItem, open, rsType]);
 
     // When "Get Items" is clicked: save current form state, hide AddItem, show supply picker
     function handleOpenSupplyPicker() {
@@ -160,7 +174,7 @@ export function AddItemModal({
     const [isSaving, setIsSaving] = useState(false);
 
     async function handleSave() {
-        if (rsType === 'stockroom' && !form.officeSupplyId) {
+        if (!isEditing && rsType === 'stockroom' && !form.officeSupplyId) {
             setErrors({ itemDescription: 'Select an item from the Stockroom list.' });
             return;
         }
@@ -179,7 +193,7 @@ export function AddItemModal({
 
         // Balance cap — contextual check not expressible as a pure field rule
         const balance = parseFloat(form.balance) || 0;
-        if (totalAmount > balance) {
+        if (!isEditing && totalAmount > balance) {
             setErrors({
                 balance_cap: `Total amount (₱ ${fmtCurrency(totalAmount)}) exceeds the account balance of ₱ ${fmtCurrency(balance)}.`,
             });
@@ -188,24 +202,45 @@ export function AddItemModal({
 
         setIsSaving(true);
         try {
-            const res = await financeSvc.post('/abms/budget-request-entry/items', {
-                budget_request_entry_id: rsHeaderId,
-                account_id: form.accountId,
-                account_code: form.accountNo,
-                account_parent_id: parseInt(form.accountParentId, 10),
-                description: form.itemDescription,
-                unit_cost: parseFloat(form.unitCost),
-                quantity: parseInt(form.quantity, 10),
-                unit_of_measurement: form.unitOfMeasurement,
-                total_cost: totalAmount,
-                office_supply_id: rsType === 'stockroom' ? form.officeSupplyId : null,
-            });
+            const res = isEditing
+                ? await financeSvc.put(`/abms/budget-request-entry/${rsHeaderId}/items`, {
+                    items: [{
+                        id: editingItem.id,
+                        account_id: form.accountId,
+                        description: form.itemDescription,
+                        unit_cost: parseFloat(form.unitCost),
+                        quantity: parseInt(form.quantity, 10),
+                        unit_of_measurement: form.unitOfMeasurement,
+                    }],
+                })
+                : await financeSvc.post('/abms/budget-request-entry/items', {
+                    budget_request_entry_id: rsHeaderId,
+                    account_id: form.accountId,
+                    account_code: form.accountNo,
+                    account_parent_id: parseInt(form.accountParentId, 10),
+                    description: form.itemDescription,
+                    unit_cost: parseFloat(form.unitCost),
+                    quantity: parseInt(form.quantity, 10),
+                    unit_of_measurement: form.unitOfMeasurement,
+                    total_cost: totalAmount,
+                    office_supply_id: rsType === 'stockroom' ? form.officeSupplyId : null,
+                });
 
-            const saved = res.data.item;
+            const saved = isEditing
+                ? res.data.items?.find((item: { id: number }) => item.id === editingItem.id)
+                : res.data.item;
+            if (!saved) throw new Error('The saved item was not returned by the server.');
+            const returnedBalance = res.data.allocation_balances?.[String(saved.account_id)];
             const newItem: RSFormItem = {
                 id: saved.id,
+                account_id: Number(saved.account_id ?? form.accountId),
                 accountNo: saved.account_code,
-                mainAccountCode: form.mainAccountCode,
+                mainAccountCode: saved.main_account_code ?? form.mainAccountCode,
+                accountName: saved.account_name ?? form.accountName,
+                accountParentId: Number(saved.account_parent_id ?? form.accountParentId) || null,
+                availableBalance: returnedBalance !== undefined
+                    ? Number(returnedBalance)
+                    : Math.max(balance - totalAmount, 0),
                 itemDescription: saved.description,
                 unitCost: String(saved.unit_cost),
                 quantity: String(saved.quantity),
@@ -321,6 +356,7 @@ export function AddItemModal({
             departmentId={departmentId}
             sectionId={sectionId}
             currentSchoolYear={currentSchoolYear}
+            requisitionId={isEditing ? rsHeaderId : null}
         />
     );
 
@@ -341,7 +377,6 @@ export function AddItemModal({
                         padding: '12px',
                         overflowY: 'auto',
                     }}
-                    onClick={e => { if (e.target === e.currentTarget) onClose(); }}
                 >
                     <style>{`
                         @keyframes additem-in {
@@ -353,7 +388,7 @@ export function AddItemModal({
                     <div
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Add new requisition item"
+                        aria-label={isEditing ? 'Edit requisition item' : 'Add new requisition item'}
                         style={{
                             width: '100%', maxWidth: '500px',
                             background: t.cardBg,
@@ -370,14 +405,17 @@ export function AddItemModal({
                         <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                             <div>
                                 <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-.01em', color: t.titleColor, margin: 0 }}>
-                                    Add New Item
+                                    {isEditing ? 'Edit Item' : 'Add New Item'}
                                 </h2>
                                 <p style={{ fontSize: 10, color: t.cellMuted, margin: '2px 0 0' }}>
-                                    Fill in the item details to add to the requisition slip.
+                                    {isEditing
+                                        ? 'Verify the permitted fields before saving this draft item.'
+                                        : 'Fill in the item details to add to the requisition slip.'}
                                 </p>
                             </div>
                             <button
                                 onClick={onClose}
+                                disabled={isSaving}
                                 style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${t.cardBorder}`, color: t.cellMuted, cursor: 'pointer', transition: 'all .12s ease', flexShrink: 0 }}
                                 onMouseEnter={e => {
                                     (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
@@ -436,7 +474,7 @@ export function AddItemModal({
                             {/* Item section — locked until account is selected */}
                             {sectionLabel('Item Details')}
 
-                            {rsType === 'stockroom' && accountSelected && (
+                            {rsType === 'stockroom' && accountSelected && !isEditing && (
                                 <div style={{
                                     display: 'flex', alignItems: 'center', gap: 7,
                                     padding: '8px 12px', borderRadius: 8,
@@ -471,7 +509,7 @@ export function AddItemModal({
                                         error: errors.itemDescription,
                                     })}
                                 </div>
-                                {rsType === 'stockroom' && (
+                                {rsType === 'stockroom' && !isEditing && (
                                     <button
                                         onClick={accountSelected ? handleOpenSupplyPicker : undefined}
                                         disabled={!accountSelected}
@@ -514,7 +552,7 @@ export function AddItemModal({
                                 })}
                                 {inputField('Unit of Measurement', form.unitOfMeasurement, v => set('unitOfMeasurement', v), {
                                     placeholder: accountSelected ? 'pcs, box, ream…' : '',
-                                    readOnly: rsType === 'stockroom' || itemFromSupply,
+                                    readOnly: isEditing || rsType === 'stockroom' || itemFromSupply,
                                     disabled: !accountSelected,
                                     error: errors.unitOfMeasurement,
                                 })}
@@ -566,6 +604,7 @@ export function AddItemModal({
                         <div style={{ padding: '12px 20px', background: t.cardHeaderBg, borderTop: `1px solid ${t.cardHeaderBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexShrink: 0 }}>
                             <button
                                 onClick={onClose}
+                                disabled={isSaving}
                                 style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 5,
                                     padding: '7px 16px', borderRadius: 8,
@@ -601,7 +640,7 @@ export function AddItemModal({
                                     ? <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />
                                     : <Save style={{ width: 13, height: 13 }} />
                                 }
-                                {isSaving ? 'Saving…' : 'Save Item'}
+                                {isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Item'}
                             </button>
                         </div>
                     </div>

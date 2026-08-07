@@ -135,3 +135,86 @@ Enhance SESJr so users can paste image attachments, authorized users can correct
 - Existing status values observed in legacy code are Pending `0`, Assigned `1`, Forwarded `2`, Accomplished `3`, Acknowledged `4`, and Disapproved `5`.
 - Keep changes small and localized to the legacy module.
 - Update `docs/decisions.md` if implementation discovers a request type schema constraint that affects how removed request types are hidden.
+
+# ABMS Draft RS Item Editing
+
+### Task ID
+
+ABMS-RS-20260807-003
+
+### Feature / Context
+
+Budget Request Entry draft requisition creation and modal safety.
+
+### Objective
+
+Prevent accidental modal dismissal and allow financially exact per-item editing before an RS receives its final requisition number.
+
+---
+
+### Requirements
+
+- Ignore backdrop clicks and Escape across Budget Request Entry workflow modals while retaining explicit X, Cancel, Discard, selection, and successful-save closure.
+- Keep the main RS Form X and Discard actions tied to the existing server-side draft deletion and balance restoration.
+- Save one item at a time while the requisition number is null, empty, or `0`.
+- Permit Cashier/Logistics Account, Description, Quantity, and Unit Cost edits with fixed UOM.
+- Permit Stockroom Account and Quantity edits while preserving stored catalog Description, UOM, and Unit Cost.
+- Resolve accounts by ID within the draft's stored school year and exact typed Department/Section.
+- Lock and reconcile allocations, proposals, item, and header total atomically in integer cents.
+- Preserve existing add, delete, discard, reprocess, finalization, idempotency, and reports.
+- Add no migration, dependency, backfill, or deployment-time data operation.
+
+---
+
+### Acceptance Criteria
+
+- Backdrop clicks and Escape do not close affected modals; explicit controls still work.
+- Failed discard or item save leaves the modal open and retryable.
+- Same-account edits and account transfers reconcile every affected balance exactly.
+- Stockroom catalog values cannot be overridden.
+- Invalid or unaffordable edits fail without partial writes.
+- Finalized RS records reject the draft account-edit contract while existing reprocess editing remains intact.
+- Focused tests, Pint, targeted lint, production build, and diff checks pass or document unrelated baseline failures.
+
+---
+
+### Inputs / Outputs (if applicable)
+
+**Inputs:**
+
+- Unsaved RS ID, item ID, destination account ID, permitted values, and explicit modal actions.
+
+**Outputs:**
+
+- Authoritative item, allocation/proposal balances, header total, or atomic validation error.
+
+---
+
+### Agent Assignment
+
+- frontend_agent: Modal behavior and Add/Edit Item workflow.
+- qa_agent: Modal, stage, precision, transfer, rollback, and regression validation.
+- reviewer_agent: Account identity, typed ownership, locking, precision, and production-risk review.
+- project_manager: Task record and ABMS continuity documentation.
+
+---
+
+### Dependencies
+
+- Existing Budget Request Entry routes, financial idempotency, typed allocations, Stockroom catalog, discard, and finalization workflows.
+
+---
+
+### Edge Cases
+
+- Department and Section share a numeric ID; duplicate account codes use different IDs.
+- RS state or destination balance changes while the editor is open.
+- Retry repeats an edit or discard; discard fails mid-request.
+- Existing item contains returned, unused, liquidation, ambiguous, or soft-deleted allocation evidence.
+
+---
+
+### Notes
+
+- State: IN_REVIEW
+- No schema or production-data operation is part of this task.

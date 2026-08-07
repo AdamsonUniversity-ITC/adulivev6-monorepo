@@ -101,7 +101,6 @@ export function AttachmentsModal({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: 16,
             }}
-            onClick={onClose}
         >
             <div
                 onClick={e => e.stopPropagation()}

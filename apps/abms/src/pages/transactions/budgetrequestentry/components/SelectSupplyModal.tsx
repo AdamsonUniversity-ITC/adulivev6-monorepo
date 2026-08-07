@@ -72,7 +72,6 @@ export function SelectSupplyModal({
                 background: isDark ? 'rgba(0,0,0,0.78)' : 'rgba(0,20,60,0.50)',
                 backdropFilter: 'blur(6px)',
             }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         >
             <style>{`
                 @keyframes supply-in {
