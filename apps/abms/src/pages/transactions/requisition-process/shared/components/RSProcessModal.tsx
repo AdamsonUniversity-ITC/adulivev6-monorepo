@@ -695,8 +695,8 @@ export function RSProcessModal({
         && (row.status ?? '').toLowerCase() === 'for review'
         && (row.location ?? '').toLowerCase() === 'budget office';
     const canLogisticsEditDescriptions = roleKey === 'logistics-access'
-        && ['for pricing', 'for purchase'].includes((row.status ?? '').toLowerCase())
-        && (row.location ?? '').toLowerCase() === 'logistics';
+        && ['for pricing', 'for purchase'].includes((row.status ?? '').trim().toLowerCase())
+        && (row.location ?? '').trim().toLowerCase() === 'logistics';
     const canEditItems = canBudgetEditItems || canLogisticsEditDescriptions;
     const isStockroomRequest = (row.rstype ?? '').toLowerCase() === 'stockroom';
     const [isEditingItems, setIsEditingItems] = useState(false);
@@ -1756,15 +1756,18 @@ export function RSProcessModal({
                                             onClick={startEditingItems}
                                             title={canLogisticsEditDescriptions ? 'Edit item descriptions' : 'Edit items'}
                                             style={{
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                width: 24, height: 24, borderRadius: 6, border: 'none',
-                                                background: 'transparent', color: t.cellMuted, cursor: 'pointer',
+                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                                minHeight: 34, padding: '7px 13px', borderRadius: 8,
+                                                border: `1px solid ${isDark ? 'rgba(96,165,250,0.42)' : 'rgba(37,99,235,0.34)'}`,
+                                                background: isDark ? 'rgba(37,99,235,0.16)' : 'rgba(219,234,254,0.72)',
+                                                color: t.accentColor, cursor: 'pointer', fontSize: 12, fontWeight: 700,
                                                 flexShrink: 0, transition: 'background .12s ease, color .12s ease',
                                             }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = t.accentColor; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.cellMuted; }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.26)' : 'rgba(191,219,254,0.92)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.16)' : 'rgba(219,234,254,0.72)'; }}
                                         >
-                                            <Pencil style={{ width: 12, height: 12 }} />
+                                            <Pencil style={{ width: 14, height: 14 }} />
+                                            {canLogisticsEditDescriptions ? 'Edit Descriptions' : 'Edit Items'}
                                         </button>
                                     )
                                 )}

@@ -19,6 +19,15 @@ type IdempotentConfig = InternalAxiosRequestConfig & {
 
 const financialMutation = /^\/?abms\/(?:budget-proposal-entry\/save|budget-adjustment-entry(?:\/?$|\/\d+$)|budget-request-entry(?:\/?$|\/items(?:\/\d+)?$|\/\d+\/items$|\/\d+\/(?:save|print-events)$|\/\d+$)|requisition-process\/\d+(?:\/items|\/item-descriptions|\/quoted-prices|\/accept-quoted-prices)?$|liquidation-submission\/rs\/\d+\/returned-amounts$)/;
 const storagePrefix = 'abms-financial-idempotency:';
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const mutationPath = (url: string): string => {
+    try {
+        return new URL(url, env.financeService).pathname.replace(/^\/api(?=\/)/, '');
+    } catch {
+        return url.replace(/^https?:\/\/[^/]+/i, '').replace(/^\/api(?=\/)/, '');
+    }
+};
 
 const createUuid = (): string => {
     const browserCrypto = globalThis.crypto;
@@ -61,12 +70,13 @@ const fingerprintFor = (config: InternalAxiosRequestConfig) => {
 
 financeSvc.interceptors.request.use((config: IdempotentConfig) => {
     const method = (config.method ?? 'get').toUpperCase();
-    const url = String(config.url ?? '');
+    const url = mutationPath(String(config.url ?? ''));
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) || !financialMutation.test(url)) return config;
 
     const fingerprint = fingerprintFor(config);
     const storageKey = `${storagePrefix}${fingerprint}`;
-    const existing = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(storageKey);
+    const stored = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(storageKey);
+    const existing = stored && uuidPattern.test(stored) ? stored : null;
     const idempotencyKey = existing ?? createUuid();
     if (!existing && typeof sessionStorage !== 'undefined') sessionStorage.setItem(storageKey, idempotencyKey);
     config.headers.set('Idempotency-Key', idempotencyKey);
