@@ -197,8 +197,8 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
         { label: 'Post Entry', variant: 'primary', visibleOn: ['certified rs', 'served'] },
         { label: 'Certify RS', variant: 'success', visibleOn: ['for certification'] },
     ],
-    // 'stockroom-access' has no footer actions — its buttons (Return RS to Budget,
-    // Mark Served) now live in COMMON_ACTIONS so they render in the toolbar
+    // 'stockroom-access' has no footer actions — its return and Mark Served
+    // buttons live in COMMON_ACTIONS so they render in the toolbar
     // beside RS Process History / Print RS instead of the action footer.
     'cashier-access': [
         { label: 'Process Payment', variant: 'success', visibleOn: ['certified rs', 'for certification'] },
@@ -213,17 +213,26 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // render order within that group (see leftToolbarActions/rightToolbarActions
 // below). 'For Purchase' is gated to admin-access + status 'for budget
 // director' + location 'budget office', matching the Forward-to… group's
-// visibility rules. 'Return RS to Budget' and 'Mark Served' are restricted to
-// stockroom-access + location 'stockroom' and sit beside RS Process History
-// / Print RS respectively, replacing the old stockroom-access footer.
+// visibility rules. Return actions are restricted by both role and exact
+// workflow stage; Mark Served remains restricted to Stockroom.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
     { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
     { label: 'Chat / Messages', icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     { label: 'RS Process History', icon: History, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     {
-        label: 'Return RS to Budget', icon: Undo2, variant: 'primary',
-        visibleOn: ['certified rs', 'certified'], restrictedTo: ['stockroom-access'],
+        label: 'Return to Administration', icon: Undo2, variant: 'primary',
+        visibleOn: ['for pricing'], restrictedTo: ['logistics-access'],
+        locationFilter: ['logistics'], toolbarGroup: 'left',
+    },
+    {
+        label: 'Return to Administration', icon: Undo2, variant: 'primary',
+        visibleOn: ['certified'], restrictedTo: ['stockroom-access'],
+        locationFilter: ['stockroom'], toolbarGroup: 'left',
+    },
+    {
+        label: 'Return to Logistics', icon: Undo2, variant: 'primary',
+        visibleOn: ['po on process', 'p.o. on process'], restrictedTo: ['stockroom-access'],
         locationFilter: ['stockroom'], toolbarGroup: 'left',
     },
     {
@@ -363,8 +372,8 @@ function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Confirmation copy — per-action phrasing for the confirm modal
 // ─────────────────────────────────────────────────────────────────────────────
-function getConfirmCopy(action: string): { verb: string; danger: boolean } {
-    const map: Record<string, { verb: string; danger?: boolean }> = {
+function getConfirmCopy(action: string): { verb: string; danger: boolean; consequence: string } {
+    const map: Record<string, { verb: string; danger?: boolean; consequence?: string }> = {
         'Mark as Reviewed': { verb: 'mark this requisition slip as reviewed' },
         'Mark as Cancelled': { verb: 'cancel this requisition slip', danger: true },
         'Disapprove': { verb: 'disapprove this requisition slip', danger: true },
@@ -381,6 +390,14 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean } {
         'Prepare Items': { verb: 'mark the items as being prepared' },
         'Process Payment': { verb: 'process payment for this requisition slip' },
         'Return to Budget': { verb: 'return this requisition slip to the budget office', danger: true },
+        'Return to Administration': {
+            verb: 'return this requisition slip to Administration',
+            consequence: 'The existing Controller approval will be retained so Administration can forward the RS to the correct office.',
+        },
+        'Return to Logistics': {
+            verb: 'return this requisition slip to Logistics',
+            consequence: 'The RS will resume the For Purchase stage and its accepted quoted prices will be retained.',
+        },
         'Send RS to Staff': { verb: 'send this requisition slip to staff' },
         'For Purchase': { verb: 'mark this requisition slip as for purchase' },
         'Forward to Stockroom': { verb: 'forward this requisition slip to the Stockroom' },
@@ -393,7 +410,11 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean } {
         'Cash Advance': { verb: 'toggle this requisition slip as cash advance' },
     };
     const entry = map[action] ?? { verb: `proceed with "${action}"` };
-    return { verb: entry.verb, danger: !!entry.danger };
+    return {
+        verb: entry.verb,
+        danger: !!entry.danger,
+        consequence: entry.consequence ?? 'This action cannot be undone.',
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -409,7 +430,7 @@ function ConfirmActionModal({
     onCancel: () => void;
     onConfirm: () => void;
 }) {
-    const { verb, danger } = getConfirmCopy(action);
+    const { verb, danger, consequence } = getConfirmCopy(action);
     const tone = danger
         ? { bg: `${t.cellAmber}1f`, border: `${t.cellAmber}66`, text: t.cellAmber, hover: `${t.cellAmber}38` }
         : { bg: `${t.cellGreen}1f`, border: `${t.cellGreen}66`, text: t.cellGreen, hover: `${t.cellGreen}38` };
@@ -452,7 +473,7 @@ function ConfirmActionModal({
 
                 <p style={{ fontSize: 12.5, lineHeight: 1.6, color: t.cellMuted, margin: 0 }}>
                     Are you sure you want to {verb} for{' '}
-                    <strong style={{ color: t.cellText }}>{row.requisition_no}</strong>? This action cannot be undone.
+                    <strong style={{ color: t.cellText }}>{row.requisition_no}</strong>? {consequence}
                 </p>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
@@ -718,7 +739,8 @@ export function RSProcessModal({
         && ['for pricing', 'for purchase'].includes((row.status ?? '').toLowerCase())
         && (row.location ?? '').toLowerCase() === 'logistics';
     const [isPricingItems, setIsPricingItems] = useState(false);
-    const [priceDrafts, setPriceDrafts] = useState<Record<number, number>>({});
+    const [priceDrafts, setPriceDrafts] = useState<Record<number, number | null>>({});
+    const [changedPriceItemIds, setChangedPriceItemIds] = useState<Record<number, true>>({});
     const [quotedPriceConfirmationOpen, setQuotedPriceConfirmationOpen] = useState(false);
     const [isSavingPrices, setIsSavingPrices] = useState(false);
     const savingPricesRef = useRef(false);
@@ -1077,9 +1099,10 @@ export function RSProcessModal({
     function startPricingItems() {
         const drafts: typeof priceDrafts = {};
         (row.items ?? []).forEach(item => {
-            drafts[item.id] = item.quoted_price ?? 0;
+            drafts[item.id] = item.quoted_price ?? null;
         });
         setPriceDrafts(drafts);
+        setChangedPriceItemIds({});
         setQuotedPriceConfirmationOpen(false);
         setPricesError(null);
         setIsPricingItems(true);
@@ -1088,12 +1111,25 @@ export function RSProcessModal({
     function cancelPricingItems() {
         setQuotedPriceConfirmationOpen(false);
         setPriceDrafts({});
+        setChangedPriceItemIds({});
         setPricesError(null);
         setIsPricingItems(false);
     }
 
-    function updatePriceDraft(itemId: number, quoted_price: number) {
+    function updatePriceDraft(itemId: number, quoted_price: number | null) {
         setPriceDrafts(prev => ({ ...prev, [itemId]: quoted_price }));
+        const originalQuotedPrice = (row.items ?? []).find(item => item.id === itemId)?.quoted_price ?? null;
+        const unchanged = originalQuotedPrice === null
+            ? quoted_price === null
+            : quoted_price !== null
+                && Math.round(Number(originalQuotedPrice) * 100) === Math.round(quoted_price * 100);
+        setChangedPriceItemIds(prev => {
+            if (!unchanged) return { ...prev, [itemId]: true };
+
+            const next = { ...prev };
+            delete next[itemId];
+            return next;
+        });
     }
 
     function openQuotedPriceConfirmation() {
@@ -1109,10 +1145,15 @@ export function RSProcessModal({
         setPricesError(null);
         try {
             const payload = {
-                items: Object.entries(priceDrafts).map(([id, quoted_price]) => ({
-                    id: Number(id),
-                    quoted_price,
-                })),
+                items: Object.entries(priceDrafts)
+                    .filter((entry): entry is [string, number] => (
+                        changedPriceItemIds[Number(entry[0])] === true
+                        && entry[1] !== null
+                    ))
+                    .map(([id, quoted_price]) => ({
+                        id: Number(id),
+                        quoted_price,
+                    })),
             };
             const res = await financeSvc.put(`/abms/requisition-process/${row.id}/quoted-prices`, payload);
             const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
@@ -1120,6 +1161,7 @@ export function RSProcessModal({
             setQuotedPriceConfirmationOpen(false);
             setIsPricingItems(false);
             setPriceDrafts({});
+            setChangedPriceItemIds({});
             onAction?.('Save Quoted Prices', {
                 ...row,
                 items: updatedItems,
@@ -1237,6 +1279,17 @@ export function RSProcessModal({
         && lineItems
             .filter(item => item.quoted_price != null)
             .every(item => Math.abs(Number(item.unit_cost) - Number(item.quoted_price)) < 0.005);
+    const allItemsHaveQuotedPrices = lineItems.length > 0
+        && lineItems.every(item => (
+            item.quoted_price != null
+            && Number.isFinite(Number(item.quoted_price))
+            && Number(item.quoted_price) > 0
+        ));
+    const allQuotedPricesAccepted = allItemsHaveQuotedPrices
+        && lineItems.every(item => (
+            Math.round(Number(item.unit_cost) * 100)
+            === Math.round(Number(item.quoted_price) * 100)
+        ));
 
     // Column count for the Requested Items table — 7 when the Quoted Price
     // column is visible (see showQuotedPriceColumn above), 6 otherwise.
@@ -1265,20 +1318,31 @@ export function RSProcessModal({
             );
     });
 
-    // Client-side mirror of the backend's validation for the quoted-price
-    // save button — every drafted quoted price must be a number > 0.
-    const priceDraftsValid = !isPricingItems || Object.values(priceDrafts).every(v =>
-        typeof v === 'number' && Number.isFinite(v) && v > 0
+    // Logistics may price a subset and complete the remaining rows during a
+    // later For Purchase cycle. At least one submitted quote is required and
+    // every submitted value must remain finite and positive.
+    const submittedPriceDrafts = Object.entries(priceDrafts)
+        .filter(([id]) => changedPriceItemIds[Number(id)] === true)
+        .map(([, value]) => value);
+    const priceDraftsValid = !isPricingItems || (
+        submittedPriceDrafts.length > 0
+        && submittedPriceDrafts.every(value => (
+            value !== null
+            && Number.isFinite(value)
+            && value > 0
+        ))
     );
 
-    const quotedPriceConfirmationItems = lineItems.map(item => {
-        const quotedPrice = Number(priceDrafts[item.id] ?? 0);
+    const quotedPriceConfirmationItems = lineItems.flatMap(item => {
+        if (changedPriceItemIds[item.id] !== true) return [];
+        const quotedPrice = priceDrafts[item.id];
+        if (quotedPrice === null || quotedPrice === undefined) return [];
 
-        return {
+        return [{
             ...item,
             quotedPrice,
             quotedTotal: quotedPrice * Number(item.quantity),
-        };
+        }];
     });
     const quotedPriceConfirmationTotal = quotedPriceConfirmationItems.reduce(
         (total, item) => total + item.quotedTotal,
@@ -1460,6 +1524,17 @@ export function RSProcessModal({
                             {rightToolbarActions.map(action => (
                                 (() => {
                                     const forPurchaseBlocked = action.label === 'For Purchase' && !quotedPricesAccepted;
+                                    const sendToWicoBlocked = action.label === 'Send RS to WICO' && !allQuotedPricesAccepted;
+                                    const disabled = forPurchaseBlocked || sendToWicoBlocked;
+                                    const disabledTitle = forPurchaseBlocked
+                                        ? 'Accept quoted prices before marking this RS for purchase.'
+                                        : sendToWicoBlocked
+                                            ? (
+                                                allItemsHaveQuotedPrices
+                                                    ? 'Administration must accept all quoted prices before sending this RS to WICO.'
+                                                    : 'Enter quoted prices for every item before sending this RS to WICO.'
+                                            )
+                                            : undefined;
                                     return (
                                         <ToolbarButton
                                             key={action.label}
@@ -1468,8 +1543,8 @@ export function RSProcessModal({
                                             t={t}
                                             isDark={isDark}
                                             tone={toolbarTone(action)}
-                                            disabled={forPurchaseBlocked}
-                                            title={forPurchaseBlocked ? 'Accept quoted prices before marking this RS for purchase.' : undefined}
+                                            disabled={disabled}
+                                            title={disabledTitle}
                                             onClick={() => triggerAction(action)}
                                         />
                                     );
@@ -1813,7 +1888,7 @@ export function RSProcessModal({
                                             <button
                                                 onClick={openQuotedPriceConfirmation}
                                                 disabled={isSavingPrices || !priceDraftsValid}
-                                                title={!priceDraftsValid ? 'Every quoted price must be greater than 0' : 'Review quoted prices before saving'}
+                                                title={!priceDraftsValid ? 'Enter at least one quoted price greater than 0' : 'Review quoted prices before saving'}
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                                     padding: '5px 12px', borderRadius: 8,
@@ -2035,10 +2110,10 @@ export function RSProcessModal({
                                                                     {rowPricing ? (
                                                                         <input
                                                                             type="number" min={0.01} step={0.01}
-                                                                            value={priceDraft}
+                                                                            value={priceDraft ?? ''}
                                                                             disabled={isSavingPrices}
                                                                             onChange={e => updatePriceDraft(item.id,
-                                                                                e.target.value === '' ? 0 : parseFloat(e.target.value),
+                                                                                e.target.value === '' ? null : parseFloat(e.target.value),
                                                                             )}
                                                                             style={inputStyle}
                                                                         />
@@ -2473,7 +2548,7 @@ export function RSProcessModal({
                             }}>
                                 <AlertTriangle style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
                                 <span>
-                                    Confirm that the supplier quoted prices below are correct. Saving will forward this RS to the Budget Office.
+                                    Confirm that the supplier quoted prices below are correct. Items left blank remain unquoted and can be priced during a later For Purchase cycle. Saving will forward this RS to the Budget Office.
                                 </span>
                             </div>
 

@@ -48,12 +48,24 @@ const BUDGET_STATUS_OPTIONS = [
     { label: 'Served RS' },
 ];
 
-// Administration uses the workflow's actual stage name in the UI.
-const ADMIN_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.map(option =>
-    option.label === 'For Certification'
-        ? { label: 'For Budget Director' }
-        : option
-).concat({ label: 'For Approval' });
+// Administration uses the workflow's actual stage name and can narrow the
+// shared on-process stage by the persisted Controller decision.
+const ADMIN_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.flatMap(option => {
+    if (option.label === 'For Certification') {
+        return [{ label: 'For Budget Director' }];
+    }
+
+    if (option.label === 'On Process') {
+        return [
+            option,
+            { label: 'On Process - Pending' },
+            { label: 'On Process - Approved' },
+            { label: 'On Process - Disapproved' },
+        ];
+    }
+
+    return [option];
+}).concat({ label: 'For Approval' });
 
 const GENERAL_STATUS_OPTIONS = BUDGET_STATUS_OPTIONS.filter(
     option => option.label !== 'RS to Process Today'
@@ -82,6 +94,8 @@ const CONTROLLER_STATUS_OPTIONS = [
 const STOCKROOM_STATUS_OPTIONS = [
     { label: 'All' },
     { label: 'To Process RS' },
+    { label: 'RS from Logistics' },
+    { label: 'RS from Budget Office' },
     { label: 'Processed RS' },
     { label: 'Served' },
 ];

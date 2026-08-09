@@ -8,6 +8,7 @@ import { RolePage } from '../shared/components/RolePage';
 import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModal';
 import { AccountsViewModal, AccountRow } from '../shared/components/AccountsViewModal';
 import { useRouteContext } from '@tanstack/react-router';
+import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -58,6 +59,7 @@ export interface ControllerRow {
     note: string | null;
     for_liquidation?: boolean;
     is_controlled?: number;
+    was_reprocessed_after_controller_approval?: boolean;
     /** RS type (e.g. "Cashier") — passed through from the API but not displayed in this table. */
     rstype?: string | null;
 }
@@ -176,6 +178,26 @@ function liquidationRowBg(isDark: boolean): string {
 }
 function liquidationRowHoverBg(isDark: boolean): string {
     return isDark ? 'rgba(234,179,8,0.16)' : 'rgba(234,179,8,0.13)';
+}
+
+function controllerReprocessHistoryTone(isDark: boolean) {
+    return isDark
+        ? {
+            background: 'rgba(139,92,246,0.13)',
+            hover: 'rgba(139,92,246,0.21)',
+            marker: '#a78bfa',
+            tagBackground: 'rgba(139,92,246,0.20)',
+            tagBorder: 'rgba(167,139,250,0.48)',
+            tagText: '#ddd6fe',
+        }
+        : {
+            background: 'rgba(237,233,254,0.72)',
+            hover: 'rgba(221,214,254,0.88)',
+            marker: '#7c3aed',
+            tagBackground: 'rgba(237,233,254,0.96)',
+            tagBorder: 'rgba(124,58,237,0.34)',
+            tagText: '#5b21b6',
+        };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -311,6 +333,8 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
             setError(parsed.error?.errors?.map(e => e.message).join(' · ') ?? 'Validation error.');
             return;
         }
+        setNextCursor(null);
+        setHasMore(false);
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
@@ -329,9 +353,9 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
     }, [filterState]);
 
     const handleLoadMore = useCallback(async () => {
-        if (!nextCursor || loading) return;
+        if (!nextCursor || loading) return false;
         const parsed = ControllerQuerySchema.safeParse(buildQuery(filterState));
-        if (!parsed.success) return;
+        if (!parsed.success) return false;
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
@@ -340,8 +364,9 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
             setRows(prev => [...prev, ...(res.data.data ?? [])]);
             setNextCursor(res.data.meta?.next_cursor ?? null);
             setHasMore(res.data.meta?.has_more ?? false);
-        } catch (err: any) {
-            setError(err?.response?.data?.message ?? 'Failed to fetch more data.');
+            return true;
+        } catch {
+            return false;
         } finally {
             setLoading(false);
         }
@@ -487,6 +512,7 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
 
     const wiredFilterCfg = {
         ...FILTER_CFG,
+        showControllerReprocessedLegend: true,
         department: FILTER_CFG.department
             ? { ...FILTER_CFG.department, deptOptions }
             : undefined,
@@ -574,16 +600,27 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                         {/* ── Clickable data rows ── */}
                         {!error && rows.map((row, idx) => {
                             const tagged = !!row.for_liquidation;
+                            const reprocessedAfterApproval = !!row.was_reprocessed_after_controller_approval;
+                            const reprocessTone = controllerReprocessHistoryTone(isDark);
                             const baseBg = tagged
                                 ? liquidationRowBg(isDark)
-                                : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
-                            const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
+                                : reprocessedAfterApproval
+                                    ? reprocessTone.background
+                                    : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
+                            const hoverBg = tagged
+                                ? liquidationRowHoverBg(isDark)
+                                : reprocessedAfterApproval
+                                    ? reprocessTone.hover
+                                    : t.rowHoverBg;
                             return (
                                 <tr
                                     key={`${row.requisition_no}-${idx}`}
                                     onClick={() => handleRowClick(row)}
                                     style={{
                                         background: baseBg,
+                                        boxShadow: reprocessedAfterApproval
+                                            ? `inset 4px 0 0 ${reprocessTone.marker}`
+                                            : undefined,
                                         cursor: 'pointer',
                                         transition: 'background .1s',
                                     }}
@@ -625,12 +662,33 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                                         <StatusBadge status={(row.status ?? '').toLowerCase() === 'on process' && Number(row.is_controlled ?? 0) === 0 ? 'For Controller' : row.status} t={t} isDark={isDark} />
                                     </td>
                                     <td style={cellStyle(t, COLUMNS.length, 6)}>
-                                        <span style={{
-                                            fontSize: 11, fontWeight: 700,
-                                            color: Number(row.is_controlled ?? 0) === 1 ? t.cellGreen : Number(row.is_controlled ?? 0) === 2 ? t.cellAmber : t.cellMuted,
-                                        }}>
-                                            {Number(row.is_controlled ?? 0) === 1 ? 'APPROVED' : Number(row.is_controlled ?? 0) === 2 ? 'DISAPPROVED' : 'PENDING'}
-                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
+                                            <span style={{
+                                                fontSize: 11, fontWeight: 700,
+                                                color: Number(row.is_controlled ?? 0) === 1 ? t.cellGreen : Number(row.is_controlled ?? 0) === 2 ? t.cellAmber : t.cellMuted,
+                                            }}>
+                                                {Number(row.is_controlled ?? 0) === 1 ? 'APPROVED' : Number(row.is_controlled ?? 0) === 2 ? 'DISAPPROVED' : 'PENDING'}
+                                            </span>
+                                            {reprocessedAfterApproval && (
+                                                <span
+                                                    title="This RS was previously approved by the Controller and was later reprocessed."
+                                                    style={{
+                                                        padding: '2px 6px',
+                                                        borderRadius: 999,
+                                                        background: reprocessTone.tagBackground,
+                                                        border: `1px solid ${reprocessTone.tagBorder}`,
+                                                        color: reprocessTone.tagText,
+                                                        fontSize: 8,
+                                                        fontWeight: 800,
+                                                        letterSpacing: '0.045em',
+                                                        lineHeight: 1.35,
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    REPROCESSED AFTER APPROVAL
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td style={cellStyle(t, COLUMNS.length, 7)}>
                                         <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.location ?? '—'}</span>
@@ -642,27 +700,15 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                             );
                         })}
 
-                        {!loading && !error && hasMore && rows.length > 0 && (
+                        {!error && hasMore && rows.length > 0 && (
                             <tr>
-                                <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center' }}>
-                                    <button
-                                        onClick={handleLoadMore}
-                                        style={{
-                                            padding: '8px 20px', fontSize: 13, fontWeight: 600,
-                                            color: t.cellBlue, background: 'transparent',
-                                            border: `1px solid ${t.cellBlue}66`, borderRadius: 6,
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Load More
-                                    </button>
-                                </td>
-                            </tr>
-                        )}
-                        {loading && rows.length > 0 && (
-                            <tr>
-                                <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: t.cellMuted }}>
-                                    Loading more…
+                                <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', color: t.cellMuted }}>
+                                    <InfiniteScrollSentinel
+                                        key={nextCursor}
+                                        hasMore={hasMore}
+                                        loading={loading}
+                                        onLoadMore={handleLoadMore}
+                                    />
                                 </td>
                             </tr>
                         )}

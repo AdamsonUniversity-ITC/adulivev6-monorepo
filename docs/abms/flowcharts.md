@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-08-07
+Last verified: 2026-08-09
 
 ## System Context
 
@@ -116,6 +116,24 @@ flowchart TD
     CD[Disable Cash Advance tag] --> CE[Clear is_cash_advance and preserve for_liquidation]
 ```
 
+## Controller Reprocess-History Evidence
+
+```mermaid
+flowchart TD
+    A[Load one Controller cursor page] --> B[Collect page requisition IDs]
+    B --> C[Query all matching updated audits once]
+    C --> D[Order by created_at then audit ID]
+    D --> E{Controller approval audit seen?}
+    E -- No --> F[Continue scanning]
+    F --> E
+    E -- Yes --> G{Later audit status is reprocess?}
+    G -- No --> H[Continue scanning after approval]
+    H --> G
+    G -- Yes --> I[Set reprocessed-after-approval flag true]
+    I --> J[Render purple history tint marker and tag]
+    J --> K[Keep current is_controlled value authoritative]
+```
+
 ## Requisition Header Payee Rules
 
 ```mermaid
@@ -167,6 +185,61 @@ flowchart TD
     E --> F[Return rows for the normal RS process modal]
 ```
 
+## Administration On-Process Filters
+
+```mermaid
+flowchart TD
+    A[Administration selects status filters] --> B{On Process selection}
+    B -- Generic --> C[Match every status on process row]
+    B -- Pending --> D[Match on process and is_controlled 0]
+    B -- Approved --> E[Match on process and is_controlled 1]
+    B -- Disapproved --> F[Match on process and is_controlled 2]
+    C --> G[OR with other selected ordinary statuses]
+    D --> G
+    E --> G
+    F --> G
+    G --> H[Apply remaining filters sorting and cursor pagination]
+```
+
+## Cursor Infinite Scrolling
+
+```mermaid
+flowchart TD
+    A[Render a cursor-paginated ABMS worklist] --> B{Next cursor exists?}
+    B -- No --> Z[Render no sentinel and make no request]
+    B -- Yes --> C[Observe shared sentinel with prefetch margin]
+    C --> D{Sentinel approaches viewport?}
+    D -- No --> C
+    D -- Yes --> E{This cursor already attempted or request pending?}
+    E -- Yes --> F[Do not issue a duplicate request]
+    E -- No --> G[Request one bounded page with the next cursor]
+    G --> H{Request succeeds?}
+    H -- Yes --> I[Append rows and replace next cursor]
+    I --> B
+    H -- No --> J[Stop automatic retry and show Retry action]
+    J --> K{User retries?}
+    K -- Yes --> G
+    K -- No --> J
+```
+
+## Stockroom Incoming-Source Filters
+
+```mermaid
+flowchart TD
+    A[Stockroom selects source filters] --> B{Selected source}
+    B -- To Process RS --> T[Require current location stockroom]
+    T --> U[Require certified or either PO-on-process spelling]
+    B -- RS from Logistics --> C[Match location stockroom and from logistics]
+    C --> D[Require PO on process or legacy P.O. on process]
+    B -- RS from Budget Office --> E[Match location stockroom and from budget office]
+    E --> F[Require certified status]
+    D --> G[OR with other selected Stockroom filters]
+    F --> G
+    U --> G
+    G --> H[Exclude served mismatched-stage and departed records]
+    H --> I[Apply remaining filters sorting and cursor pagination]
+```
+
 ## Liquidation Submission Unit Scope
 
 ```mermaid
@@ -215,7 +288,7 @@ flowchart TD
     F -- No --> X[Return validation error]
     F -- Yes --> FP{Payee requirement satisfied?}
     FP -- No --> X
-    FP -- Yes --> G{Cashier request below PHP 1,000 without PNB exemption?}
+    FP -- Yes --> G{Cashier request below PHP 1,000 without Supplier/Water or PNB exemption?}
     G -- Yes --> X
     G -- No --> H[Assign requisition number and persist calculated total]
 
@@ -231,16 +304,22 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Logistics enters every quoted price] --> B{Every draft is finite and positive?}
+    A[Logistics opens quoted-price editing] --> AA[Keep every price editable and track only changed rows]
+    AA --> B{At least one changed draft and every changed value finite and positive?}
     B -- No --> C[Keep Save disabled and continue editing]
     B -- Yes --> D[Open read-only verification modal]
-    D --> E[Show account item quantity UOM quoted unit price line total and grand total]
+    D --> E[Show and total only prices changed in this round]
     E --> F{User decision}
     F -- Back or close --> G[Return to editing with drafts preserved]
     F -- Confirm and Save --> H[Call existing idempotent quoted-price endpoint once]
     H --> I{Save succeeds?}
     I -- No --> J[Keep review open and show server error]
-    I -- Yes --> K[Close pricing and forward RS to Budget Office]
+    I -- Yes --> K[Keep blank items unquoted and forward RS to Budget Office]
+    K --> L[Administration accepts submitted quotes and may mark For Purchase]
+    L --> M[Logistics may price remaining items through another approval cycle]
+    M --> N{Every live item quoted and accepted?}
+    N -- No --> O[Disable and reject Send RS to WICO]
+    N -- Yes --> P[Lock header and items then move to PO on process at Stockroom]
 ```
 
 ## Logistics RS Item Description Editing
@@ -256,6 +335,25 @@ flowchart TD
     F -- No --> X
     F -- Yes --> G[Update descriptions atomically]
     G --> H[Return authoritative items without changing accounts quantities prices totals or balances]
+```
+
+## Misrouted Requisition Returns
+
+```mermaid
+flowchart TD
+    A[Logistics or Stockroom selects a return action] --> B[Lock requisition header]
+    B --> C{Authenticated role and exact current stage?}
+    C -- No role --> X[Return 403; change nothing]
+    C -- Stale or invalid stage --> Y[Return 422; change nothing]
+    C -- Logistics: for pricing at Logistics --> D[Set on process at Budget Office]
+    C -- Stockroom: certified at Stockroom --> D
+    D --> E[Set from to returning office and preserve is_controlled]
+    E --> F[Administration forwards directly to the correct office]
+    C -- Stockroom: PO on process at Stockroom --> G[Set for purchase at Logistics]
+    G --> H[Preserve Controller decision and accepted quoted prices]
+    F --> I[Audit and commit idempotently]
+    H --> I
+    I --> J[Preserve items totals balances notes files and liquidation flags]
 ```
 
 ## Live Date-Range Report Projection

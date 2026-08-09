@@ -68,6 +68,7 @@ export interface FilterPanelConfig {
     dateRange?: DateRangeFilterConfig;
     sortColumns?: string[];
     actions?: ActionButtonConfig[];
+    showControllerReprocessedLegend?: boolean;
 }
 
 export interface FilterState {
