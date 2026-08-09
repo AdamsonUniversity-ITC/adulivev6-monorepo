@@ -17,7 +17,11 @@ const RS_TYPE_OPTIONS = [
 ] as const;
 
 const RS_PAPER_OPTIONS = [
-    { id: 'letter-portrait', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.2in', compact: false },
+    { id: 'letter-portrait', group: 'General / PDF', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.2in', compact: false },
+    { id: 'epson-letter-portrait', group: 'Epson LX-300-II', label: 'Letter (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.3in', scale: .97, compact: false },
+    { id: 'epson-legal-portrait', group: 'Epson LX-300-II', label: 'Legal (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
+    { id: 'epson-institution-legal-portrait', group: 'Epson LX-300-II', label: 'Institution Legal / Long Bond (8.5 × 13 in)', width: '8.5in', height: '13in', layoutHeight: '13in', pageSize: '8.5in 13in', margin: '.1in .1in', scale: 1, compact: false },
+    { id: 'epson-half-institution-legal', group: 'Epson LX-300-II', label: 'Half Institution Legal (8.5 × 6.5 in)', width: '8.5in', height: '6.5in', layoutHeight: '6.5in', pageSize: '8.5in 6.5in', margin: '.12in .15in .15in', compact: true },
     { id: 'half-legal-crosswise', label: 'Half Legal — PDF / Modern Printer (8.5 × 7 in)', width: '8.5in', height: '7in', layoutHeight: '7in', pageSize: '8.5in 7in', margin: '.3in', compact: true },
     { id: 'half-legal-on-letter', label: 'Half Legal — Legacy Printer on Letter (Recommended)', width: '8.5in', height: '11in', layoutHeight: '7in', pageSize: 'Letter portrait', margin: '.3in', compact: true },
     { id: 'half-legal-on-legal', label: 'Half Legal — On Full Legal Sheet', width: '8.5in', height: '14in', layoutHeight: '7in', pageSize: 'Legal portrait', margin: '.3in', compact: true },
@@ -84,19 +88,27 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
     const [printAccountCodes, setPrintAccountCodes] = useState<Record<number, string>>({});
     const [paperId, setPaperId] = useState<RsPaperId>('letter-portrait');
     const selectedPaper = RS_PAPER_OPTIONS.find(option => option.id === paperId) ?? RS_PAPER_OPTIONS[0];
-    const isHalfInstitutionLegal = paperId.startsWith('half-institution-legal');
+    const contentScale = 'scale' in selectedPaper ? selectedPaper.scale : 1;
+    const isHalfInstitutionLegal = paperId.includes('half-institution-legal');
     const isHalfLegal = selectedPaper.compact && !isHalfInstitutionLegal;
     const isPrinterDefault = paperId === 'printer-default';
     const isFullInstitutionLegacyDriver = paperId === 'half-institution-legal-on-full-sheet';
-    const printPaperHeight = isFullInstitutionLegacyDriver ? '11in' : selectedPaper.height;
-    const printPageSize = isFullInstitutionLegacyDriver ? 'Letter portrait' : selectedPaper.pageSize;
+    const isEpsonInstitutionPaper = paperId === 'epson-institution-legal-portrait';
+    const isEpsonHalfInstitutionPaper = paperId === 'epson-half-institution-legal';
+    const usesLetterDriverCanvas = isFullInstitutionLegacyDriver
+        || isEpsonHalfInstitutionPaper;
+    const printPaperHeight = usesLetterDriverCanvas ? '11in' : selectedPaper.height;
+    const printLayoutHeight = selectedPaper.layoutHeight;
+    const printPageSize = usesLetterDriverCanvas ? 'Letter portrait' : selectedPaper.pageSize;
     const hasHalfLegalCutGuide = paperId === 'half-legal-on-letter'
         || paperId === 'half-legal-on-legal'
         || paperId === 'half-institution-legal-on-letter'
         || paperId === 'half-institution-legal-on-full-sheet';
-    const sheetPadding = paperId === 'half-institution-legal-on-letter'
+    const sheetPadding = isEpsonInstitutionPaper || isEpsonHalfInstitutionPaper
+        ? selectedPaper.margin
+        : paperId === 'half-institution-legal-on-letter'
         || paperId === 'half-institution-legal-on-full-sheet'
-        ? '.15in .3in .3in'
+        ? '.15in .10in .15in'
         : paperId === 'half-legal-on-letter'
             ? '.08in .3in .3in'
             : selectedPaper.margin;
@@ -169,7 +181,12 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             <label className="rs-paper-selector">
                 <span>Paper</span>
                 <select value={paperId} disabled={isPreparingPrint} onChange={event => setPaperId(event.target.value as RsPaperId)} aria-label="Requisition Slip paper size">
-                    {RS_PAPER_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                    <optgroup label="Epson LX-300-II">
+                        {RS_PAPER_OPTIONS.filter(option => 'group' in option && option.group === 'Epson LX-300-II').map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                    </optgroup>
+                    <optgroup label="General / PDF">
+                        {RS_PAPER_OPTIONS.filter(option => !('group' in option) || option.group !== 'Epson LX-300-II').map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                    </optgroup>
                 </select>
             </label>
             <button onClick={handlePrint} disabled={isPreparingPrint}><Printer size={16} /> {isPreparingPrint ? 'Preparing…' : 'Print'}</button>
@@ -180,7 +197,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             style={{ width: selectedPaper.width, minHeight: selectedPaper.height }}
             onClick={event => event.stopPropagation()}
         >
-            <div className="rs-sheet" style={{ width: selectedPaper.width, minHeight: selectedPaper.layoutHeight, padding: sheetPadding }}>
+            <div className="rs-sheet" style={{ width: selectedPaper.width, minHeight: selectedPaper.layoutHeight, padding: sheetPadding, transform: `scale(${contentScale})`, transformOrigin: 'top center' }}>
                 <header className="rs-report-header">
                     <div className="rs-title">
                         <h1>ADAMSON UNIVERSITY</h1>
@@ -314,7 +331,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
                 body *{visibility:hidden!important}.rs-print-page,.rs-print-page *{visibility:visible!important}
                 .rs-print-overlay{position:static!important;width:auto!important;background:none!important;padding:0!important}
                 .rs-print-page{position:static!important;width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : printPaperHeight}!important;margin:0!important;padding:0!important;box-shadow:none!important}
-                .rs-sheet{width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : selectedPaper.layoutHeight}!important;padding:${sheetPadding}!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+                .rs-sheet{width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : printLayoutHeight}!important;padding:${sheetPadding}!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
                 .rs-paper-printer-default,.rs-paper-printer-default .rs-sheet{min-height:auto!important}
                 .rs-print-toolbar{display:none!important}
                 .rs-half-legal-cut-guide{width:${selectedPaper.width}!important}

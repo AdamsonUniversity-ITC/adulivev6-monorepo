@@ -8,6 +8,7 @@ import { RolePage } from '../shared/components/RolePage';
 import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModal';
 import { AccountsViewModal, AccountRow } from '../shared/components/AccountsViewModal';
 import { useRouteContext } from '@tanstack/react-router';
+import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -301,6 +302,8 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             return;
         }
 
+        setNextCursor(null);
+        setHasMore(false);
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
@@ -319,9 +322,9 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
     }, [filterState]);
 
     const handleLoadMore = useCallback(async () => {
-        if (!nextCursor || loading) return;
+        if (!nextCursor || loading) return false;
         const parsed = StockroomQuerySchema.safeParse(buildQuery(filterState));
-        if (!parsed.success) return;
+        if (!parsed.success) return false;
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
@@ -330,8 +333,9 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             setRows(prev => [...prev, ...(res.data.data ?? [])]);
             setNextCursor(res.data.meta?.next_cursor ?? null);
             setHasMore(res.data.meta?.has_more ?? false);
-        } catch (err: any) {
-            setError(err?.response?.data?.message ?? 'Failed to fetch more data.');
+            return true;
+        } catch {
+            return false;
         } finally {
             setLoading(false);
         }
@@ -360,7 +364,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
     }, []);
 
     // Actions that transition the RS to a new status — close the modal and refresh the table
-    const STATUS_ACTIONS = ['Mark Served', 'Return RS to Budget', 'Mark as Cancelled'];
+    const STATUS_ACTIONS = ['Mark Served', 'Return to Administration', 'Return to Logistics', 'Mark as Cancelled'];
 
     // Handle action buttons clicked inside the modal
     const handleModalAction = useCallback(async (action: string, row: RSProcessRow) => {
@@ -599,27 +603,15 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                         );
                     })}
 
-                    {!loading && !error && hasMore && rows.length > 0 && (
+                    {!error && hasMore && rows.length > 0 && (
                         <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center' }}>
-                                <button
-                                    onClick={handleLoadMore}
-                                    style={{
-                                        padding: '8px 20px', fontSize: 13, fontWeight: 600,
-                                        color: t.cellBlue, background: 'transparent',
-                                        border: `1px solid ${t.cellBlue}66`, borderRadius: 6,
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    Load More
-                                </button>
-                            </td>
-                        </tr>
-                    )}
-                    {loading && rows.length > 0 && (
-                        <tr>
-                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: t.cellMuted }}>
-                                Loading more…
+                            <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', color: t.cellMuted }}>
+                                <InfiniteScrollSentinel
+                                    key={nextCursor}
+                                    hasMore={hasMore}
+                                    loading={loading}
+                                    onLoadMore={handleLoadMore}
+                                />
                             </td>
                         </tr>
                     )}

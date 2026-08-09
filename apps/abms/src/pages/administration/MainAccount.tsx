@@ -31,6 +31,7 @@ import {
 import { mainAccountRoute } from '../../router';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { PageHeader } from '../../components/ui/Page';
+import { InfiniteScrollSentinel } from '../../components/InfiniteScrollSentinel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -256,8 +257,10 @@ export default function MainAccount() {
                     ? { data: [...(prev[parentId]?.data ?? []), ...res.data.data], next_cursor: res.data.next_cursor }
                     : res.data,
             }));
+            return true;
         } catch {
             toast.error('Failed to load sub-accounts');
+            return false;
         } finally {
             setSubLoadingIds(prev => { const s = new Set(prev); s.delete(parentId); return s; });
         }
@@ -526,7 +529,7 @@ export default function MainAccount() {
                                                                     </TableCell>
                                                                 </TableRow>
 
-                                                                {subLoading ? (
+                                                                {subLoading && !subs ? (
                                                                     <TableRow style={{ background: t.subRowBg }}>
                                                                         <TableCell colSpan={6} className="py-5 text-center text-xs" style={{ color: t.mutedText }}>Loading sub-accounts…</TableCell>
                                                                     </TableRow>
@@ -601,19 +604,18 @@ export default function MainAccount() {
                                                                             </TableRow>
                                                                         ))}
 
-                                                                        {/* Load more */}
+                                                                        {/* Infinite-scroll cursor sentinel */}
                                                                         {subs.next_cursor && (
                                                                             <TableRow style={{ background: t.subRowBg, borderBottom: `1px solid ${t.rowBorder}` }}>
                                                                                 <TableCell colSpan={6} className="py-2 text-center">
-                                                                                    <button
-                                                                                        onClick={() => fetchSubs(account.id, subs.next_cursor)}
-                                                                                        className="text-xs font-semibold px-3 py-1 rounded transition-colors"
-                                                                                        style={{ color: t.tableHeadText }}
-                                                                                        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(59,130,246,0.10)' : 'rgba(37,99,235,0.06)')}
-                                                                                        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
-                                                                                    >
-                                                                                        Load more sub-accounts…
-                                                                                    </button>
+                                                                                    <InfiniteScrollSentinel
+                                                                                        key={`${account.id}-${subs.next_cursor}`}
+                                                                                        hasMore={Boolean(subs.next_cursor)}
+                                                                                        loading={subLoading}
+                                                                                        onLoadMore={() => fetchSubs(account.id, subs.next_cursor)}
+                                                                                        loadingLabel="Loading more sub-accounts…"
+                                                                                        retryLabel="Could not load more sub-accounts. Retry"
+                                                                                    />
                                                                                 </TableCell>
                                                                             </TableRow>
                                                                         )}

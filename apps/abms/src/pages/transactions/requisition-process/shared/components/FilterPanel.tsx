@@ -9,6 +9,7 @@ import { FilterSortDropdown, FilterActionButton } from './FilterControls';
 // If you change one, change all three.
 // ─────────────────────────────────────────────────────────────────────────────
 const LIQUIDATION_COLOR = '#eab308';
+const CONTROLLER_REPROCESSED_COLOR = '#8b5cf6';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // InlineDeptSelect — badge-style dept+section dropdown used when deptOptions
@@ -620,6 +621,27 @@ export function FilterPanel({ config, t, isDark, state, onChange }: FilterPanelP
                                             For Liquidation
                                         </span>
                                     </div>
+                                    {config.showControllerReprocessedLegend && (
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center', gap: 6,
+                                            padding: '5px 12px', borderRadius: 8,
+                                            border: `1px solid ${CONTROLLER_REPROCESSED_COLOR}55`,
+                                            background: isDark
+                                                ? `${CONTROLLER_REPROCESSED_COLOR}21`
+                                                : `${CONTROLLER_REPROCESSED_COLOR}14`,
+                                        }}>
+                                            <span style={{
+                                                display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                                                background: CONTROLLER_REPROCESSED_COLOR, flexShrink: 0,
+                                            }} />
+                                            <span style={{
+                                                fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+                                                color: isDark ? '#c4b5fd' : '#6d28d9', whiteSpace: 'nowrap',
+                                            }}>
+                                                Reprocessed After Approval
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

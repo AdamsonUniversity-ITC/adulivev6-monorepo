@@ -13,6 +13,7 @@ import { RSFormModal } from './components/RSFormModal';
 import { RSViewModal } from './components/RSViewModal';
 import { PageHeader } from '../../../components/ui/Page';
 import { organizationalUnitKey } from '../../../lib/organizationalUnit';
+import { InfiniteScrollSentinel } from '../../../components/InfiniteScrollSentinel';
 
 function BudgetRequestEntryInner({
     t, isDark,
@@ -177,7 +178,7 @@ function BudgetRequestEntryInner({
     };
 
     const handleLoadMore = async () => {
-        if (!nextCursor || isLoadingMore) return;
+        if (!nextCursor || isLoadingMore) return false;
         setIsLoadingMore(true);
         try {
             const res = await financeSvc.get('/abms/budget-request-entry/entries', {
@@ -198,8 +199,10 @@ function BudgetRequestEntryInner({
             setRecords(prev => [...prev, ...mapped]);
             setNextCursor(res.data?.next_cursor ?? null);
             setHasMore(res.data?.has_more ?? false);
+            return true;
         } catch {
             addToast('error', 'Failed to load more records. Please try again.');
+            return false;
         } finally {
             setIsLoadingMore(false);
         }
@@ -643,32 +646,22 @@ function BudgetRequestEntryInner({
                     </table>
                 </div>
 
-                {/* ══ Load More ════════════════════════════════════════════ */}
+                {/* ══ Infinite-scroll cursor sentinel ══════════════════════ */}
                 {hasMore && (
                     <div
-                        className="px-5 py-3 flex items-center justify-center"
+                        className="px-5 py-2"
                         style={{
                             background: t.cardHeaderBg,
                             borderTop: `1px solid ${t.cardHeaderBorder}`,
+                            color: t.cellMuted,
                         }}
                     >
-                        <button
-                            onClick={handleLoadMore}
-                            disabled={isLoadingMore}
-                            className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-[12px] font-bold border transition-all duration-150 select-none"
-                            style={{
-                                background: isLoadingMore ? t.btnDisBg : t.btnRefresh.bg,
-                                borderColor: isLoadingMore ? t.btnDisBorder : t.btnRefresh.border,
-                                color: isLoadingMore ? t.btnDisText : t.btnRefresh.text,
-                                cursor: isLoadingMore ? 'not-allowed' : 'pointer',
-                                opacity: isLoadingMore ? 0.6 : 1,
-                            }}
-                            onMouseEnter={e => { if (!isLoadingMore) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
-                            onMouseLeave={e => { if (!isLoadingMore) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.bg; }}
-                        >
-                            <RefreshCw className={`w-3.5 h-3.5${isLoadingMore ? ' animate-spin' : ''}`} />
-                            {isLoadingMore ? 'Loading more…' : `Load more (showing ${records.length})`}
-                        </button>
+                        <InfiniteScrollSentinel
+                            key={nextCursor}
+                            hasMore={hasMore}
+                            loading={isLoadingMore}
+                            onLoadMore={handleLoadMore}
+                        />
                     </div>
                 )}
 

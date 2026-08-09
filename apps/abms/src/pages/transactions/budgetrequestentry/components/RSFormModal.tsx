@@ -7,7 +7,10 @@ import { fmtCurrency, formatCurrentDate, formatRequisitionNumber, getCurrentScho
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
-const PNB_CREDIT_CARD_PAYMENT = 'PNB Credit Card Payment';
+const CASHIER_MINIMUM_EXEMPT_PAYMENT_FORMS = new Set([
+    'Payment for Supplier/Water',
+    'PNB Credit Card Payment',
+]);
 
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
     stockroom: {
@@ -529,8 +532,8 @@ export function RSFormModal({
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
     const CASHIER_MINIMUM_AMOUNT = 1000;
-    const isPnbCreditCardPayment = rsHeaderData?.payment_form === PNB_CREDIT_CARD_PAYMENT;
-    const isBelowCashierMinimum = rsType === 'cashier' && !isPnbCreditCardPayment && grandTotal < CASHIER_MINIMUM_AMOUNT;
+    const isCashierMinimumExempt = CASHIER_MINIMUM_EXEMPT_PAYMENT_FORMS.has(rsHeaderData?.payment_form ?? '');
+    const isBelowCashierMinimum = rsType === 'cashier' && !isCashierMinimumExempt && grandTotal < CASHIER_MINIMUM_AMOUNT;
     const effectivePayee = rsHeaderData?.payeeFromModal ? rsHeaderData.payee?.trim() ?? '' : payeeInput.trim();
     const isCashierPayeeMissing = rsType === 'cashier' && effectivePayee === '';
     const hasSavePrerequisiteError = items.length === 0 || isBelowCashierMinimum || isCashierPayeeMissing;

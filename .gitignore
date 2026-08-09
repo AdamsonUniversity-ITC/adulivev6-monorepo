@@ -69,6 +69,13 @@ tasks/
 !/tasks/20260722-controller-dashboard-route-access.md
 !/tasks/20260722-liquidation-tag-status-availability.md
 !/tasks/20260807-liquidation-submission-unit-scope.md
+!/tasks/20260809-misrouted-requisition-return-workflow.md
+!/tasks/20260809-administration-controller-status-filters.md
+!/tasks/20260809-cashier-supplier-water-minimum-exemption.md
+!/tasks/20260809-stockroom-incoming-source-filters.md
+!/tasks/20260809-logistics-wico-quoted-price-gate.md
+!/tasks/20260809-abms-infinite-scroll-pagination.md
+!/tasks/20260809-controller-reprocessed-history-tag.md
 !/tasks/20260722-office-supplies-name-order-filter.md
 !/tasks/20260722-stockroom-rs-catalog-items.md
 !/tasks/20260722-requisition-date-filter-layout.md

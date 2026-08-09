@@ -14,6 +14,7 @@ import { Users, UserPlus, Search, X, Loader2, UserCheck, ShieldCheck, ChevronLef
 import { userdepartmentRoute } from '../../router';
 import { financeSvc } from '@repo/axios-config';
 import { PageHeader } from '../../components/ui/Page';
+import { InfiniteScrollSentinel } from '../../components/InfiniteScrollSentinel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // These permissions are stored directly on the user (user_general_permissions),
@@ -1706,7 +1707,7 @@ export default function UserAccess() {
   };
 
   const loadMore = async () => {
-    if (!nextCursor || isLoadingMore) return;
+    if (!nextCursor || isLoadingMore) return false;
     setIsLoadingMore(true);
     try {
       const { data } = await financeSvc.get('/abms/access', {
@@ -1715,8 +1716,10 @@ export default function UserAccess() {
       setUsers((prev) => [...prev, ...(data.data ?? [])]);
       setNextCursor(data.next_cursor ?? null);
       setTotalUsers(data.total ?? 0);
+      return true;
     } catch {
       showToast('error', 'Failed to load more users.');
+      return false;
     } finally {
       setIsLoadingMore(false);
     }
@@ -2000,29 +2003,15 @@ export default function UserAccess() {
                   </TableBody>
                 </Table>
 
-                {/* ── Load More ── */}
+                {/* ── Infinite-scroll cursor sentinel ── */}
                 {nextCursor && (
-                  <div className="flex justify-center py-4" style={{ borderTop: `1px solid ${t.rowBorder}` }}>
-                    <button
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="flex items-center gap-2 text-xs font-semibold px-5 py-2 rounded-lg transition-all duration-150"
-                      style={{
-                        background: isLoadingMore
-                          ? (isDark ? 'rgba(37,99,235,0.40)' : 'rgba(37,99,235,0.50)')
-                          : t.addBtnBg,
-                        color: t.addBtnText,
-                        border: `1px solid ${t.addBtnBorder}`,
-                        boxShadow: t.addBtnShadow,
-                        cursor: isLoadingMore ? 'not-allowed' : 'pointer',
-                        opacity: isLoadingMore ? 0.75 : 1,
-                      }}
-                      onMouseEnter={e => { if (!isLoadingMore) (e.currentTarget as HTMLElement).style.background = t.addBtnHoverBg; }}
-                      onMouseLeave={e => { if (!isLoadingMore) (e.currentTarget as HTMLElement).style.background = t.addBtnBg; }}
-                    >
-                      {isLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                      {isLoadingMore ? 'Loading…' : 'Load More'}
-                    </button>
+                  <div className="py-2" style={{ borderTop: `1px solid ${t.rowBorder}`, color: t.mutedText }}>
+                    <InfiniteScrollSentinel
+                      key={nextCursor}
+                      hasMore={Boolean(nextCursor)}
+                      loading={isLoadingMore}
+                      onLoadMore={loadMore}
+                    />
                   </div>
                 )}
               </CardContent>
