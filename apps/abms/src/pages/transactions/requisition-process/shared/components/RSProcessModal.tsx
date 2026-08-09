@@ -100,6 +100,13 @@ interface AuditRecord {
     new_values: Record<string, any>;
 }
 
+interface PriorPrintEvent {
+    id: number;
+    user_name: string | null;
+    username: string | null;
+    created_at: string;
+}
+
 interface RSMediaFile {
     id: number;
     name: string;
@@ -505,6 +512,116 @@ function ConfirmActionModal({
     );
 }
 
+function formatPriorPrintDate(value: string): string {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return value || 'unknown date';
+
+    return new Intl.DateTimeFormat('en-PH', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(date);
+}
+
+function PriorPrintWarningModal({
+    row,
+    event,
+    error,
+    t,
+    isDark,
+    onNo,
+    onYes,
+}: {
+    row: RSProcessRow;
+    event: PriorPrintEvent | null;
+    error: string | null;
+    t: Theme;
+    isDark: boolean;
+    onNo: () => void;
+    onYes: () => void;
+}) {
+    const printerName = event?.user_name?.trim() || event?.username?.trim() || 'another user';
+    const priorPrintDate = event ? formatPriorPrintDate(event.created_at) : '';
+
+    return createPortal(
+        <div
+            className="abms-modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="prior-print-warning-title"
+            style={{
+                position: 'fixed', inset: 0, zIndex: 95,
+                background: 'rgba(0,0,0,0.60)',
+                backdropFilter: 'blur(3px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '24px 16px',
+            }}
+            onClick={e => { if (e.target === e.currentTarget) onNo(); }}
+        >
+            <div style={{
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
+                boxShadow: t.cardShadow,
+                borderRadius: 14,
+                width: '100%',
+                maxWidth: 430,
+                padding: '22px 22px 18px',
+                display: 'flex', flexDirection: 'column', gap: 14,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{
+                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: isDark ? 'rgba(245,158,11,0.16)' : 'rgba(254,243,199,0.82)',
+                        color: isDark ? '#fbbf24' : '#b45309',
+                    }}>
+                        <Printer style={{ width: 17, height: 17 }} />
+                    </span>
+                    <span id="prior-print-warning-title" style={{ fontSize: 14.5, fontWeight: 800, color: t.cellText }}>
+                        {error ? 'Unable to Check Print History' : 'Previously Printed RS'}
+                    </span>
+                </div>
+
+                <p style={{ fontSize: 12.5, lineHeight: 1.6, color: error ? t.cellAmber : t.cellMuted, margin: 0 }}>
+                    {error
+                        ? error
+                        : <>This RSno.{row.requisition_no} is already printed by <strong style={{ color: t.cellText }}>{printerName}</strong> last {priorPrintDate}. do you want to continue?</>
+                    }
+                </p>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                    <button
+                        type="button"
+                        onClick={onNo}
+                        style={{
+                            padding: '8px 18px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                            border: `1px solid ${t.cardBorder}`, background: 'transparent',
+                            color: t.cellMuted, cursor: 'pointer',
+                        }}
+                    >
+                        {error ? 'Close' : 'No'}
+                    </button>
+                    {!error && (
+                        <button
+                            type="button"
+                            onClick={onYes}
+                            style={{
+                                padding: '8px 20px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                                border: `1px solid ${isDark ? 'rgba(96,165,250,0.46)' : 'rgba(37,99,235,0.35)'}`,
+                                background: isDark ? 'rgba(37,99,235,0.22)' : 'rgba(219,234,254,0.85)',
+                                color: isDark ? '#93c5fd' : '#1d4ed8', cursor: 'pointer',
+                            }}
+                        >
+                            Yes
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>,
+        document.body,
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
@@ -701,15 +818,61 @@ export function RSProcessModal({
     const [payeeDetail, setPayeeDetail] = useState<PayeeDetailRecord | null>(null);
     const [showPayeeView, setShowPayeeView] = useState(false);
     const [showPrintPreview, setShowPrintPreview] = useState(false);
+    const [priorPrintWarning, setPriorPrintWarning] = useState<PriorPrintEvent | null>(null);
+    const [printHistoryCheckError, setPrintHistoryCheckError] = useState<string | null>(null);
+    const [isCheckingPrintHistory, setIsCheckingPrintHistory] = useState(false);
+    const printHistoryCheckInFlight = useRef(false);
+    const activePrintRowId = useRef(row.id);
+    activePrintRowId.current = row.id;
 
     useEffect(() => {
         if (!row.id) return;
         setPayeeDetail(null);
         setShowPayeeView(false);
+        setPriorPrintWarning(null);
+        setPrintHistoryCheckError(null);
         financeSvc.get(`/abms/budget-request-entry/${row.id}`)
             .then(res => setPayeeDetail(res.data.payee_detail ?? null))
             .catch(() => { /* payee detail is optional — silently ignore */ });
     }, [row.id]);
+
+    async function handleOpenPrintPreview() {
+        const requiresDuplicatePrintCheck = roleKey === 'logistics-access' || roleKey === 'stockroom-access';
+        if (!requiresDuplicatePrintCheck) {
+            setShowPrintPreview(true);
+            return;
+        }
+        if (printHistoryCheckInFlight.current) return;
+
+        printHistoryCheckInFlight.current = true;
+        setIsCheckingPrintHistory(true);
+        setPrintHistoryCheckError(null);
+        setPriorPrintWarning(null);
+
+        try {
+            const response = await financeSvc.get(
+                `/abms/budget-request-entry/${row.id}/latest-other-print-event`
+            );
+            const priorPrint = response.data?.data as PriorPrintEvent | null;
+            if (activePrintRowId.current !== row.id) return;
+
+            if (priorPrint) {
+                setPriorPrintWarning(priorPrint);
+            } else {
+                setShowPrintPreview(true);
+            }
+        } catch (error: unknown) {
+            if (activePrintRowId.current !== row.id) return;
+            const apiMessage = (error as { response?: { data?: { message?: string } } })
+                .response?.data?.message;
+            setPrintHistoryCheckError(
+                apiMessage || 'Print history could not be checked. Please try again.'
+            );
+        } finally {
+            printHistoryCheckInFlight.current = false;
+            setIsCheckingPrintHistory(false);
+        }
+    }
 
     // ── Item editing state ───────────────────────────────────────────────────
     const canBudgetEditItems = roleKey === 'budget-access'
@@ -909,7 +1072,7 @@ export function RSProcessModal({
             return;
         }
         if (action.label === 'Print RS') {
-            setShowPrintPreview(true);
+            void handleOpenPrintPreview();
             return;
         }
         // Forward actions use a prefixed label so onAction handlers can
@@ -1525,7 +1688,8 @@ export function RSProcessModal({
                                 (() => {
                                     const forPurchaseBlocked = action.label === 'For Purchase' && !quotedPricesAccepted;
                                     const sendToWicoBlocked = action.label === 'Send RS to WICO' && !allQuotedPricesAccepted;
-                                    const disabled = forPurchaseBlocked || sendToWicoBlocked;
+                                    const printHistoryCheckPending = action.label === 'Print RS' && isCheckingPrintHistory;
+                                    const disabled = forPurchaseBlocked || sendToWicoBlocked || printHistoryCheckPending;
                                     const disabledTitle = forPurchaseBlocked
                                         ? 'Accept quoted prices before marking this RS for purchase.'
                                         : sendToWicoBlocked
@@ -1534,11 +1698,13 @@ export function RSProcessModal({
                                                     ? 'Administration must accept all quoted prices before sending this RS to WICO.'
                                                     : 'Enter quoted prices for every item before sending this RS to WICO.'
                                             )
-                                            : undefined;
+                                            : printHistoryCheckPending
+                                                ? 'Checking whether another user already printed this RS.'
+                                                : undefined;
                                     return (
                                         <ToolbarButton
                                             key={action.label}
-                                            label={action.label}
+                                            label={printHistoryCheckPending ? 'Checking Print History…' : action.label}
                                             icon={action.icon!}
                                             t={t}
                                             isDark={isDark}
@@ -2989,6 +3155,25 @@ export function RSProcessModal({
                     isDark={isDark}
                     onCancel={() => setPendingAction(null)}
                     onConfirm={confirmPendingAction}
+                />
+            )}
+
+            {(priorPrintWarning || printHistoryCheckError) && (
+                <PriorPrintWarningModal
+                    row={row}
+                    event={priorPrintWarning}
+                    error={printHistoryCheckError}
+                    t={t}
+                    isDark={isDark}
+                    onNo={() => {
+                        setPriorPrintWarning(null);
+                        setPrintHistoryCheckError(null);
+                    }}
+                    onYes={() => {
+                        setPriorPrintWarning(null);
+                        setPrintHistoryCheckError(null);
+                        setShowPrintPreview(true);
+                    }}
                 />
             )}
 

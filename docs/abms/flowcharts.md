@@ -134,6 +134,25 @@ flowchart TD
     J --> K[Keep current is_controlled value authoritative]
 ```
 
+## Logistics and Stockroom Reprint Warning
+
+```mermaid
+flowchart TD
+    A[User selects Print RS] --> B{Active role is Logistics or Stockroom?}
+    B -- No --> C[Open existing RS print preview]
+    B -- Yes --> D[Request latest print event by another authenticated user]
+    D --> E{Lookup succeeds?}
+    E -- No --> F[Show error and do not open preview]
+    E -- Yes, none --> C
+    E -- Yes, found --> G[Show RS number printer name and latest date with Yes or No]
+    G -- No --> H[Close warning and append no event]
+    G -- Yes --> C
+    C --> I{User selects Print in preview?}
+    I -- No --> J[Close preview and append no event]
+    I -- Yes --> K[Append idempotent authenticated print event]
+    K --> L[Open browser print dialog]
+```
+
 ## Requisition Header Payee Rules
 
 ```mermaid
