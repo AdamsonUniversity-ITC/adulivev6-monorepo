@@ -185,6 +185,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
         dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
+        defaultSortBy: 'Requisition No.',
         actions: COMMON_ACTIONS,
     },
     'accounting-access': {

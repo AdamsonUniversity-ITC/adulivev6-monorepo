@@ -1,6 +1,6 @@
 # ABMS System Context
 
-Last verified: 2026-08-09
+Last verified: 2026-08-11
 
 ## Purpose
 
@@ -124,7 +124,7 @@ Budget-role item review uses `GET /api/abms/requisition-process/{id}/editable-ac
 
 Logistics item-description maintenance is isolated at `PUT /api/abms/requisition-process/{id}/item-descriptions`. It independently verifies authenticated `logistics-access` and the existing `for pricing`/`for purchase` stage at Logistics; P.O. on Process is excluded after the RS leaves Logistics. It locks the RS and submitted items and accepts only item IDs plus required descriptions. It does not reuse the Budget financial editor and cannot change any account, quantity, UOM, price, total, allocation, or proposal value. The shared modal keeps description editing separate from quoted-price editing.
 
-The idempotent generic requisition-process mutation endpoint has three independently authorized misrouting corrections. Logistics can return `for pricing` at Logistics to Administration; Stockroom can return `certified` at Stockroom to Administration; and Stockroom can return either stored PO-on-process spelling to Logistics at `for purchase`. Administration returns use `on process` at Budget Office and preserve `is_controlled`, allowing an existing Controller approval to remain valid; the PO return likewise preserves Controller state and accepted quoted prices. Each path locks and revalidates the header and changes no item, financial, attachment, note, or liquidation data. The old `Return RS to Budget` action remains a Stockroom-certified compatibility alias for staggered backend/frontend deployment.
+The idempotent generic requisition-process mutation endpoint has three independently authorized misrouting corrections. Logistics can return `for pricing` at Logistics to Administration; Stockroom can return `certified` at Stockroom to Administration; and Stockroom can return either stored PO-on-process spelling to Logistics at `for purchase`. The first two buttons, confirmations, and success toasts display `Return to Budget`, while requests continue sending the stable `Return to Administration` action. Administration returns use `on process` at Budget Office and preserve `is_controlled`, allowing an existing Controller approval to remain valid; the PO return likewise preserves Controller state and accepted quoted prices. Each path locks and revalidates the header and changes no item, financial, attachment, note, or liquidation data. The old `Return RS to Budget` action remains a Stockroom-certified compatibility alias for staggered backend/frontend deployment.
 
 Local environments may seed three alternative funded accounts for a specific
 editable RS with `AbmsRsEditingAccountsSeeder` and
