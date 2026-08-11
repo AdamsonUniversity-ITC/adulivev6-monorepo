@@ -7,10 +7,7 @@ import { fmtCurrency, formatCurrentDate, formatRequisitionNumber, getCurrentScho
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
-const CASHIER_MINIMUM_EXEMPT_PAYMENT_FORMS = new Set([
-    'Payment for Supplier/Water',
-    'PNB Credit Card Payment',
-]);
+const CASHIER_MINIMUM_PAYMENT_FORM = 'Reimbursement/Replenishment';
 
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
     stockroom: {
@@ -532,8 +529,8 @@ export function RSFormModal({
 
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
     const CASHIER_MINIMUM_AMOUNT = 1000;
-    const isCashierMinimumExempt = CASHIER_MINIMUM_EXEMPT_PAYMENT_FORMS.has(rsHeaderData?.payment_form ?? '');
-    const isBelowCashierMinimum = rsType === 'cashier' && !isCashierMinimumExempt && grandTotal < CASHIER_MINIMUM_AMOUNT;
+    const requiresCashierMinimum = (rsHeaderData?.payment_form ?? '').trim() === CASHIER_MINIMUM_PAYMENT_FORM;
+    const isBelowCashierMinimum = rsType === 'cashier' && requiresCashierMinimum && grandTotal < CASHIER_MINIMUM_AMOUNT;
     const effectivePayee = rsHeaderData?.payeeFromModal ? rsHeaderData.payee?.trim() ?? '' : payeeInput.trim();
     const isCashierPayeeMissing = rsType === 'cashier' && effectivePayee === '';
     const hasSavePrerequisiteError = items.length === 0 || isBelowCashierMinimum || isCashierPayeeMissing;
@@ -970,7 +967,7 @@ export function RSFormModal({
                             <AlertCircle style={{ width: 15, height: 15, marginTop: 1, flexShrink: 0 }} />
                             <span>
                                 Kindly use your petty cash. If your office has no petty cash fund, kindly request for it amounting to PHP 5,000.
-                                Cashier requisitions must have a minimum total amount of PHP 1,000.
+                                Reimbursement/Replenishment requisitions must have a minimum total amount of PHP 1,000.
                             </span>
                         </div>
                     )}

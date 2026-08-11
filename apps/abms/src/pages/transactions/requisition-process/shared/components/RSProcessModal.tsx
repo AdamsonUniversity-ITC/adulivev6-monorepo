@@ -17,6 +17,10 @@ import echo from '../../../../../lib/echo';
 import { RSPrintPreview } from './RSPrintPreview';
 import { formatAccountCode } from '../../../shared/accountCode';
 import {
+    canPrintStockroomRequisition,
+    STOCKROOM_PRINT_RESTRICTION_MESSAGE,
+} from '../../../shared/stockroomPrintEligibility';
+import {
     EditableAccountPickerModal,
     type EditableAccountOption,
 } from './EditableAccountPickerModal';
@@ -220,10 +224,10 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // Each entry's `toolbarGroup` ('left' | 'right', defaults to 'left') decides
 // which side of the toolbar it renders in; order within the array is the
 // render order within that group (see leftToolbarActions/rightToolbarActions
-// below). 'For Purchase' is gated to admin-access + status 'for budget
-// director' + location 'budget office', matching the Forward-to… group's
-// visibility rules. Return actions are restricted by both role and exact
-// workflow stage; Mark Served remains restricted to Stockroom.
+// below). Administration destinations are also filtered by the stored RS
+// type, while status/location/Controller gates still determine their exact
+// workflow stage. Return actions are restricted by both role and exact stage;
+// Mark Served remains restricted to Stockroom.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
     { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
@@ -407,7 +411,10 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean; conseq
             verb: 'return this requisition slip to Logistics',
             consequence: 'The RS will resume the For Purchase stage and its accepted quoted prices will be retained.',
         },
-        'Send RS to Staff': { verb: 'send this requisition slip to staff' },
+        'Send RS to Staff': {
+            verb: 'send this requisition slip to staff',
+            consequence: 'The status will return to For Review and the Controller approval will reset to Pending.',
+        },
         'For Purchase': { verb: 'mark this requisition slip as for purchase' },
         'Forward to Stockroom': { verb: 'forward this requisition slip to the Stockroom' },
         'Forward to Accounting': { verb: 'forward this requisition slip to Accounting' },
@@ -544,7 +551,7 @@ function PriorPrintWarningModal({
     onNo: () => void;
     onYes: () => void;
 }) {
-    const printerName = event?.user_name?.trim() || event?.username?.trim() || 'another user';
+    const printerName = event?.user_name?.trim() || event?.username?.trim() || 'a user';
     const priorPrintDate = event ? formatPriorPrintDate(event.created_at) : '';
 
     return createPortal(
@@ -841,7 +848,12 @@ export function RSProcessModal({
     }, [row.id]);
 
     async function handleOpenPrintPreview() {
-        const requiresDuplicatePrintCheck = roleKey === 'logistics-access' || roleKey === 'stockroom-access';
+        const requiresDuplicatePrintCheck = [
+            'logistics-access',
+            'stockroom-access',
+            'budget-access',
+            'admin-access',
+        ].includes(roleKey);
         if (!requiresDuplicatePrintCheck) {
             setShowPrintPreview(true);
             return;
@@ -855,7 +867,7 @@ export function RSProcessModal({
 
         try {
             const response = await financeSvc.get(
-                `/abms/budget-request-entry/${row.id}/latest-other-print-event`
+                `/abms/budget-request-entry/${row.id}/latest-print-event`
             );
             const priorPrint = response.data?.data as PriorPrintEvent | null;
             if (activePrintRowId.current !== row.id) return;
@@ -879,14 +891,18 @@ export function RSProcessModal({
     }
 
     // ── Item editing state ───────────────────────────────────────────────────
+    const isStockroomRequest = (row.rstype ?? '').trim().toLowerCase() === 'stockroom';
     const canBudgetEditItems = roleKey === 'budget-access'
         && (row.status ?? '').toLowerCase() === 'for review'
         && (row.location ?? '').toLowerCase() === 'budget office';
     const canLogisticsEditDescriptions = roleKey === 'logistics-access'
         && ['for pricing', 'for purchase'].includes((row.status ?? '').trim().toLowerCase())
         && (row.location ?? '').trim().toLowerCase() === 'logistics';
-    const canEditItems = canBudgetEditItems || canLogisticsEditDescriptions;
-    const isStockroomRequest = (row.rstype ?? '').toLowerCase() === 'stockroom';
+    const canStockroomEditQuantities = roleKey === 'stockroom-access'
+        && isStockroomRequest
+        && (row.status ?? '').trim().toLowerCase() === 'certified'
+        && (row.location ?? '').trim().toLowerCase() === 'stockroom';
+    const canEditItems = canBudgetEditItems || canLogisticsEditDescriptions || canStockroomEditQuantities;
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [itemDrafts, setItemDrafts] = useState<Record<number, EditableItemDraft>>({});
     const [accountPickerItemId, setAccountPickerItemId] = useState<number | null>(null);
@@ -912,6 +928,8 @@ export function RSProcessModal({
     const [isSavingPrices, setIsSavingPrices] = useState(false);
     const savingPricesRef = useRef(false);
     const [pricesError, setPricesError] = useState<string | null>(null);
+    const stockroomPrintBlocked = roleKey === 'stockroom-access'
+        && !canPrintStockroomRequisition(row.rstype, row.status);
 
     // ── Accept quoted prices (admin-only, for approval stage) ────────────────
     // Clicking "Accept Quoted Prices" fetches a preview of what the change
@@ -1076,6 +1094,7 @@ export function RSProcessModal({
             return;
         }
         if (action.label === 'Print RS') {
+            if (stockroomPrintBlocked) return;
             void handleOpenPrintPreview();
             return;
         }
@@ -1230,7 +1249,14 @@ export function RSProcessModal({
                         description: draft.description,
                     })),
                 }
-                : {
+                : canStockroomEditQuantities
+                    ? {
+                        items: Object.entries(itemDrafts).map(([id, draft]) => ({
+                            id: Number(id),
+                            quantity: draft.quantity,
+                        })),
+                    }
+                    : {
                     items: Object.entries(itemDrafts).map(([id, draft]) => ({
                         id: Number(id),
                         account_id: draft.account_id,
@@ -1242,7 +1268,9 @@ export function RSProcessModal({
                 };
             const endpoint = canLogisticsEditDescriptions
                 ? `/abms/requisition-process/${row.id}/item-descriptions`
-                : `/abms/requisition-process/${row.id}/items`;
+                : canStockroomEditQuantities
+                    ? `/abms/requisition-process/${row.id}/stockroom-quantities`
+                    : `/abms/requisition-process/${row.id}/items`;
             const res = await financeSvc.put(endpoint, payload);
             const updatedItems: RSLineItem[] = (res.data?.items ?? row.items ?? []).map((item: RSLineItem) => ({
                 ...item,
@@ -1374,6 +1402,30 @@ export function RSProcessModal({
         a.forwardGroup
         || ['For Pricing', 'Send RS to Staff'].includes(a.label);
 
+    const isAdministrationDestinationAction = (a: RoleAction) => [
+        'Stockroom',
+        'Accounting',
+        'Acctg. Director',
+        'HRMDO',
+        'BAO',
+        'Cash Management',
+        'For Pricing',
+        'For Purchase',
+    ].includes(a.label);
+
+    const matchesRequestTypeRouting = (a: RoleAction) => {
+        if (roleKey !== 'admin-access' || !isAdministrationDestinationAction(a)) {
+            return true;
+        }
+
+        const requestType = (row.rstype ?? '').trim().toLowerCase();
+        if (requestType === 'stockroom') return a.label === 'Stockroom';
+        if (requestType === 'logistics') return ['For Pricing', 'For Purchase'].includes(a.label);
+        if (requestType === 'cashier') return !['Stockroom', 'For Pricing', 'For Purchase'].includes(a.label);
+
+        return false;
+    };
+
     const matchesControllerWorkflow = (a: RoleAction) => {
         /*
          * Controller can decide only while:
@@ -1426,13 +1478,13 @@ export function RSProcessModal({
     };
 
     // Toolbar (top): common actions, split left/right via each action's toolbarGroup.
-    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && isNotAlreadyReprocessed(a));
-    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && isNotAlreadyReprocessed(a));
+    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a) && isNotAlreadyReprocessed(a));
+    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a) && isNotAlreadyReprocessed(a));
 
     // Footer (bottom): role-specific transition buttons only
     const roleActions = ROLE_ACTIONS[roleKey] ?? [];
-    const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a));
-    const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a));
+    const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a));
+    const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a));
 
     const cancelVisible = matchesStatus(CANCEL_ACTION) && !isTerminal;
 
@@ -1468,6 +1520,10 @@ export function RSProcessModal({
     const draftsValid = !isEditingItems || Object.values(itemDrafts).every(d => {
         if (canLogisticsEditDescriptions) {
             return d.description.trim().length > 0 && d.description.length <= 500;
+        }
+
+        if (canStockroomEditQuantities) {
+            return Number.isInteger(d.quantity) && d.quantity >= 0;
         }
 
         return Number.isInteger(d.account_id) && d.account_id > 0
@@ -1693,7 +1749,8 @@ export function RSProcessModal({
                                     const forPurchaseBlocked = action.label === 'For Purchase' && !quotedPricesAccepted;
                                     const sendToWicoBlocked = action.label === 'Send RS to WICO' && !allQuotedPricesAccepted;
                                     const printHistoryCheckPending = action.label === 'Print RS' && isCheckingPrintHistory;
-                                    const disabled = forPurchaseBlocked || sendToWicoBlocked || printHistoryCheckPending;
+                                    const stockroomPrintActionBlocked = action.label === 'Print RS' && stockroomPrintBlocked;
+                                    const disabled = forPurchaseBlocked || sendToWicoBlocked || printHistoryCheckPending || stockroomPrintActionBlocked;
                                     const disabledTitle = forPurchaseBlocked
                                         ? 'Accept quoted prices before marking this RS for purchase.'
                                         : sendToWicoBlocked
@@ -1703,8 +1760,10 @@ export function RSProcessModal({
                                                     : 'Enter quoted prices for every item before sending this RS to WICO.'
                                             )
                                             : printHistoryCheckPending
-                                                ? 'Checking whether another user already printed this RS.'
-                                                : undefined;
+                                                ? 'Checking whether this RS was already printed.'
+                                                : stockroomPrintActionBlocked
+                                                    ? STOCKROOM_PRINT_RESTRICTION_MESSAGE
+                                                    : undefined;
                                     return (
                                         <ToolbarButton
                                             key={action.label}
@@ -1962,9 +2021,13 @@ export function RSProcessModal({
                                             <button
                                                 onClick={handleSaveItems}
                                                 disabled={isSavingItems || !draftsValid}
-                                                title={!draftsValid
+                                            title={!draftsValid
                                                     ? 'Complete every required item field before saving'
-                                                    : canLogisticsEditDescriptions ? 'Save item description changes' : 'Save item changes'}
+                                                    : canLogisticsEditDescriptions
+                                                        ? 'Save item description changes'
+                                                        : canStockroomEditQuantities
+                                                            ? 'Save served quantity changes and recalculate balances'
+                                                            : 'Save item changes'}
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                                     padding: '5px 12px', borderRadius: 8,
@@ -1999,7 +2062,11 @@ export function RSProcessModal({
                                     ) : (
                                         <button
                                             onClick={startEditingItems}
-                                            title={canLogisticsEditDescriptions ? 'Edit item descriptions' : 'Edit items'}
+                                            title={canLogisticsEditDescriptions
+                                                ? 'Edit item descriptions'
+                                                : canStockroomEditQuantities
+                                                    ? 'Edit quantities for unavailable stock'
+                                                    : 'Edit items'}
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                                                 minHeight: 34, padding: '7px 13px', borderRadius: 8,
@@ -2012,7 +2079,11 @@ export function RSProcessModal({
                                             onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.16)' : 'rgba(219,234,254,0.72)'; }}
                                         >
                                             <Pencil style={{ width: 14, height: 14 }} />
-                                            {canLogisticsEditDescriptions ? 'Edit Descriptions' : 'Edit Items'}
+                                            {canLogisticsEditDescriptions
+                                                ? 'Edit Descriptions'
+                                                : canStockroomEditQuantities
+                                                    ? 'Edit Quantities'
+                                                    : 'Edit Items'}
                                         </button>
                                     )
                                 )}
@@ -2168,7 +2239,9 @@ export function RSProcessModal({
                                                     const rowEditing = isEditingItems && !!draft;
                                                     const priceDraft = priceDrafts[item.id];
                                                     const rowPricing = isPricingItems && priceDraft !== undefined;
-                                                    const liveTotal = rowEditing && canBudgetEditItems ? draft.quantity * draft.unit_cost : item.total_cost;
+                                                    const liveTotal = rowEditing && (canBudgetEditItems || canStockroomEditQuantities)
+                                                        ? draft.quantity * draft.unit_cost
+                                                        : item.total_cost;
                                                     const rowBg = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg;
                                                     const inputStyle: React.CSSProperties = {
                                                         width: '100%', maxWidth: 90, padding: '4px 8px',
@@ -2239,9 +2312,9 @@ export function RSProcessModal({
                                                                 ) : item.description}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 2, 'right', false, true)}>
-                                                                {rowEditing && canBudgetEditItems ? (
+                                                                {rowEditing && (canBudgetEditItems || canStockroomEditQuantities) ? (
                                                                     <input
-                                                                        type="number" min={1} step={1}
+                                                                        type="number" min={canStockroomEditQuantities ? 0 : 1} step={1}
                                                                         value={draft.quantity}
                                                                         disabled={isSavingItems}
                                                                         onChange={e => updateItemDraft(item.id, {
@@ -2301,7 +2374,7 @@ export function RSProcessModal({
                                                         </tr>
                                                     );
                                                 })}
-                                                {isEditingItems && canBudgetEditItems && (
+                                                {isEditingItems && (canBudgetEditItems || canStockroomEditQuantities) && (
                                                     <tr style={{ background: isDark ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.05)' }}>
                                                         <td colSpan={totalCols - 1} style={{
                                                             padding: '10px 14px', fontSize: 11, fontWeight: 700,

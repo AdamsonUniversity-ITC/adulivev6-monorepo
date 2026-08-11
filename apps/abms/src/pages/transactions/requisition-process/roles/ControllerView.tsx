@@ -418,9 +418,7 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
             try {
                 const res = await financeSvc.get('/abms/budget-request-entry/accounts', {
                     params: {
-                        departmentId: row.kind === 'Department' ? row.department_id : null,
-                        sectionId: row.kind === 'Section' ? row.section_id : null,
-                        currentSchoolYear,
+                        requisitionId: row.id,
                     },
                 });
                 setAccounts(res.data.accounts ?? []);

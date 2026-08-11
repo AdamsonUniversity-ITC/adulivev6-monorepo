@@ -22,6 +22,10 @@ import { PAYEE_VIEW_REQUIRED_FORMS, PayeeDetailsViewModal } from './PayeeDetails
 import { RSPrintPreview } from '../../requisition-process/shared/components/RSPrintPreview';
 import type { RSLineItem, RSProcessRow } from '../../requisition-process/shared/components/RSProcessModal';
 import { formatAccountCode } from '../../shared/accountCode';
+import {
+    canPrintStockroomRequisition,
+    STOCKROOM_PRINT_RESTRICTION_MESSAGE,
+} from '../../shared/stockroomPrintEligibility';
 
 export interface RSViewHeader {
     id: number;
@@ -131,6 +135,13 @@ export function RSViewModal({
     const isReprocessAtDepartment = normalizeEntryStatus(header?.status, header?.requisition_number) === 'reprocess'
         && (header?.location ?? '').toLowerCase() === 'department';
     const canEdit = !!header && (isUnsavedRS || isReprocessAtDepartment);
+    const stockroomPrintBlocked = !!header
+        && !canPrintStockroomRequisition(header.rstype, header.status);
+
+    function openPrintPreview() {
+        if (stockroomPrintBlocked) return;
+        setShowPrintPreview(true);
+    }
 
     // ── Persistent realtime subscription — lives while modal is open, not just when chat is open ──
     const seenMessageIds = useRef<Set<number>>(new Set());
@@ -702,11 +713,18 @@ export function RSViewModal({
                             />
                             {!isUnsavedRS && (
                                 <button
-                                    onClick={() => setShowPrintPreview(true)}
+                                    onClick={openPrintPreview}
+                                    disabled={stockroomPrintBlocked}
+                                    title={stockroomPrintBlocked ? STOCKROOM_PRINT_RESTRICTION_MESSAGE : 'Print RS'}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
-                                    style={{ background: t.btnPrevSY.bg, borderColor: t.btnPrevSY.border, color: t.btnPrevSY.text }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
-                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
+                                    style={{
+                                        background: stockroomPrintBlocked ? t.btnDisBg : t.btnPrevSY.bg,
+                                        borderColor: stockroomPrintBlocked ? t.btnDisBorder : t.btnPrevSY.border,
+                                        color: stockroomPrintBlocked ? t.btnDisText : t.btnPrevSY.text,
+                                        cursor: stockroomPrintBlocked ? 'not-allowed' : 'pointer',
+                                    }}
+                                    onMouseEnter={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
+                                    onMouseLeave={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
                                 >
                                     <Printer className="w-3.5 h-3.5" />
                                     Print RS
@@ -849,11 +867,18 @@ export function RSViewModal({
                                 isDark={isDark}
                             />
                             <button
-                                onClick={() => setShowPrintPreview(true)}
+                                onClick={openPrintPreview}
+                                disabled={stockroomPrintBlocked}
+                                title={stockroomPrintBlocked ? STOCKROOM_PRINT_RESTRICTION_MESSAGE : 'Print RS'}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
-                                style={{ background: t.btnPrevSY.bg, borderColor: t.btnPrevSY.border, color: t.btnPrevSY.text }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
+                                style={{
+                                    background: stockroomPrintBlocked ? t.btnDisBg : t.btnPrevSY.bg,
+                                    borderColor: stockroomPrintBlocked ? t.btnDisBorder : t.btnPrevSY.border,
+                                    color: stockroomPrintBlocked ? t.btnDisText : t.btnPrevSY.text,
+                                    cursor: stockroomPrintBlocked ? 'not-allowed' : 'pointer',
+                                }}
+                                onMouseEnter={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
+                                onMouseLeave={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
                             >
                                 <Printer className="w-3.5 h-3.5" />
                                 Print RS

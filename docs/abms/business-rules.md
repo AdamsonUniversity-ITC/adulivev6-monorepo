@@ -68,7 +68,8 @@ Last verified: 2026-08-11
 - Shared RS printing projects payee details by payment form: Supplier/Water prints only its TIN, VAT classification, and applicable payment/bank details; Honorarium prints only its TIN, employee classification, and applicable payment/bank details.
 - Shared RS printing resolves `Printed By` from the authenticated user opening the print preview, not from the requisition requester/creator. This is print-time attribution only and does not alter stored ownership.
 - A deliberate Print-button click for a numbered live RS must record one append-only print event before the browser dialog opens. Opening or closing the preview and changing paper presets do not create events. `Printed` means the browser dialog was initiated; it does not prove that paper or a PDF was produced.
-- Before Logistics or Stockroom opens the shared RS print preview, the frontend requests the latest append-only print event belonging to another authenticated user. The backend excludes the current user and orders candidates by `created_at`, then event ID, descending. A match produces an explicit Yes/No warning containing the RS number, stored resolved printer name, and print date/time; No and history-check failures create no event, while Yes only opens the preview. Other roles retain direct preview opening, and the actual event remains recorded only when the preview's Print button is used.
+- Before Logistics, Stockroom, Budget, or Administration opens the shared RS print preview, the frontend requests the latest append-only print event ordered by `created_at`, then event ID, descending. The current authenticated user is not excluded, so a same-user prior print also produces the explicit Yes/No warning containing the RS number, stored resolved printer name, and print date/time. No and history-check failures create no event, while Yes only opens the preview; the actual event remains recorded only when the preview's Print button is used. Controller and other Requisition Process roles retain direct preview opening.
+- Budget Request Entry and the Stockroom Requisition Process role apply a view-scoped Stockroom-type print gate before preview opening: normalized `rstype = stockroom` requires a Certified or Served state. `certified`, `certified rs`, `served`, `served rs`, and `served by wico` are the recognized stored/display variants. The disabled action explains the requirement and its handler refuses to open the preview. This gate does not apply in Logistics, Administration, Controller, Budget-role Requisition Process, or other role views and does not change the shared print-event API.
 - Print identity comes only from the authenticated backend user. The event snapshots user ID, username/employee number, and teacher-resolved full name, falling back to authenticated name and then username; client identity values are ignored.
 - Print-event creation uses the shared UUID idempotency contract. A retry of one interrupted click replays the original response, while a later deliberate click receives a new key and appends another row.
 - Requisition Process History merges append-only print rows with OwenIt audit rows at read time using source-qualified keys and stable newest-first ordering. Print rows have no old/new changes block and remain outside `audits`, report selection, and financial audit reconstruction.
@@ -76,7 +77,7 @@ Last verified: 2026-08-11
 - Account choices for a new requisition come from the exact school-year typed-unit allocation. When reviewing an existing requisition, the backend scopes choices to its stored positive item `account_id` values; account codes remain display-only.
 - The backend always recalculates `total_amount` from stored live item `total_cost` values and does not trust a client-supplied total.
 - Finalizing a Cashier requisition requires a nonblank payee, either already stored from Payee Details or submitted by the RS form. Missing payee validation occurs before numbering or workflow changes; non-final total synchronization and non-Cashier requisitions do not require it. Editable legacy unsaved or reprocessed Cashier slips expose a required Payee input so they can satisfy the rule.
-- Finalization requires at least one item. A Cashier requisition must total at least PHP 1,000 unless its stored payment form is exactly `Payment for Supplier/Water` or `PNB Credit Card Payment`; drafts may still synchronize below that threshold.
+- Finalization requires at least one item. The PHP 1,000 minimum applies only when a Cashier requisition's stored payment form is exactly `Reimbursement/Replenishment`; every other Cashier payment form may finalize below that threshold. Drafts may still synchronize below the threshold.
 - `Reprocess RS` uses the dedicated database status `reprocess`, sets `location = department`, records the prior location in `from`, and resets Controller decision state. Reprocess actions are hidden once an entry is already in `reprocess`.
 - Department-side item editing is allowed only for unsaved requisitions or entries with `status = reprocess` and `location = department`. Reprocess rows retain their existing description, quantity, unit-cost, and UOM editor. During initial creation, each persisted draft row has an explicit per-item editor: Cashier/Logistics may change Account, Description, Quantity, and Unit Cost while UOM remains fixed; Stockroom may change only Account and Quantity while its stored catalog fields remain authoritative.
 - Draft account choices are derived from the stored RS school year and exact typed Department/Section. A draft reassignment resolves accounts by ID, refunds the complete old item total, debits the recalculated destination total, aggregates allocation/proposal effects, and updates the item and header total atomically in integer cents. Supplying the draft account-edit field after numbering returns `422`; existing reprocess editing without account reassignment remains intact.
@@ -99,6 +100,9 @@ Last verified: 2026-08-11
 - Administration and Budget users may toggle `is_cash_advance` on a Cashier requisition only after it has a nonzero requisition number and while status is not `cancelled` or `disapproved`. The tag is independent from `for_liquidation` and changes no balances, approval state, status, location, or routing.
 
 ## Controller Approval Gate
+
+- Administration destination actions are constrained by stored normalized RS type after Controller approval: Stockroom permits only Forward to Stockroom; Logistics permits only For Pricing and the later For Purchase transition; Cashier excludes those three and retains its established cashier-related office destinations. The UI hides incompatible destinations, and the locked Administration-authorized API rejects forged or stale requests with no mutation.
+- `Send RS to Staff` is type-independent but requires a Controller-approved `on process` RS currently at Budget Office. It returns the RS to `for review`, keeps it at Budget Office, and resets `is_controlled` to pending so a later Controller cycle is required.
 
 - `budget_request_entry.is_controlled` has three states: `0` pending, `1` approved, and `2` disapproved. It must not be treated as a boolean.
 - Controller worklist rows expose `was_reprocessed_after_controller_approval` only when ordered requisition audits contain `is_controlled = 1` before a later `status = reprocess`. The current page's audits are loaded in one batched query and ordered by `created_at`, then audit ID; current fields alone never establish this historical flag. The flag is informational and does not replace the current three-state decision.
@@ -138,7 +142,7 @@ Last verified: 2026-08-11
 - Saving returned amounts does not set `is_approve` and does not clear `for_liquidation`; approval remains a separate action.
 - Enabling the Cash Advance tag on an eligible Cashier RS atomically sets both `is_cash_advance` and `for_liquidation` true. Disabling Cash Advance clears only `is_cash_advance` and preserves the liquidation tag, because the RS may still require liquidation independently.
 - The Requisition Process `All Except PNB Credit Card Payment` filter includes requisitions with any nonblank payment form other than a trimmed, case-insensitive PNB Credit Card Payment value. Null and blank payment forms are not treated as another payment form.
-- Budget and Administration additionally expose the pseudo-status `RS to Process Today`. It is a worklist label rather than a stored status: it includes every RS type and null, blank, or non-PNB payment forms, excluding only a trimmed, case-insensitive exact `PNB Credit Card Payment`. Other filter families and cursor pagination still apply.
+- Budget and Administration additionally expose the pseudo-status `RS to Process Today`. It is a worklist label rather than a stored status: both roles include every RS type and null, blank, or non-PNB payment forms, excluding only a trimmed, case-insensitive exact `PNB Credit Card Payment`. Budget also requires the current status to be exactly `for review`; Administration intentionally remains status-wide. Other selected statuses remain OR-based, and other filter families plus cursor pagination still apply.
 
 ## Report Families
 
@@ -258,6 +262,25 @@ Last verified: 2026-08-11
 - Allow long account and requisition groups to flow across pages while keeping individual rows, headings, subtotals, totals, and footers together where practical.
 
 ## Core Financial Transaction Safety
+
+### Office Supply identity
+
+- `office_supplies.item_code` is a client-provided display/business identifier, not an application-generated sequence.
+- Create and update require a trimmed, non-empty string of at most 255 characters. Codes must be unique across all rows, including soft-deleted records, while an update may retain its own current code.
+- The database unique index remains authoritative under concurrent requests; existing item IDs remain the internal record identity.
+
+### Stockroom certified-quantity reconciliation
+
+- Stockroom quantity adjustment is available only to `stockroom-access` for a live requisition whose normalized type, status, and location are `stockroom`, `certified`, and `stockroom` respectively. Served and every other stage are immutable through this path.
+- The dedicated request accepts only existing item IDs and nonnegative integer quantities. A zero quantity represents an item that cannot be served and produces a zero item total without deleting the row.
+- Each new total is the stored unit cost multiplied by the new quantity in exact cents. The old-to-new deltas are aggregated per ID-resolved allocation and proposal, both balance layers are validated, and the header is rolled up from every live item inside one locked transaction.
+- Reductions refund the exact delta; increases require sufficient allocation and proposal balances. Account, description, unit cost, unit of measurement, quoted price, review state, and unused amount remain unchanged.
+
+### Requisition View Accounts
+
+- View Accounts is requisition-scoped: account identity comes from each live item's positive stored `account_id`, never account code or the page's Department/Section and current-school-year filters.
+- The API derives the RS's stored school year and exact typed owner, then returns the complete distinct referenced-account set without the general account picker's cursor limit. Accounts not referenced by that RS are excluded.
+- The operation is read-only and displays the current remaining balance only when exactly one live allocation matches. Missing or ambiguous mappings keep the referenced account visible with an unavailable balance and structured data-quality warning; the API never chooses an arbitrary allocation.
 
 - Proposal saving serializes by school year plus typed organizational unit using a deterministic MySQL advisory-lock name no longer than MySQL's 64-character limit, then locks the proposal, allocation, and affected items. Header/allocation creation, item changes, and live-item rollups commit or roll back together.
 - Requisition item creation and amount increases lock both the exact account allocation and its proposal. Both projected balances must remain nonnegative before any financial write.

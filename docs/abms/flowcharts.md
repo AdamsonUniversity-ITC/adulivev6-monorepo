@@ -134,13 +134,30 @@ flowchart TD
     J --> K[Keep current is_controlled value authoritative]
 ```
 
-## Logistics and Stockroom Reprint Warning
+## Stockroom-Type Print Eligibility
 
 ```mermaid
 flowchart TD
-    A[User selects Print RS] --> B{Active role is Logistics or Stockroom?}
+    A[User selects Print RS] --> B{Budget Request Entry or Stockroom role?}
+    B -- No --> C[Keep existing role print behavior]
+    B -- Yes --> D{Normalized RS type is stockroom?}
+    D -- No --> E[Allow existing print preview flow]
+    D -- Yes --> F{Status is Certified or Served variant?}
+    F -- No --> G[Disable action and guard preview opening]
+    F -- Yes --> E
+    E --> H{Stockroom role?}
+    H -- Yes --> I[Run latest any-user print-history check]
+    H -- No --> J[Open shared print preview]
+    I --> J
+```
+
+## Requisition Process Reprint Warning
+
+```mermaid
+flowchart TD
+    A[User selects Print RS] --> B{Logistics, Stockroom, Budget, or Administration?}
     B -- No --> C[Open existing RS print preview]
-    B -- Yes --> D[Request latest print event by another authenticated user]
+    B -- Yes --> D[Request latest print event by any user, including current user]
     D --> E{Lookup succeeds?}
     E -- No --> F[Show error and do not open preview]
     E -- Yes, none --> C
@@ -198,7 +215,10 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Budget or Administration selects RS to Process Today] --> B[Apply organizational school-year date search and sort filters]
-    B --> C[Include null blank and non-PNB payment forms across every RS type]
+    B --> BA{Active role}
+    BA -- Budget --> BB[Require current status for review]
+    BA -- Administration --> C[Retain status-wide scope]
+    BB --> C[Include null blank and non-PNB payment forms across every RS type]
     C --> D[Exclude trimmed case-insensitive exact PNB Credit Card Payment]
     D --> E[Apply stable cursor pagination]
     E --> F[Return rows for the normal RS process modal]
@@ -307,7 +327,7 @@ flowchart TD
     F -- No --> X[Return validation error]
     F -- Yes --> FP{Payee requirement satisfied?}
     FP -- No --> X
-    FP -- Yes --> G{Cashier request below PHP 1,000 without Supplier/Water or PNB exemption?}
+    FP -- Yes --> G{Cashier Reimbursement/Replenishment below PHP 1,000?}
     G -- Yes --> X
     G -- No --> H[Assign requisition number and persist calculated total]
 
@@ -356,6 +376,24 @@ flowchart TD
     G --> H[Return authoritative items without changing accounts quantities prices totals or balances]
 ```
 
+## Stockroom Certified Quantity Editing
+
+```mermaid
+flowchart TD
+    A[Stockroom opens a Stockroom-type RS] --> B{Certified and currently at Stockroom?}
+    B -- No, including Served --> X[Hide editor and reject writes]
+    B -- Yes --> C[Edit quantities only; zero means unavailable stock]
+    C --> D[Submit item ID and quantity pairs idempotently]
+    D --> E[Authorize Stockroom and lock header, items, allocations, and proposals]
+    E --> F{State, ownership, typed unit, and allocations valid?}
+    F -- No --> X
+    F -- Yes --> G[Compute stored unit cost times quantity in exact cents]
+    G --> H[Aggregate old-to-new deltas per allocation and proposal]
+    H --> I{Resulting balances and totals valid?}
+    I -- No --> X
+    I -- Yes --> J[Update item totals, balances, and full header total atomically]
+```
+
 ## Misrouted Requisition Returns
 
 ```mermaid
@@ -374,6 +412,28 @@ flowchart TD
     F --> I[Audit and commit idempotently]
     H --> I
     I --> J[Preserve items totals balances notes files and liquidation flags]
+```
+
+## Administration RS-Type Routing
+
+```mermaid
+flowchart TD
+    A[Administration opens RS at Budget Office] --> B{Send RS to Staff?}
+    B -- Yes --> C{On process and Controller approved?}
+    C -- No --> X[Hide or reject; change nothing]
+    C -- Yes --> D[Set for review and Controller pending; keep Budget Office]
+    B -- No --> E{Stored normalized RS type}
+    E -- Stockroom --> F[Expose and accept Forward to Stockroom only]
+    E -- Logistics --> G[Expose For Pricing after Controller approval]
+    G --> H[After accepted quote batch expose For Purchase]
+    E -- Cashier --> I[Expose established cashier-office destinations]
+    F --> J[Lock and revalidate type status location approval and role]
+    G --> J
+    H --> J
+    I --> J
+    J --> K{Request matches matrix and stage?}
+    K -- No --> X
+    K -- Yes --> L[Apply audited transition without changing financial data]
 ```
 
 ## Live Date-Range Report Projection
