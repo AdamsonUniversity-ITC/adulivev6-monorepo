@@ -171,7 +171,7 @@ erDiagram
     }
     OFFICE_SUPPLIES {
         bigint id PK
-        string item_code
+        string item_code "client-provided; unique including soft-deleted rows"
         string item_name
         decimal unit_cost
         string unit_measurement

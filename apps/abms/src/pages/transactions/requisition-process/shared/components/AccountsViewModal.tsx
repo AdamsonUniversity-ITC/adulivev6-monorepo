@@ -12,7 +12,8 @@ export interface AccountRow {
     account_code: string;
     main_account_code?: string | null;
     account_name: string;
-    balance: number;
+    balance: number | string | null;
+    data_quality_warning?: string | null;
 }
 
 interface AccountsViewModalProps {
@@ -25,10 +26,10 @@ interface AccountsViewModalProps {
     onClose: () => void;
 }
 
-function formatAmount(amount: number) {
+function formatAmount(amount: number | string) {
     return new Intl.NumberFormat('en-PH', {
         style: 'currency', currency: 'PHP', minimumFractionDigits: 2,
-    }).format(amount);
+    }).format(Number(amount));
 }
 
 export function AccountsViewModal({
@@ -182,7 +183,9 @@ export function AccountsViewModal({
                                             textAlign: 'right',
                                             borderBottom: `1px solid ${t.rowBorder}`,
                                         }}>
-                                            {formatAmount(acc.balance)}
+                                            {acc.balance === null
+                                                ? <span title={acc.data_quality_warning ?? undefined} style={{ color: t.cellAmber }}>Unavailable</span>
+                                                : formatAmount(acc.balance)}
                                         </td>
                                     </tr>
                                 ))}

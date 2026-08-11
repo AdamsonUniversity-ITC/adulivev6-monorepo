@@ -375,9 +375,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             try {
                 const res = await financeSvc.get('/abms/budget-request-entry/accounts', {
                     params: {
-                        departmentId: row.kind === 'Department' ? row.department_id : null,
-                        sectionId: row.kind === 'Section' ? row.section_id : null,
-                        currentSchoolYear,
+                        requisitionId: row.id,
                     },
                 });
                 setAccounts(res.data.accounts ?? []);
@@ -436,6 +434,20 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             setSelectedRow(prev => prev ? { ...prev, note: row.note ?? null } : prev);
             setRows(prev => prev.map(r => r.id === row.id ? { ...r, note: row.note ?? null } : r));
             addToast('success', `Note saved for RS ${row.requisition_no}.`);
+            return;
+        }
+
+        // Quantity saving is completed atomically by the modal's dedicated
+        // Stockroom endpoint. Keep the Certified RS open and synchronize the
+        // authoritative items and recalculated total returned by the backend.
+        if (action === 'Save Items') {
+            setSelectedRow(prev => prev
+                ? { ...prev, items: row.items, total_amount: row.total_amount }
+                : prev);
+            setRows(prev => prev.map(r => r.id === row.id
+                ? { ...r, total_amount: row.total_amount }
+                : r));
+            addToast('success', `Quantities and totals updated for RS ${row.requisition_no}.`);
             return;
         }
 

@@ -58,6 +58,7 @@ function valuesOf(value: unknown): Record<string, unknown> {
 export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: {
     row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; onClose: () => void;
 }) {
+    const isStockroomRs = String(row.rstype ?? '').trim().toLowerCase() === 'stockroom';
     const money = (value: number | null | undefined) => new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
     const [printedAt, setPrintedAt] = useState(() => new Date());
     const [isPreparingPrint, setIsPreparingPrint] = useState(false);
@@ -248,14 +249,24 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
                 </section>
 
                 <footer className="rs-footer">
-                    <section className="rs-certification">
+                    <section className={`rs-certification${isStockroomRs ? ' rs-certification-stockroom' : ''}`}>
                         <div className="rs-print-info">
                             <span>Print Date: {printDate}</span><span>Print Time: {printTime}</span>
                             <span>Printed By: {printedBy || '—'}</span>
                         </div>
+                        {isStockroomRs && <>
+                            <div className="rs-signature-certification">
+                                <span>Approved By:</span>
+                                <div className="rs-footer-signature"><div /><span>Office Head</span></div>
+                            </div>
+                            <div className="rs-signature-certification">
+                                <span>Received By:</span>
+                                <div className="rs-footer-signature"><div /><span>Office Representative</span></div>
+                            </div>
+                        </>}
                         <div className="rs-budget-certification">
                             <span>Budget Certified By:</span>
-                            <div className="rs-controller-signature"><div /><span>Controller</span></div>
+                            <div className="rs-footer-signature"><div /><span>Controller</span></div>
                         </div>
                     </section>
                     <p>“In compliance with the requirement of the Data Privacy Act, we would like to secure your consent on the general use and sharing of information obtained from you in the course of transaction/s with any employee of the Adu Finance department. These data, which includes your sensitive or personal information, may be collected, processed or stored in accordance with the AdU retention and disposal policies for legitimate purposes. They may be used to implement transactions which you request, allow or authorize, and to comply with the AdU internal policies and its reporting obligations to government authorities under applicable laws.”</p>
@@ -288,9 +299,11 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             .rs-details{box-sizing:border-box;min-height:38mm;padding:6mm 8mm 4mm}.rs-details>div{display:grid;grid-template-columns:27mm 1fr;gap:8px;min-height:8mm;align-items:start}.rs-details i{font-size:12.5px}.rs-details strong,.rs-details span{font-size:14px}.rs-payee-summary span{font-size:12.5px;line-height:1.45}
             .rs-signing-space{flex:1;min-height:34mm}
             .rs-certification{display:grid;grid-template-columns:1fr auto;column-gap:14mm;align-items:end;padding:0 3mm 3mm}
+            .rs-certification-stockroom{grid-template-columns:minmax(35mm,1fr) repeat(3,minmax(36mm,45mm));column-gap:6mm}
             .rs-print-info{display:flex;flex-direction:column;font-size:10.5px;line-height:1.5}
             .rs-budget-certification{width:52mm;font-size:10.5px;text-align:left}
-            .rs-controller-signature{width:52mm;text-align:center;font-size:11.5px}.rs-controller-signature div{height:6mm;border-bottom:1px solid #000}.rs-controller-signature span{display:block;margin-top:2px}
+            .rs-signature-certification{width:100%;font-size:10.5px;text-align:left}
+            .rs-footer-signature{width:100%;text-align:center;font-size:11.5px}.rs-footer-signature div{height:6mm;border-bottom:1px solid #000}.rs-footer-signature span{display:block;margin-top:2px;white-space:nowrap}
             .rs-footer{font-size:9.5px;line-height:1.28;padding-top:4mm;text-align:justify}
             .rs-footer p{margin:2mm 0 0}
             .rs-paper-half-legal{font-size:11.5px}
@@ -313,16 +326,17 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             .rs-paper-half-legal .rs-payee-summary span{font-size:10px;line-height:1.25}
             .rs-paper-half-legal .rs-signing-space{min-height:8mm}
             .rs-paper-half-legal .rs-certification{column-gap:8mm;padding:0 2mm 1.5mm}
-            .rs-paper-half-legal .rs-print-info,.rs-paper-half-legal .rs-budget-certification{font-size:8.5px}
-            .rs-paper-half-legal .rs-budget-certification,.rs-paper-half-legal .rs-controller-signature{width:45mm}
-            .rs-paper-half-legal .rs-controller-signature{font-size:9px}
-            .rs-paper-half-legal .rs-controller-signature div{height:3mm}
+            .rs-paper-half-legal .rs-print-info,.rs-paper-half-legal .rs-budget-certification,.rs-paper-half-legal .rs-signature-certification{font-size:8.5px}
+            .rs-paper-half-legal .rs-budget-certification{width:45mm}
+            .rs-paper-half-legal .rs-certification-stockroom{grid-template-columns:minmax(31mm,1fr) repeat(3,minmax(31mm,39mm));column-gap:3mm}
+            .rs-paper-half-legal .rs-footer-signature{font-size:9px}
+            .rs-paper-half-legal .rs-footer-signature div{height:3mm}
             .rs-paper-half-legal .rs-footer{font-size:8px;line-height:1.18;padding-top:1.5mm}
             .rs-paper-half-legal .rs-footer p{margin-top:1mm}
             .rs-paper-half-institution .rs-review-dates{margin-top:-8mm}
             .rs-paper-half-institution .rs-signing-space{flex:1 1 0;min-height:0}
             .rs-paper-half-institution .rs-certification{padding-bottom:.5mm}
-            .rs-paper-half-institution .rs-controller-signature div{height:3mm}
+            .rs-paper-half-institution .rs-footer-signature div{height:3mm}
             .rs-half-legal-cut-guide{box-sizing:border-box;width:100%;height:0;border-top:1px dashed #64748b}
             @media(max-width:720px){.rs-print-overlay{padding:118px 12px 28px}.rs-print-toolbar{left:12px;right:12px;top:12px;flex-wrap:wrap}.rs-paper-selector{order:3;flex:1 0 100%}.rs-paper-selector select{max-width:none;min-width:0;flex:1}}
             @media print{
