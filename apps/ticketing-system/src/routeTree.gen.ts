@@ -9,18 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TicketsIndexRouteImport } from './routes/tickets/index'
 import { Route as ManageIndexRouteImport } from './routes/manage/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as TicketsNewRouteImport } from './routes/tickets/new'
 import { Route as TicketsTicketNumberRouteImport } from './routes/tickets/$ticketNumber'
+import { Route as ManageTemplatesRouteImport } from './routes/manage/templates'
 import { Route as ManageStaffRouteImport } from './routes/manage/staff'
 import { Route as ManageCustomersRouteImport } from './routes/manage/customers'
+import { Route as ManageCategoriesRouteImport } from './routes/manage/categories'
 import { Route as ManageAdminsRouteImport } from './routes/manage/admins'
 import { Route as AdminBoardsNewRouteImport } from './routes/admin/boards/new'
 import { Route as AdminBoardsBoardIdRouteImport } from './routes/admin/boards/$boardId'
 
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -51,6 +59,11 @@ const TicketsTicketNumberRoute = TicketsTicketNumberRouteImport.update({
   path: '/tickets/$ticketNumber',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManageTemplatesRoute = ManageTemplatesRouteImport.update({
+  id: '/manage/templates',
+  path: '/manage/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ManageStaffRoute = ManageStaffRouteImport.update({
   id: '/manage/staff',
   path: '/manage/staff',
@@ -59,6 +72,11 @@ const ManageStaffRoute = ManageStaffRouteImport.update({
 const ManageCustomersRoute = ManageCustomersRouteImport.update({
   id: '/manage/customers',
   path: '/manage/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManageCategoriesRoute = ManageCategoriesRouteImport.update({
+  id: '/manage/categories',
+  path: '/manage/categories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManageAdminsRoute = ManageAdminsRouteImport.update({
@@ -79,9 +97,12 @@ const AdminBoardsBoardIdRoute = AdminBoardsBoardIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/reports': typeof ReportsRoute
   '/manage/admins': typeof ManageAdminsRoute
+  '/manage/categories': typeof ManageCategoriesRoute
   '/manage/customers': typeof ManageCustomersRoute
   '/manage/staff': typeof ManageStaffRoute
+  '/manage/templates': typeof ManageTemplatesRoute
   '/tickets/$ticketNumber': typeof TicketsTicketNumberRoute
   '/tickets/new': typeof TicketsNewRoute
   '/admin/': typeof AdminIndexRoute
@@ -92,9 +113,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/reports': typeof ReportsRoute
   '/manage/admins': typeof ManageAdminsRoute
+  '/manage/categories': typeof ManageCategoriesRoute
   '/manage/customers': typeof ManageCustomersRoute
   '/manage/staff': typeof ManageStaffRoute
+  '/manage/templates': typeof ManageTemplatesRoute
   '/tickets/$ticketNumber': typeof TicketsTicketNumberRoute
   '/tickets/new': typeof TicketsNewRoute
   '/admin': typeof AdminIndexRoute
@@ -106,9 +130,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/reports': typeof ReportsRoute
   '/manage/admins': typeof ManageAdminsRoute
+  '/manage/categories': typeof ManageCategoriesRoute
   '/manage/customers': typeof ManageCustomersRoute
   '/manage/staff': typeof ManageStaffRoute
+  '/manage/templates': typeof ManageTemplatesRoute
   '/tickets/$ticketNumber': typeof TicketsTicketNumberRoute
   '/tickets/new': typeof TicketsNewRoute
   '/admin/': typeof AdminIndexRoute
@@ -121,9 +148,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/reports'
     | '/manage/admins'
+    | '/manage/categories'
     | '/manage/customers'
     | '/manage/staff'
+    | '/manage/templates'
     | '/tickets/$ticketNumber'
     | '/tickets/new'
     | '/admin/'
@@ -134,9 +164,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/reports'
     | '/manage/admins'
+    | '/manage/categories'
     | '/manage/customers'
     | '/manage/staff'
+    | '/manage/templates'
     | '/tickets/$ticketNumber'
     | '/tickets/new'
     | '/admin'
@@ -147,9 +180,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/reports'
     | '/manage/admins'
+    | '/manage/categories'
     | '/manage/customers'
     | '/manage/staff'
+    | '/manage/templates'
     | '/tickets/$ticketNumber'
     | '/tickets/new'
     | '/admin/'
@@ -161,9 +197,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ReportsRoute: typeof ReportsRoute
   ManageAdminsRoute: typeof ManageAdminsRoute
+  ManageCategoriesRoute: typeof ManageCategoriesRoute
   ManageCustomersRoute: typeof ManageCustomersRoute
   ManageStaffRoute: typeof ManageStaffRoute
+  ManageTemplatesRoute: typeof ManageTemplatesRoute
   TicketsTicketNumberRoute: typeof TicketsTicketNumberRoute
   TicketsNewRoute: typeof TicketsNewRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -175,6 +214,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -217,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TicketsTicketNumberRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/manage/templates': {
+      id: '/manage/templates'
+      path: '/manage/templates'
+      fullPath: '/manage/templates'
+      preLoaderRoute: typeof ManageTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/manage/staff': {
       id: '/manage/staff'
       path: '/manage/staff'
@@ -229,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/manage/customers'
       fullPath: '/manage/customers'
       preLoaderRoute: typeof ManageCustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manage/categories': {
+      id: '/manage/categories'
+      path: '/manage/categories'
+      fullPath: '/manage/categories'
+      preLoaderRoute: typeof ManageCategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manage/admins': {
@@ -257,9 +317,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ReportsRoute: ReportsRoute,
   ManageAdminsRoute: ManageAdminsRoute,
+  ManageCategoriesRoute: ManageCategoriesRoute,
   ManageCustomersRoute: ManageCustomersRoute,
   ManageStaffRoute: ManageStaffRoute,
+  ManageTemplatesRoute: ManageTemplatesRoute,
   TicketsTicketNumberRoute: TicketsTicketNumberRoute,
   TicketsNewRoute: TicketsNewRoute,
   AdminIndexRoute: AdminIndexRoute,
