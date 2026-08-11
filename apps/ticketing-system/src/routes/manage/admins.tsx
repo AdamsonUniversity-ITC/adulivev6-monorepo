@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+
+import { PageShell } from "@/components/page-shell";
+import { PeopleSearchPicker } from "@/components/people-search-picker";
+import { PersonIdentity } from "@/components/person-identity";
 import { requireBoardAdminCapability } from "@/lib/admin-guards";
 import {
   addBoardAdmin,
   fetchBoardAdmins,
   removeBoardAdmin,
+  type PersonSearchResult,
 } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -15,7 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 
 export const Route = createFileRoute("/manage/admins")({
   beforeLoad: async ({ context }) => {
@@ -26,7 +31,9 @@ export const Route = createFileRoute("/manage/admins")({
 
 function ManageAdminsPage() {
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState("");
+  const [selectedPerson, setSelectedPerson] =
+    useState<PersonSearchResult | null>(null);
+  const [pickerKey, setPickerKey] = useState(0);
 
   const adminsQuery = useQuery({
     queryKey: ["aduts", "board", "admins"],
@@ -34,9 +41,10 @@ function ManageAdminsPage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => addBoardAdmin(Number(userId)),
+    mutationFn: () => addBoardAdmin(Number(selectedPerson?.user_id)),
     onSuccess: () => {
-      setUserId("");
+      setSelectedPerson(null);
+      setPickerKey((key) => key + 1);
       void queryClient.invalidateQueries({
         queryKey: ["aduts", "board", "admins"],
       });
@@ -54,57 +62,82 @@ function ManageAdminsPage() {
 
   function onAdd(event: FormEvent) {
     event.preventDefault();
-    if (!userId) return;
+    if (!selectedPerson?.user_id) return;
     addMutation.mutate();
   }
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-2xl font-semibold tracking-tight">Board admins</h2>
-      <Card>
+    <PageShell
+      title="Board Admins"
+      description="Manage who has administrative access to this board."
+    >
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Co-admins</CardTitle>
           <CardDescription>
-            Board flag only — users also need{" "}
-            <code className="text-xs">ticketing-system-board-admin-access</code>{" "}
+            Sets the board flag only. Users also need{" "}
+            <code className="bg-muted rounded-md px-1.5 py-0.5 font-mono text-xs">
+              ticketing-system-board-admin-access
+            </code>{" "}
             in AdU Live.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <ul className="space-y-2 text-sm">
-            {(adminsQuery.data ?? []).map((a) => (
-              <li
-                key={a.id}
-                className="flex items-center justify-between gap-2"
-              >
-                <span>User {a.user_id}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeMutation.mutate(a.user_id)}
+        <CardContent className="max-w-2xl space-y-6">
+          <div className="overflow-hidden rounded-xl border shadow-xs">
+            <ul className="divide-y text-sm">
+              {(adminsQuery.data ?? []).map((a) => (
+                <li
+                  key={a.id}
+                  className="bg-card flex items-center justify-between gap-3 p-3 px-4"
                 >
-                  Remove
-                </Button>
-              </li>
-            ))}
-            {(adminsQuery.data?.length ?? 0) === 0 && (
-              <li className="text-muted-foreground">No board admins yet.</li>
-            )}
-          </ul>
-          <form onSubmit={onAdd} className="flex flex-wrap gap-2">
-            <Input
-              type="number"
-              min={1}
-              placeholder="User ID"
-              className="w-40"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+                  <PersonIdentity
+                    person={{
+                      name: a.name,
+                      emp_no: a.emp_no,
+                      student_no: a.student_no,
+                      agency_no: a.agency_no,
+                      person_type: a.person_type,
+                      email: a.email,
+                    }}
+                    size="sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeMutation.mutate(a.user_id)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 shrink-0"
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+              {(adminsQuery.data?.length ?? 0) === 0 && (
+                <li className="text-muted-foreground p-4 text-center">
+                  No board admins yet.
+                </li>
+              )}
+            </ul>
+          </div>
+          <form onSubmit={onAdd} className="space-y-3 pt-2">
+            <Label className="text-sm font-medium">Add admin</Label>
+            <PeopleSearchPicker
+              key={pickerKey}
+              selected={selectedPerson}
+              onSelect={setSelectedPerson}
+              onClear={() => setSelectedPerson(null)}
             />
-            <Button type="submit">Add admin</Button>
+            <Button
+              type="submit"
+              variant="secondary"
+              className="shadow-xs"
+              disabled={addMutation.isPending || !selectedPerson?.user_id}
+            >
+              Add
+            </Button>
           </form>
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

@@ -13,9 +13,7 @@ export function redirectToLoginIfUnauthorized(error: unknown): boolean {
   return false;
 }
 
-export async function ensureAuthenticated(
-  queryClient: QueryClient,
-): Promise<void> {
+export async function ensureAuthenticated(queryClient: QueryClient): Promise<void> {
   try {
     await queryClient.ensureQueryData(authUserQueryOptions);
   } catch (error) {

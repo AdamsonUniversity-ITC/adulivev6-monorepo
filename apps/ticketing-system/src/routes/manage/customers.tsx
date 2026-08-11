@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+
+import { PageShell } from "@/components/page-shell";
+import { PeopleSearchPicker } from "@/components/people-search-picker";
+import { PersonIdentity } from "@/components/person-identity";
 import { requireBoardAdminCapability } from "@/lib/admin-guards";
 import {
   addBoardCustomer,
   fetchBoardCustomers,
   removeBoardCustomer,
+  type PersonSearchResult,
 } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -14,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 
 export const Route = createFileRoute("/manage/customers")({
   beforeLoad: async ({ context }) => {
@@ -25,7 +30,9 @@ export const Route = createFileRoute("/manage/customers")({
 
 function ManageCustomersPage() {
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState("");
+  const [selectedPerson, setSelectedPerson] =
+    useState<PersonSearchResult | null>(null);
+  const [pickerKey, setPickerKey] = useState(0);
 
   const customersQuery = useQuery({
     queryKey: ["aduts", "board", "customers"],
@@ -33,9 +40,10 @@ function ManageCustomersPage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => addBoardCustomer(Number(userId)),
+    mutationFn: () => addBoardCustomer(Number(selectedPerson?.user_id)),
     onSuccess: () => {
-      setUserId("");
+      setSelectedPerson(null);
+      setPickerKey((key) => key + 1);
       void queryClient.invalidateQueries({
         queryKey: ["aduts", "board", "customers"],
       });
@@ -53,52 +61,75 @@ function ManageCustomersPage() {
 
   function onAdd(event: FormEvent) {
     event.preventDefault();
-    if (!userId) return;
+    if (!selectedPerson?.user_id) return;
     addMutation.mutate();
   }
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-2xl font-semibold tracking-tight">Customers</h2>
-      <Card>
+    <PageShell
+      title="Customers"
+      description="Manage who can file tickets on this board."
+    >
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Board customers</CardTitle>
+          <CardTitle>Board Customers</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <ul className="space-y-2 text-sm">
-            {(customersQuery.data ?? []).map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center justify-between gap-2"
-              >
-                <span>User {c.user_id}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeMutation.mutate(c.user_id)}
+        <CardContent className="max-w-2xl space-y-6">
+          <div className="overflow-hidden rounded-xl border shadow-xs">
+            <ul className="divide-y text-sm">
+              {(customersQuery.data ?? []).map((c) => (
+                <li
+                  key={c.id}
+                  className="bg-card flex items-center justify-between gap-3 p-3 px-4"
                 >
-                  Remove
-                </Button>
-              </li>
-            ))}
-            {(customersQuery.data?.length ?? 0) === 0 && (
-              <li className="text-muted-foreground">No customers yet.</li>
-            )}
-          </ul>
-          <form onSubmit={onAdd} className="flex flex-wrap gap-2">
-            <Input
-              type="number"
-              min={1}
-              placeholder="User ID"
-              className="w-40"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+                  <PersonIdentity
+                    person={{
+                      name: c.name,
+                      emp_no: c.emp_no,
+                      student_no: c.student_no,
+                      agency_no: c.agency_no,
+                      person_type: c.person_type,
+                      email: c.email,
+                    }}
+                    size="sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeMutation.mutate(c.user_id)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 shrink-0"
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+              {(customersQuery.data?.length ?? 0) === 0 && (
+                <li className="text-muted-foreground p-4 text-center">
+                  No customers assigned.
+                </li>
+              )}
+            </ul>
+          </div>
+          <form onSubmit={onAdd} className="space-y-3 pt-2">
+            <Label className="text-sm font-medium">Add customer</Label>
+            <PeopleSearchPicker
+              key={pickerKey}
+              selected={selectedPerson}
+              onSelect={setSelectedPerson}
+              onClear={() => setSelectedPerson(null)}
             />
-            <Button type="submit">Add customer</Button>
+            <Button
+              type="submit"
+              variant="secondary"
+              className="shadow-xs"
+              disabled={addMutation.isPending || !selectedPerson?.user_id}
+            >
+              Add
+            </Button>
           </form>
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

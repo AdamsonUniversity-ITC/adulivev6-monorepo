@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+
+import { PageShell } from "@/components/page-shell";
 import { requireSuperAdmin } from "@/lib/admin-guards";
 import { createBoard } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
@@ -52,11 +54,10 @@ function NewBoardPage() {
   }
 
   return (
-    <section className="mx-auto max-w-xl space-y-4">
-      <h2 className="text-2xl font-semibold tracking-tight">New board</h2>
-      <Card>
+    <PageShell width="narrow" title="New Board" bordered={false}>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Tenant details</CardTitle>
+          <CardTitle>Tenant Details</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -67,6 +68,7 @@ function NewBoardPage() {
                 required
                 value={boardName}
                 onChange={(e) => setBoardName(e.target.value)}
+                className="shadow-xs"
               />
             </div>
             <div className="space-y-2">
@@ -76,6 +78,7 @@ function NewBoardPage() {
                 placeholder="itc-ts"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
+                className="shadow-xs font-mono text-sm"
               />
               <p className="text-muted-foreground text-xs">
                 Becomes {slug || "slug"}.localhost.test
@@ -88,6 +91,7 @@ function NewBoardPage() {
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                className="shadow-xs resize-y"
               />
             </div>
             <div className="space-y-2">
@@ -96,15 +100,16 @@ function NewBoardPage() {
                 id="section"
                 value={sectionName}
                 onChange={(e) => setSectionName(e.target.value)}
+                className="shadow-xs"
               />
             </div>
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending} className="shadow-xs">
               {mutation.isPending ? "Creating…" : "Create board"}
             </Button>
           </form>
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

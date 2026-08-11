@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+
+import { PageShell } from "@/components/page-shell";
 import { requireSuperAdmin } from "@/lib/admin-guards";
 import { fetchAdminBoards } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
@@ -25,35 +27,36 @@ function AdminBoardsPage() {
   });
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Board tenants
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Super-admin: create and configure ticketing boards. Board admins
-            also need{" "}
-            <code className="text-xs">ticketing-system-board-admin-access</code>{" "}
-            in AdU Live Users Center.
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/admin/boards/new">New board</Link>
+    <PageShell
+      width="wide"
+      title="Board Tenants"
+      description={
+        <>
+          Super-admin: create and configure ticketing boards. Board admins also
+          need{" "}
+          <code className="bg-muted rounded-md px-1.5 py-0.5 font-mono text-xs">
+            ticketing-system-board-admin-access
+          </code>{" "}
+          in AdU Live Users Center.
+        </>
+      }
+      action={
+        <Button asChild className="shadow-xs">
+          <Link to="/admin/boards/new">New Board</Link>
         </Button>
-      </div>
-
+      }
+    >
       {boardsQuery.isLoading && (
-        <p className="text-muted-foreground">Loading boards…</p>
+        <p className="text-muted-foreground text-sm">Loading boards…</p>
       )}
       {boardsQuery.isError && (
-        <p className="text-destructive">Could not load boards.</p>
+        <p className="text-destructive text-sm">Could not load boards.</p>
       )}
 
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid gap-4 sm:grid-cols-2">
         {(boardsQuery.data ?? []).map((board) => (
           <li key={board.id}>
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle>{board.board_name}</CardTitle>
                 <CardDescription>
@@ -61,8 +64,8 @@ function AdminBoardsPage() {
                   {board.deleted_at ? " (deleted)" : ""}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex gap-2">
-                <Button variant="outline" size="sm" asChild>
+              <CardContent className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild className="shadow-xs">
                   <Link
                     to="/admin/boards/$boardId"
                     params={{ boardId: String(board.id) }}
@@ -70,19 +73,14 @@ function AdminBoardsPage() {
                     Manage
                   </Link>
                 </Button>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto px-0"
-                  asChild
-                >
-                  <a href={board.url}>Open board</a>
+                <Button variant="link" size="sm" className="h-auto px-0" asChild>
+                  <a href={board.url}>Open Board</a>
                 </Button>
               </CardContent>
             </Card>
           </li>
         ))}
       </ul>
-    </section>
+    </PageShell>
   );
 }

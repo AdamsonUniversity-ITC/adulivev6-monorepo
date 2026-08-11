@@ -3,6 +3,8 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import reactSwc from "@vitejs/plugin-react-swc";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+const isVitest = Boolean(process.env.VITEST);
+
 export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"],
@@ -11,10 +13,22 @@ export default defineConfig({
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,
+      routeFileIgnorePattern: "\\.(test|spec)\\.",
     }),
     reactSwc(),
     tsconfigPaths(),
-  ],
+    // Only stub CSS modules during Vitest — never in dev/build.
+    isVitest
+      ? {
+          name: "stub-css",
+          transform(_code, id) {
+            if (id.endsWith(".css")) {
+              return { code: "export {}", map: null };
+            }
+          },
+        }
+      : null,
+  ].filter(Boolean),
   server: {
     host: true,
     allowedHosts: [
@@ -22,33 +36,14 @@ export default defineConfig({
       ".localhost.test",
       "itc-ts.localhost.test",
     ],
-    proxy: {
-      "/hrmdo-api": {
-        // Docker publishes hrmdo on :8003; *.localhost.test often fails DNS in WSL
-        target: "http://127.0.0.1:8003",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/hrmdo-api/, "/api"),
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq, req) => {
-            const host = req.headers.host;
-            if (!host) return;
-
-            proxyReq.setHeader("X-Forwarded-Host", host);
-            // Browser GETs often omit Origin; board tenancy needs the MFE host.
-            if (!req.headers.origin) {
-              const proto = req.headers["x-forwarded-proto"] ?? "http";
-              proxyReq.setHeader("Origin", `${proto}://${host}`);
-            }
-          });
-        },
-      },
-    },
     fs: {
       allow: [".."],
     },
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    testTimeout: 20_000,
   },
 });

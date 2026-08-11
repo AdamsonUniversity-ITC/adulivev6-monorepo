@@ -11,9 +11,9 @@ Board-per-subdomain ticketing UI for the AdUTS API in `hrmdo_service` (`modules/
 
 ## Admin UIs
 
-| Host     | Path      | Who                                                                            |
-| -------- | --------- | ------------------------------------------------------------------------------ |
-| Platform | `/admin`  | Spatie `ticketing-system-admin-access`                                         |
+| Host     | Path      | Who |
+| -------- | --------- | --- |
+| Platform | `/admin`  | Spatie `ticketing-system-admin-access` |
 | Board    | `/manage` | Spatie `ticketing-system-board-admin-access` **and** `aduts_board_admins` flag |
 
 Grant Spatie permissions in AdU Live Users Center. Super-admin UI sets the board-admin flag only.
