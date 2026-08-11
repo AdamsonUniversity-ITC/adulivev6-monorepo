@@ -67,6 +67,7 @@ export interface FilterPanelConfig {
     paymentForm?: PaymentFormFilterConfig;
     dateRange?: DateRangeFilterConfig;
     sortColumns?: string[];
+    defaultSortBy?: string;
     actions?: ActionButtonConfig[];
     showControllerReprocessedLegend?: boolean;
 }
@@ -108,8 +109,10 @@ export function makeDefaultFilterState(
         ? configuredDefault
         : allSentinel;
 
-    const firstSortCol =
-        config.sortColumns?.[0] ?? '';
+    const configuredSort = config.defaultSortBy;
+    const firstSortCol = configuredSort && config.sortColumns?.includes(configuredSort)
+        ? configuredSort
+        : config.sortColumns?.[0] ?? '';
 
     return {
         activeStatuses: [defaultStatus],

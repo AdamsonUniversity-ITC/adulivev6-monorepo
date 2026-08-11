@@ -424,7 +424,8 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
             try {
                 await financeSvc.put(`/abms/requisition-process/${row.id}`, { action });
                 setSelectedRow(null);
-                addToast('success', `"${action}" applied to RS ${row.requisition_no}.`);
+                const actionLabel = action === 'Return to Administration' ? 'Return to Budget' : action;
+                addToast('success', `"${actionLabel}" applied to RS ${row.requisition_no}.`);
                 await handleRequery();
             } catch (err: any) {
                 const message = err?.response?.data?.message ?? 'Failed to update RS.';

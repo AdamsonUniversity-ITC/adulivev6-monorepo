@@ -1,6 +1,6 @@
 # ABMS Architecture and Workflow Flowcharts
 
-Last verified: 2026-08-09
+Last verified: 2026-08-11
 
 ## System Context
 
@@ -360,7 +360,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Logistics or Stockroom selects a return action] --> B[Lock requisition header]
+    A[Logistics or Stockroom selects Return to Budget] --> AA[Submit stable Return to Administration API action]
+    AA --> B[Lock requisition header]
     B --> C{Authenticated role and exact current stage?}
     C -- No role --> X[Return 403; change nothing]
     C -- Stale or invalid stage --> Y[Return 422; change nothing]

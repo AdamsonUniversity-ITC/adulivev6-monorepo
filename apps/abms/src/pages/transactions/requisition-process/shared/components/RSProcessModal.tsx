@@ -158,6 +158,8 @@ function requestTypeDisplayLabel(rsType: string | null | undefined): string | nu
 // ─────────────────────────────────────────────────────────────────────────────
 interface RoleAction {
     label: string;
+    /** Optional user-facing text when the stable backend action value must remain unchanged. */
+    displayLabel?: string;
     variant: 'primary' | 'secondary' | 'danger' | 'success';
     /** Which statuses make this button visible. '*' = always visible */
     visibleOn: string[] | '*';
@@ -228,12 +230,12 @@ const COMMON_ACTIONS: RoleAction[] = [
     { label: 'Chat / Messages', icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     { label: 'RS Process History', icon: History, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     {
-        label: 'Return to Administration', icon: Undo2, variant: 'primary',
+        label: 'Return to Administration', displayLabel: 'Return to Budget', icon: Undo2, variant: 'primary',
         visibleOn: ['for pricing'], restrictedTo: ['logistics-access'],
         locationFilter: ['logistics'], toolbarGroup: 'left',
     },
     {
-        label: 'Return to Administration', icon: Undo2, variant: 'primary',
+        label: 'Return to Administration', displayLabel: 'Return to Budget', icon: Undo2, variant: 'primary',
         visibleOn: ['certified'], restrictedTo: ['stockroom-access'],
         locationFilter: ['stockroom'], toolbarGroup: 'left',
     },
@@ -398,8 +400,8 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean; conseq
         'Process Payment': { verb: 'process payment for this requisition slip' },
         'Return to Budget': { verb: 'return this requisition slip to the budget office', danger: true },
         'Return to Administration': {
-            verb: 'return this requisition slip to Administration',
-            consequence: 'The existing Controller approval will be retained so Administration can forward the RS to the correct office.',
+            verb: 'return this requisition slip to the Budget Office',
+            consequence: 'The existing Controller approval will be retained so the Budget Office can forward the RS to the correct office.',
         },
         'Return to Logistics': {
             verb: 'return this requisition slip to Logistics',
@@ -428,9 +430,10 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean; conseq
 // ConfirmActionModal — shown before an action button's onAction actually fires
 // ─────────────────────────────────────────────────────────────────────────────
 function ConfirmActionModal({
-    action, row, t, isDark, onCancel, onConfirm,
+    action, displayAction, row, t, isDark, onCancel, onConfirm,
 }: {
     action: string;
+    displayAction?: string;
     row: RSProcessRow;
     t: Theme;
     isDark: boolean;
@@ -438,6 +441,7 @@ function ConfirmActionModal({
     onConfirm: () => void;
 }) {
     const { verb, danger, consequence } = getConfirmCopy(action);
+    const actionLabel = displayAction ?? action;
     const tone = danger
         ? { bg: `${t.cellAmber}1f`, border: `${t.cellAmber}66`, text: t.cellAmber, hover: `${t.cellAmber}38` }
         : { bg: `${t.cellGreen}1f`, border: `${t.cellGreen}66`, text: t.cellGreen, hover: `${t.cellGreen}38` };
@@ -474,7 +478,7 @@ function ConfirmActionModal({
                         <AlertTriangle style={{ width: 17, height: 17 }} />
                     </span>
                     <span style={{ fontSize: 14.5, fontWeight: 800, color: t.cellText }}>
-                        Confirm {action}
+                        Confirm {actionLabel}
                     </span>
                 </div>
 
@@ -504,7 +508,7 @@ function ConfirmActionModal({
                         onMouseEnter={e => (e.currentTarget.style.background = tone.hover)}
                         onMouseLeave={e => (e.currentTarget.style.background = tone.bg)}
                     >
-                        Yes, {action}
+                        Yes, {actionLabel}
                     </button>
                 </div>
             </div>
@@ -1666,9 +1670,9 @@ export function RSProcessModal({
                                         )}
                                     </div>
                                 ) : (
-                                    <ToolbarButton
-                                        key={action.label}
-                                        label={action.label}
+                                        <ToolbarButton
+                                            key={action.label}
+                                            label={action.displayLabel ?? action.label}
                                         icon={action.icon!}
                                         t={t}
                                         isDark={isDark}
@@ -1704,7 +1708,7 @@ export function RSProcessModal({
                                     return (
                                         <ToolbarButton
                                             key={action.label}
-                                            label={printHistoryCheckPending ? 'Checking Print History…' : action.label}
+                                            label={printHistoryCheckPending ? 'Checking Print History…' : (action.displayLabel ?? action.label)}
                                             icon={action.icon!}
                                             t={t}
                                             isDark={isDark}
@@ -3150,6 +3154,7 @@ export function RSProcessModal({
             {pendingAction && (
                 <ConfirmActionModal
                     action={pendingAction.label}
+                    displayAction={pendingAction.displayLabel}
                     row={row}
                     t={t}
                     isDark={isDark}

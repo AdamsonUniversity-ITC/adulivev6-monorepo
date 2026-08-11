@@ -25,6 +25,7 @@ Allow Logistics and Stockroom users to safely return misrouted requisitions to t
 - Keep `Return RS to Budget` as a backward-compatible alias for the Stockroom-certified return.
 - Preserve requisition items, accepted quoted prices, totals, allocations, proposal balances, notes, attachments, and liquidation flags.
 - Show only the return action valid for the authenticated role and current status/location, with an explicit confirmation message.
+- Label the Logistics and Stockroom Administration-return action as `Return to Budget` in the interface while retaining `Return to Administration` as the stable backend action value.
 - Add no schema migration or historical-data backfill.
 
 ---
@@ -39,6 +40,7 @@ Allow Logistics and Stockroom users to safely return misrouted requisitions to t
 - Users without the required role receive `403`; valid-role requests from an invalid stage receive `422` without writes.
 - Successful transitions are audited and do not alter financial or item data.
 - Idempotent retries replay the successful response without applying another transition.
+- Logistics and Stockroom display `Return to Budget` on the eligible button, confirmation, and success toast without changing the guarded transition payload.
 - Frontend lint/build and focused backend tests pass, or unrelated pre-existing failures are recorded.
 
 ---
@@ -97,6 +99,8 @@ Allow Logistics and Stockroom users to safely return misrouted requisitions to t
 - Return actions require confirmation but no persisted return-reason field.
 - Administration continues to use the stored location `budget office`.
 - Administration returns are correction routes after Controller review; they do not start a new Controller approval cycle.
+- `Return to Budget` is the user-facing name for the existing return to the Administration role at database location `budget office`; it is not the separate Cashier action with the same wording.
 - Verification: focused return-workflow tests passed in PHP 8.4 Docker with 5 tests/57 assertions; adjacent idempotency and requisition suites passed with 45 tests/281 assertions; targeted Pint and the ABMS production build passed.
+- Label follow-up verified on 2026-08-11: the ABMS production build passes, and targeted lint retains only the existing Logistics, Stockroom, and shared-modal baseline findings; the new display-label and toast lines introduce no reported finding.
 - Full ABMS lint remains blocked by 113 pre-existing errors and 11 warnings across the application, including existing debt in the requisition-process files; the changed action/configuration lines introduced no reported lint violation.
 - Authenticated browser smoke testing was unavailable because this repository has no ABMS Playwright configuration or authenticated test environment.
