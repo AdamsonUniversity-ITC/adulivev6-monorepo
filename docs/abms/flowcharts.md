@@ -353,12 +353,35 @@ flowchart TD
     F -- Confirm and Save --> H[Call existing idempotent quoted-price endpoint once]
     H --> I{Save succeeds?}
     I -- No --> J[Keep review open and show server error]
-    I -- Yes --> K[Keep blank items unquoted and forward RS to Budget Office]
-    K --> L[Administration accepts submitted quotes and may mark For Purchase]
-    L --> M[Logistics may price remaining items through another approval cycle]
-    M --> N{Every live item quoted and accepted?}
-    N -- No --> O[Disable and reject Send RS to WICO]
-    N -- Yes --> P[Lock header and items then move to PO on process at Stockroom]
+    I -- Yes --> K[Keep blank items unquoted; changed lines await acceptance at Budget Office]
+    K --> L[Administration accepts changed lines atomically and resets Controller to pending]
+    L --> M{Controller price-cycle decision}
+    M -- Disapprove --> N[Remain For Approval at Budget Office; allow later direct approval]
+    M -- Approve --> O[Administration may mark For Purchase]
+    O --> P{At least one accepted unresolved line?}
+    P -- No --> Q[Reject Send RS to WICO]
+    P -- Yes --> R[Dispatch all eligible lines and move header to PO on process at Stockroom]
+    R --> S[Stockroom tags dispatched lines Served or Unavailable]
+    S --> T{Every live line resolved?}
+    T -- Yes --> U[Mark header Served]
+    T -- No --> V[Return to Logistics and preserve completed lines]
+    V --> W[Clear unresolved dispatch and repeat pricing cycle]
+```
+
+## Stockroom Item Fulfillment
+
+```mermaid
+flowchart TD
+    A[Open eligible RS at Stockroom] --> B{RS type}
+    B -- Logistics --> C[Allow only dispatched unresolved lines]
+    B -- Stockroom certified --> D[Allow every active unresolved line]
+    C --> E[Tag individually or Select All Pending as Served]
+    D --> E
+    E --> F[Allow Served or positive-quantity Unavailable to return to Pending]
+    F --> G[Keep zero-quantity items Unavailable]
+    G --> H{All live lines Served or Unavailable?}
+    H -- No --> I[Reject header Mark Served]
+    H -- Yes --> J[Finalize header and lock completed lines]
 ```
 
 ## Logistics RS Item Description Editing
@@ -412,6 +435,41 @@ flowchart TD
     F --> I[Audit and commit idempotently]
     H --> I
     I --> J[Preserve items totals balances notes files and liquidation flags]
+```
+
+## For-Purchase Delivery-Fee Correction
+
+```mermaid
+flowchart TD
+    A[Logistics RS: For Purchase at Logistics] --> B[Logistics selects Return to Budget]
+    B --> C[Lock header and require logistics-access plus exact type/stage]
+    C --> D[Set On Process at Budget Office; from Logistics]
+    D --> E[Retain Controller approval, accepted prices, balances, and fulfillment metadata]
+    E --> F{Budget Director decision}
+    F -- No new item needed --> G[Continue normal approved Logistics routing]
+    F -- Delivery-fee item needed --> H[Select Reprocess RS]
+    H --> I[Set Reprocess at Department and Controller Pending]
+    I --> IA[Keep Served and Unavailable lines visible but locked]
+    IA --> J[Department adds or edits only Pending items through exact account/allocation editor]
+    J --> K[Save as For Review at Budget Office]
+    K --> L[Repeat Budget, Controller, pricing acceptance, and price-reapproval gates]
+```
+
+## Cashier Accounting Correction and Controller Reapproval
+
+```mermaid
+flowchart TD
+    A[Certified Cashier RS] --> B{Current location}
+    B -->|Accounting Office, BAO, or HRMDO| C[Accounting read-only review]
+    B -->|Any other office| X[Excluded from Accounting worklist]
+    C --> D[Return to Budget locks and revalidates role, type, status, and location]
+    D --> E[Set For Budget Director at Budget Office; from exact office; Controller pending]
+    E --> F[Budget Director edits items with exact allocation and proposal reconciliation]
+    F --> G[Administration forwards to Controller as On Process]
+    G --> H{Controller decision}
+    H -->|Pending or Disapproved| I[Block onward Cashier routing]
+    H -->|Approved| J[Allow established Cashier destinations]
+    J --> K[HRMDO stores hrmdo; Accounting stores accounting office; BAO stores bao]
 ```
 
 ## Administration RS-Type Routing

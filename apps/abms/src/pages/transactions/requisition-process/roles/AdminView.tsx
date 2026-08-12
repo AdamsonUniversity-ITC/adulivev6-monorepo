@@ -476,8 +476,8 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
         // total_amount) + toast. Unlike the STATUS_ACTIONS above, this never
         // changes status/location, so the modal stays open afterward.
         if (action === 'Save Items') {
-            setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount } : prev);
-            setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount } : r));
+            setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount, is_controlled: row.is_controlled } : prev);
+            setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount, is_controlled: row.is_controlled } : r));
             addToast('success', `Items updated for RS ${row.requisition_no}.`);
             return;
         }
@@ -488,9 +488,20 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
         // The modal stays open so the admin can see the updated figures
         // and proceed with the next action (e.g. forward to stockroom).
         if (action === 'Accept Quoted Prices') {
-            setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount } : prev);
-            setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount } : r));
-            addToast('success', `Quoted prices accepted for RS ${row.requisition_no}. Costs and balances updated.`);
+            setSelectedRow(prev => prev ? {
+                ...prev,
+                items: row.items,
+                total_amount: row.total_amount,
+                is_controlled: row.is_controlled,
+            } : prev);
+            setRows(prev => prev.map(r => r.id === row.id ? {
+                ...r,
+                total_amount: row.total_amount,
+                is_controlled: row.is_controlled,
+            } : r));
+            addToast('success', row.logistics_workflow_v2
+                ? `Quoted prices accepted for RS ${row.requisition_no}. Controller approval is pending again.`
+                : `Quoted prices accepted for RS ${row.requisition_no}. Costs and balances updated.`);
             return;
         }
 

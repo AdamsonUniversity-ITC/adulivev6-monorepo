@@ -10,6 +10,7 @@ interface InfiniteScrollSentinelProps {
     loadingLabel?: string;
     retryLabel?: string;
     className?: string;
+    loadKey?: string | null;
 }
 
 export function InfiniteScrollSentinel({
@@ -21,6 +22,7 @@ export function InfiniteScrollSentinel({
     loadingLabel = 'Loading more…',
     retryLabel = 'Could not load more. Retry',
     className,
+    loadKey = null,
 }: InfiniteScrollSentinelProps) {
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const attemptedRef = useRef(false);
@@ -29,6 +31,11 @@ export function InfiniteScrollSentinel({
     const [failed, setFailed] = useState(false);
 
     onLoadMoreRef.current = onLoadMore;
+
+    useEffect(() => {
+        attemptedRef.current = false;
+        setFailed(false);
+    }, [loadKey]);
 
     const requestNextPage = useCallback(async (retry = false) => {
         if (!hasMore || loading || requestInFlightRef.current) return;
@@ -63,7 +70,7 @@ export function InfiniteScrollSentinel({
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [failed, hasMore, loading, requestNextPage, root, rootMargin]);
+    }, [failed, hasMore, loadKey, loading, requestNextPage, root, rootMargin]);
 
     if (!hasMore && !loading) return null;
 
