@@ -26,6 +26,9 @@ Replace generated Office Supply item codes with required client-provided string 
 - Remove automatic `OS-xxxxx` code generation.
 - Surface field-specific backend validation errors in the form.
 - Preserve existing name, unit measurement, unit cost, listing, viewing, and deletion behavior.
+- Let the Office Supplies list search match either the client-provided item code or item name.
+- Add Item Code to the supported frontend and backend sort fields with ascending and descending directions.
+- Preserve stable cursor pagination by retaining the record ID as the secondary sort key.
 - Add no database migration or historical-data rewrite.
 
 ---
@@ -37,8 +40,10 @@ Replace generated Office Supply item codes with required client-provided string 
 - A duplicate live or soft-deleted item code receives `422` and no write occurs.
 - Editing can retain the same code or save an unused code.
 - Editing cannot use another item's code.
-- Unauthorized create/update requests remain forbidden.
+- Office Supply create, update, and delete require `stockroom-access`; Logistics-only and otherwise unauthorized users remain forbidden.
 - Add and Edit dialogs show editable string inputs for Item Code.
+- Searching by a full or partial item code returns matching supplies, while item-name search remains supported.
+- Selecting Item Code sorting returns codes in ascending or descending database order with stable ID tie-breaking.
 - Frontend build, focused lint, and backend feature tests pass or baseline failures are recorded.
 
 ---
@@ -90,3 +95,9 @@ Replace generated Office Supply item codes with required client-provided string 
 - Verification: `pnpm --filter abms build` passed with only the existing large-chunk advisory.
 - Verification: isolated PHP 8.4 Docker feature test passed, 4 tests and 23 assertions.
 - Verification: frontend and backend `git diff --check` passed.
+- Listing follow-up: search now covers Item Code and Item Name, and Item Code is available as an A–Z/Z–A sort option.
+- Listing follow-up verification: the focused frontend ESLint check and ABMS production build passed; the PHP 8.4 Docker feature suite passed with 6 tests and 37 assertions; Laravel Pint passed for both changed backend files.
+- Authorization correction: Office Supplies ownership follows the Stockroom page route and sidebar. Backend create, update, and delete now require `stockroom-access` and return `Stockroom access is required.` when forbidden; authenticated listing remains shared with requisition item pickers.
+- Authorization verification: the PHP 8.4 Docker feature suite passed with 7 tests and 44 assertions, targeted Office Supplies frontend ESLint passed, and Laravel Pint passed for the corrected controller and tests.
+- Default-sort follow-up: the Office Supplies page and API now default to Item Code ascending with the stable ID tie-breaker; established requisition item pickers continue explicitly requesting Item Name order.
+- Default-sort verification: the focused PHP 8.4 Docker suite passed with 8 tests and 48 assertions, targeted frontend ESLint passed, and the ABMS production build passed with only its established large-chunk advisory.
