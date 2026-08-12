@@ -43,6 +43,34 @@ describe("birthday-leave-validation", () => {
     })
   })
 
+  it("passes when HR birthdate is a MySQL datetime string", () => {
+    expect(
+      getBirthdayLeaveValidationError({
+        leaveCode: "bl",
+        birthdate: "1990-07-15 00:00:00",
+        dateFiled: "2026-07-01",
+        dateFrom: "2026-07-10",
+        dateTo: "2026-07-12",
+      }),
+    ).toBeNull()
+  })
+
+  it("fails when HR birthdate is a zero date", () => {
+    expect(
+      getBirthdayLeaveValidationError({
+        leaveCode: "bl",
+        birthdate: "0000-00-00",
+        dateFiled: "2026-07-01",
+        dateFrom: "2026-07-10",
+        dateTo: "2026-07-12",
+      }),
+    ).toEqual({
+      field: "leave_type_id",
+      message:
+        "Your birthdate is not on file. Please contact HRMDO before applying for Birthday Leave.",
+    })
+  })
+
   it("fails when filing date is outside the birth month", () => {
     expect(
       getBirthdayLeaveValidationError({
