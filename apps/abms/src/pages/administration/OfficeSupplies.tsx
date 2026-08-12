@@ -50,7 +50,7 @@ interface CursorPage {
 }
 
 type SortDir = 'asc' | 'desc';
-type SortBy = 'item_name' | 'unit_cost';
+type SortBy = 'item_code' | 'item_name' | 'unit_cost';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod schema
@@ -146,7 +146,7 @@ export default function OfficeSupplies() {
 
   const [page, setPage] = useState<CursorPage | null>(loaderData.data as CursorPage);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('item_name');
+  const [sortBy, setSortBy] = useState<SortBy>('item_code');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [cursorIdx, setCursorIdx] = useState(0);
@@ -362,10 +362,10 @@ export default function OfficeSupplies() {
                       />
                       <input
                         type="text"
-                        placeholder="Filter by item name…"
+                        placeholder="Filter by item code or name…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        aria-label="Filter office supplies by item name"
+                        aria-label="Filter office supplies by item code or item name"
                         className="text-xs h-8 pl-8 pr-3 rounded-md outline-none w-56"
                         style={inputStyle}
                       />
@@ -379,6 +379,7 @@ export default function OfficeSupplies() {
                       className="text-xs h-8 px-3 rounded-md outline-none"
                       style={inputStyle}
                     >
+                      <option value="item_code">Item Code</option>
                       <option value="item_name">Item Name</option>
                       <option value="unit_cost">Unit Cost</option>
                     </select>
@@ -394,7 +395,7 @@ export default function OfficeSupplies() {
                       }}
                     >
                       <SortIcon className="w-3 h-3" />
-                      {sortBy === 'item_name'
+                      {sortBy === 'item_name' || sortBy === 'item_code'
                         ? (sortDir === 'asc' ? 'A→Z' : 'Z→A')
                         : (sortDir === 'asc' ? 'Low→High' : 'High→Low')}
                     </button>
