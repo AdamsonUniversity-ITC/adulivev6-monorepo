@@ -1,5 +1,7 @@
 import { getMonth, parseISO, startOfDay } from "date-fns"
 
+import { parseHrDate } from "@/lib/format-hr-date"
+
 export const BIRTHDAY_LEAVE_CODE = "bl"
 
 export type BirthdayLeaveValidationParams = {
@@ -36,13 +38,20 @@ function resolveBirthMonth(birthdate: string | null | undefined): number | null 
     return null
   }
 
-  const day = toDay(birthdate)
+  const trimmed = birthdate.trim()
 
-  if (day == null) {
+  if (trimmed === "") {
     return null
   }
 
-  return getMonth(day) + 1
+  // HR `bdate` may be MySQL datetime / local formats; Key Dates uses the same parser.
+  const parsed = parseHrDate(trimmed)
+
+  if (parsed == null) {
+    return null
+  }
+
+  return getMonth(startOfDay(parsed)) + 1
 }
 
 /**
