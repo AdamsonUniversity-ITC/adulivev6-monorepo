@@ -76,6 +76,7 @@ type RawLineItem = Partial<RSFormItem> & {
     unit_cost?: string | number | null;
     unit_of_measurement?: string | null;
     total_cost?: string | number | null;
+    fulfillment_status?: 'pending' | 'served' | 'unavailable';
 };
 
 function getErrorMessage(err: unknown): string | undefined {
@@ -202,7 +203,7 @@ export function RSViewModal({
             .then(res => {
                 const nextHeader = res.data.header as RSViewHeader;
                 setHeader(nextHeader);
-                setItems(res.data.items ?? []);
+                setItems((res.data.items ?? []).map(normalizeLineItem));
                 setPayeeDetail(res.data.payee_detail ?? null);
                 setPayeeInput(nextHeader.payee === '—' ? '' : nextHeader.payee ?? '');
             })
@@ -291,10 +292,17 @@ export function RSViewModal({
             unitOfMeasurement: String(raw.unitOfMeasurement ?? raw.unit_of_measurement ?? ''),
             totalCost: Number(raw.totalCost ?? raw.total_cost ?? 0),
             unused_amount: Number(raw.unused_amount ?? 0),
+            fulfillment_status: raw.fulfillment_status ?? 'pending',
         };
     }
 
+    function isResolvedItem(item: RSFormItem): boolean {
+        return (item.fulfillment_status ?? 'pending') !== 'pending';
+    }
+
     function updateEditableItem(itemId: number, patch: Partial<RSFormItem>) {
+        const itemToUpdate = items.find(item => item.id === itemId);
+        if (!itemToUpdate || isResolvedItem(itemToUpdate)) return;
         setItemActionError(null);
         setItems(prev => prev.map(item => {
             if (item.id !== itemId) return item;
@@ -317,7 +325,7 @@ export function RSViewModal({
             throw new Error('Add at least one item before saving the requisition slip.');
         }
 
-        const payload = items.map(item => {
+        const payload = items.filter(item => !isResolvedItem(item)).map(item => {
             const description = item.itemDescription.trim();
             const unitOfMeasurement = item.unitOfMeasurement.trim();
             const quantity = Number(item.quantity);
@@ -336,6 +344,8 @@ export function RSViewModal({
                 unit_of_measurement: unitOfMeasurement,
             };
         });
+
+        if (payload.length === 0) return grandTotal;
 
         const res = await financeSvc.put(`/abms/budget-request-entry/${header.id}/items`, { items: payload });
         const nextItems = (res.data?.items ?? []).map(normalizeLineItem);
@@ -371,6 +381,11 @@ export function RSViewModal({
 
     async function handleDeleteItem(itemId: number) {
         if (items.length <= 1) return; // must keep at least 1 item
+        const item = items.find(candidate => candidate.id === itemId);
+        if (!item || isResolvedItem(item)) {
+            setItemActionError('Served or unavailable items are locked and cannot be removed.');
+            return;
+        }
         setItemActionError(null);
         try {
             await financeSvc.delete(`/abms/budget-request-entry/items/${itemId}`);
@@ -1513,7 +1528,10 @@ export function RSViewModal({
                                                 ) : 'No items on this requisition slip.'}
                                             </td>
                                         </tr>
-                                    ) : items.map((item, i) => (
+                                    ) : items.map((item, i) => {
+                                        const itemResolved = isResolvedItem(item);
+                                        const itemEditable = canEdit && !itemResolved;
+                                        return (
                                         <tr
                                             key={item.id}
                                             onMouseEnter={() => setHoveredRow(item.id)}
@@ -1531,16 +1549,25 @@ export function RSViewModal({
                                                 {formatAccountCode(item.mainAccountCode, item.accountNo)}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         value={item.itemDescription}
                                                         onChange={e => updateEditableItem(item.id, { itemDescription: e.target.value })}
                                                         style={{ width: '100%', minWidth: 180, border: `1px solid ${t.inputBorder}`, borderRadius: 8, background: t.inputBg, color: t.inputText, padding: '6px 8px', fontSize: 11, outline: 'none' }}
                                                     />
-                                                ) : (item.itemDescription || <span style={{ color: t.cellMuted, fontStyle: 'italic' }}>—</span>)}
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                        <span>{item.itemDescription || '—'}</span>
+                                                        {itemResolved && (
+                                                            <span style={{ padding: '2px 6px', borderRadius: 999, fontSize: 8, fontWeight: 800, color: t.cellGreen, border: `1px solid ${t.cellGreen}66`, whiteSpace: 'nowrap' }}>
+                                                                {(item.fulfillment_status ?? 'served').toUpperCase()} · LOCKED
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         type="number"
                                                         min="0.01"
@@ -1552,7 +1579,7 @@ export function RSViewModal({
                                                 ) : <>₱ {fmtCurrency(parseFloat(item.unitCost) || 0)}</>}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace" }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         type="number"
                                                         min="1"
@@ -1564,7 +1591,7 @@ export function RSViewModal({
                                                 ) : (item.quantity || '0')}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         value={item.unitOfMeasurement}
                                                         onChange={e => updateEditableItem(item.id, { unitOfMeasurement: e.target.value })}
@@ -1579,16 +1606,16 @@ export function RSViewModal({
                                                 <td style={{ padding: '4px 6px', textAlign: 'center' }}>
                                                     <button
                                                         onClick={() => handleDeleteItem(item.id)}
-                                                        disabled={items.length <= 1}
-                                                        title={items.length <= 1 ? 'Cannot remove the only item' : 'Remove item'}
-                                                        style={{ width: 24, height: 24, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: items.length <= 1 ? 'not-allowed' : 'pointer', color: items.length <= 1 ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)') : t.cellMuted, transition: 'all .12s ease' }}
+                                                        disabled={items.length <= 1 || itemResolved}
+                                                        title={itemResolved ? 'Resolved items are locked' : items.length <= 1 ? 'Cannot remove the only item' : 'Remove item'}
+                                                        style={{ width: 24, height: 24, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: items.length <= 1 || itemResolved ? 'not-allowed' : 'pointer', color: items.length <= 1 || itemResolved ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)') : t.cellMuted, transition: 'all .12s ease' }}
                                                         onMouseEnter={e => {
-                                                            if (items.length <= 1) return;
+                                                            if (items.length <= 1 || itemResolved) return;
                                                             (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.14)' : 'rgba(254,226,226,0.70)';
                                                             (e.currentTarget as HTMLElement).style.color = t.cellRed;
                                                         }}
                                                         onMouseLeave={e => {
-                                                            if (items.length <= 1) return;
+                                                            if (items.length <= 1 || itemResolved) return;
                                                             (e.currentTarget as HTMLElement).style.background = 'transparent';
                                                             (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                                                         }}
@@ -1598,7 +1625,8 @@ export function RSViewModal({
                                                 </td>
                                             )}
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

@@ -13,6 +13,22 @@ export const ROLES = [
 
 export type PermissionKey = typeof ROLES[number]['key'];
 
+export function formatOrdinalApproval(value: number): string {
+    const approvalNumber = Math.max(1, Math.trunc(value) || 1);
+    const lastTwoDigits = approvalNumber % 100;
+    const suffix = lastTwoDigits >= 11 && lastTwoDigits <= 13
+        ? 'th'
+        : approvalNumber % 10 === 1
+            ? 'st'
+            : approvalNumber % 10 === 2
+                ? 'nd'
+                : approvalNumber % 10 === 3
+                    ? 'rd'
+                    : 'th';
+
+    return `${approvalNumber}${suffix} approval`;
+}
+
 export const ROLE_COLUMNS: Record<PermissionKey, string[]> = {
     'budget-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'admin-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
@@ -189,7 +205,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'accounting-access': {
-        status: { options: GENERAL_STATUS_OPTIONS },
+        status: { options: GENERAL_STATUS_OPTIONS, defaultLabel: 'Certified RS' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { Theme, FilterState, makeDefaultFilterState, DeptOption } from '../shared/types';
-import { ROLES, ROLE_FILTER_CONFIGS, ROLE_COLUMNS } from '../shared/constants';
+import { formatOrdinalApproval, ROLES, ROLE_FILTER_CONFIGS, ROLE_COLUMNS } from '../shared/constants';
 import { RolePage } from '../shared/components/RolePage';
 import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModal';
 import { AccountsViewModal, AccountRow } from '../shared/components/AccountsViewModal';
@@ -60,6 +60,13 @@ export interface ControllerRow {
     for_liquidation?: boolean;
     is_controlled?: number;
     was_reprocessed_after_controller_approval?: boolean;
+    controller_approval_count?: number;
+    controller_review_count?: number;
+    price_reapproval_count?: number;
+    was_price_reapproved?: boolean;
+    is_controller_rereview?: boolean;
+    is_price_reapproval?: boolean;
+    logistics_workflow_v2?: boolean;
     /** RS type (e.g. "Cashier") — passed through from the API but not displayed in this table. */
     rstype?: string | null;
 }
@@ -200,6 +207,18 @@ function controllerReprocessHistoryTone(isDark: boolean) {
         };
 }
 
+function controllerPriceReapprovalTone(isDark: boolean) {
+    return isDark
+        ? {
+            background: 'rgba(20,184,166,0.12)', hover: 'rgba(20,184,166,0.20)', marker: '#2dd4bf',
+            tagBackground: 'rgba(20,184,166,0.18)', tagBorder: 'rgba(45,212,191,0.44)', tagText: '#99f6e4',
+        }
+        : {
+            background: 'rgba(204,251,241,0.70)', hover: 'rgba(153,246,228,0.80)', marker: '#0d9488',
+            tagBackground: 'rgba(204,251,241,0.94)', tagBorder: 'rgba(13,148,136,0.32)', tagText: '#0f766e',
+        };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Toast — matches the BudgetView pattern for a uniform feel
 // ─────────────────────────────────────────────────────────────────────────────
@@ -286,6 +305,7 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [currentSchoolYear, setCurrentSchoolYear] = useState<string | null>(null);
+    const [workflowV2, setWorkflowV2] = useState(false);
     const [schoolYears, setSchoolYears] = useState<string[]>([]);
 
     // Unique school years for the School Year filter dropdown — fetched once
@@ -344,6 +364,7 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
             setNextCursor(res.data.meta?.next_cursor ?? null);
             setHasMore(res.data.meta?.has_more ?? false);
             setCurrentSchoolYear(res.data.meta?.current_school_year ?? null);
+            setWorkflowV2(!!res.data.meta?.logistics_workflow_v2);
             setQueried(true);
         } catch (err: any) {
             setError(err?.response?.data?.message ?? 'Failed to fetch data. Please try again.');
@@ -511,6 +532,7 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
     const wiredFilterCfg = {
         ...FILTER_CFG,
         showControllerReprocessedLegend: true,
+        showControllerPriceReapprovalLegend: workflowV2,
         department: FILTER_CFG.department
             ? { ...FILTER_CFG.department, deptOptions }
             : undefined,
@@ -599,16 +621,24 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                         {!error && rows.map((row, idx) => {
                             const tagged = !!row.for_liquidation;
                             const reprocessedAfterApproval = !!row.was_reprocessed_after_controller_approval;
+                            const priceReapproval = !!row.is_price_reapproval;
+                            const previouslyPriceReapproved = (row.status ?? '').toLowerCase() === 'reprocess'
+                                && Number(row.price_reapproval_count ?? 0) > 0;
                             const reprocessTone = controllerReprocessHistoryTone(isDark);
+                            const priceTone = controllerPriceReapprovalTone(isDark);
                             const baseBg = tagged
                                 ? liquidationRowBg(isDark)
                                 : reprocessedAfterApproval
                                     ? reprocessTone.background
+                                    : priceReapproval
+                                        ? priceTone.background
                                     : (idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg);
                             const hoverBg = tagged
                                 ? liquidationRowHoverBg(isDark)
                                 : reprocessedAfterApproval
                                     ? reprocessTone.hover
+                                    : priceReapproval
+                                        ? priceTone.hover
                                     : t.rowHoverBg;
                             return (
                                 <tr
@@ -618,7 +648,9 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                                         background: baseBg,
                                         boxShadow: reprocessedAfterApproval
                                             ? `inset 4px 0 0 ${reprocessTone.marker}`
-                                            : undefined,
+                                            : priceReapproval
+                                                ? `inset 4px 0 0 ${priceTone.marker}`
+                                                : undefined,
                                         cursor: 'pointer',
                                         transition: 'background .1s',
                                     }}
@@ -657,7 +689,10 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                                         {formatAmount(row.total_amount)}
                                     </td>
                                     <td style={cellStyle(t, COLUMNS.length, 5)}>
-                                        <StatusBadge status={(row.status ?? '').toLowerCase() === 'on process' && Number(row.is_controlled ?? 0) === 0 ? 'For Controller' : row.status} t={t} isDark={isDark} />
+                                        <StatusBadge status={(
+                                            ((row.status ?? '').toLowerCase() === 'on process' && Number(row.is_controlled ?? 0) === 0)
+                                            || ((row.status ?? '').toLowerCase() === 'for approval' && [0, 2].includes(Number(row.is_controlled ?? 0)))
+                                        ) ? 'For Controller' : row.status} t={t} isDark={isDark} />
                                     </td>
                                     <td style={cellStyle(t, COLUMNS.length, 6)}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
@@ -684,6 +719,54 @@ export function ControllerView({ t, isDark, canSwitch, onSwitchRole, departments
                                                     }}
                                                 >
                                                     REPROCESSED AFTER APPROVAL
+                                                </span>
+                                            )}
+                                            {previouslyPriceReapproved && (
+                                                <span
+                                                    title={`This RS completed ${Number(row.price_reapproval_count ?? 0)} quoted-price Controller approval cycle(s) before reprocessing.`}
+                                                    style={{
+                                                        padding: '2px 6px', borderRadius: 999,
+                                                        background: priceTone.tagBackground,
+                                                        border: `1px solid ${priceTone.tagBorder}`,
+                                                        color: priceTone.tagText,
+                                                        fontSize: 8, fontWeight: 800, letterSpacing: '0.045em',
+                                                        lineHeight: 1.35, whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    PREVIOUSLY PRICE REAPPROVED · {Number(row.price_reapproval_count ?? 0)} TIME(S)
+                                                </span>
+                                            )}
+                                            {row.is_controller_rereview && (
+                                                <span
+                                                    title={`This RS has been sent to the Controller ${Number(row.controller_review_count ?? 0)} times.`}
+                                                    style={{
+                                                        padding: '2px 6px', borderRadius: 999,
+                                                        background: isDark ? 'rgba(56,189,248,0.14)' : 'rgba(224,242,254,0.95)',
+                                                        border: `1px solid ${isDark ? 'rgba(56,189,248,0.45)' : 'rgba(2,132,199,0.35)'}`,
+                                                        color: isDark ? '#7dd3fc' : '#0369a1',
+                                                        fontSize: 8, fontWeight: 800, letterSpacing: '0.045em',
+                                                        lineHeight: 1.35, whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    CONTROLLER RE-REVIEW · {formatOrdinalApproval(Number(row.controller_review_count ?? 0)).toUpperCase()}
+                                                </span>
+                                            )}
+                                            {priceReapproval && (
+                                                <span
+                                                    title={`This Logistics RS is in a quoted-price Controller review. Successful approvals: ${Number(row.controller_approval_count ?? 0)}.`}
+                                                    style={{
+                                                        padding: '2px 6px', borderRadius: 999,
+                                                        background: priceTone.tagBackground,
+                                                        border: `1px solid ${priceTone.tagBorder}`,
+                                                        color: priceTone.tagText,
+                                                        fontSize: 8, fontWeight: 800, letterSpacing: '0.045em',
+                                                        lineHeight: 1.35, whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    PRICE REAPPROVAL · {formatOrdinalApproval(
+                                                        Number(row.controller_approval_count ?? 0)
+                                                        + (Number(row.is_controlled ?? 0) === 1 ? 0 : 1),
+                                                    ).toUpperCase()}
                                                 </span>
                                             )}
                                         </div>

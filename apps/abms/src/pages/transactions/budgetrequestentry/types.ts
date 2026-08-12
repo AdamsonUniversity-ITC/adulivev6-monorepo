@@ -129,6 +129,7 @@ export interface RSFormItem {
     quantity: string;
     unitOfMeasurement: string;
     totalCost: number;
+    fulfillment_status?: 'pending' | 'served' | 'unavailable';
 }
 
 export type QuotationStatus = 'none' | 'pending' | 'accepted';

@@ -246,6 +246,8 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
     );
     const [rows, setRows] = useState<LogisticsRow[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const loadMoreInFlightRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [queried, setQueried] = useState(false);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -293,6 +295,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
 
         setNextCursor(null);
         setHasMore(false);
+        setRows([]);
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
@@ -310,24 +313,29 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
     }, [filterState]);
 
     const handleLoadMore = useCallback(async () => {
-        if (!nextCursor || loading) return false;
+        if (!nextCursor || loading || loadingMore || loadMoreInFlightRef.current) return false;
         const parsed = LogisticsQuerySchema.safeParse(buildQuery(filterState));
         if (!parsed.success) return false;
-        setLoading(true);
+        loadMoreInFlightRef.current = true;
+        setLoadingMore(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
                 params: { ...parsed.data, per_page: 10, cursor: nextCursor },
             });
-            setRows(prev => [...prev, ...(res.data.data ?? [])]);
+            setRows(prev => {
+                const existingIds = new Set(prev.map(row => row.id));
+                return [...prev, ...(res.data.data ?? []).filter((row: LogisticsRow) => !existingIds.has(row.id))];
+            });
             setNextCursor(res.data.meta?.next_cursor ?? null);
             setHasMore(res.data.meta?.has_more ?? false);
             return true;
         } catch {
             return false;
         } finally {
-            setLoading(false);
+            loadMoreInFlightRef.current = false;
+            setLoadingMore(false);
         }
-    }, [filterState, nextCursor, loading]);
+    }, [filterState, nextCursor, loading, loadingMore]);
 
     // Handle row click — fetch line items then open the RS Process modal
     const handleRowClick = useCallback(async (row: LogisticsRow) => {
@@ -514,7 +522,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
                         </tr>
                     </thead>
                     <tbody>
-                        {loading && (
+                        {loading && rows.length === 0 && (
                             <tr>
                                 <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
                                     Loading…
@@ -553,7 +561,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
                             </tr>
                         )}
 
-                        {!loading && !error && rows.map((row, idx) => {
+                        {!error && rows.map((row, idx) => {
                             const tagged = !!row.for_liquidation;
                             const baseBg = tagged
                                 ? liquidationRowBg(isDark)
@@ -561,7 +569,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
                             const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
                             return (
                                 <tr
-                                    key={`${row.requisition_no}-${idx}`}
+                                    key={row.id}
                                     onClick={() => handleRowClick(row)}
                                     style={{
                                         background: baseBg,
@@ -629,9 +637,9 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
                             <tr>
                                 <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', color: t.cellMuted }}>
                                     <InfiniteScrollSentinel
-                                        key={nextCursor}
                                         hasMore={hasMore}
-                                        loading={loading}
+                                        loading={loadingMore}
+                                        loadKey={nextCursor}
                                         onLoadMore={handleLoadMore}
                                     />
                                 </td>

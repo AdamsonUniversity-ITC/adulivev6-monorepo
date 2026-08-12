@@ -70,6 +70,7 @@ export interface FilterPanelConfig {
     defaultSortBy?: string;
     actions?: ActionButtonConfig[];
     showControllerReprocessedLegend?: boolean;
+    showControllerPriceReapprovalLegend?: boolean;
 }
 
 export interface FilterState {
