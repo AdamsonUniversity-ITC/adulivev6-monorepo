@@ -55,6 +55,18 @@ describe("birthday-leave-validation", () => {
     ).toBeNull()
   })
 
+  it("passes when HR birthdate is an m/d/Y string", () => {
+    expect(
+      getBirthdayLeaveValidationError({
+        leaveCode: "bl",
+        birthdate: "04/27/2000",
+        dateFiled: "2026-04-01",
+        dateFrom: "2026-04-10",
+        dateTo: "2026-04-12",
+      }),
+    ).toBeNull()
+  })
+
   it("fails when HR birthdate is a zero date", () => {
     expect(
       getBirthdayLeaveValidationError({
