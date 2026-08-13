@@ -9,6 +9,7 @@ import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
 const CASHIER_MINIMUM_PAYMENT_FORM = 'Reimbursement/Replenishment';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
     stockroom: {
         title: 'FOR OFFICE SUPPLIES / STOCKABLES (STOCKROOM)',
@@ -24,6 +25,7 @@ export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: st
     },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function getCurrentSchoolYear(): string {
     const now = new Date();
     const month = now.getMonth(); // 0-indexed; June = 5
@@ -33,6 +35,7 @@ export function getCurrentSchoolYear(): string {
     return `${syStart}–${syStart + 1}`;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function formatCurrentDate(): string {
     return new Date().toLocaleDateString('en-US', {
         weekday: 'long',
@@ -42,6 +45,7 @@ export function formatCurrentDate(): string {
     });
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const fmtCurrency = (n: number) =>
     n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -595,7 +599,7 @@ export function RSFormModal({
             <button
                 onClick={onClick}
                 disabled={disabled}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all duration-150 select-none whitespace-nowrap"
                 style={{ background: color.bg, borderColor: color.border, color: color.text, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}
                 onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = color.hover; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = color.bg; }}
@@ -625,23 +629,36 @@ export function RSFormModal({
             `}</style>
 
             <div
+                className="abms-rs-form-modal"
                 style={{
-                    width: '100%', maxWidth: '860px',
+                    width: '100%', maxWidth: '1180px',
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
-                    borderRadius: '18px',
+                    borderRadius: '22px',
                     boxShadow: t.cardShadow,
                     overflow: 'hidden',
                     animation: 'rsform-in .22s cubic-bezier(.22,1,.36,1)',
                     display: 'flex', flexDirection: 'column',
                 }}
             >
+                <style>{`
+                    .abms-rs-form-modal .rs-form-meta > div:first-child { grid-row: span 1; }
+                    .abms-rs-form-modal .rs-form-table { margin: 0 22px; border: 1px solid ${t.tableHeadBorder}; border-radius: 10px; overflow: auto; }
+                    .abms-rs-form-modal .rs-form-table th { padding: 12px 14px !important; font-size: 10px !important; }
+                    .abms-rs-form-modal .rs-form-table td { padding: 10px 14px !important; font-size: 12px !important; }
+                    @media (max-width: 900px) {
+                        .abms-rs-form-modal .rs-form-meta { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+                    }
+                    @media (max-width: 600px) {
+                        .abms-rs-form-modal .rs-form-meta { grid-template-columns: 1fr !important; }
+                    }
+                `}</style>
                 {/* ── Header ── */}
                 <div
                     style={{
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                        padding: '16px 22px',
+                        padding: '22px',
                     }}
                 >
                     {/* Title row */}
@@ -649,19 +666,19 @@ export function RSFormModal({
                         <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <span
-                                    className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md"
+                                    className="rounded-md px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
                                     style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
                                 >
                                     Requisition Slip
                                 </span>
                             </div>
                             <h2
-                                className="text-sm font-bold tracking-tight mt-1.5 leading-snug"
+                                className="mt-3 text-xl font-extrabold tracking-tight leading-snug"
                                 style={{ color: t.titleColor }}
                             >
                                 {header.title}
                             </h2>
-                            <p className="text-[10px] mt-0.5" style={{ color: t.cellMuted }}>
+                            <p className="mt-1 text-sm" style={{ color: t.cellMuted }}>
                                 {header.sub}
                             </p>
                         </div>
@@ -669,7 +686,7 @@ export function RSFormModal({
                         <button
                             onClick={isSaved ? onClose : () => void handleDiscard()}
                             disabled={isDiscarding || isSavingRS}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-150"
                             style={{ background: 'transparent', borderColor: t.cardBorder, color: t.cellMuted }}
                             onMouseEnter={e => {
                                 (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
@@ -682,17 +699,17 @@ export function RSFormModal({
                                 (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                             }}
                         >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
 
                     {/* Meta info row */}
                     <div
-                        className="grid gap-3 mt-4"
-                        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
+                        className="rs-form-meta mt-5 grid gap-5"
+                        style={{ gridTemplateColumns: '1.35fr repeat(3, 1fr)' }}
                     >
                         {/* RS No. — enlarged + highlighted */}
-                        <div>
+                        <div style={{ padding: '18px 22px', borderRadius: 12, borderLeft: `7px solid ${t.cellBlue}`, background: isDark ? 'rgba(37,99,235,.13)' : 'linear-gradient(120deg,#f7faff,#edf4ff)' }}>
                             <span
                                 className="block text-[9px] font-bold uppercase tracking-widest mb-0.5"
                                 style={{ color: t.tableHeadText }}
@@ -701,23 +718,21 @@ export function RSFormModal({
                             </span>
                             <div
                                 style={{
-                                    padding: '7px 12px', borderRadius: 8,
-                                    background: isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.80)',
-                                    border: `1.5px solid ${isDark ? 'rgba(99,155,255,0.55)' : 'rgba(37,99,235,0.45)'}`,
+                                    padding: '7px 0', borderRadius: 8,
+                                    background: 'transparent',
+                                    border: 'none',
                                     color: isDark ? '#93c5fd' : '#1d4ed8',
-                                    fontSize: 16, fontWeight: 700,
+                                    fontSize: 30, fontWeight: 800,
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontVariantNumeric: 'tabular-nums',
                                     letterSpacing: '0.04em',
                                     minHeight: 40,
                                     display: 'flex', alignItems: 'center', gap: 8,
-                                    boxShadow: isDark
-                                        ? '0 0 0 3px rgba(59,130,246,0.12)'
-                                        : '0 0 0 3px rgba(37,99,235,0.08)',
+                                    boxShadow: 'none',
                                 }}
                             >
                                 <ClipboardList style={{ width: 14, height: 14, opacity: 0.7, flexShrink: 0 }} />
-                                {formatRequisitionNumber(rsHeaderData?.requisition_number ?? '0')}
+                                {isSaved ? formatRequisitionNumber(rsHeaderData?.requisition_number ?? '0') : 'unsaved'}
                             </div>
                         </div>
                         {displayField('Department / Section', rsHeaderData?.department ?? department ?? '—')}
@@ -731,11 +746,11 @@ export function RSFormModal({
                     </div>
 
                     {/* Action buttons row */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 22 }}>
                         <button
                             onClick={handleSaveRS}
                             disabled={isSaveDisabled}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all duration-150 select-none whitespace-nowrap"
                             style={{
                                 background: isSaved
                                     ? (isDark ? 'rgba(34,197,94,0.15)' : 'rgba(220,252,231,0.80)')
@@ -802,7 +817,7 @@ export function RSFormModal({
                 </div>
 
                 {/* ── Items Table ── */}
-                <div style={{ flex: 1, overflowX: 'auto' }}>
+                <div className="rs-form-table" style={{ flex: 1, overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                             <tr style={{ background: t.tableHeadBg }}>
@@ -928,7 +943,7 @@ export function RSFormModal({
                     <>
                     <div
                         style={{
-                            padding: '10px 22px',
+                            margin: '14px 22px 0', padding: '10px 14px', borderRadius: 10,
                             background: t.totalBg,
                             borderTop: `1px solid ${t.totalBorder}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
@@ -1000,7 +1015,7 @@ export function RSFormModal({
                 {/* ── Footer: Payee + Note ── */}
                 <div
                     style={{
-                        padding: '14px 22px',
+                        padding: '16px 22px 22px',
                         background: t.cardHeaderBg,
                         borderTop: `1px solid ${t.cardHeaderBorder}`,
                         display: 'flex', flexDirection: 'column', gap: 14,

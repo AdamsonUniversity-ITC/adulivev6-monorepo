@@ -450,9 +450,27 @@ flowchart TD
     F -- Delivery-fee item needed --> H[Select Reprocess RS]
     H --> I[Set Reprocess at Department and Controller Pending]
     I --> IA[Keep Served and Unavailable lines visible but locked]
-    IA --> J[Department adds or edits only Pending items through exact account/allocation editor]
-    J --> K[Save as For Review at Budget Office]
+    IA --> J[Department edits Pending item details and may select another scoped account]
+    J --> JT[Atomically refund the old allocation and charge the recalculated destination total]
+    JT --> JA[New delivery-fee items select one initial scoped account]
+    JA --> K[Save as For Review at Budget Office]
     K --> L[Repeat Budget, Controller, pricing acceptance, and price-reapproval gates]
+```
+
+## Requisition Process View Accounts
+
+```mermaid
+flowchart TD
+    A[Authorized role selects View Accounts] --> B[Send selected requisition ID]
+    B --> C[Require Budget, Administration, Controller, or Logistics access]
+    C --> D[Derive stored school year and exact typed Department or Section]
+    D --> E[Load every live scoped account allocation]
+    D --> F[Load positive stored item account references]
+    E --> G[Union by account ID without pagination]
+    F --> G
+    G --> H{Exactly one live scoped allocation?}
+    H -- Yes --> I[Display current remaining balance including zero]
+    H -- No --> J[Display Unavailable and data-quality warning]
 ```
 
 ## Cashier Accounting Correction and Controller Reapproval
@@ -811,10 +829,10 @@ flowchart LR
     F --> G[Allow long groups to continue onto following Letter pages]
 ```
 
-The shared Requisition Slip is the portrait exception: its screen preview is
-8.5 by 11 inches, and print mode uses a 0.2-inch Letter page margin with no
-duplicate inner print padding. Requisition Process and Budget Request Entry
-both consume this same component.
+The shared Requisition Slip defaults to an 8.5-by-11-inch Letter portrait
+screen and print canvas with a 0.2-inch internal safety inset and zero CSS page
+margin. Requisition Process and Budget Request Entry both consume this same
+component and can select the retained General/PDF or Epson paper presets.
 
 ## Auditable RS Printing
 
@@ -849,6 +867,23 @@ flowchart LR
     F --> G
     G --> H[Generate Letter-landscape XLSX in an on-demand browser chunk]
     H --> I[Download descriptive filename without changing report data]
+```
+
+## Purchasing Accomplishment Report
+
+```mermaid
+flowchart TD
+    A[Logistics user selects From and To] --> B[Load header audits in inclusive application-timezone period]
+    B --> C[Keep arrivals into Logistics at For Pricing or For Purchase]
+    C --> D[Keep distinct live numbered RS]
+    D --> E{Current status Cancelled or Disapproved?}
+    E -- Yes --> F[Count in terminal total only]
+    E -- No --> G{Later recognized exit after a selected arrival?}
+    G -- Yes --> H[Count as Processed]
+    G -- No --> I[Remain in Total RS only]
+    F --> J[Return three summary totals and data-quality metadata]
+    H --> J
+    I --> J
 ```
 
 ## Idempotent Financial Mutation

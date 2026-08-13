@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, RefreshCw, Send, X } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import echo from '../../../../lib/echo';
 import type { ChatMessage, ThemeTokens } from '../types';
 
 export function ChatModal({
@@ -29,6 +28,7 @@ export function ChatModal({
             <style>{`@keyframes modal-overlay-in { from { opacity: 0; } to { opacity: 1; } } @keyframes modal-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`}</style>
             {/* Overlay */}
             <div
+                className="abms-discussion-modal"
                 style={{
                     position: 'fixed',
                     inset: 0,
@@ -48,11 +48,11 @@ export function ChatModal({
                     zIndex: 999999,
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
-                    borderRadius: 14,
+                    borderRadius: 20,
                     boxShadow: t.cardShadow,
                     width: '90%',
-                    maxWidth: 600,
-                    height: 'min(85dvh, 700px)',
+                    maxWidth: 640,
+                    height: 'min(85dvh, 760px)',
                     maxHeight: 'calc(100dvh - 24px)',
                     display: 'flex',
                     flexDirection: 'column',
@@ -60,31 +60,35 @@ export function ChatModal({
                 }}
                 onClick={e => e.stopPropagation()}
             >
+                <style>{`
+                    .abms-discussion-modal input { min-height: 48px !important; padding: 11px 15px !important; border-radius: 11px !important; font-size: 13px !important; }
+                    .abms-discussion-modal button { min-width: 48px !important; min-height: 48px !important; border-radius: 11px !important; }
+                `}</style>
                 {/* Header */}
                 <div
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '14px 22px',
+                        padding: '20px 24px',
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                        borderRadius: '14px 14px 0 0',
+                        borderRadius: '20px 20px 0 0',
                         flexShrink: 0,
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <MessageSquare
                             style={{
-                                width: 16,
-                                height: 16,
+                                width: 20,
+                                height: 20,
                                 color: isDark ? '#60a5fa' : '#3b82f6',
                             }}
                         />
                         <span
                             style={{
-                                fontSize: 13,
-                                fontWeight: 700,
+                                fontSize: 19,
+                                fontWeight: 800,
                                 color: t.titleColor,
                                 letterSpacing: '-.01em',
                             }}
@@ -95,9 +99,9 @@ export function ChatModal({
                     <button
                         onClick={onClose}
                         style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
+                            width: 40,
+                            height: 40,
+                            borderRadius: 11,
                             border: 'none',
                             background: 'transparent',
                             color: t.cellMuted,
@@ -118,7 +122,7 @@ export function ChatModal({
                             (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                         }}
                     >
-                        <X style={{ width: 16, height: 16 }} />
+                        <X style={{ width: 18, height: 18 }} />
                     </button>
                 </div>
 
@@ -159,7 +163,7 @@ export function RSChatPanel({
     const [inputValue, setInputValue] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [broadcastError, setBroadcastError] = useState(false);
+    const [broadcastError] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -188,7 +192,7 @@ export function RSChatPanel({
             })
             .catch(() => { });
         onNewMessage?.();
-    }, [incomingMessage]);
+    }, [currentUser.id, entryId, incomingMessage, onNewMessage]);
 
     // ── Load existing messages on mount ──────────────────────────────────────
     useEffect(() => {
@@ -430,7 +434,7 @@ export function RSChatPanel({
                         }}
                     >
                         <MessageSquare
-                            style={{ width: 28, height: 28, color: t.cellMuted, opacity: 0.35 }}
+                            style={{ width: 20, height: 20, color: t.cellMuted, opacity: 0.35 }}
                         />
                         <p style={{ fontSize: 11, color: t.cellMuted, margin: 0 }}>
                             No messages yet. Start the discussion!
@@ -635,7 +639,6 @@ export function RSChatBadge({
     onClick,
     unreadCount,
     active = false,
-    t,
     isDark,
 }: {
     onClick: () => void;

@@ -19,23 +19,13 @@ const RS_TYPE_OPTIONS = [
 const RS_PAPER_OPTIONS = [
     { id: 'letter-portrait', group: 'General / PDF', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.2in', compact: false },
     { id: 'epson-letter-portrait', group: 'Epson LX-300-II', label: 'Letter (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.3in', scale: .97, compact: false },
-    { id: 'epson-legal-portrait', group: 'Epson LX-300-II', label: 'Legal (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
-    { id: 'epson-institution-legal-portrait', group: 'Epson LX-300-II', label: 'Institution Legal / Long Bond (8.5 × 13 in)', width: '8.5in', height: '13in', layoutHeight: '13in', pageSize: '8.5in 13in', margin: '.1in .1in', scale: 1, compact: false },
-    { id: 'epson-half-institution-legal', group: 'Epson LX-300-II', label: 'Half Institution Legal (8.5 × 6.5 in)', width: '8.5in', height: '6.5in', layoutHeight: '6.5in', pageSize: '8.5in 6.5in', margin: '.12in .15in .15in', compact: true },
-    { id: 'half-legal-crosswise', label: 'Half Legal — PDF / Modern Printer (8.5 × 7 in)', width: '8.5in', height: '7in', layoutHeight: '7in', pageSize: '8.5in 7in', margin: '.3in', compact: true },
-    { id: 'half-legal-on-letter', label: 'Half Legal — Legacy Printer on Letter (Recommended)', width: '8.5in', height: '11in', layoutHeight: '7in', pageSize: 'Letter portrait', margin: '.3in', compact: true },
-    { id: 'half-legal-on-legal', label: 'Half Legal — On Full Legal Sheet', width: '8.5in', height: '14in', layoutHeight: '7in', pageSize: 'Legal portrait', margin: '.3in', compact: true },
-    { id: 'half-institution-legal-crosswise', label: 'Half Institution Legal — PDF / Modern Printer (8.5 × 6.5 in)', width: '8.5in', height: '6.5in', layoutHeight: '6.5in', pageSize: '8.5in 6.5in', margin: '.3in', compact: true },
-    { id: 'half-institution-legal-on-letter', label: 'Half Institution Legal — Legacy Printer on Letter (Recommended)', width: '8.5in', height: '11in', layoutHeight: '6.5in', pageSize: 'Letter portrait', margin: '.3in', compact: true },
-    { id: 'half-institution-legal-on-full-sheet', label: 'Half Institution Legal — Full 8.5 × 13 Sheet via Legacy Driver', width: '8.5in', height: '13in', layoutHeight: '6.5in', pageSize: '8.5in 13in', margin: '.3in', compact: true },
-    { id: 'institution-legal-portrait', label: 'Institution Legal / Long Bond — Portrait (8.5 × 13 in)', width: '8.5in', height: '13in', layoutHeight: '13in', pageSize: '8.5in 13in', margin: '.3in', compact: false },
-    { id: 'legal-portrait', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
-    { id: 'a4-portrait', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', layoutHeight: '297mm', pageSize: 'A4 portrait', margin: '.3in', compact: false },
-    { id: 'letter-landscape', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Letter landscape', margin: '.3in', compact: false },
-    { id: 'institution-legal-landscape', label: 'Institution Legal / Long Bond — Landscape (13 × 8.5 in)', width: '13in', height: '8.5in', layoutHeight: '8.5in', pageSize: '13in 8.5in', margin: '.3in', compact: false },
-    { id: 'legal-landscape', label: 'Legal — Landscape (14 × 8.5 in)', width: '14in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Legal landscape', margin: '.3in', compact: false },
-    { id: 'a4-landscape', label: 'A4 — Landscape (297 × 210 mm)', width: '297mm', height: '210mm', layoutHeight: '210mm', pageSize: 'A4 landscape', margin: '.3in', compact: false },
-    { id: 'printer-default', label: 'Printer Default / Any Paper', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'auto', margin: '.3in', compact: false },
+    { id: 'epson-legal-portrait', group: 'Epson LX-300-II', label: 'Legal (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in',scale: .90, compact: false },
+    { id: 'epson-half-legal', group: 'Epson LX-300-II', label: 'Half Legal (8.5 × 7 in)', width: '8.5in', height: '7in', layoutHeight: '7in', pageSize: '8.5in 7in', margin: '.3in', scale: .95, compact: true },
+    { id: 'legal-portrait', group: 'General / PDF', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
+    { id: 'a4-portrait', group: 'General / PDF', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', layoutHeight: '297mm', pageSize: 'A4 portrait', margin: '.3in', compact: false },
+    { id: 'letter-landscape', group: 'General / PDF', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Letter landscape', margin: '.3in', compact: false },
+    { id: 'legal-landscape', group: 'General / PDF', label: 'Legal — Landscape (14 × 8.5 in)', width: '14in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Legal landscape', margin: '.3in', compact: false },
+    { id: 'a4-landscape', group: 'General / PDF', label: 'A4 — Landscape (297 × 210 mm)', width: '297mm', height: '210mm', layoutHeight: '210mm', pageSize: 'A4 landscape', margin: '.3in', compact: false },
 ] as const;
 
 type RsPaperId = typeof RS_PAPER_OPTIONS[number]['id'];
@@ -90,29 +80,11 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
     const [paperId, setPaperId] = useState<RsPaperId>('letter-portrait');
     const selectedPaper = RS_PAPER_OPTIONS.find(option => option.id === paperId) ?? RS_PAPER_OPTIONS[0];
     const contentScale = 'scale' in selectedPaper ? selectedPaper.scale : 1;
-    const isHalfInstitutionLegal = paperId.includes('half-institution-legal');
-    const isHalfLegal = selectedPaper.compact && !isHalfInstitutionLegal;
-    const isPrinterDefault = paperId === 'printer-default';
-    const isFullInstitutionLegacyDriver = paperId === 'half-institution-legal-on-full-sheet';
-    const isEpsonInstitutionPaper = paperId === 'epson-institution-legal-portrait';
-    const isEpsonHalfInstitutionPaper = paperId === 'epson-half-institution-legal';
-    const usesLetterDriverCanvas = isFullInstitutionLegacyDriver
-        || isEpsonHalfInstitutionPaper;
-    const printPaperHeight = usesLetterDriverCanvas ? '11in' : selectedPaper.height;
+    const isHalfLegal = selectedPaper.compact;
+    const printPaperHeight = selectedPaper.height;
     const printLayoutHeight = selectedPaper.layoutHeight;
-    const printPageSize = usesLetterDriverCanvas ? 'Letter portrait' : selectedPaper.pageSize;
-    const hasHalfLegalCutGuide = paperId === 'half-legal-on-letter'
-        || paperId === 'half-legal-on-legal'
-        || paperId === 'half-institution-legal-on-letter'
-        || paperId === 'half-institution-legal-on-full-sheet';
-    const sheetPadding = isEpsonInstitutionPaper || isEpsonHalfInstitutionPaper
-        ? selectedPaper.margin
-        : paperId === 'half-institution-legal-on-letter'
-        || paperId === 'half-institution-legal-on-full-sheet'
-        ? '.15in .10in .15in'
-        : paperId === 'half-legal-on-letter'
-            ? '.08in .3in .3in'
-            : selectedPaper.margin;
+    const printPageSize = selectedPaper.pageSize;
+    const sheetPadding = selectedPaper.margin;
 
     const handlePrint = async () => {
         if (printRequestInFlight.current) return;
@@ -194,7 +166,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             <button onClick={onClose} disabled={isPreparingPrint}><X size={16} /> Close</button>
         </div>
         <article
-            className={`rs-print-page${isHalfLegal ? ' rs-paper-half-legal' : ''}${isHalfInstitutionLegal ? ' rs-paper-half-institution' : ''}${isPrinterDefault ? ' rs-paper-printer-default' : ''}`}
+            className={`rs-print-page${isHalfLegal ? ' rs-paper-half-legal' : ''}`}
             style={{ width: selectedPaper.width, minHeight: selectedPaper.height }}
             onClick={event => event.stopPropagation()}
         >
@@ -272,7 +244,6 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
                     <p>“In compliance with the requirement of the Data Privacy Act, we would like to secure your consent on the general use and sharing of information obtained from you in the course of transaction/s with any employee of the Adu Finance department. These data, which includes your sensitive or personal information, may be collected, processed or stored in accordance with the AdU retention and disposal policies for legitimate purposes. They may be used to implement transactions which you request, allow or authorize, and to comply with the AdU internal policies and its reporting obligations to government authorities under applicable laws.”</p>
                 </footer>
             </div>
-            {hasHalfLegalCutGuide && <div className="rs-half-legal-cut-guide" aria-hidden="true" />}
         </article>
         <style>{`
             .rs-print-overlay{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.76);overflow:auto;padding:70px 20px 40px}
@@ -333,22 +304,15 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             .rs-paper-half-legal .rs-footer-signature div{height:3mm}
             .rs-paper-half-legal .rs-footer{font-size:8px;line-height:1.18;padding-top:1.5mm}
             .rs-paper-half-legal .rs-footer p{margin-top:1mm}
-            .rs-paper-half-institution .rs-review-dates{margin-top:-8mm}
-            .rs-paper-half-institution .rs-signing-space{flex:1 1 0;min-height:0}
-            .rs-paper-half-institution .rs-certification{padding-bottom:.5mm}
-            .rs-paper-half-institution .rs-footer-signature div{height:3mm}
-            .rs-half-legal-cut-guide{box-sizing:border-box;width:100%;height:0;border-top:1px dashed #64748b}
             @media(max-width:720px){.rs-print-overlay{padding:118px 12px 28px}.rs-print-toolbar{left:12px;right:12px;top:12px;flex-wrap:wrap}.rs-paper-selector{order:3;flex:1 0 100%}.rs-paper-selector select{max-width:none;min-width:0;flex:1}}
             @media print{
                 html,body{margin:0!important;padding:0!important;width:auto!important;min-height:auto!important}
                 body>*:not(.rs-print-overlay){display:none!important}
                 body *{visibility:hidden!important}.rs-print-page,.rs-print-page *{visibility:visible!important}
                 .rs-print-overlay{position:static!important;width:auto!important;background:none!important;padding:0!important}
-                .rs-print-page{position:static!important;width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : printPaperHeight}!important;margin:0!important;padding:0!important;box-shadow:none!important}
-                .rs-sheet{width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : printLayoutHeight}!important;padding:${sheetPadding}!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-                .rs-paper-printer-default,.rs-paper-printer-default .rs-sheet{min-height:auto!important}
+                .rs-print-page{position:static!important;width:${selectedPaper.width}!important;min-height:${printPaperHeight}!important;margin:0!important;padding:0!important;box-shadow:none!important}
+                .rs-sheet{width:${selectedPaper.width}!important;min-height:${printLayoutHeight}!important;padding:${sheetPadding}!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
                 .rs-print-toolbar{display:none!important}
-                .rs-half-legal-cut-guide{width:${selectedPaper.width}!important}
                 @page{size:${printPageSize};margin:0}
             }
         `}</style>

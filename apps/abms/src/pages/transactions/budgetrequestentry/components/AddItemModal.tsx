@@ -24,6 +24,7 @@ export interface AddItemFormState {
     officeSupplyId: number | null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const EMPTY_ITEM_FORM: AddItemFormState = {
     accountId: null,
     accountNo: '',
@@ -40,6 +41,7 @@ export const EMPTY_ITEM_FORM: AddItemFormState = {
 
 // ── Zod schema for AddItemModal client-side validation ────────────────────────
 // balance_cap is not a form field — it's validated contextually inside handleSave
+// eslint-disable-next-line react-refresh/only-export-components
 export const addItemSchema = z.object({
     accountId: z.number({ invalid_type_error: 'Please select an account first.' }),
     accountNo: z.string().min(1, 'Please select an account first.'),
@@ -386,14 +388,15 @@ export function AddItemModal({
                     `}</style>
 
                     <div
+                        className="abms-add-item-modal"
                         role="dialog"
                         aria-modal="true"
                         aria-label={isEditing ? 'Edit requisition item' : 'Add new requisition item'}
                         style={{
-                            width: '100%', maxWidth: '500px',
+                            width: '100%', maxWidth: '620px',
                             background: t.cardBg,
                             border: `1px solid ${t.cardBorder}`,
-                            borderRadius: 18,
+                            borderRadius: 20,
                             boxShadow: t.cardShadow,
                             overflow: 'hidden',
                             animation: 'additem-in .20s cubic-bezier(.22,1,.36,1)',
@@ -401,13 +404,17 @@ export function AddItemModal({
                             maxHeight: 'calc(100dvh - 24px)',
                         }}
                     >
+                        <style>{`
+                            .abms-add-item-modal input { min-height: 44px !important; padding: 10px 14px !important; border-radius: 10px !important; font-size: 12px !important; }
+                            .abms-add-item-modal button { min-height: 38px; padding: 9px 15px !important; border-radius: 12px !important; font-size: 12px !important; }
+                        `}</style>
                         {/* ── Header ── */}
-                        <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                        <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                             <div>
-                                <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-.01em', color: t.titleColor, margin: 0 }}>
+                                <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-.01em', color: t.titleColor, margin: 0 }}>
                                     {isEditing ? 'Edit Item' : 'Add New Item'}
                                 </h2>
-                                <p style={{ fontSize: 10, color: t.cellMuted, margin: '2px 0 0' }}>
+                                <p style={{ fontSize: 12, color: t.cellMuted, margin: '5px 0 0' }}>
                                     {isEditing
                                         ? 'Verify the permitted fields before saving this draft item.'
                                         : 'Fill in the item details to add to the requisition slip.'}
@@ -433,7 +440,7 @@ export function AddItemModal({
                         </div>
 
                         {/* ── Body ── */}
-                        <div className="min-h-0 flex-1 p-4 sm:px-5 sm:py-[18px]" style={{ display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+                        <div className="min-h-0 flex-1 px-5 py-5 sm:px-6" style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
 
                             {/* Account section */}
                             {sectionLabel('Account Information')}
@@ -443,9 +450,9 @@ export function AddItemModal({
                                 onClick={handleOpenAccountPicker}
                                 style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    padding: '7px 14px', borderRadius: 8,
+                                    padding: '12px 22px', borderRadius: 12,
                                     background: t.btnRefresh.bg, border: `1px solid ${errors.accountNo ? t.cellRed : t.btnRefresh.border}`,
-                                    color: t.btnRefresh.text, fontSize: 11, fontWeight: 700,
+                                    color: t.btnRefresh.text, fontSize: 14, fontWeight: 700,
                                     cursor: 'pointer', alignSelf: 'flex-start', transition: 'background .12s ease',
                                 }}
                                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
@@ -477,10 +484,10 @@ export function AddItemModal({
                             {rsType === 'stockroom' && accountSelected && !isEditing && (
                                 <div style={{
                                     display: 'flex', alignItems: 'center', gap: 7,
-                                    padding: '8px 12px', borderRadius: 8,
+                                    padding: '10px 14px', borderRadius: 12,
                                     background: isDark ? 'rgba(59,130,246,0.10)' : 'rgba(219,234,254,0.65)',
                                     border: `1px solid ${isDark ? 'rgba(99,155,255,0.30)' : 'rgba(37,99,235,0.28)'}`,
-                                    fontSize: 10, color: t.cellBlue, fontWeight: 600,
+                                    fontSize: 14, color: t.cellBlue, fontWeight: 600,
                                 }}>
                                     <ClipboardList style={{ width: 13, height: 13, flexShrink: 0 }} />
                                     Select an item using Get Items. Stockroom item details cannot be entered manually.
@@ -579,7 +586,7 @@ export function AddItemModal({
                                 return (
                                     <div
                                         style={{
-                                            padding: '10px 16px', borderRadius: 10,
+                                            padding: '13px 18px', borderRadius: 14,
                                             background: overBudget
                                                 ? (isDark ? 'rgba(248,113,113,0.08)' : 'rgba(254,226,226,0.55)')
                                                 : (isDark ? 'rgba(10,22,50,0.80)' : 'rgba(210,228,255,0.70)'),
