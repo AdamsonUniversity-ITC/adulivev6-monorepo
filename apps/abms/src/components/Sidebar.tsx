@@ -179,6 +179,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Budget Liquidation', href: '/reports/budget-liquidation', permissions: ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry'] },
       { label: 'Budget Proposal Reports', href: '/reports/budget-proposal-reports', permissions: ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry'] },
       { label: 'Unserved RS', href: '/reports/unserved-rs', permissions: ['admin-access', 'budget-access', 'controller-access'] },
+      { label: 'Purchasing Accomplishment Report', href: '/reports/purchasing-accomplishment-report', permissions: ['logistics-access'] },
     ],
   },
   {

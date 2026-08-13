@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    AlertCircle, AlertTriangle, ClipboardList,
-    Paperclip, Plus, Printer, RefreshCw, Save, StickyNote, Trash2, User, X,
+    AlertCircle, AlertTriangle, Building2, CalendarDays, CircleDollarSign, ClipboardList, GraduationCap,
+    Paperclip, Plus, Printer, RefreshCw, Save, Search, StickyNote, Trash2, User, X,
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import echo from '../../../../lib/echo';
@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { fmtCurrency, formatRequisitionNumber, isZeroRequisitionNumber, normalizeEntryStatus } from '../utils';
 import { AddItemModal } from './AddItemModal';
+import { SelectAccountModal, type AccountOption } from './SelectAccountModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { ChatModal, RSChatBadge } from './chat';
 import { StatusBadge } from './common';
@@ -105,6 +106,7 @@ export function RSViewModal({
     const [itemActionError, setItemActionError] = useState<string | null>(null);
     const [hoveredRow, setHoveredRow] = useState<number | null>(null);
     const [showAddItem, setShowAddItem] = useState(false);
+    const [accountItemId, setAccountItemId] = useState<number | null>(null);
     const [showAttachments, setShowAttachments] = useState(false);
     const [showAttachedFiles, setShowAttachedFiles] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<RSAttachedFile[]>([]);
@@ -186,6 +188,7 @@ export function RSViewModal({
         setItemActionError(null);
         setDirty(false);
         setShowAddItem(false);
+        setAccountItemId(null);
         setShowAttachments(false);
         setShowAttachedFiles(false);
         setAttachedFiles([]);
@@ -338,6 +341,7 @@ export function RSViewModal({
 
             return {
                 id: item.id,
+                account_id: item.account_id,
                 description,
                 quantity,
                 unit_cost: unitCost,
@@ -376,6 +380,25 @@ export function RSViewModal({
         // There is now an uncommitted change (the item itself is already
         // persisted, but the RS hasn't been finalized/resubmitted yet) —
         // surface that to the user via the Save Changes button.
+        setDirty(true);
+    }
+
+    function handleAccountSelect(account: AccountOption) {
+        if (accountItemId === null) return;
+
+        setItems(prev => prev.map(item => item.id === accountItemId
+            ? {
+                ...item,
+                account_id: account.account_id,
+                accountNo: account.account_code,
+                mainAccountCode: account.main_account_code ?? '',
+                accountName: account.account_name,
+                accountParentId: account.account_parent_id,
+                availableBalance: Number(account.balance),
+            }
+            : item));
+        setAccountItemId(null);
+        setItemActionError(null);
         setDirty(true);
     }
 
@@ -507,16 +530,15 @@ export function RSViewModal({
     }
 
     // Shared display field
-    const displayField = (label: string, value: string, mono = false, color?: string) => (
-        <div>
-            <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
-                {label}
+    const displayField = (label: string, value: string, mono = false, color?: string, icon?: React.ReactNode) => (
+        <div className="rs-view-meta-card">
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '.06em', color: t.tableHeadText, marginBottom: 7 }}>
+                {icon}{label}
             </span>
             <div style={{
-                padding: '7px 12px', borderRadius: 8,
-                background: isDark ? 'rgba(10,22,50,0.60)' : 'rgba(220,234,255,0.60)',
-                border: `1px solid ${t.sectionDivider}`,
-                fontSize: 11, fontWeight: 600,
+                padding: '0 22px', borderRadius: 8,
+                background: 'transparent', border: 'none',
+                fontSize: 12, fontWeight: 700,
                 color: color ?? t.cellText,
                 minHeight: 32,
                 fontFamily: mono ? "'JetBrains Mono', monospace" : 'inherit',
@@ -541,7 +563,7 @@ export function RSViewModal({
                 background: isDark ? 'rgba(0,0,0,0.70)' : 'rgba(0,20,60,0.42)',
                 backdropFilter: 'blur(5px)',
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-                padding: '24px 16px',
+                padding: '12px',
                 overflowY: 'auto',
             }}
         >
@@ -552,9 +574,9 @@ export function RSViewModal({
                 }
             `}</style>
 
-            <div
+            <div className="abms-rs-view-modal"
                 style={{
-                    width: '100%', maxWidth: '900px',
+                    width: '100%', maxWidth: '980px',
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     borderRadius: 18,
@@ -565,13 +587,26 @@ export function RSViewModal({
                     marginBottom: 24,
                 }}
             >
+                <style>{`
+                    .abms-rs-view-modal { font-size: 13px; line-height: 1.45; }
+                    .abms-rs-view-modal .rs-view-meta-card { min-height: 68px; padding: 12px 14px; border: 1px solid ${t.sectionDivider}; border-radius: 10px; background: ${t.cardHeaderBg}; }
+                    .abms-rs-view-modal .rs-view-action { min-height: 40px; padding: 8px 14px !important; border-radius: 9px !important; font-size: 13px !important; }
+                    .abms-rs-view-modal .rs-view-main-table { margin: 0 16px 16px; border: 1px solid ${t.tableHeadBorder}; border-radius: 10px; overflow: auto; }
+                    .abms-rs-view-modal .rs-view-main-table th { font-size: 11px !important; padding: 11px 12px !important; }
+                    .abms-rs-view-modal .rs-view-main-table td { font-size: 13px !important; padding: 10px 12px !important; }
+                    .abms-rs-view-modal .rs-view-quotation { font-size: 13px; }
+                    .abms-rs-view-modal .rs-view-quotation th { font-size: 11px !important; }
+                    .abms-rs-view-modal .rs-view-quotation td { font-size: 12px !important; }
+                    @media (max-width: 900px) { .abms-rs-view-modal .rs-view-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+                    @media (max-width: 600px) { .abms-rs-view-modal .rs-view-meta-grid { grid-template-columns: 1fr !important; } }
+                `}</style>
                 {/* ── Header ── */}
-                <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '16px 22px' }}>
+                <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '18px 20px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                         <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <span
-                                    className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md"
+                                    className="rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-widest"
                                     style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
                                 >
                                     Requisition Slip
@@ -590,16 +625,16 @@ export function RSViewModal({
                                     </span>
                                 )}
                             </div>
-                            <h2 className="text-sm font-bold tracking-tight mt-1.5 leading-snug" style={{ color: t.titleColor }}>
+                            <h2 className="mt-3 text-lg font-extrabold tracking-tight leading-snug" style={{ color: t.titleColor }}>
                                 {header ? rsTypeLabel[header.rstype] ?? header.rstype.toUpperCase() : 'Loading…'}
                             </h2>
-                            <p className="text-[10px] mt-0.5" style={{ color: t.cellMuted }}>
+                            <p className="mt-1 text-sm" style={{ color: t.cellMuted }}>
                                 {header ? `RS No. ${formatRequisitionNumber(header.requisition_number)}` : ''}
                             </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-150"
                             style={{ background: 'transparent', borderColor: t.cardBorder, color: t.cellMuted }}
                             onMouseEnter={e => {
                                 (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
@@ -612,49 +647,44 @@ export function RSViewModal({
                                 (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                             }}
                         >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
 
                     {/* Meta info grid */}
                     {header && (
-                        <div className="grid gap-3 mt-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+                        <div className="rs-view-meta-grid mt-4 grid gap-3" style={{ gridTemplateColumns: '310px repeat(3, minmax(0, 1fr))' }}>
                             {/* RS No. — enlarged + highlighted */}
-                            <div>
-                                <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
-                                    RS No.
+                            <div className="row-span-2 overflow-hidden rounded-xl border-l-8 p-5" style={{ background: isDark ? 'rgba(37,99,235,0.12)' : 'linear-gradient(120deg,#f7faff,#edf4ff)', borderColor: t.cellBlue }}>
+                                <span style={{ display: 'block', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 14 }}>
+                                    Requisition No.
                                 </span>
                                 <div style={{
-                                    padding: '7px 12px', borderRadius: 8,
-                                    background: isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.80)',
-                                    border: `1.5px solid ${isDark ? 'rgba(99,155,255,0.55)' : 'rgba(37,99,235,0.45)'}`,
+                                    background: 'transparent',
                                     color: isDark ? '#93c5fd' : '#1d4ed8',
-                                    fontSize: 16, fontWeight: 700,
+                                    fontSize: 28, fontWeight: 800,
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontVariantNumeric: 'tabular-nums',
                                     letterSpacing: '0.04em',
-                                    minHeight: 40,
+                                    minHeight: 54,
                                     display: 'flex', alignItems: 'center', gap: 8,
-                                    boxShadow: isDark
-                                        ? '0 0 0 3px rgba(59,130,246,0.12)'
-                                        : '0 0 0 3px rgba(37,99,235,0.08)',
                                 }}>
-                                    <ClipboardList style={{ width: 14, height: 14, opacity: 0.7, flexShrink: 0 }} />
                                     {formatRequisitionNumber(header.requisition_number)}
+                                    <ClipboardList style={{ width: 22, height: 22, opacity: 0.7, flexShrink: 0 }} />
                                 </div>
                             </div>
-                            {displayField('Department / Section', header.department)}
-                            {displayField('School Year', header.school_year)}
+                            {displayField('Department / Section', header.department, false, undefined, <Building2 className="h-4 w-4" />)}
+                            {displayField('School Year', header.school_year, false, undefined, <GraduationCap className="h-4 w-4" />)}
                             {displayField('Date', header.created_at
                                 ? new Date(header.created_at).toLocaleDateString('en-US', {
                                     weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
                                 })
-                                : '—'
+                                : '—', false, undefined, <CalendarDays className="h-4 w-4" />
                             )}
-                            {displayField('Requested By', header.requested_by_name)}
+                            {displayField('Requested By', header.requested_by_name, false, undefined, <User className="h-4 w-4" />)}
                             {isEditableCashier ? (
-                                <div>
-                                    <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
+                                <div className="rs-view-meta-card">
+                                    <span style={{ display: 'block', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
                                         Payee <span style={{ color: t.cellRed }}>(required)</span>
                                     </span>
                                     <input
@@ -681,8 +711,8 @@ export function RSViewModal({
                                     />
                                     {isCashierPayeeMissing && <span style={{ display: 'block', marginTop: 3, color: t.cellRed, fontSize: 9 }}>Payee is required.</span>}
                                 </div>
-                            ) : displayField('Payee', header.payee)}
-                            {displayField('Total Amount', `₱ ${fmtCurrency(grandTotal)}`, true, t.cellGreen)}
+                            ) : displayField('Payee', header.payee, false, undefined, <User className="h-4 w-4" />)}
+                            {displayField('Total Amount', `₱ ${fmtCurrency(grandTotal)}`, true, t.cellGreen, <CircleDollarSign className="h-4 w-4" />)}
                         </div>
                     )}
 
@@ -692,7 +722,7 @@ export function RSViewModal({
                             <button
                                 onClick={() => handleResave()}
                                 disabled={isResaveDisabled}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isResaveDisabled ? t.btnDisBg : t.btnNew.bg,
                                     borderColor: isResaveDisabled ? t.btnDisBorder : t.btnNew.border,
@@ -711,7 +741,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={() => setShowAddItem(true)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{ background: t.btnRefresh.bg, borderColor: t.btnRefresh.border, color: t.btnRefresh.text }}
                                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnRefresh.bg; }}
@@ -731,7 +761,7 @@ export function RSViewModal({
                                     onClick={openPrintPreview}
                                     disabled={stockroomPrintBlocked}
                                     title={stockroomPrintBlocked ? STOCKROOM_PRINT_RESTRICTION_MESSAGE : 'Print RS'}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: stockroomPrintBlocked ? t.btnDisBg : t.btnPrevSY.bg,
                                         borderColor: stockroomPrintBlocked ? t.btnDisBorder : t.btnPrevSY.border,
@@ -747,7 +777,7 @@ export function RSViewModal({
                             )}
                             <button
                                 onClick={() => setShowAttachments(true)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(167,139,250,0.10)' : 'rgba(237,233,254,0.55)',
                                     borderColor: isDark ? 'rgba(167,139,250,0.35)' : 'rgba(139,92,246,0.40)',
@@ -761,7 +791,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={openAttachedFilesModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                     borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -777,7 +807,7 @@ export function RSViewModal({
                             {header.payment_form && PAYEE_VIEW_REQUIRED_FORMS.includes(header.payment_form) && payeeDetail && (
                                 <button
                                     onClick={() => setShowPayeeView(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                         borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -795,7 +825,7 @@ export function RSViewModal({
                                 <button
                                     onClick={handleDiscardRS}
                                     disabled={isDiscarding || isResaving}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                         borderColor: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
@@ -818,7 +848,7 @@ export function RSViewModal({
                             )}
                             <button
                                 onClick={onClose}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                     borderColor: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
@@ -861,7 +891,7 @@ export function RSViewModal({
                             {header.payment_form && PAYEE_VIEW_REQUIRED_FORMS.includes(header.payment_form) && payeeDetail && (
                                 <button
                                     onClick={() => setShowPayeeView(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                         borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -885,7 +915,7 @@ export function RSViewModal({
                                 onClick={openPrintPreview}
                                 disabled={stockroomPrintBlocked}
                                 title={stockroomPrintBlocked ? STOCKROOM_PRINT_RESTRICTION_MESSAGE : 'Print RS'}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: stockroomPrintBlocked ? t.btnDisBg : t.btnPrevSY.bg,
                                     borderColor: stockroomPrintBlocked ? t.btnDisBorder : t.btnPrevSY.border,
@@ -900,7 +930,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={openAttachedFilesModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                     borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -914,7 +944,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={onClose}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                     borderColor: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
@@ -1001,7 +1031,7 @@ export function RSViewModal({
                         )}
 
                         {quotedPricePreview?.has_quoted_prices && (
-                            <div
+                            <div className="rs-view-quotation"
                                 style={{
                                     margin: '16px 18px',
                                     borderRadius: 14,
@@ -1478,7 +1508,7 @@ export function RSViewModal({
                             </div>
                         )}
                         {/* Items table */}
-                        <div style={{ overflowX: 'auto' }}>
+                        <div className="rs-view-main-table" style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: canEdit ? 760 : 720 }}>
                                 <thead>
                                     <tr style={{ background: t.tableHeadBg }}>
@@ -1546,7 +1576,26 @@ export function RSViewModal({
                                                 {i + 1}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellBlue, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
-                                                {formatAccountCode(item.mainAccountCode, item.accountNo)}
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                                                    <span>{formatAccountCode(item.mainAccountCode, item.accountNo)}</span>
+                                                    {isReprocessAtDepartment && itemEditable && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setAccountItemId(item.id)}
+                                                            title="Transfer this item to another budget account."
+                                                            style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                                                fontFamily: 'inherit', fontSize: 8, fontWeight: 800,
+                                                                letterSpacing: '.05em', textTransform: 'uppercase',
+                                                                color: t.cellBlue, background: 'transparent',
+                                                                border: 'none', padding: 0, cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            <Search style={{ width: 9, height: 9 }} />
+                                                            Change account
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
                                                 {itemEditable ? (
@@ -1634,7 +1683,7 @@ export function RSViewModal({
                         {/* Grand total */}
                         {items.length > 0 && (
                             <div style={{
-                                padding: '10px 22px',
+                                margin: '0 18px 18px', padding: '10px 14px', borderRadius: 10,
                                 background: t.totalBg,
                                 borderTop: `1px solid ${t.totalBorder}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
@@ -1710,6 +1759,20 @@ export function RSViewModal({
                     currentSchoolYear={header.school_year}
                     rsHeaderId={header.id}
                     rsType={header.rstype as RSType}
+                />
+            )}
+
+            {isReprocessAtDepartment && header && (
+                <SelectAccountModal
+                    open={accountItemId !== null}
+                    onClose={() => setAccountItemId(null)}
+                    onSelect={handleAccountSelect}
+                    t={t}
+                    isDark={isDark}
+                    departmentId={header.department_id ?? ''}
+                    sectionId={header.section_id ?? ''}
+                    currentSchoolYear={header.school_year}
+                    requisitionId={header.id}
                 />
             )}
 

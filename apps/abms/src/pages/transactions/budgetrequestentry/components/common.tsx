@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, ChevronDown, Eye, Info, MoreHorizontal, Penc
 import type { BtnToken, DeptOption, ThemeTokens, ToastItem, Status, ToastKind } from '../types';
 import { organizationalUnitKey } from '../../../../lib/organizationalUnit';
 
-export const TOAST_CFG: Record<ToastKind, {
+const TOAST_CFG: Record<ToastKind, {
     dark: { bg: string; border: string; text: string };
     light: { bg: string; border: string; text: string };
     Icon: React.ComponentType<{ className?: string }>;
@@ -93,27 +93,33 @@ export function Btn({
 // Checkbox
 // ─────────────────────────────────────────────────────────────────────────────
 export function Checkbox({
-    checked, onChange, label, t, isDark,
-}: { checked: boolean; onChange: (v: boolean) => void; label: string; t: ThemeTokens; isDark: boolean }) {
+    checked, onChange, label, t, isDark, variant = 'checkbox',
+}: { checked: boolean; onChange: (v: boolean) => void; label: string; t: ThemeTokens; isDark: boolean; variant?: 'checkbox' | 'switch' }) {
+    const isSwitch = variant === 'switch';
     return (
-        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+        <label className="inline-flex cursor-pointer select-none items-center gap-2.5">
             <div
-                className="flex items-center justify-center rounded transition-all duration-150 shrink-0"
+                className={`relative flex shrink-0 items-center rounded transition-all duration-150 ${isSwitch ? 'justify-start' : 'justify-center'}`}
                 style={{
-                    width: 16, height: 16,
+                    width: isSwitch ? 36 : 20, height: isSwitch ? 20 : 20,
                     background: checked ? t.checkboxChecked : t.checkboxBg,
                     border: `1.5px solid ${checked ? (isDark ? '#3b82f6' : '#1d4ed8') : t.checkboxBorder}`,
                 }}
                 onClick={() => onChange(!checked)}
             >
-                {checked && (
+                {isSwitch ? (
+                    <span
+                        className="absolute h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-150"
+                        style={{ transform: checked ? 'translateX(17px)' : 'translateX(1px)' }}
+                    />
+                ) : checked && (
                     <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
                         <path d="M1 3.5L3.2 6L8 1" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 )}
             </div>
             <span
-                className="text-xs font-semibold"
+                className="text-sm font-semibold"
                 style={{ color: checked ? (isDark ? '#ddeeff' : '#0a1628') : t.cellMuted }}
                 onClick={() => onChange(!checked)}
             >
@@ -166,7 +172,7 @@ export function DeptDropdown({
             <button
                 type="button"
                 onClick={() => { setOpen(p => !p); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); }}
-                className="flex w-full items-center gap-2 rounded-xl border py-2 pl-3 pr-2.5 text-xs font-semibold outline-none transition-all duration-150"
+                className="flex w-full items-center gap-2 rounded-xl border py-3 pl-4 pr-3 text-sm font-semibold outline-none transition-all duration-150"
                 style={{
                     background: t.inputBg,
                     borderColor: open ? (isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)') : t.inputBorder,
@@ -183,7 +189,7 @@ export function DeptDropdown({
                     </span>
                 )}
                 <ChevronDown
-                    className="w-3 h-3 shrink-0 transition-transform duration-150"
+                    className="h-4 w-4 shrink-0 transition-transform duration-150"
                     style={{ color: t.cellMuted, transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
                 />
             </button>

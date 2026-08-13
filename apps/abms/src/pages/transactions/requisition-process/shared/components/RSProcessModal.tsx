@@ -1271,12 +1271,13 @@ export function RSProcessModal({
         void saveFulfillment(targets);
     }
 
-    // The Quoted Price column itself is only shown to: logistics, while
-    // they're actively entering prices (canPriceItems above); and admin,
-    // once the RS has reached the Budget Office for approval — i.e. after
-    // logistics has already priced it. Every other role/stage never sees
-    // this column at all.
+    // Logistics retains historical visibility after an RS leaves its queue,
+    // so keep its submitted supplier prices visible on later reopen. Editing
+    // remains restricted by canPriceItems to an active Logistics pricing or
+    // purchase stage; historical/pending values are read-only.
+    const hasStoredQuotedPrices = (row.items ?? []).some(item => item.quoted_price != null);
     const showQuotedPriceColumn = canPriceItems
+        || (roleKey === 'logistics-access' && isLogisticsRequest && hasStoredQuotedPrices)
         || (roleKey === 'admin-access'
             && (row.status ?? '').toLowerCase() === 'for approval'
             && (row.location ?? '').toLowerCase() === 'budget office')
@@ -1557,7 +1558,10 @@ export function RSProcessModal({
         const drafts: typeof priceDrafts = {};
         (row.items ?? []).forEach(item => {
             if (workflowV2 && (item.fulfillment_status ?? 'pending') !== 'pending') return;
-            drafts[item.id] = item.quoted_price ?? null;
+            const storedQuote = item.quoted_price;
+            drafts[item.id] = storedQuote === null || storedQuote === undefined
+                ? null
+                : Number(storedQuote);
         });
         setPriceDrafts(drafts);
         setChangedPriceItemIds({});
@@ -1605,8 +1609,7 @@ export function RSProcessModal({
             const payload = {
                 items: Object.entries(priceDrafts)
                     .filter((entry): entry is [string, number] => (
-                        changedPriceItemIds[Number(entry[0])] === true
-                        && entry[1] !== null
+                        entry[1] !== null
                     ))
                     .map(([id, quoted_price]) => ({
                         id: Number(id),
@@ -1869,11 +1872,12 @@ export function RSProcessModal({
             );
     });
 
-    // Logistics may price a subset and complete the remaining rows during a
-    // later For Purchase cycle. At least one submitted quote is required and
-    // every submitted value must remain finite and positive.
+    // Logistics may review and resubmit an existing quote without changing its
+    // numeric value. This is required when an older reprocessed RS returns to
+    // For Pricing with retained quote data. Every populated draft is submitted;
+    // blank rows remain unquoted for a later cycle.
     const submittedPriceDrafts = Object.entries(priceDrafts)
-        .filter(([id]) => changedPriceItemIds[Number(id)] === true)
+        .filter(([, value]) => value !== null)
         .map(([, value]) => value);
     const priceDraftsValid = !isPricingItems || (
         submittedPriceDrafts.length > 0
@@ -1885,7 +1889,6 @@ export function RSProcessModal({
     );
 
     const quotedPriceConfirmationItems = lineItems.flatMap(item => {
-        if (changedPriceItemIds[item.id] !== true) return [];
         const quotedPrice = priceDrafts[item.id];
         if (quotedPrice === null || quotedPrice === undefined) return [];
 
