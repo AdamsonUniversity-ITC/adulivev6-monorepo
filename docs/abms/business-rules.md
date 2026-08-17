@@ -273,7 +273,8 @@ Last verified: 2026-08-11
 - A nonterminal qualifying requisition is Processed when a later header audit pairs its selected arrival with a recognized Logistics exit: `for approval` or `on process` at Budget Office, or either PO-on-process spelling at Stockroom. A completion before a later selected arrival does not complete that later cycle; completion after To remains valid because the period selects the arrival cohort.
 - A qualifying requisition whose current status is `cancelled` or `disapproved` counts only in Cancelled/Disapproved, even if prior completion evidence exists. Processed and terminal totals are mutually exclusive.
 - The projection is read-only. It does not infer arrival or completion timestamps from live `created_at`, `updated_at`, status, or location; unreadable evidence yields structured warnings and cannot invent a processed outcome.
-- The preview body contains only Total RS, Processed RS, and Cancelled/Disapproved RS with the standard report heading, date period, print metadata, Print, and Excel export.
+- Pending RS is the qualifying distinct arrival cohort minus Processed RS and current Cancelled/Disapproved RS. These three outcome counts are mutually exclusive and reconcile to Total RS.
+- The preview body contains Total RS, Processed RS, Pending RS, and Cancelled/Disapproved RS with the standard report heading, date period, print metadata, Print, and Excel export.
 
 ## UI and Print Contract
 

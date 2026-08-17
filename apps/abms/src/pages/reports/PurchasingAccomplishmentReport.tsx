@@ -15,7 +15,7 @@ import { ReportPrintPortal } from './shared/ReportPrintPortal';
 import './shared/report-print.css';
 
 type LoaderPayload = { current_date?: string };
-type Totals = { total_rs: number; processed_rs: number; cancelled_disapproved_rs: number };
+type Totals = { total_rs: number; processed_rs: number; pending_rs: number; cancelled_disapproved_rs: number };
 type Warning = { code: string; message: string; affected_count?: number; entity_ids?: number[] };
 type Preview = {
   report: { from: string; to: string; printed_by: string };
@@ -30,7 +30,7 @@ const isInteger = (value: unknown): value is number => typeof value === 'number'
 const parsePreview = (value: unknown): Preview | null => {
   if (!isRecord(value) || !isRecord(value.report) || !isRecord(value.totals) || !isRecord(value.data_quality)) return null;
   if (typeof value.report.from !== 'string' || typeof value.report.to !== 'string' || typeof value.report.printed_by !== 'string') return null;
-  if (!isInteger(value.totals.total_rs) || !isInteger(value.totals.processed_rs) || !isInteger(value.totals.cancelled_disapproved_rs)) return null;
+  if (!isInteger(value.totals.total_rs) || !isInteger(value.totals.processed_rs) || !isInteger(value.totals.pending_rs) || !isInteger(value.totals.cancelled_disapproved_rs)) return null;
   if (typeof value.data_quality.complete !== 'boolean' || !Array.isArray(value.data_quality.warnings)) return null;
   return value as unknown as Preview;
 };
@@ -57,6 +57,7 @@ function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => v
   const summaries = [
     ['Total Number of RS', preview.totals.total_rs],
     ['Total Number of Processed RS', preview.totals.processed_rs],
+    ['Total Number of Pending RS', preview.totals.pending_rs],
     ['Total Number of Cancelled/Disapproved RS', preview.totals.cancelled_disapproved_rs],
   ] as const;
 
@@ -72,7 +73,7 @@ function PrintPreview({ preview, onClose }: { preview: Preview; onClose: () => v
       </tbody></table>
       <footer className="mt-auto border-t border-black pt-2">ABMS | Print Date: {new Date().toLocaleDateString()} | Printed By: {preview.report.printed_by}</footer>
     </article>
-    <style>{`.purchasing-report{font-family:Arial,sans-serif}.purchasing-report header p{margin:8px 0 0}.purchasing-summary-grid,.purchasing-summary-grid tbody{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;width:100%;margin:auto 0;border-collapse:separate}.purchasing-summary-grid tbody{grid-column:1/-1}.purchasing-summary-card{display:flex;min-height:150px;flex-direction:column;align-items:center;justify-content:center;border:2px solid #334155;border-radius:10px;padding:18px;text-align:center}.purchasing-summary-card td{display:block;padding:0!important;border:0!important;text-align:center!important}.purchasing-summary-card td:first-child{min-height:48px;font-size:16px!important;font-weight:700}.purchasing-summary-card td:last-child{font-size:42px!important;font-weight:800;line-height:1!important;font-variant-numeric:tabular-nums}@media(max-width:720px){.purchasing-summary-grid,.purchasing-summary-grid tbody{grid-template-columns:1fr}}@page{size:letter landscape;margin:.3in}@media print{body *{visibility:hidden!important}.purchasing-report-preview,.purchasing-report-preview *{visibility:visible!important}.purchasing-report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:#fff!important;padding:0!important}.report-actions{display:none!important}.purchasing-report{max-width:none!important;min-height:7.9in!important;padding:0!important;box-shadow:none!important}.purchasing-summary-card{break-inside:avoid}}`}</style>
+    <style>{`.purchasing-report{font-family:Arial,sans-serif}.purchasing-report header p{margin:8px 0 0}.purchasing-summary-grid,.purchasing-summary-grid tbody{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:100%;margin:auto 0;border-collapse:separate}.purchasing-summary-grid tbody{grid-column:1/-1}.purchasing-summary-card{display:flex;min-height:150px;flex-direction:column;align-items:center;justify-content:center;border:2px solid #334155;border-radius:10px;padding:14px;text-align:center}.purchasing-summary-card td{display:block;padding:0!important;border:0!important;text-align:center!important}.purchasing-summary-card td:first-child{min-height:48px;font-size:15px!important;font-weight:700}.purchasing-summary-card td:last-child{font-size:42px!important;font-weight:800;line-height:1!important;font-variant-numeric:tabular-nums}@media(max-width:900px){.purchasing-summary-grid,.purchasing-summary-grid tbody{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:540px){.purchasing-summary-grid,.purchasing-summary-grid tbody{grid-template-columns:1fr}}@page{size:letter landscape;margin:.3in}@media print{body *{visibility:hidden!important}.purchasing-report-preview,.purchasing-report-preview *{visibility:visible!important}.purchasing-report-preview{position:absolute!important;inset:0!important;overflow:visible!important;background:#fff!important;padding:0!important}.report-actions{display:none!important}.purchasing-report{max-width:none!important;min-height:7.9in!important;padding:0!important;box-shadow:none!important}.purchasing-summary-card{break-inside:avoid}}`}</style>
   </div></ReportPrintPortal>;
 }
 
