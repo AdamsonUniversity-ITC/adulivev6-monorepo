@@ -42,7 +42,7 @@ Canonical behavioral details remain in:
   - Percentage of Proposed versus Approved Budget
   - Percentage of Approved Budget, Previous versus Current School Year
 - Unserved RS, optionally scoped by current workflow location.
-- Purchasing Accomplishment Report, restricted to Logistics and summarized by Logistics arrival period.
+- Purchasing Accomplishment Report, restricted to Logistics and summarized by Logistics arrival period with processed, pending, and cancelled/disapproved outcomes.
 
 ## Non-Negotiable Finance Rules
 

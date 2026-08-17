@@ -83,8 +83,17 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
     const isHalfLegal = selectedPaper.compact;
     const printPaperHeight = selectedPaper.height;
     const printLayoutHeight = selectedPaper.layoutHeight;
-    const printPageSize = selectedPaper.pageSize;
+    const printPageSize = `${selectedPaper.width} ${selectedPaper.height}`;
     const sheetPadding = selectedPaper.margin;
+
+    useEffect(() => {
+        const pageStyle = document.createElement('style');
+        pageStyle.dataset.rsPrintPageSize = paperId;
+        pageStyle.textContent = `@page { size: ${printPageSize} !important; margin: 0 !important; }`;
+        document.head.appendChild(pageStyle);
+
+        return () => pageStyle.remove();
+    }, [paperId, printPageSize]);
 
     const handlePrint = async () => {
         if (printRequestInFlight.current) return;
