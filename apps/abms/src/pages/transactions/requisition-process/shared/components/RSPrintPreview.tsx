@@ -20,7 +20,7 @@ const RS_PAPER_OPTIONS = [
     { id: 'letter-portrait', group: 'General / PDF', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.2in', compact: false },
     { id: 'epson-letter-portrait', group: 'Epson LX-300-II', label: 'Letter (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.3in', scale: .97, compact: false },
     { id: 'epson-legal-portrait', group: 'Epson LX-300-II', label: 'Legal (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in',scale: .90, compact: false },
-    { id: 'epson-half-legal', group: 'Epson LX-300-II', label: 'Half Legal (8.5 × 7 in)', width: '8.5in', height: '7in', layoutHeight: '7in', pageSize: '8.5in 7in', margin: '.3in', scale: .95, compact: true },
+    { id: 'epson-half-legal', group: 'Epson LX-300-II', label: 'Half Legal — Upper Half of Legal Portrait', width: '8.5in', height: '14in', layoutHeight: '7in', pageSize: 'Legal portrait', margin: '.3in', scale: .95, compact: true },
     { id: 'legal-portrait', group: 'General / PDF', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
     { id: 'a4-portrait', group: 'General / PDF', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', layoutHeight: '297mm', pageSize: 'A4 portrait', margin: '.3in', compact: false },
     { id: 'letter-landscape', group: 'General / PDF', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Letter landscape', margin: '.3in', compact: false },
@@ -45,8 +45,8 @@ function valuesOf(value: unknown): Record<string, unknown> {
     try { return JSON.parse(value) as Record<string, unknown>; } catch { return {}; }
 }
 
-export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: {
-    row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; onClose: () => void;
+export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPaperId = 'letter-portrait', onClose }: {
+    row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; initialPaperId?: RsPaperId; onClose: () => void;
 }) {
     const isStockroomRs = String(row.rstype ?? '').trim().toLowerCase() === 'stockroom';
     const money = (value: number | null | undefined) => new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
@@ -77,7 +77,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
     const [reviewedDate, setReviewedDate] = useState<string | null>(null);
     const [certifiedDate, setCertifiedDate] = useState<string | null>(null);
     const [printAccountCodes, setPrintAccountCodes] = useState<Record<number, string>>({});
-    const [paperId, setPaperId] = useState<RsPaperId>('letter-portrait');
+    const [paperId, setPaperId] = useState<RsPaperId>(initialPaperId);
     const selectedPaper = RS_PAPER_OPTIONS.find(option => option.id === paperId) ?? RS_PAPER_OPTIONS[0];
     const contentScale = 'scale' in selectedPaper ? selectedPaper.scale : 1;
     const isHalfLegal = selectedPaper.compact;

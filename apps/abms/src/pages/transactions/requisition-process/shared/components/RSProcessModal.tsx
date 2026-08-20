@@ -3920,6 +3920,7 @@ export function RSProcessModal({
                     items={row.items ?? []}
                     payeeDetail={payeeDetail}
                     printedBy={currentUser.name || currentUser.id || '—'}
+                    initialPaperId={roleKey === 'logistics-access' ? 'epson-half-legal' : 'letter-portrait'}
                     onClose={() => setShowPrintPreview(false)}
                 />
             )}
