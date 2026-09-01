@@ -13,6 +13,8 @@ import { RSFormModal } from './components/RSFormModal';
 import { RSViewModal } from './components/RSViewModal';
 import { organizationalUnitKey } from '../../../lib/organizationalUnit';
 import { InfiniteScrollSentinel } from '../../../components/InfiniteScrollSentinel';
+import { UnreadChatBadge } from '../../../features/requisition-chat/UnreadChatBadge';
+import { useRequisitionUnreadCounts } from '../../../features/requisition-chat/useRequisitionUnreadCounts';
 
 function BudgetRequestEntryInner({
     t, isDark,
@@ -65,6 +67,9 @@ function BudgetRequestEntryInner({
     const [rsFormType, setRSFormType] = useState<RSType>(null);
     const [rsHeaderId, setRsHeaderId] = useState<number | null>(null);
     const [isCreatingRS, setIsCreatingRS] = useState(false);
+    const currentUserId = user?.username ?? '';
+    const { counts: unreadCounts, clearUnread, refreshOne: refreshUnreadCount } =
+        useRequisitionUnreadCounts(records.map(record => record.id), currentUserId);
 
     // Stores the full header data returned by the store endpoint
     interface RSHeaderData {
@@ -227,8 +232,13 @@ function BudgetRequestEntryInner({
             <RSViewModal
                 open={showViewModal}
                 recordId={viewModalId}
-                onClose={() => { setShowViewModal(false); setViewModalId(null); }}
+                onClose={() => {
+                    if (viewModalId) void refreshUnreadCount(viewModalId);
+                    setShowViewModal(false);
+                    setViewModalId(null);
+                }}
                 onUpdated={() => { handleRefresh(); }}
+                onChatRead={clearUnread}
                 t={t}
                 isDark={isDark}
                 currentUser={user ? { id: user.username ?? '', name: user.name ?? user.username ?? '' } : { id: '', name: '' }}
@@ -567,11 +577,12 @@ function BudgetRequestEntryInner({
                                         >
                                             <div className="flex items-center gap-3">
                                                 {/* Avatar */}
+                                                <div className="relative shrink-0" style={{ width: 42, height: 42 }}>
                                                 {row.requestedBy && row.requestedBy !== '—' ? (
                                                     <img
                                                         src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requestedBy}_2`}
                                                         alt={row.requestedByName}
-                                                        className="rounded-full shrink-0 object-cover"
+                                                        className="rounded-full object-cover"
                                                         style={{
                                                             width: 42, height: 42,
                                                             border: `2px solid ${isDark ? 'rgba(100,160,255,0.30)' : 'rgba(37,99,235,0.20)'}`,
@@ -585,7 +596,7 @@ function BudgetRequestEntryInner({
                                                 ) : null}
                                                 {/* Fallback initials avatar */}
                                                 <div
-                                                    className="rounded-full shrink-0 items-center justify-center font-bold text-[13px] select-none"
+                                                    className="rounded-full items-center justify-center font-bold text-[13px] select-none"
                                                     style={{
                                                         width: 42, height: 42,
                                                         background: isDark ? 'rgba(59,130,246,0.22)' : 'rgba(219,234,254,0.80)',
@@ -598,6 +609,8 @@ function BudgetRequestEntryInner({
                                                         ? row.requestedByName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
                                                         : row.requestedBy.slice(0, 2).toUpperCase()
                                                     }
+                                                </div>
+                                                <UnreadChatBadge count={unreadCounts[row.id] ?? 0} />
                                                 </div>
                                                 {/* Name + employee no */}
                                                 <div className="min-w-0">

@@ -19,8 +19,8 @@ export function FilterSortDropdown({ columns, value, open, onToggle, onSelect, t
         background: t.inputBg,
         border: `1px solid ${t.inputBorder}`,
         borderRadius: 7,
-        padding: '6px 30px 6px 10px',
-        fontSize: 11,
+        padding: '9px 34px 9px 12px',
+        fontSize: 13,
         color: t.inputText,
         outline: 'none',
         cursor: 'pointer',
@@ -42,7 +42,7 @@ export function FilterSortDropdown({ columns, value, open, onToggle, onSelect, t
                 }}
             >
                 <ArrowUpDown style={{ width: 10, height: 10, color: t.cellMuted, flexShrink: 0 }} />
-                <span style={{ fontSize: 11 }}>{value}</span>
+                <span style={{ fontSize: 13 }}>{value}</span>
             </button>
             <ChevronDown
                 style={{
@@ -72,8 +72,8 @@ export function FilterSortDropdown({ columns, value, open, onToggle, onSelect, t
                             key={col}
                             onMouseDown={() => onSelect(col)}
                             style={{
-                                padding: '7px 12px',
-                                fontSize: 11,
+                                padding: '9px 12px',
+                                fontSize: 13,
                                 color: value === col ? t.accentColor : t.cellText,
                                 background: value === col ? t.dropdownSelected : 'transparent',
                                 cursor: 'pointer',
@@ -123,7 +123,7 @@ export function FilterActionButton({
                 gap: fullHeight ? 8 : 5,
                 padding: '6px 13px',
                 borderRadius: 7,
-                fontSize: fullHeight ? 15 : 11,
+                fontSize: fullHeight ? 15 : 13,
                 fontWeight: 700,
                 border: `1px solid ${style.border}`,
                 background: style.bg,
@@ -140,8 +140,8 @@ export function FilterActionButton({
             onMouseLeave={e => (e.currentTarget.style.background = style.bg)}
         >
             <Icon style={{
-                width: fullHeight ? 15 : 11,
-                height: fullHeight ? 15 : 11,
+                width: fullHeight ? 15 : 13,
+                height: fullHeight ? 15 : 13,
             }} />
             {label}
         </button>

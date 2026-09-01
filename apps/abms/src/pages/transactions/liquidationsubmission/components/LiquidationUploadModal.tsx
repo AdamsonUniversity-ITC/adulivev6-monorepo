@@ -367,7 +367,7 @@ export function LiquidationUploadModal({
 
     return (
         <div
-            className="abms-modal-backdrop"
+            className="abms-modal-backdrop liquidation-modal-backdrop"
             style={{
                 position: 'fixed', inset: 0, zIndex: 1000,
                 background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)',
@@ -380,8 +380,12 @@ export function LiquidationUploadModal({
             {/* Toasts — rendered outside the modal card so they're never clipped */}
             <Toasts items={toasts} isDark={isDark} onDismiss={id => setToasts(p => p.filter(t => t.id !== id))} />
             <div
+                className="liquidation-operation-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="liquidation-modal-title"
                 style={{
-                    width: '100%', maxWidth: 580,
+                    width: '100%', maxWidth: 1100,
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     boxShadow: t.cardShadow,
@@ -392,7 +396,7 @@ export function LiquidationUploadModal({
                 }}
             >
                 {/* ── Header ── */}
-                <div style={{
+                <div className="liquidation-modal-header" style={{
                     padding: '16px 20px',
                     borderBottom: `1px solid ${t.sectionDivider}`,
                     background: t.cardHeaderBg,
@@ -400,7 +404,7 @@ export function LiquidationUploadModal({
                 }}>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: t.titleColor, margin: 0 }}>
+                            <p id="liquidation-modal-title" style={{ fontSize: 13, fontWeight: 700, color: t.titleColor, margin: 0 }}>
                                 Liquidation Documents
                             </p>
                             {isApproved && (
@@ -429,6 +433,7 @@ export function LiquidationUploadModal({
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Close liquidation details"
                         style={{
                             background: 'transparent', border: 'none', cursor: 'pointer',
                             color: t.cellMuted, padding: 4, borderRadius: 6, flexShrink: 0,
@@ -442,7 +447,7 @@ export function LiquidationUploadModal({
                 </div>
 
                 {/* ── Body ── */}
-                <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="liquidation-modal-body" style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
                     {/* ── Approved notice (regular users only) ── */}
                     {isApproved && !isAdmin && (
@@ -519,7 +524,7 @@ export function LiquidationUploadModal({
                                 )}
                             </div> */}
                             <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+                                <table className="liquidation-items-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
                                     <thead>
                                         <tr style={{ background: t.tableHeadBg }}>
                                             {['Account', 'Item', 'Total Cost', 'Returned Amount'].map((label, index) => (
@@ -849,7 +854,7 @@ export function LiquidationUploadModal({
                 </div>
 
                 {/* ── Footer ── */}
-                <div style={{
+                <div className="liquidation-modal-footer" style={{
                     padding: '14px 20px',
                     borderTop: `1px solid ${t.sectionDivider}`,
                     display: 'flex', justifyContent: 'flex-end', gap: 8,

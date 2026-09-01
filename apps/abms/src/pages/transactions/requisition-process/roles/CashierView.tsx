@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { z } from 'zod';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { Theme, FilterState, makeDefaultFilterState, DeptOption } from '../shared/types';
@@ -20,6 +20,9 @@ const CashierQuerySchema = z.object({
         .string()
         .regex(/^\d{10}$/, 'Requisition No. must be exactly 10 digits')
         .nullable(),
+    schoolYear: z.string().nullable(),
+    dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date From must be a valid date').nullable(),
+    dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date To must be a valid date').nullable(),
 });
 
 export type CashierQuery = z.infer<typeof CashierQuerySchema>;
@@ -86,6 +89,9 @@ function buildQuery(fs: FilterState): CashierQuery {
         requisitionNo: fs.searchEnabled && fs.searchValue.length === 10
             ? fs.searchValue
             : null,
+        schoolYear: fs.schoolYearEnabled && fs.schoolYear ? fs.schoolYear : null,
+        dateFrom: fs.dateRangeEnabled && fs.dateFrom ? fs.dateFrom : null,
+        dateTo: fs.dateRangeEnabled && fs.dateTo ? fs.dateTo : null,
     };
 }
 
@@ -124,6 +130,13 @@ export function CashierView({ t, isDark, canSwitch, onSwitchRole, departments = 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [queried, setQueried] = useState(false);
+    const [schoolYears, setSchoolYears] = useState<string[]>([]);
+
+    useEffect(() => {
+        financeSvc.get('/abms/requisition-process/school-years')
+            .then(res => setSchoolYears(res.data?.data ?? []))
+            .catch(() => { /* Keep the optional filter empty when lookup fails. */ });
+    }, []);
 
     const deptOptions: DeptOption[] = [
         ...departments.map(d => ({ ...d, kind: 'Department' as const })),
@@ -151,8 +164,9 @@ export function CashierView({ t, isDark, canSwitch, onSwitchRole, departments = 
             });
             setRows(res.data.data ?? []);
             setQueried(true);
-        } catch (err: any) {
-            setError(err?.response?.data?.message ?? 'Failed to fetch data. Please try again.');
+        } catch (err: unknown) {
+            const requestError = err as { response?: { data?: { message?: string } } };
+            setError(requestError.response?.data?.message ?? 'Failed to fetch data. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -160,6 +174,9 @@ export function CashierView({ t, isDark, canSwitch, onSwitchRole, departments = 
 
     const wiredFilterCfg = {
         ...FILTER_CFG,
+        schoolYear: FILTER_CFG.schoolYear
+            ? { ...FILTER_CFG.schoolYear, options: schoolYears }
+            : undefined,
         department: FILTER_CFG.department
             ? { ...FILTER_CFG.department, deptOptions }
             : undefined,

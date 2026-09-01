@@ -2,18 +2,18 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     X, FileText, Building2, User, Hash, Calendar,
-    DollarSign, MapPin, ArrowRightLeft, CheckCircle2,
+    PhilippinePeso, MapPin, ArrowRightLeft, CheckCircle2,
     Clock, Package, Stamp, ShieldCheck, Truck, Calculator,
     CreditCard, ChevronDown, ChevronUp,
     Eye, MessageSquare, History, Send, RefreshCw, Printer, XCircle,
     AlertTriangle, AlertCircle, ArrowRight, ShoppingCart, Pencil, Save,
     Warehouse, BookOpen, Users, Briefcase, Landmark, Banknote,
-    Undo2, PackageCheck, CircleDollarSign, Paperclip, ExternalLink,
+    Undo2, PackageCheck, Paperclip, ExternalLink,
 } from 'lucide-react';
 import { Theme } from '../types.ts';
 import { formatOrdinalApproval, PermissionKey } from '../constants.ts';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import echo from '../../../../../lib/echo';
+import { subscribeToRequisitionChat } from '../../../../../features/requisition-chat/realtime';
 import { RSPrintPreview } from './RSPrintPreview';
 import { formatAccountCode } from '../../../shared/accountCode';
 import {
@@ -401,7 +401,7 @@ const COMMON_ACTIONS: RoleAction[] = [
         locationFilter: ['stockroom'], toolbarGroup: 'left',
     },
     {
-        label: 'For Pricing', icon: CircleDollarSign, variant: 'secondary',
+        label: 'For Pricing', icon: PhilippinePeso, variant: 'secondary',
         visibleOn: ['on process'], restrictedTo: ['admin-access'],
         locationFilter: ['budget office'], toolbarGroup: 'left',
     },
@@ -528,7 +528,7 @@ function itemTdStyle(
 
 function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
     const icons: Record<PermissionKey, React.ReactNode> = {
-        'budget-access': <DollarSign style={{ width: 14, height: 14 }} />,
+        'budget-access': <PhilippinePeso style={{ width: 14, height: 14 }} />,
         'admin-access': <ShieldCheck style={{ width: 14, height: 14 }} />,
         'controller-access': <Stamp style={{ width: 14, height: 14 }} />,
         'logistics-access': <Truck style={{ width: 14, height: 14 }} />,
@@ -854,6 +854,7 @@ function ActionButton({
 
     return (
         <button
+            className="rs-process-action-button"
             onClick={onClick}
             style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -894,6 +895,7 @@ function ToolbarButton({
 
     return (
         <button
+            className="rs-process-toolbar-button"
             onClick={disabled ? undefined : onClick}
             title={title}
             disabled={disabled}
@@ -939,6 +941,7 @@ interface RSProcessModalProps {
     isLoading?: boolean;
     error?: string | null;
     onClose: () => void;
+    onChatRead?: (recordId: number) => void;
     /** Called when a role action button is clicked */
     onAction?: (action: string, row: RSProcessRow) => void;
     /** Current logged-in user — required for chat */
@@ -946,7 +949,7 @@ interface RSProcessModalProps {
 }
 
 export function RSProcessModal({
-    row, roleKey, roleLabel, t, isDark, isLoading = false, error = null, onClose, onAction,
+    row, roleKey, roleLabel, t, isDark, isLoading = false, error = null, onClose, onChatRead, onAction,
     currentUser = { id: '', name: '' },
 }: RSProcessModalProps) {
     const [itemsExpanded, setItemsExpanded] = useState(true);
@@ -1301,29 +1304,25 @@ export function RSProcessModal({
         if (!row.id || !currentUser.id) return;
         let isSubscribed = true;
         try {
-            const channel = echo
-                .private(`requisition-chat.${row.id}`)
-                .listen('.RequisitionChatMessageSent', (e: ChatMessage) => {
+            const unsubscribe = subscribeToRequisitionChat(row.id, (e: ChatMessage) => {
                     if (!isSubscribed) return;
                     if (seenMessageIds.current.has(e.id)) return;
                     seenMessageIds.current.add(e.id);
                     if (showChatRef.current) {
                         setIncomingMessage(e);
+                        onChatRead?.(row.id);
                     } else {
                         setUnreadCount(c => c + 1);
                     }
                 });
             return () => {
                 isSubscribed = false;
-                try {
-                    channel.stopListening('.RequisitionChatMessageSent');
-                    echo.leave(`requisition-chat.${row.id}`);
-                } catch { }
+                unsubscribe();
             };
         } catch {
             return;
         }
-    }, [row.id, currentUser.id]);
+    }, [row.id, currentUser.id, onChatRead]);
 
     // Fetch unread count when modal mounts / row changes
     useEffect(() => {
@@ -1331,16 +1330,26 @@ export function RSProcessModal({
         setUnreadCount(0);
         seenMessageIds.current.clear();
         financeSvc.get(`/abms/budget-request-entry/chats/unread-counts`, {
-            params: { userId: currentUser.id, ids: [row.id] },
+            params: { ids: [row.id] },
         }).then(res => {
             setUnreadCount(res.data[String(row.id)] ?? 0);
         }).catch(() => { });
     }, [row.id, currentUser.id]);
 
+    function toggleChat() {
+        setShowChat(previous => {
+            const next = !previous;
+            if (next) {
+                setUnreadCount(0);
+                onChatRead?.(row.id);
+            }
+            return next;
+        });
+    }
+
     function triggerAction(action: RoleAction) {
         if (action.label === 'Chat / Messages') {
-            setShowChat(p => !p);
-            setUnreadCount(0);
+            toggleChat();
             return;
         }
         if (action.label === 'RS Process History') {
@@ -1919,7 +1928,7 @@ export function RSProcessModal({
         <>
             {/* ── Backdrop ──────────────────────────────────────────────── */}
             <div
-                className="abms-modal-backdrop"
+                className="abms-modal-backdrop rs-process-main-backdrop"
                 style={{
                     position: 'fixed', inset: 0, zIndex: 60,
                     background: 'rgba(0,0,0,0.60)',
@@ -1930,22 +1939,28 @@ export function RSProcessModal({
                 onClick={e => { if (e.target === e.currentTarget) onClose(); }}
             >
                 {/* ── Modal shell ─────────────────────────────────────────── */}
-                <div style={{
+                <div
+                    className="rs-process-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Requisition Slip ${row.requisition_no}`}
+                    style={{
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     boxShadow: t.cardShadow,
                     borderRadius: 14,
                     width: '100%',
-                    maxWidth: 780,
+                    maxWidth: 1280,
                     maxHeight: 'calc(100dvh - 48px)',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                }}>
+                    }}
+                >
 
                     {/* ── Forward to… strip — admin-only, sits above everything else ── */}
                     {visibleForwardActions.length > 0 && (
-                        <div style={{
+                        <div className="rs-process-forward-actions" style={{
                             display: 'grid',
                             gridTemplateColumns: `repeat(${visibleForwardActions.length}, 1fr)`,
                             gap: 6,
@@ -2019,14 +2034,14 @@ export function RSProcessModal({
                     )}
 
                     {/* ── Toolbar ─────────────────────────────────────────── */}
-                    <div style={{
+                    <div className="rs-process-toolbar" style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         gap: 8, padding: '8px 14px',
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
                         flexShrink: 0, flexWrap: 'nowrap', overflow: 'hidden',
                     }}>
-                        <div style={{
+                        <div className="rs-process-toolbar-group" style={{
                             display: 'flex', gap: 1, flexWrap: 'nowrap', alignItems: 'center',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             border: `1px solid ${t.cardBorder}`,
@@ -2041,7 +2056,7 @@ export function RSProcessModal({
                                             t={t}
                                             isDark={isDark}
                                             tone={showChat ? 'accent' : 'neutral'}
-                                            onClick={() => { setShowChat(p => !p); setUnreadCount(0); }}
+                                            onClick={toggleChat}
                                         />
                                         {unreadCount > 0 && (
                                             <span style={{
@@ -2069,7 +2084,7 @@ export function RSProcessModal({
                                 )
                             ))}
                         </div>
-                        <div style={{
+                        <div className="rs-process-toolbar-group" style={{
                             display: 'flex', gap: 1, flexWrap: 'nowrap', alignItems: 'center',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             border: `1px solid ${t.cardBorder}`,
@@ -2147,7 +2162,7 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Info band — Department/RS No., Requested By/Date ── */}
-                    <div style={{
+                    <div className="rs-process-info-band" style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr auto',
                         gap: '10px 24px',
@@ -2277,7 +2292,7 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Scrollable body ─────────────────────────────────── */}
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                    <div className="rs-process-scroll-body" style={{ overflowY: 'auto', flex: 1 }}>
 
                         {/* ── Loading overlay ─────────────────────────────── */}
                         {isLoading && (
@@ -2314,6 +2329,7 @@ export function RSProcessModal({
                         <div style={{ display: isLoading || error ? 'none' : undefined }}>
                             {/* Section header */}
                             <div
+                                className="rs-process-items-header"
                                 style={{
                                     width: '100%', display: 'flex', alignItems: 'center',
                                     gap: 10, padding: '11px 20px',
@@ -2587,7 +2603,7 @@ export function RSProcessModal({
 
                             {/* Items table */}
                             {itemsExpanded && (
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="rs-process-items-table-container" style={{ overflowX: 'hidden' }}>
                                     {showControllerPriceApprovalNotice && (
                                         <div
                                             role="status"
@@ -2622,7 +2638,17 @@ export function RSProcessModal({
                                         </div>
                                     )}
                                     {lineItems.length > 0 ? (
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isEditingItems && canBudgetEditItems ? 820 : 600 }}>
+                                        <table className={`rs-process-items-table${showQuotedPriceColumn ? ' has-quoted-price' : ''}${showFulfillmentColumn ? ' has-fulfillment' : ''}`} style={{ width: '100%', borderCollapse: 'collapse', minWidth: 0, tableLayout: 'fixed' }}>
+                                            <colgroup>
+                                                <col className="rs-item-col-account" />
+                                                <col className="rs-item-col-description" />
+                                                <col className="rs-item-col-quantity" />
+                                                <col className="rs-item-col-uom" />
+                                                <col className="rs-item-col-money" />
+                                                {showQuotedPriceColumn && <col className="rs-item-col-money" />}
+                                                <col className="rs-item-col-money" />
+                                                {showFulfillmentColumn && <col className="rs-item-col-fulfillment" />}
+                                            </colgroup>
                                             <thead>
                                                 <tr style={{ background: t.tableHeadBg }}>
                                                     {[
@@ -2923,9 +2949,9 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Notes + Mark as Cancelled  |  Total Amount + Status ── */}
-                    <div style={{ display: 'flex', flexShrink: 0, borderTop: `1px solid ${t.cardHeaderBorder}` }}>
+                    <div className="rs-process-summary-footer" style={{ display: 'flex', flexShrink: 0, borderTop: `1px solid ${t.cardHeaderBorder}` }}>
                         {/* Left: notes + cancel */}
-                        <div style={{
+                        <div className="rs-process-notes-panel" style={{
                             flex: '1 1 60%', minWidth: 0,
                             padding: '14px 20px',
                             borderRight: `1px solid ${t.cardHeaderBorder}`,
@@ -3054,8 +3080,8 @@ export function RSProcessModal({
                         </div>
 
                         {/* Right: total amount + status */}
-                        <div style={{ flex: '1 1 40%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{
+                        <div className="rs-process-total-summary" style={{ flex: '1 1 40%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                            <div className="rs-process-total-panel" style={{
                                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
                                 justifyContent: 'center', gap: 8, padding: '16px 20px',
                                 background: isDark ? 'rgba(74,222,128,0.07)' : 'rgba(74,222,128,0.06)',
@@ -3127,7 +3153,7 @@ export function RSProcessModal({
                                         </button>
                                     )}
                             </div>
-                            <div style={{
+                            <div className="rs-process-status-panel" style={{
                                 padding: '9px 20px', textAlign: 'center',
                                 background: statusColors.bg,
                                 borderTop: `1px solid ${statusColors.border}`,
@@ -3148,7 +3174,7 @@ export function RSProcessModal({
                     {(visibleRoleActions.length > 0 || roleKey === 'controller-access') && (
                         <>
                             <div style={{ height: 1, background: t.cardHeaderBorder, flexShrink: 0 }} />
-                            <div style={{
+                            <div className="rs-process-role-footer" style={{
                                 display: 'flex', alignItems: 'center',
                                 justifyContent: 'space-between',
                                 gap: 10, padding: '12px 20px',
@@ -3171,7 +3197,7 @@ export function RSProcessModal({
                                 </div>
 
                                 {/* Right: action buttons */}
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
+                                <div className="rs-process-role-actions" style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
                                     {visibleRoleActions.map(action => (
                                         <ActionButton
                                             key={action.label}

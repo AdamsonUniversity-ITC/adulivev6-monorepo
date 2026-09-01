@@ -12,6 +12,8 @@ export interface StatusFilterConfig {
     options: StatusOption[];
     /** Status selected when a role view is first opened. Falls back to the first option. */
     defaultLabel?: string;
+    /** Statuses selected when a role view is first opened. Takes precedence over defaultLabel. */
+    defaultLabels?: string[];
 }
 
 export interface DeptOption {
@@ -99,16 +101,20 @@ export interface FilterState {
     sortDir: 'asc' | 'desc';
 }
 
+export function getDefaultStatusSelection(config?: StatusFilterConfig): string[] {
+    const options = config?.options.map(option => option.label) ?? [];
+    const allSentinel = options[0] ?? 'All';
+    const configuredDefaults = config?.defaultLabels?.filter(label => options.includes(label)) ?? [];
+
+    if (configuredDefaults.length > 0) return configuredDefaults;
+    if (config?.defaultLabel && options.includes(config.defaultLabel)) return [config.defaultLabel];
+    return [allSentinel];
+}
+
 export function makeDefaultFilterState(
     config: FilterPanelConfig,
 ): FilterState {
-    const statusOptions = config.status?.options ?? [];
-    const allSentinel = statusOptions[0]?.label ?? 'All';
-    const configuredDefault = config.status?.defaultLabel;
-    const defaultStatus = configuredDefault
-        && statusOptions.some(option => option.label === configuredDefault)
-        ? configuredDefault
-        : allSentinel;
+    const defaultStatuses = getDefaultStatusSelection(config.status);
 
     const configuredSort = config.defaultSortBy;
     const firstSortCol = configuredSort && config.sortColumns?.includes(configuredSort)
@@ -116,7 +122,7 @@ export function makeDefaultFilterState(
         : config.sortColumns?.[0] ?? '';
 
     return {
-        activeStatuses: [defaultStatus],
+        activeStatuses: defaultStatuses,
 
         selectedDept: null,
         selectedDeptId: null,

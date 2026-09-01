@@ -21,8 +21,8 @@ interface LineItemsTableProps {
 
 export function LineItemsTable({ rows, isLoaded, isSaving, isWithinEntryPeriod, onRemoveRow, onUpdateRow, t }: LineItemsTableProps) {
     return (
-        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${t.gridLineHd}` }}>
-            <Table>
+        <div className="budget-proposal-table overflow-x-auto" style={{ borderBottom: `1px solid ${t.gridLineHd}` }}>
+            <Table className="min-w-[920px]">
                 <TableHeader>
                     <TableRow style={{ background: t.tableHeadBg, borderBottom: `2px solid ${t.gridLineHd}` }}>
                         <TableHead className="text-xs font-bold uppercase tracking-widest h-10 w-12 text-center" style={{ color: t.tableHeadText, borderRight: `1px solid ${t.gridLineHd}` }}>#</TableHead>
@@ -83,7 +83,7 @@ export function LineItemsTable({ rows, isLoaded, isSaving, isWithinEntryPeriod, 
                                         onClick={() => onRemoveRow(row.id)}
                                         disabled={!isWithinEntryPeriod || isSaving}
                                         title="Remove this item"
-                                        className="inline-flex items-center justify-center rounded-md p-1.5 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-blue-400/40"
                                         style={{ background: t.btnRemove.bg, border: `1px solid ${t.btnRemove.border}`, color: t.btnRemove.text }}
                                         onMouseEnter={e => {
                                             if (!isWithinEntryPeriod || isSaving) return;

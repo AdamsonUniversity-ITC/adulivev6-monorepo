@@ -238,11 +238,8 @@ export default function BudgetProposalEntry() {
 
                 return (
                     <>
-                        <div className="max-w-7xl mx-auto space-y-4">
+                        <div className="budget-proposal-page mx-auto w-full max-w-[1600px] space-y-5 overflow-x-hidden">
                             <PageTitle sy={sy} t={t} />
-                            <Card className="overflow-hidden backdrop-blur-sm" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}>
-                                <PageCardHeader sy={sy} selectedDeptKind={selectedDeptKind} t={t} />
-                                <CardContent className="space-y-4 p-4">
                                     <FilterPanel
                                         selectedDept={selectedDept}
                                         selectedDeptKind={selectedDeptKind}
@@ -256,19 +253,17 @@ export default function BudgetProposalEntry() {
                                         onMainChange={handleMainChange}
                                         onSubChange={value => { setSelectedSub(value); resetState(); }}
                                         onRequery={handleRequery}
-                                        onSave={handleSave}
-                                        onCancel={handleCancel}
                                         requeryReady={requeryReady}
                                         isQuerying={isQuerying}
-                                        isSaving={isSaving}
-                                        isLoaded={isLoaded}
-                                        isWithinEntryPeriod={isWithinEntryPeriod}
                                         t={t}
                                         isDark={isDark}
                                     />
 
                                     {!isWithinEntryPeriod && <EntryPeriodBanner entryFrom={entryFrom} entryTo={entryTo} isDark={isDark} />}
 
+                            <Card className="overflow-hidden rounded-2xl backdrop-blur-sm" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}>
+                                <PageCardHeader sy={sy} selectedDeptKind={selectedDeptKind} t={t} />
+                                <CardContent className="p-0">
                                     <LineItemsTable
                                         rows={rows}
                                         isLoaded={isLoaded}
@@ -287,6 +282,8 @@ export default function BudgetProposalEntry() {
                                         isWithinEntryPeriod={isWithinEntryPeriod}
                                         onAddRow={handleAddRow}
                                         onCopyPrevious={handleCopyPrevious}
+                                        onSave={handleSave}
+                                        onCancel={handleCancel}
                                         t={t}
                                     />
                                 </CardContent>

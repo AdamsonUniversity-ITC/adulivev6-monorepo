@@ -1,8 +1,8 @@
-import { DollarSign, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, BadgeCheck } from 'lucide-react';
+import { PhilippinePeso, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, BadgeCheck } from 'lucide-react';
 import { FilterPanelConfig } from './types';
 
 export const ROLES = [
-    { key: 'budget-access', label: 'Budget Office', icon: DollarSign },
+    { key: 'budget-access', label: 'Budget Office', icon: PhilippinePeso },
     { key: 'admin-access', label: 'Administration', icon: ShieldCheck },
     { key: 'controller-access', label: 'Controller', icon: BadgeCheck },
     { key: 'logistics-access', label: 'Purchasing', icon: Truck },
@@ -175,7 +175,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'admin-access': {
-        status: { options: ADMIN_STATUS_OPTIONS, defaultLabel: 'For Budget Director' },
+        status: { options: ADMIN_STATUS_OPTIONS, defaultLabels: ['For Budget Director', 'On Process', 'For Approval'] },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -195,7 +195,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'logistics-access': {
-        status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabel: 'For Pricing' },
+        status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabels: ['For Pricing', 'For Purchase'] },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,

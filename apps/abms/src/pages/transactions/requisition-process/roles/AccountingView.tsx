@@ -8,6 +8,8 @@ import { ROLES, ROLE_FILTER_CONFIGS, ROLE_COLUMNS } from '../shared/constants';
 import { RolePage } from '../shared/components/RolePage';
 import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModal';
 import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
+import { UnreadChatBadge } from '../../../../features/requisition-chat/UnreadChatBadge';
+import { useRequisitionUnreadCounts } from '../../../../features/requisition-chat/useRequisitionUnreadCounts';
 
 const AccountingQuerySchema = z.object({
     role: z.literal('accounting-access'),
@@ -104,6 +106,8 @@ export function AccountingView({ t, isDark, canSwitch, onSwitchRole, departments
         : { id: '', name: '' };
     const [filterState, setFilterState] = useState<FilterState>(() => makeDefaultFilterState(FILTER_CFG));
     const [rows, setRows] = useState<AccountingRow[]>([]);
+    const { counts: unreadCounts, clearUnread, refreshOne: refreshUnreadCount } =
+        useRequisitionUnreadCounts(rows.map(row => row.id), currentUser.id);
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const loadMoreInFlightRef = useRef(false);
@@ -266,11 +270,14 @@ export function AccountingView({ t, isDark, canSwitch, onSwitchRole, departments
                                     <td style={cellStyle(t, COLUMNS.length, 2)}>{row.department_section}</td>
                                     <td style={cellStyle(t, COLUMNS.length, 3)}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ position: 'relative', flexShrink: 0 }}>
                                             <img
                                                 src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
                                                 alt={row.requested_by}
                                                 style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1px solid ${t.rowBorder}` }}
                                             />
+                                            <UnreadChatBadge count={unreadCounts[row.id] ?? 0} />
+                                            </div>
                                             <div><div>{row.requested_by}</div><small style={{ color: t.cellMuted }}>{row.requested_by_empno}</small></div>
                                         </div>
                                     </td>
@@ -293,7 +300,12 @@ export function AccountingView({ t, isDark, canSwitch, onSwitchRole, departments
                 <RSProcessModal
                     row={selectedRow} roleKey="accounting-access" roleLabel="Accounting"
                     t={t} isDark={isDark} isLoading={modalLoading} error={modalError}
-                    onClose={() => { setSelectedRow(null); setModalError(null); }}
+                    onClose={() => {
+                        void refreshUnreadCount(selectedRow.id);
+                        setSelectedRow(null);
+                        setModalError(null);
+                    }}
+                    onChatRead={clearUnread}
                     onAction={handleModalAction} currentUser={currentUser}
                 />
             )}

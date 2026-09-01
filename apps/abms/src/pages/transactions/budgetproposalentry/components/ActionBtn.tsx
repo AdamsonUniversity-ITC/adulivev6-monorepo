@@ -19,7 +19,7 @@ export function ActionBtn({ token, icon, label, onClick, disabled = false, loadi
             onClick={!disabled && !loading ? onClick : undefined}
             onMouseEnter={() => !disabled && !loading && setHovered(true)}
             onMouseLeave={() => setHovered(false)}
-            className="flex min-h-9 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-150 select-none"
+            className="flex min-h-11 items-center gap-2 rounded-lg border px-4 py-2.5 text-base font-semibold transition-all duration-200 active:scale-[0.98] select-none focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-blue-400/40"
             style={{
                 background: disabled ? t.btnDisabledBg : hovered ? token.hover : token.bg,
                 borderColor: disabled ? t.btnDisabledBorder : token.border,
