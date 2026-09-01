@@ -5,7 +5,7 @@ import {
     Paperclip, Plus, Printer, RefreshCw, Save, Search, StickyNote, Trash2, User, X,
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import echo from '../../../../lib/echo';
+import { subscribeToRequisitionChat } from '../../../../features/requisition-chat/realtime';
 import type {
     ChatMessage,
     PayeeDetailRecord,
@@ -87,12 +87,13 @@ function getErrorMessage(err: unknown): string | undefined {
 }
 
 export function RSViewModal({
-    open, recordId, onClose, onUpdated, t, isDark, currentUser,
+    open, recordId, onClose, onUpdated, onChatRead, t, isDark, currentUser,
 }: {
     open: boolean;
     recordId: number | null;
     onClose: () => void;
     onUpdated: () => void;
+    onChatRead?: (recordId: number) => void;
     t: ThemeTokens;
     isDark: boolean;
     currentUser: { id: string; name: string };
@@ -152,9 +153,7 @@ export function RSViewModal({
         if (!open || !recordId || !currentUser.id) return;
         let isSubscribed = true;
         try {
-            const channel = echo
-                .private(`requisition-chat.${recordId}`)
-                .listen('.RequisitionChatMessageSent', (e: ChatMessage) => {
+            const unsubscribe = subscribeToRequisitionChat(recordId, (e: ChatMessage) => {
                     if (!isSubscribed) return;
                     // Deduplicate — StrictMode mounts effects twice in dev,
                     // which can leave two listeners on the same channel.
@@ -162,23 +161,19 @@ export function RSViewModal({
                     seenMessageIds.current.add(e.id);
                     if (showChatRef.current) {
                         setIncomingMessage(e);
+                        onChatRead?.(recordId);
                     } else {
                         setUnreadCount(c => c + 1);
                     }
                 });
             return () => {
                 isSubscribed = false;
-                try {
-                    channel.stopListening('.RequisitionChatMessageSent');
-                    echo.leave(`requisition-chat.${recordId}`);
-                } catch {
-                    // The realtime client may already have removed the channel.
-                }
+                unsubscribe();
             };
         } catch {
             return;
         }
-    }, [open, recordId, currentUser.id]);
+    }, [open, recordId, currentUser.id, onChatRead]);
 
     useEffect(() => {
         if (!open || !recordId) return;
@@ -213,7 +208,7 @@ export function RSViewModal({
             .catch(() => setError('Failed to load requisition slip details.'))
             .finally(() => setLoading(false));
         financeSvc.get(`/abms/budget-request-entry/chats/unread-counts`, {
-            params: { userId: currentUser.id, ids: [recordId] },
+            params: { ids: [recordId] },
         }).then(res => {
             setUnreadCount(res.data[String(recordId)] ?? 0);
         }).catch(() => { });
@@ -246,6 +241,17 @@ export function RSViewModal({
                 setIsLoadingQuotedPreview(false);
             });
     }, [open, recordId, currentUser.id]);
+
+    function toggleChat() {
+        setShowChat(previous => {
+            const next = !previous;
+            if (next && recordId) {
+                setUnreadCount(0);
+                onChatRead?.(recordId);
+            }
+            return next;
+        });
+    }
 
     if (!open) return null;
 
@@ -750,7 +756,7 @@ export function RSViewModal({
                                 New Item
                             </button>
                             <RSChatBadge
-                                onClick={() => { setShowChat(p => !p); setUnreadCount(0); }}
+                                onClick={toggleChat}
                                 unreadCount={unreadCount}
                                 active={showChat}
                                 t={t}
@@ -905,7 +911,7 @@ export function RSViewModal({
                                 </button>
                             )}
                             <RSChatBadge
-                                onClick={() => { setShowChat(p => !p); setUnreadCount(0); }}
+                                onClick={toggleChat}
                                 unreadCount={unreadCount}
                                 active={showChat}
                                 t={t}
@@ -1211,14 +1217,25 @@ export function RSViewModal({
                                 </div>
 
                                 {/* Item quotation comparison */}
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="rs-view-quoted-table-container rs-fixed-items-table-container" style={{ overflowX: 'hidden' }}>
                                     <table
+                                        className="rs-fixed-items-table rs-view-quoted-table"
                                         style={{
                                             width: '100%',
-                                            minWidth: 850,
+                                            minWidth: 0,
+                                            tableLayout: 'fixed',
                                             borderCollapse: 'collapse',
                                         }}
                                     >
+                                        <colgroup>
+                                            <col className="rs-col-account" />
+                                            <col className="rs-col-description" />
+                                            <col className="rs-col-quantity" />
+                                            <col className="rs-col-money" />
+                                            <col className="rs-col-money" />
+                                            <col className="rs-col-money" />
+                                            <col className="rs-col-money" />
+                                        </colgroup>
                                         <thead>
                                             <tr style={{ background: t.tableHeadBg }}>
                                                 {[
@@ -1508,8 +1525,18 @@ export function RSViewModal({
                             </div>
                         )}
                         {/* Items table */}
-                        <div className="rs-view-main-table" style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: canEdit ? 760 : 720 }}>
+                        <div className="rs-view-main-table rs-fixed-items-table-container" style={{ overflowX: 'hidden' }}>
+                            <table className={`rs-fixed-items-table rs-view-items-table${canEdit ? ' can-edit' : ''}`} style={{ width: '100%', borderCollapse: 'collapse', minWidth: 0, tableLayout: 'fixed' }}>
+                                <colgroup>
+                                    <col className="rs-col-row" />
+                                    <col className="rs-col-account" />
+                                    <col className="rs-col-description" />
+                                    <col className="rs-col-money" />
+                                    <col className="rs-col-quantity" />
+                                    <col className="rs-col-uom" />
+                                    <col className="rs-col-money" />
+                                    {canEdit && <col className="rs-col-actions" />}
+                                </colgroup>
                                 <thead>
                                     <tr style={{ background: t.tableHeadBg }}>
                                         {[

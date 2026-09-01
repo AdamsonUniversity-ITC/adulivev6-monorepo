@@ -817,8 +817,18 @@ export function RSFormModal({
                 </div>
 
                 {/* ── Items Table ── */}
-                <div className="rs-form-table" style={{ flex: 1, overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                <div className="rs-form-table rs-fixed-items-table-container" style={{ flex: 1, overflowX: 'hidden' }}>
+                    <table className="rs-fixed-items-table rs-form-items-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 0, tableLayout: 'fixed' }}>
+                        <colgroup>
+                            <col className="rs-col-row" />
+                            <col className="rs-col-account" />
+                            <col className="rs-col-description" />
+                            <col className="rs-col-money" />
+                            <col className="rs-col-quantity" />
+                            <col className="rs-col-uom" />
+                            <col className="rs-col-money" />
+                            <col className="rs-col-actions" />
+                        </colgroup>
                         <thead>
                             <tr style={{ background: t.tableHeadBg }}>
                                 {[

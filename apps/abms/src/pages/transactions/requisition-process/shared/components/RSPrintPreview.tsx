@@ -80,6 +80,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
     const [paperId, setPaperId] = useState<RsPaperId>(initialPaperId);
     const selectedPaper = RS_PAPER_OPTIONS.find(option => option.id === paperId) ?? RS_PAPER_OPTIONS[0];
     const contentScale = 'scale' in selectedPaper ? selectedPaper.scale : 1;
+    const isEpsonPaper = selectedPaper.group === 'Epson LX-300-II';
     const isHalfLegal = selectedPaper.compact;
     const printPaperHeight = selectedPaper.height;
     const printLayoutHeight = selectedPaper.layoutHeight;
@@ -175,7 +176,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
             <button onClick={onClose} disabled={isPreparingPrint}><X size={16} /> Close</button>
         </div>
         <article
-            className={`rs-print-page${isHalfLegal ? ' rs-paper-half-legal' : ''}`}
+            className={`rs-print-page${isEpsonPaper ? ' rs-paper-epson' : ''}${isHalfLegal ? ' rs-paper-half-legal' : ''}`}
             style={{ width: selectedPaper.width, minHeight: selectedPaper.height }}
             onClick={event => event.stopPropagation()}
         >
@@ -286,32 +287,38 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
             .rs-footer-signature{width:100%;text-align:center;font-size:11.5px}.rs-footer-signature div{height:6mm;border-bottom:1px solid #000}.rs-footer-signature span{display:block;margin-top:2px;white-space:nowrap}
             .rs-footer{font-size:9.5px;line-height:1.28;padding-top:4mm;text-align:justify}
             .rs-footer p{margin:2mm 0 0}
-            .rs-paper-half-legal{font-size:11.5px}
-            .rs-paper-half-legal .rs-report-header{min-height:10mm}
-            .rs-paper-half-legal .rs-title h1{font-size:22px}
-            .rs-paper-half-legal .rs-title h2{font-size:14px;margin-top:2px}
-            .rs-paper-half-legal .rs-review-dates{gap:2px 7px;font-size:9.5px;padding-bottom:1.5mm}
-            .rs-paper-half-legal .rs-document-meta>div{min-height:7mm;padding:3px 6px}
-            .rs-paper-half-legal .rs-document-meta b{font-size:10px}
-            .rs-paper-half-legal .rs-document-meta span{font-size:11.5px}
-            .rs-paper-half-legal .rs-items th,.rs-paper-half-legal .rs-items td{padding:4px 6px}
-            .rs-paper-half-legal .rs-items th{font-size:10px}
-            .rs-paper-half-legal .rs-items tbody td{font-size:11.5px;height:7.5mm}
-            .rs-paper-half-legal .rs-items tfoot td{font-size:11.5px}
-            .rs-paper-half-legal .rs-items tfoot td:last-child{font-size:13px}
-            .rs-paper-half-legal .rs-details{min-height:25mm;padding:3mm 5mm 2mm}
-            .rs-paper-half-legal .rs-details>div{grid-template-columns:24mm 1fr;min-height:5.5mm}
-            .rs-paper-half-legal .rs-details i{font-size:10.5px}
-            .rs-paper-half-legal .rs-details strong,.rs-paper-half-legal .rs-details span{font-size:11.5px}
-            .rs-paper-half-legal .rs-payee-summary span{font-size:10px;line-height:1.25}
-            .rs-paper-half-legal .rs-signing-space{min-height:8mm}
+            .rs-paper-epson,.rs-paper-epson *{font-family:Tahoma,Arial,sans-serif;font-weight:400!important}
+            .rs-paper-epson{font-size:13.5px}
+            .rs-paper-epson .rs-title h1{font-size:28px}
+            .rs-paper-epson .rs-title h2{font-size:18px}
+            .rs-paper-epson .rs-review-dates{font-size:12px}
+            .rs-paper-epson .rs-document-meta b{font-size:12.5px}
+            .rs-paper-epson .rs-document-meta span{font-size:14px}
+            .rs-paper-epson .rs-items th,.rs-paper-epson .rs-items td{font-size:12pt}
+            .rs-paper-epson .rs-items tbody td{line-height:1.3}
+            .rs-paper-epson .rs-items tfoot td:last-child{font-size:13pt}
+            .rs-paper-epson .rs-details i{font-size:12.5px}
+            .rs-paper-epson .rs-details strong,.rs-paper-epson .rs-details span{font-size:14px}
+            .rs-paper-epson .rs-payee-summary span{font-size:12.5px;line-height:1.3}
+            .rs-paper-epson .rs-print-info,.rs-paper-epson .rs-budget-certification,.rs-paper-epson .rs-signature-certification{font-size:11px}
+            .rs-paper-epson .rs-footer-signature{font-size:11px}
+            .rs-paper-epson .rs-footer{font-size:10px;line-height:1.25}
+            .rs-paper-half-legal .rs-sheet{height:7in;min-height:7in;max-height:7in;overflow:hidden}
+            .rs-paper-half-legal .rs-report-header{min-height:12mm}
+            .rs-paper-half-legal .rs-title h2{margin-top:2px}
+            .rs-paper-half-legal .rs-review-dates{gap:3px 8px;padding-bottom:2mm}
+            .rs-paper-half-legal .rs-information-box{flex:1 1 auto;min-height:0;overflow:hidden}
+            .rs-paper-half-legal .rs-document-meta>div{min-height:8mm;padding:4px 7px}
+            .rs-paper-half-legal .rs-items th,.rs-paper-half-legal .rs-items td{padding:5px 7px}
+            .rs-paper-half-legal .rs-items tbody td{height:9mm}
+            .rs-paper-half-legal .rs-details{flex:1 1 auto;min-height:0;overflow:hidden;padding:4mm 6mm 3mm}
+            .rs-paper-half-legal .rs-details>div{grid-template-columns:27mm 1fr;min-height:7mm}
+            .rs-paper-half-legal .rs-signing-space{display:none}
             .rs-paper-half-legal .rs-certification{column-gap:8mm;padding:0 2mm 1.5mm}
-            .rs-paper-half-legal .rs-print-info,.rs-paper-half-legal .rs-budget-certification,.rs-paper-half-legal .rs-signature-certification{font-size:8.5px}
             .rs-paper-half-legal .rs-budget-certification{width:45mm}
             .rs-paper-half-legal .rs-certification-stockroom{grid-template-columns:minmax(31mm,1fr) repeat(3,minmax(31mm,39mm));column-gap:3mm}
-            .rs-paper-half-legal .rs-footer-signature{font-size:9px}
             .rs-paper-half-legal .rs-footer-signature div{height:3mm}
-            .rs-paper-half-legal .rs-footer{font-size:8px;line-height:1.18;padding-top:1.5mm}
+            .rs-paper-half-legal .rs-footer{flex:0 0 auto;padding-top:2mm}
             .rs-paper-half-legal .rs-footer p{margin-top:1mm}
             @media(max-width:720px){.rs-print-overlay{padding:118px 12px 28px}.rs-print-toolbar{left:12px;right:12px;top:12px;flex-wrap:wrap}.rs-paper-selector{order:3;flex:1 0 100%}.rs-paper-selector select{max-width:none;min-width:0;flex:1}}
             @media print{

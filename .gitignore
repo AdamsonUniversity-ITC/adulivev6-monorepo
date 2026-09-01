@@ -45,6 +45,10 @@ yarn-error.log*
 .idea
 .cursor
 
+# Local AI agent workspaces and installed skills
+/.agents/
+/.codex/
+
 AGENTS.md
 agents/
 !skills/abms-system-knowledge/agents/
