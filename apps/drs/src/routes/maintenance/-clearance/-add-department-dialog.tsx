@@ -98,7 +98,7 @@ export const AddDepartmentDialog = () => {
             label="Description (optional)"
             placeholder="Short description of this department's role"
           />
-          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
               id="clearance-course-program-scope"
               checked={form.watch('restrict_assigned_users_to_course_programs')}

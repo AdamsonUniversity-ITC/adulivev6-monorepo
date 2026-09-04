@@ -4,10 +4,10 @@ import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Trash2, UserPlus } from 'lucide-react';
 import { JSX, useState } from 'react';
-import type { WorkflowStage } from '../-lib/api/workflow/types.ts';
 import { attachStageUser } from '../-lib/api/access/attachStageUser.ts';
 import type { StageUserAccess } from '../-lib/api/access/types.ts';
 import { searchEmployees } from '../-lib/api/employees/searchEmployees.ts';
+import type { WorkflowStage } from '../-lib/api/workflow/types.ts';
 import { useDebouncedValue } from '../-lib/hooks/useDebouncedValue.ts';
 
 type Props = {
@@ -53,8 +53,7 @@ export const StageAccessUsersTab = ({
   });
 
   const attachMutation = useMutation({
-    mutationFn: (empNo: string) =>
-      attachStageUser(stage.id, { emp_no: empNo }),
+    mutationFn: (empNo: string) => attachStageUser(stage.id, { emp_no: empNo }),
     onSuccess: () => {
       toast.success('Employee added to stage.');
       onAttached();
@@ -85,7 +84,7 @@ export const StageAccessUsersTab = ({
               <p className="text-muted-foreground p-2 text-xs">Searching…</p>
             ) : (searchQuery.data ?? []).length === 0 ? (
               <p className="text-muted-foreground p-2 text-xs">
-                No matches found.
+                No employee matches that name or number.
               </p>
             ) : (
               (searchQuery.data ?? []).map((hit) => {
@@ -118,9 +117,7 @@ export const StageAccessUsersTab = ({
       </div>
 
       <div>
-        <p className="text-muted-foreground text-xs">
-          Roster ({users.length})
-        </p>
+        <p className="text-muted-foreground text-xs">Roster ({users.length})</p>
         {users.length === 0 ? (
           <p className="text-muted-foreground mt-2 text-xs">
             No employees assigned. Add one above or rely on attached roles.
@@ -133,7 +130,9 @@ export const StageAccessUsersTab = ({
                 className="flex items-center justify-between gap-3 rounded-md border px-2 py-1.5 text-xs"
               >
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{labelFor(entry)}</span>
+                  <span className="truncate font-medium">
+                    {labelFor(entry)}
+                  </span>
                   <span className="text-muted-foreground truncate">
                     {subtitleFor(entry)}
                   </span>

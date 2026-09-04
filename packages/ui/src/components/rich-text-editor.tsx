@@ -3,6 +3,7 @@ import './rich-text/styles.css';
 import Bold from '@tiptap/extension-bold';
 import Highlight from '@tiptap/extension-highlight';
 import Italic from '@tiptap/extension-italic';
+import Mention from '@tiptap/extension-mention';
 import { TableKit } from '@tiptap/extension-table';
 import { TextAlign } from '@tiptap/extension-text-align';
 import {
@@ -15,11 +16,13 @@ import Underline from '@tiptap/extension-underline';
 import { Dropcursor } from '@tiptap/extensions';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { cn } from '../lib/utils';
 import { BubbleMenuBar } from './rich-text/bubble-menu';
 import { ResizableDraggableInlineImage } from './rich-text/draggable-image-extension';
 import { EditorContext } from './rich-text/editor-context';
+import type { MentionCandidate } from './rich-text/mention-list';
+import { createMentionSuggestion } from './rich-text/mention-suggestion';
 import { Toolbar } from './rich-text/toolbar';
 
 export type RichTextEditorProps = {
@@ -33,6 +36,7 @@ export type RichTextEditorProps = {
   showImageButton?: boolean;
   minHeight?: string;
   onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
+  mentions?: MentionCandidate[];
 };
 
 const ALLOWED_IMAGE_TYPES = [
@@ -57,9 +61,18 @@ export function RichTextEditor({
   showImageButton = true,
   minHeight = '200px',
   onEditorReady,
+  mentions,
 }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  const mentionsRef = useRef(mentions);
+  mentionsRef.current = mentions;
+  const enableMentions = mentions !== undefined;
+  const mentionSuggestion = useMemo(
+    () => createMentionSuggestion(mentionsRef),
+    [],
+  );
 
   const onUploadImageRef = useRef(onUploadImage);
   onUploadImageRef.current = onUploadImage;
@@ -89,6 +102,14 @@ export function RichTextEditor({
       Color,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       ResizableDraggableInlineImage.configure({ inline: true }),
+      ...(enableMentions
+        ? [
+            Mention.configure({
+              HTMLAttributes: { class: 'mention' },
+              suggestion: mentionSuggestion,
+            }),
+          ]
+        : []),
     ],
     content: value,
     editable: !disabled,
@@ -168,6 +189,7 @@ export function RichTextEditor({
           ...(placeholder ? { 'data-placeholder': placeholder } : {}),
         },
         handlePaste: (_view, event) => {
+          if (!onUploadImageRef.current) return false;
           const items = event.clipboardData?.items;
           if (!items) return false;
           for (const item of items) {
@@ -238,4 +260,5 @@ export function RichTextEditor({
   );
 }
 
+export type { MentionCandidate } from './rich-text/mention-list';
 export { sanitizeRichTextHtml } from './rich-text/sanitize';

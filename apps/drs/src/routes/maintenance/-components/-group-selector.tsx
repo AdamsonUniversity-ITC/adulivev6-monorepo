@@ -25,6 +25,7 @@ import { fetchDocuments } from '../-lib/api/fetchDocuments.ts';
 import { fetchPackages } from '../-lib/api/fetchPackages.ts';
 import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
 import { AddGroupDialog } from './-add-group-dialog.tsx';
+import { EditGroupDialog } from './-edit-group-dialog.tsx';
 
 export const GroupSelector = () => {
   const ctx = useContext(DocumentManagementContext);
@@ -86,9 +87,9 @@ export const GroupSelector = () => {
     },
   });
 
-  const selectedGroupName =
-    groups.find((group) => String(group.id) === String(selectedGroup))
-      ?.group_name ?? 'this group';
+  const currentGroup =
+    groups.find((group) => String(group.id) === String(selectedGroup)) ?? null;
+  const selectedGroupName = currentGroup?.group_name ?? 'this group';
 
   return (
     <>
@@ -129,6 +130,10 @@ export const GroupSelector = () => {
               </SelectContent>
             </Select>
             <AddGroupDialog />
+            <EditGroupDialog
+              group={currentGroup}
+              disabled={!selectedGroup || deleteMutation.isPending}
+            />
             <Button
               type="button"
               variant="outline"

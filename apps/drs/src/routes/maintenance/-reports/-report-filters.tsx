@@ -34,8 +34,8 @@ export function ReportFiltersBar({
   isApplying = false,
 }: ReportFiltersBarProps) {
   return (
-    <div className="drs-card grid gap-4 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-4">
-      <div className="space-y-2">
+    <div className="bg-muted/30 grid gap-4 rounded-md border p-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="space-y-1.5">
         <Label htmlFor="date_from">Date from</Label>
         <ReportDatePicker
           id="date_from"
@@ -52,7 +52,7 @@ export function ReportFiltersBar({
           }
         />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="date_to">Date to</Label>
         <ReportDatePicker
           id="date_to"
@@ -69,7 +69,7 @@ export function ReportFiltersBar({
           }
         />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="school_year">School year</Label>
         <Input
           id="school_year"
@@ -83,7 +83,7 @@ export function ReportFiltersBar({
           }
         />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="semester">Semester</Label>
         <Select
           value={filters.semester ?? 'all'}
@@ -105,7 +105,7 @@ export function ReportFiltersBar({
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="course_id">Course</Label>
         <Input
           id="course_id"
@@ -116,7 +116,7 @@ export function ReportFiltersBar({
           }
         />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="receive_mode">Release mode</Label>
         <Select
           value={filters.receive_mode ?? 'all'}
@@ -169,9 +169,9 @@ export function ReportFiltersBar({
           }
         />
       </div>
-      <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-4">
+      <div className="flex flex-wrap gap-2 border-t pt-4 md:col-span-2 xl:col-span-4">
         <Button type="button" onClick={onApply} disabled={isApplying}>
-          {isApplying ? 'Applying filters...' : 'Apply filters'}
+          {isApplying ? 'Applying…' : 'Apply filters'}
         </Button>
         <Button
           type="button"
@@ -179,7 +179,7 @@ export function ReportFiltersBar({
           onClick={onReset}
           disabled={isApplying || !canReset}
         >
-          Reset filters
+          Reset
         </Button>
       </div>
     </div>

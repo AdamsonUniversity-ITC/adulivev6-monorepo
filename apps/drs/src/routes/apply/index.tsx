@@ -1,4 +1,14 @@
-import { DrsSearchField } from '@/components/drs-ui.tsx';
+import {
+  DrsEmptyState,
+  DrsErrorState,
+  DrsLoadingState,
+  DrsOverline,
+  DrsPageHeader,
+  DrsPageShell,
+  DrsPanel,
+  DrsSearchField,
+  DrsSection,
+} from '@/components/drs-ui.tsx';
 import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
 import { DRS_STUDENT_APPLY_PERMISSION } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
@@ -11,15 +21,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@repo/ui/components/accordion';
-import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/card';
+
 import { Checkbox } from '@repo/ui/components/checkbox';
 import {
   Dialog,
@@ -31,7 +34,6 @@ import {
 } from '@repo/ui/components/dialog';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
-import { ScrollArea } from '@repo/ui/components/scroll-area';
 import {
   Select,
   SelectContent,
@@ -42,16 +44,10 @@ import {
 import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Link,
-  createFileRoute,
-  redirect,
-  useNavigate,
-} from '@tanstack/react-router';
-import { ChevronLeft, Minus, Plus } from 'lucide-react';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import { Minus, Plus } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { LoadingIndicator } from '../-loading-indicator.tsx';
 import { fetchPaymentCollectionSettings } from '../maintenance/-lib/api/paymentCollectionSettings.ts';
 import {
   buildApplyRequestPayload,
@@ -624,101 +620,194 @@ function ApplyDocumentsPage() {
   const formSnapshot = confirmOpen ? getValues() : null;
 
   return (
-    <div className="drs-surface text-foreground relative min-h-screen">
-      <header className="border-border/80 bg-background/90 sticky top-14 z-30 border-b backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-3 py-2 sm:px-4 sm:py-2.5 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0 space-y-0.5">
-            <div className="flex items-center gap-2">
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-8"
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-5 pb-24 xl:pb-5">
+      <DrsPageHeader
+        backTo="/"
+        backLabel="My requests"
+        title="Request a document"
+        description="Pick the documents you need, tell the registrar how to reach you, then review before submitting. Totals are estimates until the registrar assesses your request."
+      />
+
+      <div className="grid gap-x-10 gap-y-10 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-10">
+          <DrsSection
+            title="Documents"
+            description="Prices shown are per copy."
+            divided
+            action={
+              <DrsSearchField
+                label="Filter catalog"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filter by name…"
+                className="w-full sm:w-64"
+              />
+            }
+          >
+            {isLoading ? (
+              <DrsLoadingState label="Loading catalog…" />
+            ) : isError ? (
+              <DrsErrorState
+                title="Could not load the document catalog"
+                description="Sign in again and open this page from your DRS address. If it keeps failing, contact the registrar."
+              />
+            ) : processedGroups.length === 0 ? (
+              <DrsEmptyState
+                title={
+                  sortedGroups.length === 0
+                    ? 'No documents are available yet'
+                    : 'No documents match your filter'
+                }
+                description={
+                  sortedGroups.length === 0
+                    ? 'The registrar has not published a document catalog for this site yet.'
+                    : 'Try a different search term, or clear the filter to see everything available to you.'
+                }
+                action={
+                  sortedGroups.length > 0 && search ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSearch('')}
+                    >
+                      Clear filter
+                    </Button>
+                  ) : null
+                }
+              />
+            ) : (
+              <Accordion
+                type="multiple"
+                className="w-full"
+                defaultValue={processedGroups.map(({ group }) =>
+                  String(group.id),
+                )}
               >
-                <Link to="/" aria-label="Back to applications">
-                  <ChevronLeft className="size-4" aria-hidden="true" />
-                </Link>
-              </Button>
-              <div className="min-w-0">
-                <p className="text-primary text-[10px] font-semibold tracking-[0.16em] uppercase">
-                  Document requests
-                </p>
-                <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
-                  Build your request
-                </h1>
-              </div>
-            </div>
-            <p className="text-muted-foreground hidden max-w-xl pl-11 text-xs leading-5 sm:block">
-              Search the catalog, set quantities, fill contact details, then
-              review. <strong>Estimated</strong> total uses unit price × copies.
-            </p>
-          </div>
+                {processedGroups.map(({ group, visibleDocs, visiblePkgs }) => (
+                  <AccordionItem
+                    key={group.id}
+                    value={String(group.id)}
+                    className="border-border/70"
+                  >
+                    <AccordionTrigger className="py-3 hover:no-underline">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-left">
+                        <span className="text-sm font-semibold">
+                          {group.group_name}
+                        </span>
+                        <span className="text-muted-foreground text-xs font-normal tabular-nums">
+                          {visibleDocs.length + visiblePkgs.length} item
+                          {visibleDocs.length + visiblePkgs.length === 1
+                            ? ''
+                            : 's'}
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4">
+                      <div className="space-y-5">
+                        {visibleDocs.length > 0 ? (
+                          <div>
+                            {visiblePkgs.length > 0 ? (
+                              <DrsOverline className="mb-1">
+                                Documents
+                              </DrsOverline>
+                            ) : null}
+                            <ul className="divide-border/70 divide-y border-y">
+                              {visibleDocs.map((doc) => {
+                                const key = docKey(doc.id);
+                                const qty = quantities[key] ?? 0;
+                                return (
+                                  <li key={key}>
+                                    <CatalogLineRow
+                                      quantity={qty}
+                                      maxQuantity={maxQtyByKey.get(key) ?? 0}
+                                      allowMultiple={
+                                        !doc.once_per_student &&
+                                        doc.allow_multiple_per_request !== false
+                                      }
+                                      alreadyRequested={Boolean(
+                                        doc.once_per_student &&
+                                        doc.already_requested,
+                                      )}
+                                      locked={
+                                        (lockedCompanionMeta.get(key)?.length ??
+                                          0) > 0
+                                      }
+                                      lockedByNames={
+                                        lockedCompanionMeta.get(key) ?? []
+                                      }
+                                      onQuantityChange={(q) =>
+                                        setLineQuantity(key, q)
+                                      }
+                                      title={doc.document_name}
+                                      unitPrice={doc.price}
+                                      rules={doc.rules}
+                                    />
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
 
-          <div className="flex w-full shrink-0 flex-col items-stretch gap-1 md:w-auto md:items-end">
-            <div className="border-border bg-card/80 flex flex-row items-center justify-between gap-3 rounded-xl border px-3 py-2 shadow-xs md:min-w-[180px] md:flex-col md:items-stretch">
-              <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3">
-                <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-                  Est. total
-                </span>
-                <Badge
-                  variant="secondary"
-                  className="mt-0.5 text-[10px] tabular-nums md:mt-0"
-                >
-                  {lineCount} line{lineCount === 1 ? '' : 's'} · {unitCount}
-                  &nbsp;
-                  {unitCount === 1 ? 'copy' : 'copies'}
-                </Badge>
-              </div>
-              <div className="flex flex-col items-end gap-0.5">
-                <p className="text-primary text-lg font-semibold tabular-nums sm:text-xl">
-                  PHP {formatPrice(totalSelected)}
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground h-8 px-2 text-xs md:h-7"
-                  onClick={clearSelection}
-                  disabled={unitCount === 0}
-                >
-                  Clear selection
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="border-border/60 border-t py-1.5 sm:py-2">
-          <div className="mx-auto w-full max-w-6xl px-3 sm:px-4">
-            <DrsSearchField
-              label="Filter catalog"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filter by document or package name…"
-              inputClassName="bg-card/80 border-border/80 h-11 shadow-sm sm:h-9"
-            />
-          </div>
-        </div>
-      </header>
+                        {visiblePkgs.length > 0 ? (
+                          <div>
+                            <DrsOverline className="mb-1">Packages</DrsOverline>
+                            <ul className="divide-border/70 divide-y border-y">
+                              {visiblePkgs.map((pkg) => {
+                                const key = pkgKey(pkg.id);
+                                const qty = quantities[key] ?? 0;
+                                return (
+                                  <li key={key}>
+                                    <CatalogLineRow
+                                      quantity={qty}
+                                      maxQuantity={maxQtyByKey.get(key) ?? 0}
+                                      allowMultiple={
+                                        !pkg.once_per_student &&
+                                        pkg.allow_multiple_per_request !== false
+                                      }
+                                      alreadyRequested={Boolean(
+                                        pkg.once_per_student &&
+                                        pkg.already_requested,
+                                      )}
+                                      onQuantityChange={(q) =>
+                                        setLineQuantity(key, q)
+                                      }
+                                      title={pkg.package_name}
+                                      unitPrice={pkg.price}
+                                      rules={pkg.rules}
+                                      includedItems={pkg.included_items}
+                                    />
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+          </DrsSection>
 
-      <main className="mx-auto max-w-6xl space-y-3 px-4 py-3 sm:py-4">
-        <Card className="drs-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Contact & delivery</CardTitle>
-            <CardDescription>
-              Used by the registrar to reach you. You will confirm line items in
-              the next step.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <DrsSection
+            title="Contact and delivery"
+            description="How the registrar reaches you, and how you want to receive the documents."
+            divided
+            contentClassName="max-w-2xl"
+          >
             <form
-              className="space-y-4"
+              id="apply-request-form"
+              className="space-y-6"
               onSubmit={(e) => {
                 e.preventDefault();
                 void openReviewDialog();
               }}
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="apply-email">Email</Label>
                   <Input
                     id="apply-email"
@@ -733,7 +822,7 @@ function ApplyDocumentsPage() {
                     </p>
                   ) : null}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="apply-contact">Contact number</Label>
                   <Input
                     id="apply-contact"
@@ -750,120 +839,95 @@ function ApplyDocumentsPage() {
                 </div>
               </div>
 
-              <Controller
-                name="receiveMode"
-                control={control}
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="receive-mode">Receive documents by</Label>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger
-                        id="receive-mode"
-                        className="w-full sm:max-w-md"
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Controller
+                  name="receiveMode"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="receive-mode">Receive documents by</Label>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
                       >
-                        <SelectValue placeholder="Mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pickup">
-                          Pickup at registrar
-                        </SelectItem>
-                        <SelectItem value="delivery">
-                          Courier delivery
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.receiveMode ? (
-                      <p className="text-destructive text-xs">
-                        {errors.receiveMode.message}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              />
-
-              <Controller
-                name="paymentMethodId"
-                control={control}
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="payment-method">Mode of payment</Label>
-                    <Select
-                      value={field.value || undefined}
-                      onValueChange={field.onChange}
-                      disabled={
-                        paymentSettingsQuery.isLoading ||
-                        paymentMethods.length === 0
-                      }
-                    >
-                      <SelectTrigger
-                        id="payment-method"
-                        className="w-full sm:max-w-md"
-                      >
-                        <SelectValue
-                          placeholder={
-                            paymentSettingsQuery.isLoading
-                              ? 'Loading payment methods…'
-                              : paymentMethods.length === 0
-                                ? 'No payment methods available'
-                                : 'Select payment method'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {paymentMethods.map((method) => (
-                          <SelectItem key={method.id} value={method.id}>
-                            {method.name}
+                        <SelectTrigger id="receive-mode" className="w-full">
+                          <SelectValue placeholder="Mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pickup">
+                            Pickup at registrar
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedPaymentMethod?.description ? (
-                      <p className="text-muted-foreground text-xs leading-5">
-                        {selectedPaymentMethod.description}
-                      </p>
-                    ) : null}
-                    {errors.paymentMethodId ? (
-                      <p className="text-destructive text-xs">
-                        {errors.paymentMethodId.message}
-                      </p>
-                    ) : null}
-                    {!paymentSettingsQuery.isLoading &&
-                    paymentMethods.length === 0 ? (
-                      <p className="text-destructive text-xs">
-                        Payment methods are not configured yet. Contact the
-                        registrar.
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              />
-
-              <Controller
-                name="secureEmail"
-                control={control}
-                render={({ field }) => (
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id="apply-secure-email"
-                      checked={field.value}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked === true)
-                      }
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="apply-secure-email">
-                        Also receive a secure email (PDF) copy
-                      </Label>
-                      <p className="text-muted-foreground text-xs">
-                        A protected PDF copy will be sent to your email address.
-                      </p>
+                          <SelectItem value="delivery">
+                            Courier delivery
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.receiveMode ? (
+                        <p className="text-destructive text-xs">
+                          {errors.receiveMode.message}
+                        </p>
+                      ) : null}
                     </div>
-                  </div>
-                )}
-              />
+                  )}
+                />
+
+                <Controller
+                  name="paymentMethodId"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="payment-method">Mode of payment</Label>
+                      <Select
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                        disabled={
+                          paymentSettingsQuery.isLoading ||
+                          paymentMethods.length === 0
+                        }
+                      >
+                        <SelectTrigger id="payment-method" className="w-full">
+                          <SelectValue
+                            placeholder={
+                              paymentSettingsQuery.isLoading
+                                ? 'Loading payment methods…'
+                                : paymentMethods.length === 0
+                                  ? 'No payment methods available'
+                                  : 'Select payment method'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {paymentMethods.map((method) => (
+                            <SelectItem key={method.id} value={method.id}>
+                              {method.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedPaymentMethod?.description ? (
+                        <p className="text-muted-foreground text-xs leading-5">
+                          {selectedPaymentMethod.description}
+                        </p>
+                      ) : null}
+                      {errors.paymentMethodId ? (
+                        <p className="text-destructive text-xs">
+                          {errors.paymentMethodId.message}
+                        </p>
+                      ) : null}
+                      {!paymentSettingsQuery.isLoading &&
+                      paymentMethods.length === 0 ? (
+                        <p className="text-destructive text-xs">
+                          Payment methods are not configured yet. Contact the
+                          registrar.
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                />
+              </div>
 
               {receiveMode === 'delivery' ? (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="apply-address">Delivery address</Label>
                   <Textarea
                     id="apply-address"
@@ -879,7 +943,32 @@ function ApplyDocumentsPage() {
                 </div>
               ) : null}
 
-              <div className="space-y-2">
+              <Controller
+                name="secureEmail"
+                control={control}
+                render={({ field }) => (
+                  <div className="flex items-start gap-2.5">
+                    <Checkbox
+                      id="apply-secure-email"
+                      className="mt-0.5"
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="apply-secure-email">
+                        Also email me a secure PDF copy
+                      </Label>
+                      <p className="text-muted-foreground text-xs">
+                        A password-protected PDF is sent to your email address.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              />
+
+              <div className="space-y-1.5">
                 <Label htmlFor="apply-purpose">Purpose (optional)</Label>
                 <Textarea
                   id="apply-purpose"
@@ -894,150 +983,91 @@ function ApplyDocumentsPage() {
                   </p>
                 ) : null}
               </div>
-
-              <Button type="submit" disabled={isLoading || unitCount === 0}>
-                Review & submit
-              </Button>
             </form>
-          </CardContent>
-        </Card>
+          </DrsSection>
+        </div>
 
-        {isLoading ? (
-          <div className="border-border bg-card/40 flex h-48 items-center justify-center rounded-2xl border">
-            <LoadingIndicator label="Loading catalog…" size="md" />
-          </div>
-        ) : isError ? (
-          <div className="border-destructive/30 bg-destructive/5 text-destructive flex h-48 items-center justify-center rounded-2xl border px-4 text-center text-sm">
-            Could not load documents. Sign in and open this app from your DRS
-            subdomain.
-          </div>
-        ) : processedGroups.length === 0 ? (
-          <div className="border-border bg-card/40 text-muted-foreground flex h-48 items-center justify-center rounded-2xl border text-sm">
-            {sortedGroups.length === 0
-              ? 'No document groups available yet.'
-              : 'No items match your search or profile for this view.'}
-          </div>
-        ) : (
-          <ScrollArea className="border-border bg-card/30 h-[min(70vh,calc(100vh-16rem))] rounded-2xl border shadow-inner">
-            <div className="p-4 pr-6 pb-8">
-              <Accordion
-                type="multiple"
-                className="w-full space-y-1"
-                defaultValue={processedGroups.map(({ group }) =>
-                  String(group.id),
-                )}
-              >
-                {processedGroups.map(({ group, visibleDocs, visiblePkgs }) => (
-                  <AccordionItem
-                    key={group.id}
-                    value={String(group.id)}
-                    className="border-border data-[state=open]:bg-muted/20 mb-4 rounded-xl border px-3 transition-colors"
+        <aside className="hidden xl:sticky xl:top-28 xl:block xl:self-start">
+          <DrsPanel title="Your request" contentClassName="space-y-4">
+            {lineCount === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nothing selected yet. Choose a document to see your estimated
+                total here.
+              </p>
+            ) : (
+              <ul className="divide-border/70 divide-y border-b text-sm">
+                {summaryLines.map((line) => (
+                  <li
+                    key={line.key}
+                    className="flex items-baseline justify-between gap-3 py-2"
                   >
-                    <AccordionTrigger className="py-3 hover:no-underline">
-                      <div className="flex flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:gap-3">
-                        <span className="text-base font-semibold">
-                          {group.group_name}
-                        </span>
-                        <span className="text-muted-foreground text-xs font-normal">
-                          {visibleDocs.length} document(s) ·{' '}
-                          {visiblePkgs.length} package(s)
-                        </span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-3">
-                      <div className="overflow-x-hidden overflow-y-auto pr-1">
-                        <div className="space-y-4 pr-2">
-                          {visibleDocs.length > 0 ? (
-                            <section className="space-y-2">
-                              <h2 className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-                                Documents
-                              </h2>
-                              <ul className="space-y-2">
-                                {visibleDocs.map((doc) => {
-                                  const key = docKey(doc.id);
-                                  const qty = quantities[key] ?? 0;
-                                  return (
-                                    <li key={key}>
-                                      <CatalogLineRow
-                                        quantity={qty}
-                                        maxQuantity={maxQtyByKey.get(key) ?? 0}
-                                        allowMultiple={
-                                          !doc.once_per_student &&
-                                          doc.allow_multiple_per_request !==
-                                            false
-                                        }
-                                        alreadyRequested={Boolean(
-                                          doc.once_per_student &&
-                                          doc.already_requested,
-                                        )}
-                                        locked={
-                                          (lockedCompanionMeta.get(key)
-                                            ?.length ?? 0) > 0
-                                        }
-                                        lockedByNames={
-                                          lockedCompanionMeta.get(key) ?? []
-                                        }
-                                        onQuantityChange={(q) =>
-                                          setLineQuantity(key, q)
-                                        }
-                                        title={doc.document_name}
-                                        unitPrice={doc.price}
-                                        rules={doc.rules}
-                                      />
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </section>
-                          ) : null}
-
-                          {visiblePkgs.length > 0 ? (
-                            <section className="space-y-2">
-                              <h2 className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-                                Packages
-                              </h2>
-                              <ul className="space-y-2">
-                                {visiblePkgs.map((pkg) => {
-                                  const key = pkgKey(pkg.id);
-                                  const qty = quantities[key] ?? 0;
-                                  return (
-                                    <li key={key}>
-                                      <CatalogLineRow
-                                        quantity={qty}
-                                        maxQuantity={maxQtyByKey.get(key) ?? 0}
-                                        allowMultiple={
-                                          !pkg.once_per_student &&
-                                          pkg.allow_multiple_per_request !==
-                                            false
-                                        }
-                                        alreadyRequested={Boolean(
-                                          pkg.once_per_student &&
-                                          pkg.already_requested,
-                                        )}
-                                        onQuantityChange={(q) =>
-                                          setLineQuantity(key, q)
-                                        }
-                                        title={pkg.package_name}
-                                        unitPrice={pkg.price}
-                                        rules={pkg.rules}
-                                        includedItems={pkg.included_items}
-                                      />
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </section>
-                          ) : null}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                    <span className="min-w-0">
+                      <span className="block">{line.title}</span>
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        &times;{line.qty}
+                      </span>
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      PHP {formatPrice(line.line)}
+                    </span>
+                  </li>
                 ))}
-              </Accordion>
+              </ul>
+            )}
+
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground text-xs">
+                Estimated total
+              </span>
+              <span className="text-xl font-semibold tabular-nums">
+                PHP {formatPrice(totalSelected)}
+              </span>
             </div>
-          </ScrollArea>
-        )}
-      </main>
+
+            <Button
+              type="submit"
+              form="apply-request-form"
+              className="w-full"
+              disabled={isLoading || unitCount === 0}
+            >
+              Review and submit
+            </Button>
+
+            {unitCount > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground w-full"
+                onClick={clearSelection}
+              >
+                Clear selection
+              </Button>
+            ) : null}
+          </DrsPanel>
+        </aside>
+      </div>
+
+      {/* Mobile equivalent of the summary rail. */}
+      <div className="bg-background/95 supports-backdrop-filter:bg-background/85 fixed inset-x-0 bottom-0 z-30 border-t px-4 py-3 backdrop-blur xl:hidden">
+        <div className="mx-auto flex max-w-[90rem] items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-muted-foreground text-xs">
+              {unitCount} cop{unitCount === 1 ? 'y' : 'ies'} · estimated
+            </p>
+            <p className="text-base font-semibold tabular-nums">
+              PHP {formatPrice(totalSelected)}
+            </p>
+          </div>
+          <Button
+            type="submit"
+            form="apply-request-form"
+            disabled={isLoading || unitCount === 0}
+          >
+            Review and submit
+          </Button>
+        </div>
+      </div>
 
       <Dialog open={confirmOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent
@@ -1247,7 +1277,7 @@ function ApplyDocumentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </DrsPageShell>
   );
 }
 
@@ -1315,12 +1345,12 @@ function CatalogLineRow({
     <div
       role="presentation"
       onClick={toggleInCart}
-      className={`border-border flex cursor-pointer flex-col gap-3 rounded-xl border p-3.5 transition-all sm:flex-row sm:flex-nowrap sm:items-stretch sm:p-3 ${
+      className={`flex cursor-pointer flex-col gap-3 px-1 py-3 transition-colors sm:flex-row sm:flex-nowrap sm:items-start ${
         unavailable
-          ? 'cursor-not-allowed opacity-60'
+          ? 'cursor-not-allowed opacity-55'
           : inCart
-            ? 'border-primary/40 bg-primary/5 ring-primary/15 shadow-sm ring-1'
-            : 'hover:border-primary/20 hover:bg-muted/25'
+            ? 'bg-muted/50'
+            : 'hover:bg-muted/30'
       }`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -1338,7 +1368,7 @@ function CatalogLineRow({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="leading-snug font-medium">{title}</p>
+          <p className="text-sm leading-snug font-medium">{title}</p>
           {includedItems && includedItems.length > 0 ? (
             <ul className="text-muted-foreground mt-1.5 list-disc space-y-0.5 pl-4 text-xs leading-snug">
               {includedItems.map((item) => (
@@ -1379,7 +1409,7 @@ function CatalogLineRow({
         </div>
       </div>
       <div
-        className="border-border/60 bg-background/80 flex shrink-0 items-center justify-end gap-1 self-stretch rounded-lg border px-1.5 py-1 sm:self-center sm:py-0.5"
+        className="flex shrink-0 items-center justify-end gap-1"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -1387,7 +1417,7 @@ function CatalogLineRow({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="size-10 sm:size-8"
+          className="size-9 sm:size-7"
           disabled={unavailable || quantity <= 0 || (locked && quantity <= 1)}
           aria-label={`Decrease quantity of ${title}`}
           onClick={() => onQuantityChange(quantity - 1)}
@@ -1395,7 +1425,7 @@ function CatalogLineRow({
           <Minus className="size-3.5" />
         </Button>
         <span
-          className="text-foreground min-w-10 px-1 text-center text-sm font-semibold tabular-nums sm:min-w-8"
+          className="text-foreground min-w-9 px-1 text-center text-sm font-semibold tabular-nums sm:min-w-7"
           aria-live="polite"
         >
           {quantity}
@@ -1404,7 +1434,7 @@ function CatalogLineRow({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="size-10 sm:size-8"
+          className="size-9 sm:size-7"
           disabled={unavailable || quantity >= maxQuantity}
           aria-label={`Increase quantity of ${title}`}
           onClick={() => onQuantityChange(quantity + 1)}

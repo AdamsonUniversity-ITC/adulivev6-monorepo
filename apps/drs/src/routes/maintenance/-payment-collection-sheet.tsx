@@ -1,3 +1,4 @@
+import { DrsInlineLoading } from '@/components/drs-ui.tsx';
 import { Button } from '@repo/ui/components/button';
 import {
   Card,
@@ -165,7 +166,7 @@ export const PaymentCollectionSheet = (): JSX.Element => {
       </div>
 
       {settingsQuery.isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading settings…</p>
+        <DrsInlineLoading size="sm" label="Loading settings…" />
       ) : settingsQuery.isError || !settings ? (
         <p className="text-destructive text-sm">
           Could not load payment collection settings. Check tenant context and

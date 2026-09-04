@@ -2,10 +2,8 @@ import {
   DrsEmptyState,
   DrsPageHeader,
   DrsPageShell,
-  DrsStatusBadge,
+  DrsSection,
 } from '@/components/drs-ui.tsx';
-import { Button } from '@repo/ui/components/button';
-import { Card, CardContent } from '@repo/ui/components/card';
 import {
   Sheet,
   SheetContent,
@@ -14,19 +12,7 @@ import {
   SheetTitle,
 } from '@repo/ui/components/sheet';
 import { Link } from '@tanstack/react-router';
-import {
-  Banknote,
-  BarChart3,
-  Bug,
-  ClipboardCheck,
-  FileStack,
-  Network,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserCog,
-  WalletCards,
-  type LucideIcon,
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
 import { AssessmentSheet } from './-assessment-sheet.tsx';
@@ -46,88 +32,97 @@ import {
 import { UserManagementSheet } from './-user-management-sheet.tsx';
 import { WorkflowSheet } from './-workflow-sheet.tsx';
 
+const GROUP_ORDER = [
+  'Catalog',
+  'Workflow',
+  'Payments',
+  'People and access',
+  'Reporting',
+] as const;
+
+type StepGroup = (typeof GROUP_ORDER)[number];
+
 type Step = {
   label: string;
   description: string;
   accessCode: string;
+  group: StepGroup;
   component?: JSX.Element;
-  icon: LucideIcon;
   href?: string;
 };
 
 const steps: Step[] = [
   {
-    label: 'Application',
-    description: 'Manage documents and packages students can request.',
+    label: 'Documents and packages',
+    description: 'What students can request, their prices, and their rules.',
     accessCode: 'application',
+    group: 'Catalog',
     component: <ApplicationSheet />,
-    icon: FileStack,
   },
   {
-    label: 'Clearance',
-    description: 'Manage clearance departments and assigned sign-off users.',
-    accessCode: 'clearance',
-    component: <ClearanceSheet />,
-    icon: ClipboardCheck,
+    label: 'Stages and tasks',
+    description: 'The route a request takes, and who works each stage.',
+    accessCode: 'workflow',
+    group: 'Workflow',
+    component: <WorkflowSheet />,
   },
   {
     label: 'Assessment',
-    description: 'Configure assessment behavior and allowed assessors.',
+    description: 'How amounts are assessed, and who may assess them.',
     accessCode: 'assessment',
+    group: 'Workflow',
     component: <AssessmentSheet />,
-    icon: SlidersHorizontal,
   },
   {
-    label: 'Workflow',
-    description: 'Manage workflow stages, tasks, and task access.',
-    accessCode: 'workflow',
-    component: <WorkflowSheet />,
-    icon: Network,
-  },
-  {
-    label: 'User management',
-    description:
-      'Manage DRS users, roles, permissions, and workflow ownership.',
-    accessCode: 'user-management',
-    component: <UserManagementSheet />,
-    icon: UserCog,
+    label: 'Clearance departments',
+    description: 'Departments that sign off, and the users who sign for them.',
+    accessCode: 'clearance',
+    group: 'Workflow',
+    component: <ClearanceSheet />,
   },
   ...TASK_KIND_SLIDE_KINDS.map((kind) => ({
     label: TASK_KIND_SLIDE_META[kind].label,
     description: TASK_KIND_SLIDE_META[kind].description,
     accessCode: 'task-kind-access',
+    group: 'Workflow' as StepGroup,
     component: <TaskKindAccessSheet kind={kind} />,
-    icon: ShieldCheck,
   })),
   {
     label: 'Payment collection',
-    description: 'Manage payment methods and extra collection fees.',
+    description: 'Payment methods students can choose, and extra fees.',
     accessCode: 'payment-collection',
+    group: 'Payments',
     component: <PaymentCollectionSheet />,
-    icon: WalletCards,
   },
   {
     label: 'Payment verification',
-    description: 'Assign cashiers who may verify student payments.',
+    description: 'Cashiers who may verify student payment proof.',
     accessCode: 'payment-verification',
+    group: 'Payments',
     component: <PaymentVerificationSheet />,
-    icon: Banknote,
   },
   {
-    label: 'Reports',
-    description:
-      'View and export statistical reports on DRS applications, revenue, and workflow performance.',
-    accessCode: 'reports',
-    icon: BarChart3,
-    href: '/maintenance/reports',
+    label: 'Users and roles',
+    description: 'DRS users, their roles, permissions, and workflow ownership.',
+    accessCode: 'user-management',
+    group: 'People and access',
+    component: <UserManagementSheet />,
   },
   {
     label: 'Access debugger',
     description:
-      'Explain why a staff member cannot see an application in queue or detail view.',
+      'Explain why a staff member cannot see a request in the queue or detail view.',
     accessCode: 'access-debug',
-    icon: Bug,
+    group: 'People and access',
     href: '/maintenance/access-debug',
+  },
+  {
+    label: 'Reports',
+    description:
+      'Volume, revenue, turnaround, and payment reports, with CSV and PDF export.',
+    accessCode: 'reports',
+    group: 'Reporting',
+    href: '/maintenance/reports',
   },
 ];
 
@@ -147,116 +142,78 @@ export function MaintenanceHome({
     setIsSheetOpen(true);
   };
 
+  const groups = GROUP_ORDER.map((group) => ({
+    group,
+    items: visibleSteps.filter((step) => step.group === group),
+  })).filter(({ items }) => items.length > 0);
+
   return (
     <MaintenanceLoaderDataProvider access={access}>
       <MaintenanceNavigationProvider value={{ openUserManagement }}>
-        <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
+        <DrsPageShell maxWidth="lg" contentClassName="space-y-5">
           <DrsPageHeader
-            eyebrow="DRS administration"
-            title="Maintenance command center"
-            description="Configure catalog, workflow, assessment, clearances, payment, and access controls from focused side panels."
-            actions={
-              <Button
-                variant="outline"
-                size="lg"
-                asChild
-                className="rounded-full"
-              >
-                <Link to="/staff/queue">Open staff queue</Link>
-              </Button>
-            }
-            badges={
-              <>
-                <DrsStatusBadge tone="info">
-                  {visibleSteps.length} panels
-                </DrsStatusBadge>
-                <DrsStatusBadge tone="success">
-                  Side-panel editing
-                </DrsStatusBadge>
-                <DrsStatusBadge tone="warning">
-                  Permission scoped
-                </DrsStatusBadge>
-              </>
-            }
+            title="Configuration"
+            description="Settings for this DRS site. Each entry opens the panel where you make the change."
           />
 
-          <section aria-label="Maintenance panels">
-            {visibleSteps.length === 0 ? (
-              <DrsEmptyState
-                title="No maintenance panels"
-                description="No maintenance panels are available for your account."
-              />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {visibleSteps.map((step) => {
-                  const Icon = step.icon;
-
-                  if (step.href) {
-                    return (
-                      <Card
-                        key={step.label}
-                        className="drs-card drs-card-hover drs-focus-ring group rounded-[1.75rem]"
-                      >
-                        <Link to={step.href} className="block h-full">
-                          <CardContent className="p-5 sm:p-6">
-                            <div className="min-w-0 space-y-4">
-                              <div className="bg-primary/10 text-primary flex size-11 items-center justify-center rounded-2xl">
-                                <Icon className="size-5" aria-hidden="true" />
-                              </div>
-                              <div>
-                                <div className="group-hover:text-primary text-base font-semibold tracking-tight transition-colors">
-                                  {step.label}
-                                </div>
-                                <p className="text-muted-foreground mt-1 text-sm">
-                                  {step.description}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Link>
-                      </Card>
-                    );
-                  }
-
-                  return (
-                    <Card
-                      key={step.label}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setIsSheetOpen(true);
-                        setSheetStep(step);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setIsSheetOpen(true);
-                          setSheetStep(step);
-                        }
-                      }}
-                      className="drs-card drs-card-hover drs-focus-ring group cursor-pointer rounded-[1.75rem]"
-                    >
-                      <CardContent className="p-5 sm:p-6">
-                        <div className="min-w-0 space-y-4">
-                          <div className="bg-primary/10 text-primary flex size-11 items-center justify-center rounded-2xl">
-                            <Icon className="size-5" aria-hidden="true" />
-                          </div>
-                          <div>
-                            <div className="group-hover:text-primary text-base font-semibold tracking-tight transition-colors">
+          {visibleSteps.length === 0 ? (
+            <DrsEmptyState
+              title="No settings available to you"
+              description="Your account does not have access to any configuration panel on this site. Ask a DRS administrator to grant the access you need."
+            />
+          ) : (
+            <div className="max-w-3xl space-y-8">
+              {groups.map(({ group, items }) => (
+                <DrsSection key={group} title={group} divided>
+                  <ul className="divide-border/70 divide-y">
+                    {items.map((step) => {
+                      const body = (
+                        <>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium">
                               {step.label}
-                            </div>
-                            <p className="text-muted-foreground mt-1 text-sm">
+                            </span>
+                            <span className="text-muted-foreground block text-sm">
                               {step.description}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                            </span>
+                          </span>
+                          <ChevronRight
+                            className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                            aria-hidden="true"
+                          />
+                        </>
+                      );
+
+                      const rowClass =
+                        'hover:bg-muted/40 focus-visible:ring-ring flex w-full items-start gap-4 rounded-sm px-1 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none';
+
+                      return (
+                        <li key={step.label}>
+                          {step.href ? (
+                            <Link to={step.href} className={rowClass}>
+                              {body}
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              className={rowClass}
+                              onClick={() => {
+                                setIsSheetOpen(true);
+                                setSheetStep(step);
+                              }}
+                            >
+                              {body}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </DrsSection>
+              ))}
+            </div>
+          )}
+
           <Sheet
             onOpenChange={setIsSheetOpen}
             open={isSheetOpen && Boolean(sheetStep?.component)}

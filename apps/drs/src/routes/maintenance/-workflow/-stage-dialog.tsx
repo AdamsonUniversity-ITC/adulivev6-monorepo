@@ -194,7 +194,7 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
               Terminal stage (application is finalised here)
             </Label>
           </div>
-          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
               id="stage-course-program-scope"
               checked={restrictAssignedUsersToCoursePrograms}
@@ -216,7 +216,7 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
               </p>
             </div>
           </div>
-          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
               id="stage-owner-cancel"
               checked={allowsOwnerCancellation}
@@ -238,7 +238,7 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
               </p>
             </div>
           </div>
-          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
               id="stage-notify-student"
               checked={notifyStudentOnEnter}

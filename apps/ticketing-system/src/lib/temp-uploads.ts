@@ -6,16 +6,19 @@ export type TempUpload = PreuploadedFile & {
   url: string;
 };
 
+export function tempUploadContentUrl(tempUploadId: string | number) {
+  return `v1/aduts/temp-uploads/${tempUploadId}/content`;
+}
+
 export async function uploadTempFile(
   file: File,
   onProgress?: (progress: number) => void,
 ): Promise<TempUpload> {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("system_type", "aduts");
 
   const { data } = await hrmdoSvc.post<{ data: TempUpload }>(
-    "v1/shared/temp-uploads",
+    "v1/aduts/temp-uploads",
     formData,
     {
       headers: { "Content-Type": "multipart/form-data" },
@@ -37,5 +40,15 @@ export async function uploadTempImageForEditor(
 }
 
 export async function deleteTempUpload(tempUploadId: string | number) {
-  await hrmdoSvc.delete(`v1/shared/temp-uploads/${tempUploadId}`);
+  await hrmdoSvc.delete(`v1/aduts/temp-uploads/${tempUploadId}`);
+}
+
+/** Authenticated blob URL for in-app previews. Caller must revoke when done. */
+export async function fetchTempUploadObjectUrl(
+  tempUploadId: string | number,
+) {
+  const { data } = await hrmdoSvc.get(tempUploadContentUrl(tempUploadId), {
+    responseType: "blob",
+  });
+  return URL.createObjectURL(data);
 }

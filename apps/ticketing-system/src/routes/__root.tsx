@@ -1,7 +1,7 @@
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { AuthLayout } from "@repo/ui/layouts/auth-layout";
 import { Toaster } from "@repo/ui/components/sonner";
 import {
@@ -18,6 +18,7 @@ import { fetchCurrentBoard } from "@/lib/aduts-api";
 import { getBoardSubdomain, isPlatformHost } from "@/lib/adutsHost";
 import {
   accentForeground,
+  DEFAULT_THEME_PRESET,
   normalizeAccentColor,
   normalizeThemePreset,
 } from "@/lib/board-theme";
@@ -69,20 +70,15 @@ function RootComponent() {
     : (boardQuery.data?.board_name ?? formatBoardLabel(boardSlug ?? ""));
 
   const themePreset = platform
-    ? undefined
+    ? DEFAULT_THEME_PRESET
     : normalizeThemePreset(boardQuery.data?.theme_preset);
   const accent = platform
     ? null
     : normalizeAccentColor(boardQuery.data?.accent_color);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
-
-    if (platform || !themePreset) {
-      delete root.dataset.boardTheme;
-    } else {
-      root.dataset.boardTheme = themePreset;
-    }
+    root.dataset.boardTheme = themePreset;
 
     if (accent) {
       const fg = accentForeground(accent);

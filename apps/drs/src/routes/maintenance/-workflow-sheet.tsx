@@ -1,3 +1,4 @@
+import { DrsInlineLoading } from '@/components/drs-ui.tsx';
 import { Button } from '@repo/ui/components/button';
 import { Card, CardContent } from '@repo/ui/components/card';
 import { toast } from '@repo/ui/exports';
@@ -277,7 +278,7 @@ const StagesAndTasks = (): JSX.Element => {
 
       <div className="mt-4">
         {stagesQuery.isLoading ? (
-          <p className="text-muted-foreground text-sm">Loading workflow…</p>
+          <DrsInlineLoading size="sm" label="Loading workflow…" />
         ) : stagesQuery.isError ? (
           <p className="text-destructive text-sm">
             Could not load workflow. Try again.

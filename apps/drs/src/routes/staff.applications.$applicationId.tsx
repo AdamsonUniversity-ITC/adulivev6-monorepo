@@ -3,22 +3,19 @@ import {
   DrsErrorState,
   DrsLoadingState,
   DrsNotFoundState,
+  DrsOverline,
   DrsPageHeader,
   DrsPageShell,
+  DrsPanel,
+  DrsSection,
   DrsStatusBadge,
+  formatStatusLabel,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
 import { hasDrAdminAccessForHost } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { isNotFoundError } from '@/lib/isNotFoundError.ts';
 import { Button } from '@repo/ui/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/card';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
 import {
@@ -37,11 +34,12 @@ import {
   Outlet,
   useRouterState,
 } from '@tanstack/react-router';
-import { ClipboardCheck, History, Plus, Trash2, XCircle } from 'lucide-react';
+import { History, Plus, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
 import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
 import { formatFileSize } from '@/lib/tempUploads.ts';
+import { RequestSummaryPanel } from './-application-detail-sections.tsx';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
 import { fetchEmployeeApplication } from './-lib/api/fetchEmployeeApplication.ts';
 import {
@@ -1174,14 +1172,9 @@ function StaffApplicationWorkPage() {
       <DrsPageShell maxWidth="md">
         <DrsNotFoundState
           title="Request not found"
-          description="This application ID may be incorrect, or the request may have been removed."
+          description="This reference may be mistyped, or the request may have been removed."
           action={
-            <Button
-              variant="outline"
-              asChild
-              size="sm"
-              className="rounded-full"
-            >
+            <Button variant="outline" asChild>
               <Link to="/staff/queue">Back to queue</Link>
             </Button>
           }
@@ -1194,15 +1187,10 @@ function StaffApplicationWorkPage() {
     return (
       <DrsPageShell maxWidth="md">
         <DrsErrorState
-          title="Could not load this application"
-          description="The application may be unavailable, or you may no longer have access to this workflow task."
+          title="Could not load this request"
+          description="The request may be unavailable, or you may no longer have access to this workflow stage. Try again, or go back to your queue."
           action={
-            <Button
-              variant="outline"
-              asChild
-              size="sm"
-              className="rounded-full"
-            >
+            <Button variant="outline" asChild>
               <Link to="/staff/queue">Back to queue</Link>
             </Button>
           }
@@ -1212,32 +1200,23 @@ function StaffApplicationWorkPage() {
   }
 
   return (
-    <DrsPageShell maxWidth="lg" contentClassName="space-y-3">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
       <DrsPageHeader
         backTo="/staff/queue"
-        backLabel="Staff queue"
-        eyebrow="Staff workbench"
-        title={`#${displayApplicationRef(app)}`}
+        backLabel="Queue"
+        title={`Request #${displayApplicationRef(app)}`}
         description={
-          <>
-            {app.student_no ? `Student no. ${app.student_no}` : 'Staff view'}
-            {app.student_name?.trim() ? ` · ${app.student_name}` : ''}
-          </>
+          app.student_no
+            ? `${app.student_name?.trim() || 'Student'} · ${app.student_no}`
+            : app.student_name?.trim() || undefined
         }
         badges={
           <>
             <DrsStatusBadge tone={toneForStatus(app.status)}>
-              {app.current_stage?.name ?? app.status}
-            </DrsStatusBadge>
-            <DrsStatusBadge
-              tone={pendingActionable.length > 0 ? 'warning' : 'success'}
-            >
-              {pendingActionable.length > 0
-                ? `${pendingActionable.length} action${pendingActionable.length === 1 ? '' : 's'} pending`
-                : 'No pending actions'}
+              {app.current_stage?.name ?? formatStatusLabel(app.status)}
             </DrsStatusBadge>
             {app.is_foreigner_student ? (
-              <DrsStatusBadge tone="purple">Foreigner student</DrsStatusBadge>
+              <DrsStatusBadge tone="neutral">Foreigner student</DrsStatusBadge>
             ) : null}
             {app.is_cancelled ? (
               <DrsStatusBadge tone="danger">Cancelled</DrsStatusBadge>
@@ -1246,512 +1225,462 @@ function StaffApplicationWorkPage() {
         }
         actions={
           <>
-            {canRestore ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1 rounded-full"
-                asChild
-              >
-                <Link
-                  to="/staff/applications/$applicationId/history"
-                  params={{ applicationId }}
-                >
-                  <History className="h-4 w-4" aria-hidden="true" />
-                  Rollback
-                </Link>
-              </Button>
-            ) : null}
             {app.may_cancel_as_staff && !app.is_cancelled ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-destructive hover:text-destructive gap-1"
+                className="text-destructive hover:text-destructive"
                 onClick={() => setCancelDialogOpen(true)}
               >
-                <XCircle className="h-4 w-4" aria-hidden="true" />
-                Cancel
+                Cancel request
+              </Button>
+            ) : null}
+            {canRestore ? (
+              <Button type="button" variant="outline" size="sm" asChild>
+                <Link
+                  to="/staff/applications/$applicationId/history"
+                  params={{ applicationId }}
+                >
+                  <History className="size-4" aria-hidden="true" />
+                  History
+                </Link>
               </Button>
             ) : null}
           </>
         }
       />
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <div className="space-y-3">
-          <Card className="drs-card">
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base">
-                    Requested documents
-                  </CardTitle>
-                  <CardDescription>
-                    Request #{displayApplicationRef(app)}
-                  </CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  <DrsStatusBadge tone={toneForStatus(app.status)}>
-                    {app.current_stage?.name ?? app.status}
-                  </DrsStatusBadge>
-                  {app.is_foreigner_student ? (
-                    <DrsStatusBadge tone="purple">
-                      Foreigner student
-                    </DrsStatusBadge>
+      <div className="grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-8">
+          {/* The reason staff opened this page goes first. */}
+          <DrsPanel
+            title={clearanceOnlyMode ? 'Clearance sign-off' : 'Your tasks'}
+            description={
+              clearanceOnlyMode
+                ? 'Confirm each clearance your department is responsible for.'
+                : 'Tasks on this request that are assigned to your account.'
+            }
+            contentClassName="space-y-6"
+          >
+            {pendingActionable.length === 0 ? (
+              <DrsEmptyState
+                title="Nothing to do here"
+                description="This request has no tasks waiting on your account. It may be with another department, or already past your stage."
+                className="border-0 py-6"
+              />
+            ) : (
+              pendingActionable.map((task, index) => (
+                <div
+                  key={task.id}
+                  className={
+                    index > 0 ? 'space-y-3 border-t pt-6' : 'space-y-3'
+                  }
+                >
+                  <p className="text-sm font-semibold">{task.name ?? 'Task'}</p>
+                  <BranchTransitionSelect
+                    task={task}
+                    value={transitionByTask[task.id] ?? ''}
+                    onChange={(value) =>
+                      setTransitionByTask((prev) => ({
+                        ...prev,
+                        [task.id]: value,
+                      }))
+                    }
+                  />
+                  {task.branch_options?.find(
+                    (option) => option.id === transitionByTask[task.id],
+                  )?.outcome_key === 'delivery_dispatch' ? (
+                    <div className="max-w-sm space-y-1.5">
+                      <Label htmlFor={`tracking-${task.id}`}>
+                        Delivery number
+                      </Label>
+                      <Input
+                        id={`tracking-${task.id}`}
+                        value={trackingNumberByTask[task.id] ?? ''}
+                        onChange={(event) =>
+                          setTrackingNumberByTask((prev) => ({
+                            ...prev,
+                            [task.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="Courier or delivery tracking number"
+                        autoComplete="off"
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        Required when dispatching the request for delivery.
+                      </p>
+                    </div>
                   ) : null}
+                  {task.branch_options?.find(
+                    (option) => option.id === transitionByTask[task.id],
+                  )?.outcome_key === 'pickup_handoff' ? (
+                    <div className="max-w-sm space-y-1.5">
+                      <Label htmlFor={`pickup-date-${task.id}`}>
+                        Pickup date
+                      </Label>
+                      <Input
+                        id={`pickup-date-${task.id}`}
+                        type="date"
+                        value={pickupDateByTask[task.id] ?? ''}
+                        onChange={(event) =>
+                          setPickupDateByTask((prev) => ({
+                            ...prev,
+                            [task.id]: event.target.value,
+                          }))
+                        }
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        The student sees this date. Required when releasing for
+                        pickup.
+                      </p>
+                    </div>
+                  ) : null}
+                  {task.kind === 'payment_verification' ? (
+                    <PaymentVerificationTaskPanel
+                      task={task}
+                      app={app}
+                      remarkByTask={remarkByTask}
+                      setRemarkByTask={setRemarkByTask}
+                      saveRemarksMutation={saveRemarksMutation}
+                      completeMutation={completeMutation}
+                    />
+                  ) : task.kind === 'payment_collection' ? (
+                    <PaymentCollectionTaskPanel
+                      task={task}
+                      app={app}
+                      remarkByTask={remarkByTask}
+                      setRemarkByTask={setRemarkByTask}
+                      referenceByTask={referenceByTask}
+                      setReferenceByTask={setReferenceByTask}
+                      saveRemarksMutation={saveRemarksMutation}
+                      completeMutation={completeMutation}
+                    />
+                  ) : task.kind === 'assessment' ? (
+                    <AssessmentTaskPanel
+                      task={task}
+                      app={app}
+                      remarkByTask={remarkByTask}
+                      setRemarkByTask={setRemarkByTask}
+                      linePriceByTask={linePriceByTask}
+                      setLinePriceByTask={setLinePriceByTask}
+                      lineQuantityByTask={lineQuantityByTask}
+                      setLineQuantityByTask={setLineQuantityByTask}
+                      lineCancelledByTask={lineCancelledByTask}
+                      setLineCancelledByTask={setLineCancelledByTask}
+                      otherFeesByTask={otherFeesByTask}
+                      setOtherFeesByTask={setOtherFeesByTask}
+                      saveRemarksMutation={saveRemarksMutation}
+                      completeMutation={completeMutation}
+                    />
+                  ) : task.kind === 'clearance_signoff' ? (
+                    <div className="space-y-4">
+                      {Array.isArray(task.modules) &&
+                      task.modules.length > 0 ? (
+                        <div>
+                          <DrsOverline>Clearance checks</DrsOverline>
+                          <ul className="divide-border/70 mt-2 divide-y border-y">
+                            {task.modules.map((mod) => (
+                              <li key={mod.key} className="py-2 text-sm">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                  <span className="text-muted-foreground">
+                                    {mod.label}
+                                  </span>
+                                  <span className="font-medium tabular-nums">
+                                    {mod.value}
+                                    {typeof mod.count === 'number' &&
+                                    mod.count > 0
+                                      ? ` (${mod.count})`
+                                      : ''}
+                                  </span>
+                                </div>
+                                {Array.isArray(mod.items) &&
+                                mod.items.length > 0 ? (
+                                  <ul className="text-muted-foreground mt-1 list-inside list-disc text-xs">
+                                    {mod.items.map((item, idx) => (
+                                      <li key={`${mod.key}-${idx}`}>{item}</li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      <div className="max-w-xl space-y-1.5">
+                        <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
+                        <Textarea
+                          id={`remarks-${task.id}`}
+                          value={remarkByTask[task.id] ?? ''}
+                          onChange={(e) =>
+                            setRemarkByTask((prev) => ({
+                              ...prev,
+                              [task.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Optional remarks visible to the student"
+                          className="min-h-[72px]"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          disabled={completeMutation.isPending}
+                          onClick={() =>
+                            completeMutation.mutate({
+                              taskId: task.id,
+                              payload: {
+                                remarks: remarkByTask[task.id]?.trim() || null,
+                              },
+                            })
+                          }
+                        >
+                          Clear this department
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={saveRemarksMutation.isPending}
+                          onClick={() =>
+                            saveRemarksMutation.mutate({
+                              taskId: task.id,
+                              kind: task.kind,
+                              remarks: remarkByTask[task.id]?.trim() || null,
+                            })
+                          }
+                        >
+                          Save remarks
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="max-w-xl space-y-1.5">
+                        <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
+                        <Textarea
+                          id={`remarks-${task.id}`}
+                          value={remarkByTask[task.id] ?? ''}
+                          onChange={(e) =>
+                            setRemarkByTask((prev) => ({
+                              ...prev,
+                              [task.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Optional remarks"
+                          className="min-h-[72px]"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          disabled={completeMutation.isPending}
+                          onClick={() =>
+                            completeMutation.mutate({
+                              taskId: task.id,
+                              payload: {
+                                remarks: remarkByTask[task.id]?.trim() || null,
+                              },
+                            })
+                          }
+                        >
+                          Complete task
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={saveRemarksMutation.isPending}
+                          onClick={() =>
+                            saveRemarksMutation.mutate({
+                              taskId: task.id,
+                              kind: task.kind,
+                              remarks: remarkByTask[task.id]?.trim() || null,
+                            })
+                          }
+                        >
+                          Save remarks
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <ul className="bg-muted/20 space-y-2 rounded-2xl border p-3">
-                {app.lines?.length ? (
-                  app.lines.map((l) => (
-                    <li
-                      key={l.id}
-                      className="bg-background/80 flex justify-between gap-3 rounded-xl px-3 py-2"
-                    >
-                      <span
-                        className={`min-w-0 flex-1 truncate ${
+              ))
+            )}
+          </DrsPanel>
+
+          <DrsSection title="Requested documents" divided>
+            {app.lines?.length ? (
+              <table className="w-full text-sm">
+                <thead className="sr-only">
+                  <tr>
+                    <th>Document</th>
+                    <th>Quantity</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-border/70 divide-y border-y">
+                  {app.lines.map((l) => (
+                    <tr key={l.id}>
+                      <td
+                        className={`py-2 pr-4 ${
                           l.is_cancelled
                             ? 'text-muted-foreground line-through'
                             : ''
                         }`}
                       >
                         {l.request_name}
-                      </span>
-                      <span
-                        className={`text-muted-foreground shrink-0 ${
-                          l.is_cancelled ? 'line-through' : ''
-                        }`}
-                      >
-                        {l.is_cancelled ? 'Cancelled' : `x ${l.quantity}`}
-                      </span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-muted-foreground">No line items</li>
-                )}
-              </ul>
-            </CardContent>
-          </Card>
+                      </td>
+                      <td className="text-muted-foreground w-24 py-2 text-right tabular-nums">
+                        {l.is_cancelled ? 'Cancelled' : `\u00d7${l.quantity}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                This request has no line items.
+              </p>
+            )}
+          </DrsSection>
 
           {app.payment_submission || app.payment_verification ? (
-            <Card className="drs-card">
-              <CardHeader>
-                <CardTitle className="text-base">Payment proof</CardTitle>
-                <CardDescription>
-                  Student receipt and verification details for this request.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {app.payment_submission ? (
-                  <div className="bg-muted/20 space-y-2 rounded-2xl border p-3">
-                    <p className="text-muted-foreground text-xs font-medium">
-                      Student payment proof
+            <DrsSection
+              title="Payment proof"
+              description="What the student submitted, and what the cashier recorded."
+              divided
+              contentClassName="space-y-5 text-sm"
+            >
+              {app.payment_submission ? (
+                <div className="space-y-2">
+                  <DrsOverline>Student submission</DrsOverline>
+                  {app.payment_submission.submitted_at ? (
+                    <p className="text-muted-foreground text-xs">
+                      Uploaded{' '}
+                      {new Date(
+                        app.payment_submission.submitted_at,
+                      ).toLocaleString()}
                     </p>
-                    {app.payment_submission.submitted_at ? (
-                      <p className="text-muted-foreground text-xs">
-                        Uploaded{' '}
-                        {new Date(
-                          app.payment_submission.submitted_at,
-                        ).toLocaleString()}
-                      </p>
-                    ) : null}
-                    <PaymentReceiptLinks
-                      receipts={app.payment_submission.receipts ?? []}
-                    />
-                    {app.payment_method ? (
-                      <p className="text-xs">
-                        Mode of payment:{' '}
-                        <span className="font-medium">
-                          {app.payment_method.name}
-                        </span>
-                        {app.payment_method.description
-                          ? ` — ${app.payment_method.description}`
-                          : ''}
-                      </p>
-                    ) : null}
-                    {app.payment_submission.reference_number ? (
-                      <p className="text-xs">
-                        Legacy reference:{' '}
-                        <span className="font-medium">
-                          {app.payment_submission.reference_number}
-                        </span>
-                      </p>
-                    ) : null}
-                    {app.payment_submission.remarks ? (
-                      <p className="text-muted-foreground whitespace-pre-wrap">
-                        {app.payment_submission.remarks}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {app.payment_verification ? (
-                  <div className="bg-muted/20 rounded-2xl border p-3">
-                    <p className="text-muted-foreground text-xs font-medium">
-                      Verification
+                  ) : null}
+                  <PaymentReceiptLinks
+                    receipts={app.payment_submission.receipts ?? []}
+                  />
+                  {app.payment_method ? (
+                    <p className="text-xs">
+                      Mode of payment:{' '}
+                      <span className="font-medium">
+                        {app.payment_method.name}
+                      </span>
+                      {app.payment_method.description
+                        ? ` — ${app.payment_method.description}`
+                        : ''}
                     </p>
-                    {app.payment_verification.verified_at ? (
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        Verified{' '}
-                        {new Date(
-                          app.payment_verification.verified_at,
-                        ).toLocaleString()}
-                      </p>
-                    ) : null}
-                    {app.payment_verification.reference_number ? (
-                      <p className="mt-1 text-xs">
-                        Notes ref:{' '}
-                        <span className="font-medium">
-                          {app.payment_verification.reference_number}
-                        </span>
-                      </p>
-                    ) : null}
-                    {app.payment_verification.remarks ? (
-                      <p className="text-muted-foreground mt-2 whitespace-pre-wrap">
-                        {app.payment_verification.remarks}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
+                  ) : null}
+                  {app.payment_submission.reference_number ? (
+                    <p className="text-xs">
+                      Legacy reference:{' '}
+                      <span className="font-medium">
+                        {app.payment_submission.reference_number}
+                      </span>
+                    </p>
+                  ) : null}
+                  {app.payment_submission.remarks ? (
+                    <p className="text-muted-foreground whitespace-pre-wrap">
+                      {app.payment_submission.remarks}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {app.payment_verification ? (
+                <div className="space-y-2">
+                  <DrsOverline>Verification</DrsOverline>
+                  {app.payment_verification.verified_at ? (
+                    <p className="text-muted-foreground text-xs">
+                      Verified{' '}
+                      {new Date(
+                        app.payment_verification.verified_at,
+                      ).toLocaleString()}
+                    </p>
+                  ) : null}
+                  {app.payment_verification.reference_number ? (
+                    <p className="text-xs">
+                      Notes ref:{' '}
+                      <span className="font-medium">
+                        {app.payment_verification.reference_number}
+                      </span>
+                    </p>
+                  ) : null}
+                  {app.payment_verification.remarks ? (
+                    <p className="text-muted-foreground whitespace-pre-wrap">
+                      {app.payment_verification.remarks}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </DrsSection>
           ) : null}
 
           {(app.stage_runs?.length ?? 0) > 0 ? (
-            <Card className="drs-card">
-              <CardHeader>
-                <CardTitle className="text-base">Stage timeline</CardTitle>
-                <CardDescription>
-                  Turnaround time for each stage this request passed through.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3 text-sm">
-                  {[...(app.stage_runs ?? [])]
-                    .sort((a, b) => {
-                      const aMs = a.started_at
-                        ? new Date(a.started_at).getTime()
-                        : 0;
-                      const bMs = b.started_at
-                        ? new Date(b.started_at).getTime()
-                        : 0;
-                      return aMs - bMs;
-                    })
-                    .map((run) => (
-                      <li
-                        key={run.id}
-                        className="bg-muted/20 space-y-1 rounded-2xl border p-3"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <p className="font-medium">
-                            {run.stage_name ?? run.stage_slug ?? 'Stage'}
-                          </p>
-                          <p className="text-muted-foreground shrink-0 text-xs font-medium">
-                            TAT{' '}
-                            {formatStageTat(run.started_at, run.completed_at)}
-                            {!run.completed_at ? ' (ongoing)' : ''}
-                          </p>
-                        </div>
-                        <p className="text-muted-foreground text-xs">
-                          Started{' '}
-                          {run.started_at
-                            ? new Date(run.started_at).toLocaleString()
-                            : '—'}
-                          {run.completed_at
-                            ? ` · Completed ${new Date(run.completed_at).toLocaleString()}`
-                            : ''}
+            <DrsSection
+              title="Stage timeline"
+              description="Turnaround time for each stage this request passed through."
+              divided
+            >
+              <ul className="divide-border/70 divide-y">
+                {[...(app.stage_runs ?? [])]
+                  .sort((a, b) => {
+                    const aMs = a.started_at
+                      ? new Date(a.started_at).getTime()
+                      : 0;
+                    const bMs = b.started_at
+                      ? new Date(b.started_at).getTime()
+                      : 0;
+                    return aMs - bMs;
+                  })
+                  .map((run) => (
+                    <li key={run.id} className="py-2.5 text-sm">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="font-medium">
+                          {run.stage_name ?? run.stage_slug ?? 'Stage'}
                         </p>
-                      </li>
-                    ))}
-                </ul>
-              </CardContent>
-            </Card>
+                        <p className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                          {formatStageTat(run.started_at, run.completed_at)}
+                          {!run.completed_at ? ' · ongoing' : ''}
+                        </p>
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        Started{' '}
+                        {run.started_at
+                          ? new Date(run.started_at).toLocaleString()
+                          : '—'}
+                        {run.completed_at
+                          ? ` · Completed ${new Date(run.completed_at).toLocaleString()}`
+                          : ''}
+                      </p>
+                    </li>
+                  ))}
+              </ul>
+            </DrsSection>
           ) : null}
-
-          <Card className="drs-card">
-            <CardHeader>
-              <CardTitle className="text-base">
-                {clearanceOnlyMode ? 'Clearance' : 'Stage tasks'}
-              </CardTitle>
-              <CardDescription>
-                {clearanceOnlyMode
-                  ? 'Confirm each clearance your department is responsible for.'
-                  : 'Complete the tasks available to you for this stage.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {pendingActionable.length === 0 ? (
-                <DrsEmptyState
-                  icon={ClipboardCheck}
-                  title="No pending actions"
-                  description="There are no tasks available for your account on this request right now."
-                  className="py-8"
-                />
-              ) : (
-                pendingActionable.map((task) => (
-                  <div
-                    key={task.id}
-                    className="bg-muted/20 space-y-3 rounded-2xl border p-4"
-                  >
-                    <div>
-                      <p className="font-medium">{task.name ?? 'Task'}</p>
-                    </div>
-                    <BranchTransitionSelect
-                      task={task}
-                      value={transitionByTask[task.id] ?? ''}
-                      onChange={(value) =>
-                        setTransitionByTask((prev) => ({
-                          ...prev,
-                          [task.id]: value,
-                        }))
-                      }
-                    />
-                    {task.branch_options?.find(
-                      (option) => option.id === transitionByTask[task.id],
-                    )?.outcome_key === 'delivery_dispatch' ? (
-                      <div className="bg-background/80 space-y-2 rounded-2xl border p-3">
-                        <Label htmlFor={`tracking-${task.id}`}>
-                          Delivery number
-                        </Label>
-                        <Input
-                          id={`tracking-${task.id}`}
-                          value={trackingNumberByTask[task.id] ?? ''}
-                          onChange={(event) =>
-                            setTrackingNumberByTask((prev) => ({
-                              ...prev,
-                              [task.id]: event.target.value,
-                            }))
-                          }
-                          placeholder="Courier or delivery tracking number"
-                          autoComplete="off"
-                        />
-                        <p className="text-muted-foreground text-xs">
-                          Required when dispatching the application for
-                          delivery.
-                        </p>
-                      </div>
-                    ) : null}
-                    {task.branch_options?.find(
-                      (option) => option.id === transitionByTask[task.id],
-                    )?.outcome_key === 'pickup_handoff' ? (
-                      <div className="bg-background/80 space-y-2 rounded-2xl border p-3">
-                        <Label htmlFor={`pickup-date-${task.id}`}>
-                          Pickup date
-                        </Label>
-                        <Input
-                          id={`pickup-date-${task.id}`}
-                          type="date"
-                          value={pickupDateByTask[task.id] ?? ''}
-                          onChange={(event) =>
-                            setPickupDateByTask((prev) => ({
-                              ...prev,
-                              [task.id]: event.target.value,
-                            }))
-                          }
-                        />
-                        <p className="text-muted-foreground text-xs">
-                          Required when releasing the application for pickup.
-                          The student will see this date.
-                        </p>
-                      </div>
-                    ) : null}
-                    {task.kind === 'payment_verification' ? (
-                      <PaymentVerificationTaskPanel
-                        task={task}
-                        app={app}
-                        remarkByTask={remarkByTask}
-                        setRemarkByTask={setRemarkByTask}
-                        saveRemarksMutation={saveRemarksMutation}
-                        completeMutation={completeMutation}
-                      />
-                    ) : task.kind === 'payment_collection' ? (
-                      <PaymentCollectionTaskPanel
-                        task={task}
-                        app={app}
-                        remarkByTask={remarkByTask}
-                        setRemarkByTask={setRemarkByTask}
-                        referenceByTask={referenceByTask}
-                        setReferenceByTask={setReferenceByTask}
-                        saveRemarksMutation={saveRemarksMutation}
-                        completeMutation={completeMutation}
-                      />
-                    ) : task.kind === 'assessment' ? (
-                      <AssessmentTaskPanel
-                        task={task}
-                        app={app}
-                        remarkByTask={remarkByTask}
-                        setRemarkByTask={setRemarkByTask}
-                        linePriceByTask={linePriceByTask}
-                        setLinePriceByTask={setLinePriceByTask}
-                        lineQuantityByTask={lineQuantityByTask}
-                        setLineQuantityByTask={setLineQuantityByTask}
-                        lineCancelledByTask={lineCancelledByTask}
-                        setLineCancelledByTask={setLineCancelledByTask}
-                        otherFeesByTask={otherFeesByTask}
-                        setOtherFeesByTask={setOtherFeesByTask}
-                        saveRemarksMutation={saveRemarksMutation}
-                        completeMutation={completeMutation}
-                      />
-                    ) : task.kind === 'clearance_signoff' ? (
-                      <div className="space-y-3">
-                        {Array.isArray(task.modules) &&
-                        task.modules.length > 0 ? (
-                          <div className="border-border space-y-2 rounded-lg border p-3">
-                            <p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-                              Clearance modules
-                            </p>
-                            <ul className="space-y-2">
-                              {task.modules.map((mod) => (
-                                <li key={mod.key} className="space-y-1 text-sm">
-                                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                    <span className="text-muted-foreground">
-                                      {mod.label}
-                                    </span>
-                                    <span className="font-medium tabular-nums">
-                                      {mod.value}
-                                      {typeof mod.count === 'number' &&
-                                      mod.count > 0
-                                        ? ` (${mod.count})`
-                                        : ''}
-                                    </span>
-                                  </div>
-                                  {Array.isArray(mod.items) &&
-                                  mod.items.length > 0 ? (
-                                    <ul className="text-muted-foreground list-inside list-disc pl-1 text-xs">
-                                      {mod.items.map((item, idx) => (
-                                        <li key={`${mod.key}-${idx}`}>
-                                          {item}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                        <div className="space-y-2">
-                          <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
-                          <Textarea
-                            id={`remarks-${task.id}`}
-                            value={remarkByTask[task.id] ?? ''}
-                            onChange={(e) =>
-                              setRemarkByTask((prev) => ({
-                                ...prev,
-                                [task.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Optional remarks visible to the student"
-                            className="min-h-[72px]"
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={saveRemarksMutation.isPending}
-                            onClick={() =>
-                              saveRemarksMutation.mutate({
-                                taskId: task.id,
-                                kind: task.kind,
-                                remarks: remarkByTask[task.id]?.trim() || null,
-                              })
-                            }
-                          >
-                            Save remarks
-                          </Button>
-                          <Button
-                            type="button"
-                            disabled={completeMutation.isPending}
-                            onClick={() =>
-                              completeMutation.mutate({
-                                taskId: task.id,
-                                payload: {
-                                  remarks:
-                                    remarkByTask[task.id]?.trim() || null,
-                                },
-                              })
-                            }
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
-                          <Textarea
-                            id={`remarks-${task.id}`}
-                            value={remarkByTask[task.id] ?? ''}
-                            onChange={(e) =>
-                              setRemarkByTask((prev) => ({
-                                ...prev,
-                                [task.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Optional remarks"
-                            className="min-h-[72px]"
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={saveRemarksMutation.isPending}
-                            onClick={() =>
-                              saveRemarksMutation.mutate({
-                                taskId: task.id,
-                                kind: task.kind,
-                                remarks: remarkByTask[task.id]?.trim() || null,
-                              })
-                            }
-                          >
-                            Save remarks
-                          </Button>
-                          <Button
-                            type="button"
-                            disabled={completeMutation.isPending}
-                            onClick={() =>
-                              completeMutation.mutate({
-                                taskId: task.id,
-                                payload: {
-                                  remarks:
-                                    remarkByTask[task.id]?.trim() || null,
-                                },
-                              })
-                            }
-                          >
-                            Complete
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start">
-          <Card className="drs-card">
-            <CardHeader>
-              <CardTitle className="text-base">Messages</CardTitle>
-              <CardDescription>
-                Chat with the student and other staff working on this request.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ApplicationMessagesPanel
-                applicationId={applicationId}
-                viewerRole="staff"
-              />
-            </CardContent>
-          </Card>
+        <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">
+          <RequestSummaryPanel
+            app={app}
+            footnote={
+              pendingActionable.length > 0
+                ? `${pendingActionable.length} task${pendingActionable.length === 1 ? '' : 's'} waiting on you.`
+                : 'No tasks are waiting on your account for this request.'
+            }
+          />
+          <DrsPanel
+            title="Messages"
+            description="Visible to the student and other staff on this request."
+            contentClassName="p-0"
+          >
+            <ApplicationMessagesPanel
+              applicationId={applicationId}
+              viewerRole="staff"
+            />
+          </DrsPanel>
         </aside>
       </div>
       <ConfirmActionDialog

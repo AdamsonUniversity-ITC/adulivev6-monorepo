@@ -54,9 +54,7 @@ export const DepartmentsList = ({
       <Card className="border-border border">
         <CardHeader>
           <CardTitle className="text-base">Departments</CardTitle>
-          <CardDescription>
-            {departments.length} department(s)
-          </CardDescription>
+          <CardDescription>{departments.length} department(s)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoading ? (

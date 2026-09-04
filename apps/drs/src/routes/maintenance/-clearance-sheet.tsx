@@ -1,7 +1,4 @@
-import {
-  Card,
-  CardContent,
-} from '@repo/ui/components/card';
+import { Card, CardContent } from '@repo/ui/components/card';
 import { useQuery } from '@tanstack/react-query';
 import { JSX, useEffect, useState } from 'react';
 import { AddDepartmentDialog } from './-clearance/-add-department-dialog.tsx';

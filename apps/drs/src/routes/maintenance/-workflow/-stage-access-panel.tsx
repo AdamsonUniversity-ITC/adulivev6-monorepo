@@ -1,3 +1,4 @@
+import { DrsInlineLoading } from '@/components/drs-ui.tsx';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import {
@@ -10,7 +11,6 @@ import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { JSX, useState } from 'react';
-import type { WorkflowStage } from '../-lib/api/workflow/types.ts';
 import { ConfirmActionDialog } from '../-clearance/-confirm-action-dialog.tsx';
 import { detachStageUser } from '../-lib/api/access/detachStageUser.ts';
 import { fetchStageAccess } from '../-lib/api/access/fetchStageAccess.ts';
@@ -19,6 +19,7 @@ import type {
   StageAccessPayload,
   StageUserAccess,
 } from '../-lib/api/access/types.ts';
+import type { WorkflowStage } from '../-lib/api/workflow/types.ts';
 import { CreateRoleDialog } from './-create-role-dialog.tsx';
 import { StageAccessRolesTab } from './-stage-access-roles-tab.tsx';
 import { StageAccessUsersTab } from './-stage-access-users-tab.tsx';
@@ -100,7 +101,7 @@ export const StageAccessPanel = ({ stage }: Props): JSX.Element => {
       {expanded ? (
         <div className="mt-3">
           {accessQuery.isLoading ? (
-            <p className="text-muted-foreground text-xs">Loading access…</p>
+            <DrsInlineLoading size="xs" label="Loading access…" />
           ) : accessQuery.isError ? (
             <p className="text-destructive text-xs">Could not load access.</p>
           ) : (
@@ -156,8 +157,8 @@ export const StageAccessPanel = ({ stage }: Props): JSX.Element => {
                 {pendingDetach.employee?.name ||
                   `employee ${pendingDetach.emp_no}`}
               </span>{' '}
-              from being able to complete tasks in this stage (unless they
-              still hold an attached role).
+              from being able to complete tasks in this stage (unless they still
+              hold an attached role).
             </>
           ) : null
         }

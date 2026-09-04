@@ -52,12 +52,12 @@ export const BOARD_THEME_PRESETS = [
   {
     id: "harbor",
     label: "Harbor",
-    description: "Boats at the quay",
+    description: "Nautical dusk and soft harbor glow",
   },
   {
     id: "horizon",
     label: "Horizon",
-    description: "Distant dusk skyline",
+    description: "Dusk gradient skyline band",
   },
 ] as const;
 

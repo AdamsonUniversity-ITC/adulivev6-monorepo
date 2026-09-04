@@ -17,6 +17,7 @@ const ALLOWED_ATTR = [
   "src", "alt", "title", "width", "height",
   "colspan", "rowspan",
   "data-color", "data-text-align",
+  "data-type", "data-id", "data-label", "data-mention-id",
 ];
 
 export function sanitizeRichTextHtml(html: string): string {

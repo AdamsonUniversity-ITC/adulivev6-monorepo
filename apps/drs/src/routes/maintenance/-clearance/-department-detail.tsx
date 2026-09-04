@@ -55,7 +55,7 @@ export const DepartmentDetail = ({ department }: Props) => {
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
             {departmentName}
             {isCourseScoped ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <span className="border-status-warning/25 bg-status-warning-surface text-status-warning inline-flex items-center gap-1 rounded-sm border px-1.5 text-[11px] font-medium">
                 course scoped
               </span>
             ) : null}
@@ -69,7 +69,7 @@ export const DepartmentDetail = ({ department }: Props) => {
             <p className="text-muted-foreground text-xs font-medium">Created</p>
             <p className="text-sm">{formatCreatedAt(department.created_at)}</p>
           </div>
-          <div className="border-border bg-muted/30 flex gap-3 rounded-2xl border p-3">
+          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
               id={`clearance-${department.id}-course-program-scope`}
               checked={isCourseScoped}
@@ -148,7 +148,7 @@ export const DepartmentDetail = ({ department }: Props) => {
                         .join(' · ') || 'No contact info'}
                     </p>
                     {user.role ? (
-                      <span className="bg-primary/10 text-primary mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium">
+                      <span className="bg-muted text-muted-foreground mt-1 inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium">
                         {user.role}
                       </span>
                     ) : null}

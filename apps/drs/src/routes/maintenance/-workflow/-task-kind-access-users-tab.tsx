@@ -88,7 +88,7 @@ export const TaskKindAccessUsersTab = ({
                 <p className="text-muted-foreground p-2 text-xs">Searching…</p>
               ) : (searchQuery.data ?? []).length === 0 ? (
                 <p className="text-muted-foreground p-2 text-xs">
-                  No matches found.
+                  No employee matches that name or number.
                 </p>
               ) : (
                 (searchQuery.data ?? []).map((hit) => {

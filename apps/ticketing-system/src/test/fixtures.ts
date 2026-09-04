@@ -141,6 +141,7 @@ export const fixtureTicket: Ticket = {
     can_cancel: true,
     can_start: true,
     can_resolve: false,
+    can_internal: true,
   },
 };
 

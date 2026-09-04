@@ -38,6 +38,14 @@
     }
   }
 
+  .mention,
+  span[data-type='mention'] {
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, currentColor 14%, transparent);
+    padding: 0.05em 0.35em;
+    font-weight: 600;
+  }
+
   .rich-content {
     line-height: 1.6;
 

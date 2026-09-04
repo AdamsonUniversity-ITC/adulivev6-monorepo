@@ -1,4 +1,5 @@
 @import "@repo/tailwind-config";
+@import "./theme-backgrounds.css";
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 @source "./**/*.{ts,tsx}";
@@ -754,80 +755,40 @@
   }
 }
 
-/* Soft atmosphere for the app shell — one full-bleed artwork per theme */
-.aduts-shell {
-  position: relative;
-  isolation: isolate;
-  min-height: 100svh;
-  background-color: transparent;
-}
-
-/* Dedicated fixed layer so art is not trapped under opaque sidebar chrome */
-.aduts-shell::before {
+/* Soft atmosphere — theme background on html so it sits behind all app content */
+html[data-board-theme]::before {
   content: "";
   pointer-events: none;
   position: fixed;
   inset: 0;
-  z-index: 0;
-  background-color: transparent;
-  background-size: cover;
+  z-index: -2;
+  background-color: var(--aduts-theme-bg-color, transparent);
+  background-image:
+    var(--aduts-theme-bg-pattern, none),
+    var(--aduts-theme-bg, none);
+  background-size:
+    var(--aduts-theme-bg-pattern-size, cover),
+    var(--aduts-theme-bg-size, cover);
   background-position: center;
   background-repeat: no-repeat;
   opacity: 0;
 }
 
-.dark .aduts-shell[data-theme-preset]::before {
+html.dark[data-board-theme]::before {
   opacity: 1;
 }
 
-:root:not(.dark) .aduts-shell[data-theme-preset]::before {
-  opacity: 0.85;
+html:not(.dark)[data-board-theme]::before {
+  opacity: 0.92;
 }
 
-.aduts-shell[data-theme-preset="graphite"]::before {
-  background-image: url("/theme-art/graphite.webp");
-}
-.aduts-shell[data-theme-preset="aurora"]::before {
-  background-image: url("/theme-art/aurora.webp");
-}
-.aduts-shell[data-theme-preset="mist"]::before {
-  background-image: url("/theme-art/mist.webp");
-}
-.aduts-shell[data-theme-preset="ember"]::before {
-  background-image: url("/theme-art/ember.webp");
-}
-.aduts-shell[data-theme-preset="tide"]::before {
-  background-image: url("/theme-art/tide.webp");
-}
-.aduts-shell[data-theme-preset="lattice"]::before {
-  background-image: url("/theme-art/lattice.webp");
-}
-.aduts-shell[data-theme-preset="circuit"]::before {
-  background-image: url("/theme-art/circuit.webp");
-}
-.aduts-shell[data-theme-preset="origami"]::before {
-  background-image: url("/theme-art/origami.webp");
-}
-.aduts-shell[data-theme-preset="dune"]::before {
-  background-image: url("/theme-art/dune.webp");
-}
-.aduts-shell[data-theme-preset="prism"]::before {
-  background-image: url("/theme-art/prism.webp");
-}
-.aduts-shell[data-theme-preset="harbor"]::before {
-  background-image: url("/theme-art/harbor.webp");
-}
-.aduts-shell[data-theme-preset="horizon"]::before {
-  background-image: url("/theme-art/horizon.webp");
-}
-
-/* Light readability wash — keep art visible */
-.aduts-shell::after {
+/* Light/dark readability wash over theme art */
+html[data-board-theme]::after {
   content: "";
   pointer-events: none;
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   opacity: 0;
   background: linear-gradient(
     180deg,
@@ -837,7 +798,7 @@
   );
 }
 
-.dark .aduts-shell[data-theme-preset]::after {
+html.dark[data-board-theme]::after {
   opacity: 1;
   background: linear-gradient(
     180deg,
@@ -847,13 +808,18 @@
   );
 }
 
-:root:not(.dark) .aduts-shell[data-theme-preset]::after {
-  opacity: 1;
+html:not(.dark)[data-board-theme]::after {
+  opacity: 0.6;
+}
+
+.aduts-shell {
+  position: relative;
+  min-height: 100svh;
+  background-color: transparent;
 }
 
 .aduts-shell-content {
   position: relative;
-  z-index: 10;
   background: transparent;
 }
 
@@ -864,11 +830,11 @@
 }
 
 .aduts-shell [data-slot="sidebar-inset"] {
-  background-color: color-mix(in oklab, var(--background) 52%, transparent) !important;
+  background-color: color-mix(in oklab, var(--background) 38%, transparent) !important;
 }
 
 .dark .aduts-shell [data-slot="sidebar-inset"] {
-  background-color: color-mix(in oklab, var(--background) 45%, transparent) !important;
+  background-color: color-mix(in oklab, var(--background) 32%, transparent) !important;
 }
 
 .aduts-shell [data-sidebar="sidebar"] {
@@ -887,48 +853,17 @@
   }
 }
 
-/* Appearance picker swatches — same artworks */
+/* Appearance picker swatches — same abstract backgrounds as shell */
 .aduts-theme-swatch {
-  background-size: cover;
+  background-color: var(--aduts-theme-bg-color, oklch(0.96 0.01 230));
+  background-image:
+    var(--aduts-theme-bg-pattern, none),
+    var(--aduts-theme-bg, none);
+  background-size:
+    var(--aduts-theme-bg-pattern-size, cover),
+    var(--aduts-theme-bg-size, cover);
   background-position: center;
   background-repeat: no-repeat;
-}
-
-.aduts-theme-swatch--graphite {
-  background-image: url("/theme-art/graphite.webp");
-}
-.aduts-theme-swatch--aurora {
-  background-image: url("/theme-art/aurora.webp");
-}
-.aduts-theme-swatch--mist {
-  background-image: url("/theme-art/mist.webp");
-}
-.aduts-theme-swatch--ember {
-  background-image: url("/theme-art/ember.webp");
-}
-.aduts-theme-swatch--tide {
-  background-image: url("/theme-art/tide.webp");
-}
-.aduts-theme-swatch--lattice {
-  background-image: url("/theme-art/lattice.webp");
-}
-.aduts-theme-swatch--circuit {
-  background-image: url("/theme-art/circuit.webp");
-}
-.aduts-theme-swatch--origami {
-  background-image: url("/theme-art/origami.webp");
-}
-.aduts-theme-swatch--dune {
-  background-image: url("/theme-art/dune.webp");
-}
-.aduts-theme-swatch--prism {
-  background-image: url("/theme-art/prism.webp");
-}
-.aduts-theme-swatch--harbor {
-  background-image: url("/theme-art/harbor.webp");
-}
-.aduts-theme-swatch--horizon {
-  background-image: url("/theme-art/horizon.webp");
 }
 
 @keyframes aduts-fade-up {

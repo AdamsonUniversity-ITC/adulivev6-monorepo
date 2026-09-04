@@ -15,7 +15,9 @@ import {
 const ApplicationSheetBody = (): JSX.Element => {
   const ctx = useContext(DocumentManagementContext);
   if (!ctx) {
-    throw new Error('ApplicationSheet must be wrapped in DocumentMangementProvider.');
+    throw new Error(
+      'ApplicationSheet must be wrapped in DocumentMangementProvider.',
+    );
   }
 
   const { selectedGroup } = ctx;
@@ -27,7 +29,8 @@ const ApplicationSheetBody = (): JSX.Element => {
           Application catalog
         </h2>
         <p className="text-muted-foreground text-sm">
-          Manage the documents and packages students can request, grouped by category.
+          Manage the documents and packages students can request, grouped by
+          category.
         </p>
       </div>
 

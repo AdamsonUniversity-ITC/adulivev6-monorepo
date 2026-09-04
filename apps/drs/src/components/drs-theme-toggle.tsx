@@ -18,7 +18,7 @@ export function DrsThemeToggle() {
       type="button"
       variant="ghost"
       size="icon"
-      className="text-muted-foreground hover:text-foreground bg-background/85 supports-backdrop-filter:bg-background/70 fixed right-4 bottom-4 z-50 size-9 rounded-full border shadow-sm backdrop-blur print:hidden"
+      className="text-muted-foreground hover:text-foreground size-7 shrink-0 print:hidden"
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >

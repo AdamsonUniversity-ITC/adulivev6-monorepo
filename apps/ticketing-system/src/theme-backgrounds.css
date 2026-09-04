@@ -1,0 +1,349 @@
+/*
+ * Hybrid theme backgrounds: SVG pattern overlay + CSS gradient base per preset.
+ * Vars are scoped to html[data-board-theme], .aduts-shell[data-theme-preset] (live shell),
+ * and .aduts-theme-swatch--* (picker preview).
+ */
+
+/* --- graphite: diagonal brushed-metal sheen --- */
+:root[data-board-theme="graphite"],
+.aduts-shell[data-theme-preset="graphite"],
+.aduts-theme-swatch--graphite {
+  --aduts-theme-bg-pattern: url("/theme-patterns/graphite.svg");
+  --aduts-theme-bg-pattern-size: 48px 48px;
+
+  --aduts-theme-bg-color: oklch(0.955 0.006 230);
+  --aduts-theme-bg-size: 100% 100%;
+  --aduts-theme-bg:
+    repeating-linear-gradient(
+      115deg,
+      oklch(0.92 0.008 230 / 0.42) 0px,
+      oklch(0.98 0.004 230 / 0.12) 2px,
+      oklch(0.94 0.006 230 / 0.32) 4px
+    ),
+    linear-gradient(145deg, oklch(0.97 0.005 230) 0%, oklch(0.93 0.01 235) 55%, oklch(0.96 0.006 225) 100%);
+}
+
+.dark[data-board-theme="graphite"],
+.dark .aduts-shell[data-theme-preset="graphite"],
+.dark .aduts-theme-swatch--graphite {
+  --aduts-theme-bg-pattern: url("/theme-patterns/graphite-dark.svg");
+  --aduts-theme-bg-pattern-size: 48px 48px;
+
+  --aduts-theme-bg-color: oklch(0.11 0.014 230);
+  --aduts-theme-bg:
+    repeating-linear-gradient(
+      115deg,
+      oklch(0.2 0.015 230 / 0.48) 0px,
+      oklch(0.14 0.012 230 / 0.1) 2px,
+      oklch(0.18 0.014 230 / 0.38) 4px
+    ),
+    linear-gradient(160deg, oklch(0.13 0.016 235) 0%, oklch(0.1 0.012 225) 50%, oklch(0.12 0.015 230) 100%);
+}
+
+/* --- aurora: northern-lights glow --- */
+:root[data-board-theme="aurora"],
+.aduts-shell[data-theme-preset="aurora"],
+.aduts-theme-swatch--aurora {
+  --aduts-theme-bg-pattern: url("/theme-patterns/aurora.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.97 0.012 165);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    radial-gradient(ellipse 70% 45% at 18% 12%, oklch(0.82 0.14 155 / 0.52), transparent 70%),
+    radial-gradient(ellipse 55% 40% at 72% 8%, oklch(0.78 0.12 290 / 0.42), transparent 68%),
+    radial-gradient(ellipse 80% 50% at 50% 85%, oklch(0.88 0.08 180 / 0.32), transparent 72%),
+    linear-gradient(180deg, oklch(0.98 0.01 165) 0%, oklch(0.94 0.015 170) 100%);
+}
+
+.dark[data-board-theme="aurora"],
+.dark .aduts-shell[data-theme-preset="aurora"],
+.dark .aduts-theme-swatch--aurora {
+  --aduts-theme-bg-pattern: url("/theme-patterns/aurora-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.12 0.025 170);
+  --aduts-theme-bg:
+    radial-gradient(ellipse 75% 50% at 15% 10%, oklch(0.55 0.16 155 / 0.62), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 78% 15%, oklch(0.48 0.14 290 / 0.52), transparent 68%),
+    radial-gradient(ellipse 90% 55% at 45% 90%, oklch(0.35 0.1 180 / 0.42), transparent 75%),
+    linear-gradient(180deg, oklch(0.14 0.028 165) 0%, oklch(0.1 0.02 175) 100%);
+}
+
+/* --- mist: diffuse blue-lavender fog --- */
+:root[data-board-theme="mist"],
+.aduts-shell[data-theme-preset="mist"],
+.aduts-theme-swatch--mist {
+  --aduts-theme-bg-pattern: url("/theme-patterns/mist.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.97 0.01 255);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    radial-gradient(ellipse 90% 60% at 30% 25%, oklch(0.94 0.04 280 / 0.5), transparent 72%),
+    radial-gradient(ellipse 85% 55% at 75% 60%, oklch(0.92 0.035 255 / 0.52), transparent 70%),
+    linear-gradient(165deg, oklch(0.98 0.008 255) 0%, oklch(0.93 0.02 265) 100%);
+}
+
+.dark[data-board-theme="mist"],
+.dark .aduts-shell[data-theme-preset="mist"],
+.dark .aduts-theme-swatch--mist {
+  --aduts-theme-bg-pattern: url("/theme-patterns/mist-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.13 0.022 260);
+  --aduts-theme-bg:
+    radial-gradient(ellipse 95% 65% at 25% 20%, oklch(0.32 0.06 280 / 0.52), transparent 72%),
+    radial-gradient(ellipse 80% 50% at 80% 55%, oklch(0.28 0.05 255 / 0.48), transparent 68%),
+    linear-gradient(165deg, oklch(0.15 0.025 255) 0%, oklch(0.11 0.018 265) 100%);
+}
+
+/* --- ember: warm glow from lower corner --- */
+:root[data-board-theme="ember"],
+.aduts-shell[data-theme-preset="ember"],
+.aduts-theme-swatch--ember {
+  --aduts-theme-bg-pattern: url("/theme-patterns/ember.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.97 0.012 50);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    radial-gradient(ellipse 85% 65% at 85% 95%, oklch(0.78 0.16 45 / 0.62), transparent 68%),
+    radial-gradient(ellipse 60% 45% at 20% 80%, oklch(0.88 0.1 55 / 0.38), transparent 65%),
+    linear-gradient(20deg, oklch(0.96 0.015 45) 0%, oklch(0.98 0.008 50) 100%);
+}
+
+.dark[data-board-theme="ember"],
+.dark .aduts-shell[data-theme-preset="ember"],
+.dark .aduts-theme-swatch--ember {
+  --aduts-theme-bg-pattern: url("/theme-patterns/ember-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.13 0.025 40);
+  --aduts-theme-bg:
+    radial-gradient(ellipse 90% 70% at 88% 92%, oklch(0.58 0.18 40 / 0.6), transparent 65%),
+    radial-gradient(ellipse 55% 40% at 15% 85%, oklch(0.45 0.12 55 / 0.42), transparent 62%),
+    linear-gradient(25deg, oklch(0.16 0.03 35) 0%, oklch(0.11 0.02 45) 100%);
+}
+
+/* --- tide: horizontal ocean depth bands --- */
+:root[data-board-theme="tide"],
+.aduts-shell[data-theme-preset="tide"],
+.aduts-theme-swatch--tide {
+  --aduts-theme-bg-pattern: url("/theme-patterns/tide.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.96 0.014 210);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    linear-gradient(180deg, oklch(0.94 0.04 205 / 0.42) 0%, transparent 35%),
+    linear-gradient(0deg, oklch(0.82 0.08 210 / 0.48) 0%, transparent 45%),
+    linear-gradient(180deg, oklch(0.97 0.012 205) 0%, oklch(0.9 0.025 215) 55%, oklch(0.85 0.035 210) 100%);
+}
+
+.dark[data-board-theme="tide"],
+.dark .aduts-shell[data-theme-preset="tide"],
+.dark .aduts-theme-swatch--tide {
+  --aduts-theme-bg-pattern: url("/theme-patterns/tide-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.12 0.022 210);
+  --aduts-theme-bg:
+    linear-gradient(180deg, oklch(0.35 0.06 205 / 0.48) 0%, transparent 38%),
+    linear-gradient(0deg, oklch(0.28 0.08 215 / 0.5) 0%, transparent 50%),
+    linear-gradient(180deg, oklch(0.14 0.025 205) 0%, oklch(0.11 0.03 210) 50%, oklch(0.09 0.035 215) 100%);
+}
+
+/* --- lattice: orthogonal grid --- */
+:root[data-board-theme="lattice"],
+.aduts-shell[data-theme-preset="lattice"],
+.aduts-theme-swatch--lattice {
+  --aduts-theme-bg-pattern: url("/theme-patterns/lattice.svg");
+  --aduts-theme-bg-pattern-size: 32px 32px;
+
+  --aduts-theme-bg-color: oklch(0.97 0.008 240);
+  --aduts-theme-bg-size: 28px 28px, 28px 28px, 100% 100%;
+  --aduts-theme-bg:
+    repeating-linear-gradient(0deg, oklch(0.75 0.03 245 / 0.16) 0px, oklch(0.75 0.03 245 / 0.16) 1px, transparent 1px, transparent 28px),
+    repeating-linear-gradient(90deg, oklch(0.75 0.03 245 / 0.16) 0px, oklch(0.75 0.03 245 / 0.16) 1px, transparent 1px, transparent 28px),
+    linear-gradient(160deg, oklch(0.98 0.006 240) 0%, oklch(0.94 0.012 245) 100%);
+}
+
+.dark[data-board-theme="lattice"],
+.dark .aduts-shell[data-theme-preset="lattice"],
+.dark .aduts-theme-swatch--lattice {
+  --aduts-theme-bg-pattern: url("/theme-patterns/lattice-dark.svg");
+  --aduts-theme-bg-pattern-size: 32px 32px;
+
+  --aduts-theme-bg-color: oklch(0.13 0.02 245);
+  --aduts-theme-bg:
+    repeating-linear-gradient(0deg, oklch(0.55 0.05 245 / 0.2) 0px, oklch(0.55 0.05 245 / 0.2) 1px, transparent 1px, transparent 28px),
+    repeating-linear-gradient(90deg, oklch(0.55 0.05 245 / 0.2) 0px, oklch(0.55 0.05 245 / 0.2) 1px, transparent 1px, transparent 28px),
+    linear-gradient(160deg, oklch(0.15 0.022 245) 0%, oklch(0.11 0.018 240) 100%);
+}
+
+/* --- circuit: PCB dots and traces --- */
+:root[data-board-theme="circuit"],
+.aduts-shell[data-theme-preset="circuit"],
+.aduts-theme-swatch--circuit {
+  --aduts-theme-bg-pattern: url("/theme-patterns/circuit.svg");
+  --aduts-theme-bg-pattern-size: 24px 24px;
+
+  --aduts-theme-bg-color: oklch(0.97 0.01 150);
+  --aduts-theme-bg-size: 24px 24px, 24px 24px, 100% 100%;
+  --aduts-theme-bg:
+    radial-gradient(circle at center, oklch(0.65 0.1 150 / 0.42) 1px, transparent 1.5px),
+    repeating-linear-gradient(90deg, oklch(0.7 0.08 150 / 0.12) 0px, oklch(0.7 0.08 150 / 0.12) 1px, transparent 1px, transparent 24px),
+    linear-gradient(145deg, oklch(0.98 0.008 150) 0%, oklch(0.93 0.015 155) 100%);
+}
+
+.dark[data-board-theme="circuit"],
+.dark .aduts-shell[data-theme-preset="circuit"],
+.dark .aduts-theme-swatch--circuit {
+  --aduts-theme-bg-pattern: url("/theme-patterns/circuit-dark.svg");
+  --aduts-theme-bg-pattern-size: 24px 24px;
+
+  --aduts-theme-bg-color: oklch(0.12 0.025 150);
+  --aduts-theme-bg:
+    radial-gradient(circle at center, oklch(0.72 0.14 150 / 0.52) 1px, transparent 1.5px),
+    repeating-linear-gradient(90deg, oklch(0.55 0.1 150 / 0.16) 0px, oklch(0.55 0.1 150 / 0.16) 1px, transparent 1px, transparent 24px),
+    linear-gradient(145deg, oklch(0.14 0.028 150) 0%, oklch(0.1 0.022 155) 100%);
+}
+
+/* --- origami: angular facet planes --- */
+:root[data-board-theme="origami"],
+.aduts-shell[data-theme-preset="origami"],
+.aduts-theme-swatch--origami {
+  --aduts-theme-bg-pattern: url("/theme-patterns/origami.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.97 0.01 30);
+  --aduts-theme-bg-size: 100% 100%;
+  --aduts-theme-bg:
+    linear-gradient(135deg, oklch(0.95 0.015 25 / 0.7) 0%, transparent 42%),
+    linear-gradient(225deg, oklch(0.92 0.02 35 / 0.62) 0%, transparent 45%),
+    linear-gradient(315deg, oklch(0.96 0.012 30 / 0.65) 0%, transparent 40%),
+    linear-gradient(45deg, oklch(0.98 0.008 28) 0%, oklch(0.94 0.018 32) 100%);
+}
+
+.dark[data-board-theme="origami"],
+.dark .aduts-shell[data-theme-preset="origami"],
+.dark .aduts-theme-swatch--origami {
+  --aduts-theme-bg-pattern: url("/theme-patterns/origami-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.13 0.02 30);
+  --aduts-theme-bg:
+    linear-gradient(135deg, oklch(0.28 0.04 25 / 0.65) 0%, transparent 42%),
+    linear-gradient(225deg, oklch(0.24 0.035 35 / 0.5) 0%, transparent 45%),
+    linear-gradient(315deg, oklch(0.22 0.03 30 / 0.62) 0%, transparent 40%),
+    linear-gradient(45deg, oklch(0.15 0.022 28) 0%, oklch(0.11 0.018 32) 100%);
+}
+
+/* --- dune: warm sand bands --- */
+:root[data-board-theme="dune"],
+.aduts-shell[data-theme-preset="dune"],
+.aduts-theme-swatch--dune {
+  --aduts-theme-bg-pattern: url("/theme-patterns/dune.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.96 0.015 75);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    radial-gradient(ellipse 120% 40% at 50% 75%, oklch(0.88 0.06 70 / 0.52), transparent 70%),
+    radial-gradient(ellipse 100% 35% at 30% 45%, oklch(0.92 0.04 75 / 0.42), transparent 68%),
+    linear-gradient(175deg, oklch(0.98 0.012 78) 0%, oklch(0.9 0.025 72) 55%, oklch(0.86 0.035 68) 100%);
+}
+
+.dark[data-board-theme="dune"],
+.dark .aduts-shell[data-theme-preset="dune"],
+.dark .aduts-theme-swatch--dune {
+  --aduts-theme-bg-pattern: url("/theme-patterns/dune-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.13 0.025 70);
+  --aduts-theme-bg:
+    radial-gradient(ellipse 120% 42% at 50% 78%, oklch(0.45 0.08 70 / 0.5), transparent 72%),
+    radial-gradient(ellipse 95% 38% at 25% 48%, oklch(0.38 0.06 75 / 0.48), transparent 68%),
+    linear-gradient(175deg, oklch(0.16 0.028 75) 0%, oklch(0.12 0.03 70) 55%, oklch(0.1 0.032 65) 100%);
+}
+
+/* --- prism: muted spectral arc --- */
+:root[data-board-theme="prism"],
+.aduts-shell[data-theme-preset="prism"],
+.aduts-theme-swatch--prism {
+  --aduts-theme-bg-pattern: url("/theme-patterns/prism.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.97 0.01 310);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    conic-gradient(from 210deg at 70% 35%, oklch(0.82 0.1 25 / 0.32), oklch(0.8 0.1 310 / 0.38), oklch(0.82 0.1 155 / 0.32), oklch(0.82 0.1 25 / 0.32)),
+    linear-gradient(160deg, oklch(0.98 0.008 310) 0%, oklch(0.94 0.015 305) 100%);
+}
+
+.dark[data-board-theme="prism"],
+.dark .aduts-shell[data-theme-preset="prism"],
+.dark .aduts-theme-swatch--prism {
+  --aduts-theme-bg-pattern: url("/theme-patterns/prism-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.13 0.025 310);
+  --aduts-theme-bg:
+    conic-gradient(from 210deg at 68% 32%, oklch(0.55 0.14 25 / 0.42), oklch(0.5 0.14 310 / 0.48), oklch(0.52 0.13 155 / 0.42), oklch(0.55 0.14 25 / 0.42)),
+    linear-gradient(160deg, oklch(0.15 0.028 310) 0%, oklch(0.11 0.022 305) 100%);
+}
+
+/* --- harbor: nautical dusk horizon --- */
+:root[data-board-theme="harbor"],
+.aduts-shell[data-theme-preset="harbor"],
+.aduts-theme-swatch--harbor {
+  --aduts-theme-bg-pattern: url("/theme-patterns/harbor.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.95 0.012 200);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    linear-gradient(180deg, oklch(0.88 0.04 205 / 0.42) 0%, transparent 28%),
+    radial-gradient(ellipse 70% 35% at 15% 85%, oklch(0.78 0.06 195 / 0.42), transparent 70%),
+    linear-gradient(180deg, oklch(0.96 0.01 200) 0%, oklch(0.88 0.025 210) 65%, oklch(0.82 0.035 205) 100%);
+}
+
+.dark[data-board-theme="harbor"],
+.dark .aduts-shell[data-theme-preset="harbor"],
+.dark .aduts-theme-swatch--harbor {
+  --aduts-theme-bg-pattern: url("/theme-patterns/harbor-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.11 0.02 205);
+  --aduts-theme-bg:
+    linear-gradient(180deg, oklch(0.32 0.06 205 / 0.52) 0%, transparent 30%),
+    radial-gradient(ellipse 75% 38% at 12% 88%, oklch(0.35 0.08 195 / 0.48), transparent 72%),
+    linear-gradient(180deg, oklch(0.14 0.025 200) 0%, oklch(0.1 0.028 210) 65%, oklch(0.08 0.032 205) 100%);
+}
+
+/* --- horizon: dusk skyline band --- */
+:root[data-board-theme="horizon"],
+.aduts-shell[data-theme-preset="horizon"],
+.aduts-theme-swatch--horizon {
+  --aduts-theme-bg-pattern: url("/theme-patterns/horizon.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.96 0.012 250);
+  --aduts-theme-bg-size: 100% 100%, 100% 100%;
+  --aduts-theme-bg:
+    linear-gradient(180deg, oklch(0.82 0.08 280 / 0.48) 0%, oklch(0.9 0.05 255 / 0.32) 22%, transparent 38%),
+    linear-gradient(180deg, oklch(0.97 0.01 250) 0%, oklch(0.92 0.018 255) 100%);
+}
+
+.dark[data-board-theme="horizon"],
+.dark .aduts-shell[data-theme-preset="horizon"],
+.dark .aduts-theme-swatch--horizon {
+  --aduts-theme-bg-pattern: url("/theme-patterns/horizon-dark.svg");
+  --aduts-theme-bg-pattern-size: cover;
+
+  --aduts-theme-bg-color: oklch(0.12 0.02 255);
+  --aduts-theme-bg:
+    linear-gradient(180deg, oklch(0.45 0.12 280 / 0.5) 0%, oklch(0.32 0.08 255 / 0.42) 20%, transparent 36%),
+    linear-gradient(180deg, oklch(0.14 0.022 250) 0%, oklch(0.1 0.018 255) 100%);
+}

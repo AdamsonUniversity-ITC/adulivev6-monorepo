@@ -4,11 +4,11 @@ import {
   DrsLoadingState,
   DrsPageHeader,
   DrsPageShell,
+  DrsPanel,
   DrsSearchField,
-  DrsSectionCard,
+  DrsSection,
   DrsStatusBadge,
 } from '@/components/drs-ui.tsx';
-import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import {
@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@repo/ui/components/table';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, CircleAlert, Search, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { type JSX, useMemo, useState } from 'react';
 import { fetchAccessDebugExplain } from './-lib/api/access-debug/fetchAccessDebugExplain.ts';
 import type { AccessDebugCheck } from './-lib/api/access-debug/types.ts';
@@ -87,7 +87,7 @@ function CheckIcon({ passed }: { passed: boolean }) {
   if (passed) {
     return (
       <CheckCircle2
-        className="size-4 shrink-0 text-emerald-600"
+        className="text-status-success size-4 shrink-0"
         aria-hidden="true"
       />
     );
@@ -137,19 +137,17 @@ export function AccessDebugPage(): JSX.Element {
   };
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
+    <DrsPageShell maxWidth="lg" contentClassName="space-y-5">
       <DrsPageHeader
-        eyebrow="DRS administration"
         title="Access debugger"
-        description="Explain why a staff member cannot see an application in their queue or detail view."
+        description="Explain why a staff member cannot see a request in their queue or detail view."
         backTo="/maintenance/"
-        backLabel="Back to maintenance"
+        backLabel="Configuration"
       />
 
-      <DrsSectionCard
-        title="Lookup"
-        description="Select a staff employee and optionally provide an application reference."
-        icon={Search}
+      <DrsPanel
+        title="Who, and which request"
+        description="Pick the staff member. Add a request reference to diagnose one specific request."
       >
         <div className="space-y-5">
           <div className="space-y-3">
@@ -157,7 +155,7 @@ export function AccessDebugPage(): JSX.Element {
               Staff employee
             </label>
             {selectedEmployee ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border p-4">
+              <div className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">
                     {selectedEmployee.name || selectedEmployee.email}
@@ -173,13 +171,12 @@ export function AccessDebugPage(): JSX.Element {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="rounded-full"
                   onClick={() => {
                     setSelectedEmployee(null);
                     setEmployeeSearch('');
                   }}
                 >
-                  Change employee
+                  Change
                 </Button>
               </div>
             ) : (
@@ -191,36 +188,38 @@ export function AccessDebugPage(): JSX.Element {
                   placeholder="Search by name, email, or employee number"
                 />
                 {userSearchQuery.isLoading ? (
-                  <DrsLoadingState label="Searching employees..." />
+                  <DrsLoadingState label="Searching employees…" />
                 ) : null}
                 {debouncedEmployeeSearch.length >= 2 &&
                 !userSearchQuery.isLoading ? (
-                  <div className="divide-y rounded-2xl border">
+                  <div className="divide-border/70 divide-y rounded-md border">
                     {(userSearchQuery.data?.data ?? []).length === 0 ? (
-                      <div className="text-muted-foreground p-4 text-sm">
-                        No employees matched that search.
+                      <div className="text-muted-foreground px-3 py-4 text-sm">
+                        No employee matches that name, email, or number.
                       </div>
                     ) : (
                       (userSearchQuery.data?.data ?? []).map((user) => (
                         <button
                           key={user.emp_no}
                           type="button"
-                          className="hover:bg-muted/50 flex w-full items-start justify-between gap-3 p-4 text-left transition"
+                          className="hover:bg-muted/40 focus-visible:ring-ring flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
                           onClick={() => {
                             setSelectedEmployee(user);
                             setEmployeeSearch('');
                           }}
                         >
                           <div>
-                            <div className="font-medium">
+                            <div className="text-sm font-medium">
                               {user.name || user.email || user.emp_no}
                             </div>
-                            <div className="text-muted-foreground text-sm">
+                            <div className="text-muted-foreground text-xs">
                               {user.emp_no}
                               {user.email ? ` · ${user.email}` : ''}
                             </div>
                           </div>
-                          <Badge variant="secondary">Select</Badge>
+                          <span className="text-muted-foreground shrink-0 text-xs">
+                            Select
+                          </span>
                         </button>
                       ))
                     )}
@@ -232,60 +231,58 @@ export function AccessDebugPage(): JSX.Element {
 
           <div className="space-y-3">
             <label className="text-sm font-medium" htmlFor="application-ref">
-              Application reference (optional)
+              Request reference (optional)
             </label>
             <Input
               id="application-ref"
               value={applicationRef}
               onChange={(event) => setApplicationRef(event.target.value)}
-              placeholder="DRS number, application id, or student name"
-              className="rounded-2xl"
+              placeholder="DRS number, request id, or student name"
+              className="max-w-md"
             />
             <p className="text-muted-foreground text-sm">
-              Leave blank to explain overall queue access. Provide a reference
-              to diagnose a specific application.
+              Leave this blank to explain overall queue access.
             </p>
           </div>
 
           <Button
             type="button"
-            className="rounded-full"
             disabled={!selectedEmployee}
             onClick={handleRunExplain}
           >
             Run diagnosis
           </Button>
         </div>
-      </DrsSectionCard>
+      </DrsPanel>
 
       {!selectedEmployee ? (
         <DrsEmptyState
-          title="Select an employee"
-          description="Search for a staff member to inspect their DRS access profile."
+          title="Select an employee to start"
+          description="Search for a staff member above to inspect what they can and cannot see in DRS."
         />
       ) : explainQuery.isLoading ? (
-        <DrsLoadingState label="Running access diagnosis..." />
+        <DrsLoadingState label="Running access diagnosis…" />
       ) : explainQuery.isError ? (
         <DrsErrorState
-          title="Diagnosis failed"
-          description="Could not load the access explanation. Try again."
+          title="The diagnosis could not be run"
+          description="The access explanation failed to load. Try again in a moment."
           action={
             <Button
               type="button"
               variant="outline"
-              className="rounded-full"
+              size="sm"
               onClick={() => explainQuery.refetch()}
             >
-              Retry
+              Try again
             </Button>
           }
         />
       ) : explainQuery.data ? (
         <div className="space-y-6">
-          <DrsSectionCard
-            title="Summary"
+          <DrsSection
+            title="Outcome"
             description={explainQuery.data.summary}
-            icon={CircleAlert}
+            divided
           >
             <div className="flex flex-wrap gap-2">
               {explainQuery.data.can_see_in_queue !== null ? (
@@ -319,13 +316,14 @@ export function AccessDebugPage(): JSX.Element {
                 </DrsStatusBadge>
               ) : null}
             </div>
-          </DrsSectionCard>
+          </DrsSection>
 
           {groupedChecks.map((section) => (
-            <DrsSectionCard
+            <DrsSection
               key={section.title}
               title={section.title}
               description={`${section.checks.filter((check) => check.passed).length} of ${section.checks.length} checks passed`}
+              divided
             >
               <Table>
                 <TableHeader>
@@ -342,28 +340,30 @@ export function AccessDebugPage(): JSX.Element {
                         <CheckIcon passed={check.passed} />
                       </TableCell>
                       <TableCell className="align-top whitespace-normal">
-                        <div className="font-medium">{check.code}</div>
+                        <div className="font-mono text-xs font-medium">
+                          {check.code}
+                        </div>
                         <div className="text-muted-foreground mt-1 text-sm">
                           {check.message}
                         </div>
                         {Object.keys(check.details).length > 0 ? (
-                          <pre className="bg-muted/60 mt-3 max-h-48 overflow-auto rounded-xl p-3 text-xs">
+                          <pre className="bg-muted/60 mt-2 max-h-48 overflow-auto rounded-md p-3 font-mono text-xs">
                             {JSON.stringify(check.details, null, 2)}
                           </pre>
                         ) : null}
                       </TableCell>
                       <TableCell className="align-top">
-                        <Badge
-                          variant={check.passed ? 'secondary' : 'destructive'}
+                        <DrsStatusBadge
+                          tone={check.passed ? 'success' : 'danger'}
                         >
                           {check.passed ? 'Passed' : 'Failed'}
-                        </Badge>
+                        </DrsStatusBadge>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </DrsSectionCard>
+            </DrsSection>
           ))}
         </div>
       ) : null}

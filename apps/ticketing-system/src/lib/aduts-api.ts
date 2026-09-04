@@ -100,6 +100,10 @@ export function extractMentionIdsFromBody(
     ids.add(Number(match[1]));
   }
 
+  for (const match of body.matchAll(/data-(?:mention-)?id=["']?(\d+)["']?/gi)) {
+    ids.add(Number(match[1]));
+  }
+
   const sorted = [...candidates]
     .map((c) => ({ user_id: c.user_id, name: c.name.trim() }))
     .filter((c) => c.name)
@@ -161,7 +165,9 @@ export type Ticket = {
     can_cancel?: boolean;
     can_start?: boolean;
     can_resolve?: boolean;
+    can_internal?: boolean;
   };
+  mentionable_staff?: Array<{ user_id: number; name: string | null }>;
 };
 
 export type TicketListResponse = {
@@ -338,16 +344,29 @@ export async function sendTicketMessage(
   tempUploadIds: Array<string | number> = [],
   mentionIds: number[] = [],
 ) {
+  const normalizedBody = normalizeTicketMessageBody(body);
   const { data } = await hrmdoSvc.post(
     `v1/aduts/tickets/${ticketNumber}/messages`,
     {
-      body,
+      body: normalizedBody,
       type,
       temp_upload_ids: tempUploadIds.map(Number),
       ...(type === "internal" ? { mention_ids: mentionIds } : {}),
     },
   );
   return data.data;
+}
+
+/** Strip empty TipTap HTML so attachment-only sends use an empty body. */
+export function normalizeTicketMessageBody(html: string): string {
+  const stripped = html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+  if (stripped.length > 0 || /<img\b/i.test(html)) {
+    return html;
+  }
+  return "";
 }
 
 export function ticketAttachmentUrl(
@@ -367,7 +386,7 @@ export async function downloadTicketAttachment(
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 /** Authenticated blob URL for in-app previews. Caller must revoke when done. */
@@ -377,7 +396,7 @@ export async function fetchTicketAttachmentObjectUrl(
 ) {
   const { data } = await hrmdoSvc.get(
     ticketAttachmentUrl(ticketNumber, attachmentId),
-    { responseType: "blob" },
+    { params: { inline: 1 }, responseType: "blob" },
   );
   return URL.createObjectURL(data);
 }

@@ -7,7 +7,23 @@ const isVitest = Boolean(process.env.VITEST);
 
 export default defineConfig({
   resolve: {
-    dedupe: ["react", "react-dom"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "prosemirror-model",
+      "prosemirror-state",
+      "prosemirror-view",
+      "prosemirror-transform",
+      "@tiptap/pm",
+    ],
+  },
+  optimizeDeps: {
+    include: [
+      "prosemirror-model",
+      "@tiptap/pm",
+      "@tiptap/extension-mention",
+      "@tiptap/suggestion",
+    ],
   },
   plugins: [
     tanstackRouter({

@@ -39,15 +39,6 @@ import {
   TabsTrigger,
 } from '@repo/ui/components/tabs';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Ban,
-  CheckCircle2,
-  CircleDollarSign,
-  Clock3,
-  FileStack,
-  PackageCheck,
-  Trash2,
-} from 'lucide-react';
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { ReportAppliedFilters } from './-report-applied-filters.tsx';
 import { ReportExportActions } from './-report-export-actions.tsx';
@@ -77,7 +68,7 @@ const ReportPieChart = lazy(() =>
 function ReportChartSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
-      fallback={<DrsLoadingState label="Loading chart..." className="py-8" />}
+      fallback={<DrsLoadingState label="Loading chart…" className="py-8" />}
     >
       {children}
     </Suspense>
@@ -258,13 +249,12 @@ export function ReportsPage() {
     describeAppliedFilters(appliedFilters).length > 0;
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
       <DrsPageHeader
-        eyebrow="DRS administration"
-        title="Statistical reports"
-        description="Review application volume, workflow performance, revenue, and operational bottlenecks. Export any report to Excel or PDF."
+        title="Reports"
+        description="Application volume, workflow performance, revenue, and bottlenecks. Set the filters, then pick a report. Any report can be exported to Excel or PDF."
         backTo="/maintenance/"
-        backLabel="Back to maintenance"
+        backLabel="Configuration"
         actions={
           <ReportExportActions
             reportType={activeTab}
@@ -354,7 +344,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={summaryQuery.isLoading}
               isError={summaryQuery.isError}
-              loadingLabel="Loading volume summary..."
+              loadingLabel="Loading volume summary…"
               onRetry={() => void summaryQuery.refetch()}
             >
               <ReportKpiCards
@@ -363,32 +353,22 @@ export function ReportsPage() {
                   {
                     label: 'Total',
                     value: formatReportCount(summaryQuery.data?.total ?? 0),
-                    icon: FileStack,
-                    tone: 'blue',
                   },
                   {
                     label: 'Active',
                     value: formatReportCount(summaryQuery.data?.active ?? 0),
-                    icon: Clock3,
-                    tone: 'amber',
                   },
                   {
                     label: 'Released',
                     value: formatReportCount(summaryQuery.data?.released ?? 0),
-                    icon: PackageCheck,
-                    tone: 'emerald',
                   },
                   {
                     label: 'Cancelled',
                     value: formatReportCount(summaryQuery.data?.cancelled ?? 0),
-                    icon: Ban,
-                    tone: 'slate',
                   },
                   {
                     label: 'Disposed',
                     value: formatReportCount(summaryQuery.data?.disposed ?? 0),
-                    icon: Trash2,
-                    tone: 'slate',
                   },
                 ]}
               />
@@ -399,7 +379,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={statusQuery.isLoading}
               isError={statusQuery.isError}
-              loadingLabel="Loading status breakdown..."
+              loadingLabel="Loading status breakdown…"
               onRetry={() => void statusQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -426,7 +406,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={documentQuery.isLoading}
               isError={documentQuery.isError}
-              loadingLabel="Loading document demand..."
+              loadingLabel="Loading document demand…"
               onRetry={() => void documentQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -456,7 +436,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={revenueQuery.isLoading}
               isError={revenueQuery.isError}
-              loadingLabel="Loading revenue report..."
+              loadingLabel="Loading revenue report…"
               onRetry={() => void revenueQuery.refetch()}
             >
               <ReportKpiCards
@@ -467,23 +447,18 @@ export function ReportsPage() {
                     value: formatReportCurrency(
                       revenueQuery.data?.grand_total ?? 0,
                     ),
-                    icon: CircleDollarSign,
-                    tone: 'blue',
                   },
                   {
                     label: 'Paid',
                     value: formatReportCurrency(
                       revenueQuery.data?.paid_total ?? 0,
                     ),
-                    icon: CheckCircle2,
-                    tone: 'emerald',
                   },
                   {
                     label: 'Unpaid',
                     value: formatReportCurrency(
                       revenueQuery.data?.unpaid_total ?? 0,
                     ),
-                    tone: 'amber',
                   },
                 ]}
               />
@@ -503,7 +478,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={releaseModeQuery.isLoading}
               isError={releaseModeQuery.isError}
-              loadingLabel="Loading release mode distribution..."
+              loadingLabel="Loading release mode distribution…"
               onRetry={() => void releaseModeQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -530,7 +505,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={turnaroundQuery.isLoading}
               isError={turnaroundQuery.isError}
-              loadingLabel="Loading turnaround metrics..."
+              loadingLabel="Loading turnaround metrics…"
               onRetry={() => void turnaroundQuery.refetch()}
             >
               <ReportKpiCards
@@ -541,22 +516,18 @@ export function ReportsPage() {
                     value: formatReportCount(
                       turnaroundQuery.data?.sample_size ?? 0,
                     ),
-                    tone: 'blue',
                   },
                   {
                     label: 'Average days',
                     value: formatReportDays(turnaroundQuery.data?.average_days),
-                    tone: 'amber',
                   },
                   {
                     label: 'Median days',
                     value: formatReportDays(turnaroundQuery.data?.median_days),
-                    tone: 'emerald',
                   },
                   {
                     label: 'P90 days',
                     value: formatReportDays(turnaroundQuery.data?.p90_days),
-                    tone: 'slate',
                   },
                 ]}
               />
@@ -567,7 +538,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={tatByStatusQuery.isLoading}
               isError={tatByStatusQuery.isError}
-              loadingLabel="Loading TAT by status..."
+              loadingLabel="Loading TAT by status…"
               onRetry={() => void tatByStatusQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -595,7 +566,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={paymentQuery.isLoading}
               isError={paymentQuery.isError}
-              loadingLabel="Loading payment status..."
+              loadingLabel="Loading payment status…"
               onRetry={() => void paymentQuery.refetch()}
             >
               <ReportKpiCards
@@ -604,25 +575,20 @@ export function ReportsPage() {
                   {
                     label: 'Total',
                     value: formatReportCount(paymentQuery.data?.total ?? 0),
-                    tone: 'blue',
                   },
                   {
                     label: 'Paid',
                     value: formatReportCount(paymentQuery.data?.paid ?? 0),
-                    icon: CheckCircle2,
-                    tone: 'emerald',
                   },
                   {
                     label: 'Unpaid',
                     value: formatReportCount(paymentQuery.data?.unpaid ?? 0),
-                    tone: 'amber',
                   },
                   {
                     label: 'Conversion %',
                     value: formatReportPercent(
                       paymentQuery.data?.conversion_rate ?? 0,
                     ),
-                    tone: 'slate',
                   },
                 ]}
               />
@@ -642,7 +608,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={clearanceQuery.isLoading}
               isError={clearanceQuery.isError}
-              loadingLabel="Loading clearance bottlenecks..."
+              loadingLabel="Loading clearance bottlenecks…"
               onRetry={() => void clearanceQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -669,7 +635,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={courseQuery.isLoading}
               isError={courseQuery.isError}
-              loadingLabel="Loading course breakdown..."
+              loadingLabel="Loading course breakdown…"
               onRetry={() => void courseQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -698,7 +664,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={trendsQuery.isLoading}
               isError={trendsQuery.isError}
-              loadingLabel="Loading trends..."
+              loadingLabel="Loading trends…"
               onRetry={() => void trendsQuery.refetch()}
             >
               <ReportChartSuspense>
@@ -726,7 +692,7 @@ export function ReportsPage() {
             <ReportTabPanel
               isLoading={foreignerQuery.isLoading}
               isError={foreignerQuery.isError}
-              loadingLabel="Loading foreigner split..."
+              loadingLabel="Loading foreigner split…"
               onRetry={() => void foreignerQuery.refetch()}
             >
               <ReportChartSuspense>

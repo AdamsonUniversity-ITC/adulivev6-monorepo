@@ -1,9 +1,12 @@
 import {
-  DrsMetricsStrip,
+  DrsEmptyState,
+  DrsErrorState,
+  DrsLoadingState,
   DrsPageHeader,
   DrsPageShell,
-  DrsSectionCard,
+  DrsSearchField,
   DrsStatusBadge,
+  formatStatusLabel,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
 import { getDrSubdomain } from '@/lib/drsPermissions.ts';
@@ -20,7 +23,7 @@ import { DataTableColumnHeader } from '@repo/ui/custom/datatable/datatable-colum
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
-import { ClipboardList } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
 import { fetchEmployeeApplications } from './-lib/api/fetchEmployeeApplications.ts';
@@ -70,12 +73,6 @@ function writeStoredQueueStatus(status: string): void {
   }
 }
 
-const formatStatus = (raw: string) =>
-  raw
-    .trim()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-
 const columns: ColumnDef<DRSApplicationRow>[] = [
   {
     accessorKey: 'drs_no',
@@ -106,7 +103,7 @@ const columns: ColumnDef<DRSApplicationRow>[] = [
         <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
           <span className="max-w-56 truncate">{row.original.email}</span>
           {row.original.is_foreigner_student ? (
-            <DrsStatusBadge tone="purple" className="px-2 py-0.5 text-[10px]">
+            <DrsStatusBadge tone="neutral" className="px-1 text-[10px]">
               Foreigner
             </DrsStatusBadge>
           ) : null}
@@ -136,7 +133,7 @@ const columns: ColumnDef<DRSApplicationRow>[] = [
       const raw = String(getValue() ?? '');
       return (
         <DrsStatusBadge tone={toneForStatus(raw)}>
-          {formatStatus(raw)}
+          {formatStatusLabel(raw)}
         </DrsStatusBadge>
       );
     },
@@ -200,35 +197,100 @@ function StaffQueuePage() {
   const lastPage = meta?.last_page ?? 1;
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
       <DrsPageHeader
-        backTo="/"
-        backLabel="Home"
-        eyebrow="Staff workspace"
         title="Workflow queue"
-        description="Applications on — or previously through — your assigned stages."
+        description="Requests currently on — or previously through — your assigned stages. Select one to complete its tasks."
       />
 
-      <DrsMetricsStrip
-        aria-label="Queue summary"
-        items={[
-          { label: 'Total', value: total },
-          {
-            label: 'Page',
-            value: `${meta?.current_page ?? 1}/${lastPage}`,
-          },
-          {
-            label: 'Sync',
-            value: query.isFetching ? 'Syncing' : 'Current',
-          },
-        ]}
-      />
+      <div className="space-y-3 md:hidden">
+        <DrsSearchField
+          label="Search the queue"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search name, student no., or reference…"
+        />
+        <div>
+          <Label htmlFor="queue-status-mobile" className="sr-only">
+            Stage
+          </Label>
+          <Select value={status || 'all'} onValueChange={handleStatusChange}>
+            <SelectTrigger id="queue-status-mobile" className="w-full">
+              <SelectValue placeholder="All stages" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All stages</SelectItem>
+              {stageSlugs.map((slug) => (
+                <SelectItem key={slug} value={slug}>
+                  {formatStatusLabel(slug)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <DrsSectionCard
-        title="Assigned applications"
-        description="Select a request to complete stage tasks, remarks, payment, or dispatch."
-        icon={ClipboardList}
-      >
+        {query.isLoading && rows.length === 0 ? (
+          <DrsLoadingState label="Loading your queue…" />
+        ) : query.isError ? (
+          <DrsErrorState description="The queue could not be loaded. Check your connection and try again." />
+        ) : rows.length === 0 ? (
+          <DrsEmptyState
+            title="Nothing waiting on you"
+            description={
+              status
+                ? 'No requests are at this stage. Clear the stage filter to see the rest of your queue.'
+                : 'Requests appear here once they reach a stage you are assigned to.'
+            }
+          />
+        ) : (
+          <ul className="divide-border/70 divide-y border-y">
+            {rows.map((row) => (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  className="hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-3 py-3 text-left focus-visible:ring-2 focus-visible:outline-none"
+                  onClick={() =>
+                    void navigate({
+                      to: '/staff/applications/$applicationId',
+                      params: { applicationId: row.id },
+                    })
+                  }
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold tabular-nums">
+                        #{displayApplicationRef(row)}
+                      </span>
+                      <DrsStatusBadge tone={toneForStatus(row.status)}>
+                        {row.current_stage?.name ??
+                          formatStatusLabel(row.status)}
+                      </DrsStatusBadge>
+                    </div>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {row.student_name?.trim() || row.student_no || '—'}
+                      {row.student_no && row.student_name?.trim()
+                        ? ` · ${row.student_no}`
+                        : ''}
+                    </p>
+                  </div>
+                  <ChevronRight
+                    className="text-muted-foreground size-4 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="sr-only">Open request</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {total} request{total === 1 ? '' : 's'} · page{' '}
+          {meta?.current_page ?? 1} of {lastPage}
+        </p>
+      </div>
+
+      <div className="hidden space-y-2 md:block">
         <DataTable<DRSApplicationRow>
           columns={columns}
           data={rows}
@@ -251,39 +313,47 @@ function StaffQueuePage() {
           toolbar={{
             searchPlaceholder: 'Search name, student no., or reference…',
             slot: (
-              <div className="flex items-center gap-2">
+              <>
                 <Label htmlFor="queue-status" className="sr-only">
-                  Status
+                  Stage
                 </Label>
                 <Select
                   value={status || 'all'}
                   onValueChange={handleStatusChange}
                 >
-                  <SelectTrigger id="queue-status" className="w-[200px]">
-                    <SelectValue placeholder="All statuses" />
+                  <SelectTrigger id="queue-status" className="w-[190px]">
+                    <SelectValue placeholder="All stages" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="all">All stages</SelectItem>
                     {stageSlugs.map((slug) => (
                       <SelectItem key={slug} value={slug}>
-                        {formatStatus(slug)}
+                        {formatStatusLabel(slug)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </>
             ),
           }}
           status={{
             loading: query.isLoading || query.isFetching,
             error: query.isError,
-            loadingMessage: 'Loading your queue...',
-            errorMessage: 'Could not load the queue.',
-            emptyMessage: 'Nothing in your queue right now.',
+            loadingMessage: 'Loading your queue…',
+            errorMessage:
+              'The queue could not be loaded. Check your connection and try again.',
+            emptyMessage: status
+              ? 'No requests are waiting at this stage. Clear the stage filter to see the rest of your queue.'
+              : 'Nothing is waiting on you. Requests appear here once they reach a stage you are assigned to.',
           }}
-          tableClassName="[&_thead_tr]:bg-muted/50"
         />
-      </DrsSectionCard>
+
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {total} request{total === 1 ? '' : 's'} · page{' '}
+          {meta?.current_page ?? 1} of {lastPage}
+          {query.isFetching ? ' · updating…' : ''}
+        </p>
+      </div>
     </DrsPageShell>
   );
 }

@@ -6,6 +6,7 @@ import {
   changeTicketCategory,
   changeTicketPriority,
   changeTicketStatus,
+  fetchTicketAttachmentObjectUrl,
   downloadTicketAttachment,
   extractMentionIdsFromBody,
   fetchCurrentBoard,
@@ -30,13 +31,23 @@ import {
   useRef,
   useState,
 } from "react";
-import { Paperclip, Send, X } from "lucide-react";
+import { Download, Eye, Paperclip, Send, X } from "lucide-react";
 import { toast } from "@repo/ui/exports";
 import {
   RichTextEditor,
   sanitizeRichTextHtml,
 } from "@repo/ui/components/rich-text-editor";
-import { deleteTempUpload, uploadTempFile } from "@/lib/temp-uploads";
+import {
+  deleteTempUpload,
+  fetchTempUploadObjectUrl,
+  uploadTempFile,
+} from "@/lib/temp-uploads";
+import {
+  FilePreviewDialog,
+  getAttachmentKind,
+  type PreviewableAttachment,
+  type RemoteFileAttachment,
+} from "@/components/file-preview";
 
 import { AccessDeniedState } from "@/components/access-denied-state";
 import { LoadingState } from "@/components/loading-state";
@@ -329,6 +340,37 @@ function TicketDetailPage() {
     return section?.members ?? [];
   }, [boardQuery.data?.sections, ticket?.section_id]);
 
+  const mentionableStaff = useMemo(() => {
+    if (ticket?.mentionable_staff && ticket.mentionable_staff.length > 0) {
+      return ticket.mentionable_staff.map((member) => ({
+        user_id: member.user_id,
+        name: member.name?.trim() || `User ${member.user_id}`,
+      }));
+    }
+
+    const seen = new Set<number>();
+    const fallback: Array<{ user_id: number; name: string }> = [];
+    for (const section of boardQuery.data?.sections ?? []) {
+      for (const member of section.members ?? []) {
+        const isTicketSection = section.id === ticket?.section_id;
+        if (!isTicketSection && member.is_section_head !== true) {
+          continue;
+        }
+        const name = member.name?.trim();
+        if (!name || seen.has(member.user_id)) {
+          continue;
+        }
+        seen.add(member.user_id);
+        fallback.push({ user_id: member.user_id, name });
+      }
+    }
+    return fallback;
+  }, [
+    boardQuery.data?.sections,
+    ticket?.mentionable_staff,
+    ticket?.section_id,
+  ]);
+
   const sectionCategories = useMemo(() => {
     if (!ticket?.section_id) return [];
     return (boardQuery.data?.categories ?? []).filter(
@@ -338,18 +380,12 @@ function TicketDetailPage() {
 
   const internalMessageMutation = useMutation({
     mutationFn: () => {
-      const candidates = sectionMembers
-        .map((m) => ({
-          user_id: m.user_id,
-          name: m.name?.trim() || "",
-        }))
-        .filter((m) => m.name);
       return sendTicketMessage(
         ticketNumber,
         internalMessage,
         "internal",
         internalTempUploadIds,
-        extractMentionIdsFromBody(internalMessage, candidates),
+        extractMentionIdsFromBody(internalMessage, mentionableStaff),
       );
     },
     onSuccess: () => {
@@ -413,6 +449,9 @@ function TicketDetailPage() {
   if (!ticket) {
     return <NotFoundState />;
   }
+
+  const canUseInternalChat =
+    !!ticket.access?.is_staff || !!ticket.access?.can_internal;
 
   /* ---------- Handlers ---------- */
 
@@ -797,7 +836,7 @@ function TicketDetailPage() {
       {/* ======================================================== */}
       {/* 3. Conversation / Internal chat                          */}
       {/* ======================================================== */}
-      {ticket.access?.is_staff ? (
+      {canUseInternalChat ? (
         <div className="space-y-3">
           <div
             role="tablist"
@@ -880,12 +919,7 @@ function TicketDetailPage() {
               emptyMediaLabel="No internal files yet."
               submitLabel="Send internal note"
               templates={internalTemplates}
-              mentionCandidates={sectionMembers
-                .map((m) => ({
-                  user_id: m.user_id,
-                  name: m.name?.trim() || "",
-                }))
-                .filter((m) => m.name)}
+              mentionCandidates={mentionableStaff}
               accent
             />
           )}
@@ -1157,11 +1191,15 @@ function TimelineRichText({ text }: { text: string }) {
 function MessageBubble({
   message,
   isOwn,
-  mentionLabels,
+  mentionLabels: _mentionLabels,
+  ticketNumber,
+  attachments,
 }: {
   message: TicketMessage;
   isOwn: boolean;
   mentionLabels?: Record<number, string>;
+  ticketNumber: string;
+  attachments: TicketAttachment[];
 }) {
   const person = message.user ?? { name: null };
   const displayName = getPersonDisplayName(person);
@@ -1170,7 +1208,11 @@ function MessageBubble({
     ? new Date(message.created_at).toLocaleString()
     : null;
 
-  const sanitizedHtml = sanitizeRichTextHtml(message.body);
+  const hasText = hasHtmlContent(message.body ?? "");
+  const sanitizedHtml = hasText ? sanitizeRichTextHtml(message.body) : "";
+  const messageAttachments = attachments.filter(
+    (file) => Number(file.message_id) === Number(message.id),
+  );
 
   return (
     <div
@@ -1201,13 +1243,30 @@ function MessageBubble({
         </p>
         <div
           className={[
-            "rich-text-editor-content rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-xs",
+            "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-xs",
             isOwn
               ? "bg-primary text-primary-foreground rounded-br-md"
               : "bg-muted text-foreground rounded-bl-md",
           ].join(" ")}
-          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-        />
+        >
+          {hasText ? (
+            <div
+              className="rich-text-editor-content"
+              dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+            />
+          ) : messageAttachments.length === 0 ? (
+            <p className="text-muted-foreground italic">No message text</p>
+          ) : null}
+          {messageAttachments.length > 0 ? (
+            <div className={hasText ? "mt-2" : undefined}>
+              <AttachmentList
+                ticketNumber={ticketNumber}
+                attachments={messageAttachments}
+                compact
+              />
+            </div>
+          ) : null}
+        </div>
         {timeLabel ? (
           <p className="text-muted-foreground px-1 text-[10px] tabular-nums">
             {timeLabel}
@@ -1312,36 +1371,205 @@ function AttachmentList({
   attachments: TicketAttachment[];
   compact?: boolean;
 }) {
+  const [previewAttachment, setPreviewAttachment] =
+    useState<PreviewableAttachment | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  function openAttachmentPreview(file: TicketAttachment) {
+    const remote: RemoteFileAttachment = {
+      id: file.id,
+      name: file.original_name,
+      file_name: file.original_name,
+      mime_type: file.mime,
+      size: file.size_bytes,
+      kind: file.kind,
+      fetchPreviewUrl: () =>
+        fetchTicketAttachmentObjectUrl(ticketNumber, file.id),
+    };
+    setPreviewAttachment(remote);
+    setPreviewOpen(true);
+  }
+
   return (
-    <ul
-      className={compact ? "flex flex-wrap gap-2" : "grid gap-2 sm:grid-cols-2"}
-    >
-      {attachments.map((file) => (
-        <li key={file.id}>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shadow-xs max-w-full"
-            onClick={() =>
-              void downloadTicketAttachment(
-                ticketNumber,
-                file.id,
-                file.original_name,
-              )
-            }
-          >
-            <Paperclip className="mr-2 size-3.5 shrink-0" />
-            <span className="truncate">{file.original_name}</span>
-            {!compact ? (
-              <span className="text-muted-foreground ml-2 shrink-0 text-xs">
-                {file.kind} · {Math.round(file.size_bytes / 1024)} KB
-              </span>
-            ) : null}
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul
+        className={
+          compact ? "flex flex-wrap gap-2" : "grid gap-2 sm:grid-cols-2"
+        }
+      >
+        {attachments.map((file) => {
+          const kind = getAttachmentKind({
+            id: file.id,
+            name: file.original_name,
+            mime_type: file.mime,
+            size: file.size_bytes,
+            kind: file.kind,
+          });
+          const isImage = kind === "image";
+
+          return (
+            <li key={file.id}>
+              <div
+                className={
+                  compact
+                    ? "bg-muted/50 flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs"
+                    : "bg-card flex items-center gap-2 rounded-md border p-2 shadow-xs"
+                }
+              >
+                {isImage ? (
+                  <button
+                    type="button"
+                    className="size-8 shrink-0 overflow-hidden rounded border"
+                    onClick={() => openAttachmentPreview(file)}
+                    aria-label={`Preview ${file.original_name}`}
+                  >
+                    <AttachmentThumbnail
+                      ticketNumber={ticketNumber}
+                      attachment={file}
+                    />
+                  </button>
+                ) : (
+                  <Paperclip className="size-3.5 shrink-0" />
+                )}
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 truncate text-left hover:underline"
+                  onClick={() => openAttachmentPreview(file)}
+                >
+                  {file.original_name}
+                </button>
+                {!compact ? (
+                  <span className="text-muted-foreground shrink-0 text-xs">
+                    {file.kind} · {Math.round(file.size_bytes / 1024)} KB
+                  </span>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  onClick={() => openAttachmentPreview(file)}
+                  aria-label={`Preview ${file.original_name}`}
+                >
+                  <Eye className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  onClick={() =>
+                    void downloadTicketAttachment(
+                      ticketNumber,
+                      file.id,
+                      file.original_name,
+                    )
+                  }
+                  aria-label={`Download ${file.original_name}`}
+                >
+                  <Download className="size-3.5" />
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <FilePreviewDialog
+        attachment={previewAttachment}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
+    </>
+  );
+}
+
+function AttachmentThumbnail({
+  ticketNumber,
+  attachment,
+}: {
+  ticketNumber: string;
+  attachment: TicketAttachment;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    void fetchTicketAttachmentObjectUrl(ticketNumber, attachment.id)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [attachment.id, ticketNumber]);
+
+  if (!src) {
+    return (
+      <span className="bg-muted flex size-full items-center justify-center">
+        <Paperclip className="text-muted-foreground size-3" />
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={attachment.original_name}
+      className="size-full object-cover"
+    />
+  );
+}
+
+function PendingUploadThumbnail({
+  tempUploadId,
+}: {
+  tempUploadId: string | number;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    void fetchTempUploadObjectUrl(tempUploadId)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [tempUploadId]);
+
+  if (!src) {
+    return <Paperclip className="size-3 shrink-0" />;
+  }
+
+  return (
+    <span className="size-5 shrink-0 overflow-hidden rounded border">
+      <img src={src} alt="" className="size-full object-cover" />
+    </span>
   );
 }
 
@@ -1401,8 +1629,17 @@ function TicketChatCard({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wasPendingRef = useRef(false);
   const [pendingFiles, setPendingFiles] = useState<
-    Array<{ id: string | number; name: string }>
+    Array<{
+      id: string | number;
+      name: string;
+      mime_type: string | null;
+      size: number;
+    }>
   >([]);
+  const [previewAttachment, setPreviewAttachment] =
+    useState<PreviewableAttachment | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const pasteBlobUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     setPendingFiles((prev) =>
@@ -1411,6 +1648,14 @@ function TicketChatCard({
       ),
     );
   }, [tempUploadIds]);
+
+  useEffect(() => {
+    return () => {
+      for (const url of pasteBlobUrlsRef.current) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, []);
 
   const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
@@ -1446,10 +1691,44 @@ function TicketChatCard({
     );
   }
 
+  function openPendingPreview(file: {
+    id: string | number;
+    name: string;
+    mime_type: string | null;
+    size: number;
+  }) {
+    const remote: RemoteFileAttachment = {
+      id: file.id,
+      name: file.name,
+      file_name: file.name,
+      mime_type: file.mime_type,
+      size: file.size,
+      fetchPreviewUrl: () => fetchTempUploadObjectUrl(file.id),
+    };
+    setPreviewAttachment(remote);
+    setPreviewOpen(true);
+  }
+
   async function handleUploadImage(file: File): Promise<string> {
-    const upload = await uploadTempFile(file);
-    onTempUploadIdsChange((prev) => [...prev, upload.id]);
-    return upload.url;
+    try {
+      const upload = await uploadTempFile(file);
+      onTempUploadIdsChange((prev) => [...prev, upload.id]);
+      setPendingFiles((prev) => [
+        ...prev,
+        {
+          id: upload.id,
+          name: upload.original_name || file.name,
+          mime_type: upload.mime_type ?? file.type ?? null,
+          size: upload.size ?? file.size,
+        },
+      ]);
+      const blobUrl = await fetchTempUploadObjectUrl(upload.id);
+      pasteBlobUrlsRef.current.push(blobUrl);
+      return blobUrl;
+    } catch (error) {
+      toast.error(`Could not upload ${file.name}`);
+      throw error;
+    }
   }
 
   function handleFooterAttachClick() {
@@ -1497,6 +1776,8 @@ function TicketChatCard({
             {
               id: upload.id,
               name: upload.original_name || file.name,
+              mime_type: upload.mime_type ?? file.type ?? null,
+              size: upload.size ?? file.size,
             },
           ]);
           uploaded += 1;
@@ -1582,6 +1863,8 @@ function TicketChatCard({
                     message={msg}
                     isOwn={currentUserId > 0 && msg.user_id === currentUserId}
                     mentionLabels={mentionLabels}
+                    ticketNumber={ticketNumber}
+                    attachments={attachments}
                   />
                 ))}
                 {messages.length === 0 && (
@@ -1604,33 +1887,67 @@ function TicketChatCard({
                     placeholder={replyPlaceholder}
                     disabled={pending}
                     onUploadingChange={onUploadingChange}
+                    onUploadImage={handleUploadImage}
                     showImageButton={false}
                     minHeight="100px"
+                    mentions={
+                      mentionCandidates?.map((candidate) => ({
+                        id: candidate.user_id,
+                        label: candidate.name,
+                      }))
+                    }
                     onEditorReady={(editor) => {
                       editorRef.current = editor;
                     }}
                   />
                   {pendingFiles.length > 0 ? (
                     <ul className="flex flex-wrap gap-2">
-                      {pendingFiles.map((file) => (
-                        <li
-                          key={String(file.id)}
-                          className="bg-muted/50 flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs"
-                        >
-                          <Paperclip className="size-3 shrink-0" />
-                          <span className="truncate">{file.name}</span>
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-foreground ml-0.5"
-                            onClick={() => void removePendingFile(file.id)}
-                            aria-label={`Remove ${file.name}`}
+                      {pendingFiles.map((file) => {
+                        const kind = getAttachmentKind({
+                          id: file.id,
+                          name: file.name,
+                          mime_type: file.mime_type,
+                          size: file.size,
+                        });
+
+                        return (
+                          <li
+                            key={String(file.id)}
+                            className="bg-muted/50 flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs"
                           >
-                            <X className="size-3" />
-                          </button>
-                        </li>
-                      ))}
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center gap-1 text-left"
+                              onClick={() => openPendingPreview(file)}
+                            >
+                              {kind === "image" ? (
+                                <PendingUploadThumbnail
+                                  tempUploadId={file.id}
+                                />
+                              ) : (
+                                <Paperclip className="size-3 shrink-0" />
+                              )}
+                              <span className="truncate">{file.name}</span>
+                              <Eye className="text-muted-foreground size-3 shrink-0" />
+                            </button>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-foreground ml-0.5"
+                              onClick={() => void removePendingFile(file.id)}
+                              aria-label={`Remove ${file.name}`}
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   ) : null}
+                  <FilePreviewDialog
+                    attachment={previewAttachment}
+                    open={previewOpen}
+                    onOpenChange={setPreviewOpen}
+                  />
                   <input
                     ref={fileInputRef}
                     type="file"

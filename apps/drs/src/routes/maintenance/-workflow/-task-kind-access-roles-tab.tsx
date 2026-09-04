@@ -1,3 +1,4 @@
+import { DrsInlineLoading } from '@/components/drs-ui.tsx';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import { Checkbox } from '@repo/ui/components/checkbox';
@@ -70,9 +71,13 @@ export const TaskKindAccessRolesTab = ({
 
       <div className="max-h-56 overflow-y-auto rounded-md border">
         {rolesQuery.isLoading ? (
-          <p className="text-muted-foreground p-3 text-xs">Loading roles…</p>
+          <div className="p-3">
+            <DrsInlineLoading size="xs" label="Loading roles…" />
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="text-muted-foreground p-3 text-xs">No roles found.</p>
+          <p className="text-muted-foreground p-3 text-xs">
+            No role matches that search.
+          </p>
         ) : (
           <ul className="divide-y">
             {filtered.map((role) => {

@@ -25,7 +25,7 @@ import {
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
-import { History, Printer, XCircle } from 'lucide-react';
+import { History, Printer } from 'lucide-react';
 import * as React from 'react';
 
 import { ConfirmActionDialog } from './maintenance/-clearance/-confirm-action-dialog.tsx';
@@ -34,15 +34,17 @@ import { fetchPaymentCollectionSettings } from './maintenance/-lib/api/paymentCo
 import type { TempUpload } from '@/lib/tempUploads.ts';
 import {
   AddCatalogLinesDialog,
-  ClearancesCard,
+  ClearancesSection,
   type DraftLine,
-  EditRequestCard,
+  EditRequestSection,
+  isPaymentCollectionOpen,
   MAX_LINE_QTY,
-  MessagesCard,
-  PaymentBreakdownCard,
-  PaymentReferencesCard,
-  PaymentStepCard,
-  RequestDetailsCard,
+  MessagesPanel,
+  PaymentBreakdownSection,
+  PaymentReferencesSection,
+  PaymentStepPanel,
+  RequestDetailsSection,
+  RequestSummaryPanel,
 } from './-application-detail-sections.tsx';
 import { ApplicationReceiptPrint } from './-application-receipt-print.tsx';
 import { fetchApplication } from './-lib/api/fetchApplication.ts';
@@ -55,23 +57,6 @@ import {
 } from './-lib/types/applications.ts';
 import { fetchDocumentCatalog } from './apply/-lib/fetchDocumentCatalog.ts';
 import type { CatalogDocument } from './apply/-lib/types.ts';
-
-function useMinWidth(minWidthPx: number): boolean {
-  const [matches, setMatches] = React.useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.matchMedia(`(min-width: ${minWidthPx}px)`).matches;
-  });
-
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(min-width: ${minWidthPx}px)`);
-    const onChange = () => setMatches(mql.matches);
-    onChange();
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
-  }, [minWidthPx]);
-
-  return matches;
-}
 
 function companionMetaFromCatalog(
   groups: Array<{ documents?: CatalogDocument[] | null }>,
@@ -434,13 +419,83 @@ function ApplicationDetailPage() {
   });
 
   const editable = Boolean(app?.editable);
-  const isXl = useMinWidth(1280);
   const canSubmitEdit =
     editable &&
     !patchMutation.isPending &&
     Boolean(paymentMethodId) &&
     lines.length > 0 &&
     lines.every((l) => l.requestable_id > 0 && l.quantity >= 1);
+
+  const [tab, setTab] = React.useState('request');
+
+  /** Clearing a stale save error the moment the user edits keeps errors honest. */
+  const editField = React.useCallback(
+    <T,>(setter: (value: T) => void) =>
+      (value: T) => {
+        if (patchMutation.isError) {
+          patchMutation.reset();
+        }
+        setIsEditDraftDirty(true);
+        setter(value);
+      },
+    [patchMutation],
+  );
+
+  const paymentField = React.useCallback(
+    <T,>(setter: (value: T) => void) =>
+      (value: T) => {
+        if (paymentMutation.isError) {
+          paymentMutation.reset();
+        }
+        setIsPaymentDraftDirty(true);
+        setter(value);
+      },
+    [paymentMutation],
+  );
+
+  const editRequestProps = {
+    editable,
+    email,
+    contactNumber,
+    receiveMode,
+    paymentMethodId,
+    paymentMethods,
+    secureEmail,
+    deliveryAddress,
+    purpose,
+    lines,
+    lockedCompanionIds,
+    lockedCompanionLabels,
+    canSubmitEdit,
+    hasSaveError: patchMutation.isError,
+    onEmailChange: editField(setEmail),
+    onContactNumberChange: editField(setContactNumber),
+    onReceiveModeChange: editField(setReceiveMode),
+    onPaymentMethodChange: editField(setPaymentMethodId),
+    onSecureEmailChange: editField(setSecureEmail),
+    onDeliveryAddressChange: editField(setDeliveryAddress),
+    onPurposeChange: editField(setPurpose),
+    onLinesChange: editField(
+      setLines as React.Dispatch<React.SetStateAction<DraftLine[]>>,
+    ) as React.Dispatch<React.SetStateAction<DraftLine[]>>,
+    onOpenCatalog: () => setAddCatalogOpen(true),
+    onSave: () => patchMutation.mutate(),
+  };
+
+  const paymentStepProps = app
+    ? {
+        app,
+        uploads: paymentUploads,
+        remarks: paymentRemarks,
+        isSubmitting: paymentMutation.isPending,
+        hasSubmitError: paymentMutation.isError,
+        onUploadsChange: paymentField(setPaymentUploads),
+        onRemarksChange: paymentField(setPaymentRemarks),
+        onSubmit: handlePaymentSubmit,
+      }
+    : null;
+
+  const paymentDue = app ? isPaymentCollectionOpen(app) : false;
 
   if (appQuery.isLoading) {
     return (
@@ -455,10 +510,10 @@ function ApplicationDetailPage() {
       <DrsPageShell maxWidth="md">
         <DrsNotFoundState
           title="Request not found"
-          description="This application ID may be incorrect, or the request may have been removed."
+          description="This reference may be mistyped, or the request may have been removed."
           action={
-            <Button className="rounded-full" variant="outline" asChild>
-              <Link to="/">Back to applications</Link>
+            <Button variant="outline" asChild>
+              <Link to="/">Back to my requests</Link>
             </Button>
           }
         />
@@ -471,10 +526,10 @@ function ApplicationDetailPage() {
       <DrsPageShell maxWidth="md">
         <DrsErrorState
           title="Could not load this request"
-          description="The request may no longer exist, or your access may have changed."
+          description="The request may no longer exist, or your access may have changed. Try again, or go back to your list of requests."
           action={
-            <Button className="rounded-full" variant="outline" asChild>
-              <Link to="/">Back to applications</Link>
+            <Button variant="outline" asChild>
+              <Link to="/">Back to my requests</Link>
             </Button>
           }
         />
@@ -483,31 +538,29 @@ function ApplicationDetailPage() {
   }
 
   return (
-    <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
-      <div className="drs-screen-content space-y-3">
+    <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
+      <div className="drs-screen-content space-y-5">
         <DrsPageHeader
           backTo="/"
-          backLabel="Applications"
-          eyebrow="Application"
-          title={`#${displayApplicationRef(app)}`}
+          backLabel="My requests"
+          title={`Request #${displayApplicationRef(app)}`}
           description={
-            <>
-              {app.student_no
-                ? `Student no. ${app.student_no}`
-                : 'Student view'}
-              {app.student_name?.trim() ? ` · ${app.student_name}` : ''}
-            </>
+            app.student_no
+              ? `${app.student_name?.trim() || 'Student'} · ${app.student_no}`
+              : app.student_name?.trim() || undefined
           }
           badges={
             <>
               <DrsStatusBadge tone={toneForStatus(app.status)}>
                 {app.current_stage?.name ?? formatStatusLabel(app.status)}
               </DrsStatusBadge>
-              <DrsStatusBadge tone={app.editable ? 'info' : 'neutral'}>
-                {app.editable ? 'Editable' : 'Locked'}
-              </DrsStatusBadge>
+              {app.editable ? (
+                <DrsStatusBadge tone="info">Editable</DrsStatusBadge>
+              ) : null}
               {app.is_foreigner_student ? (
-                <DrsStatusBadge tone="purple">Foreigner student</DrsStatusBadge>
+                <DrsStatusBadge tone="neutral">
+                  Foreigner student
+                </DrsStatusBadge>
               ) : null}
               {app.is_cancelled ? (
                 <DrsStatusBadge tone="danger">Cancelled</DrsStatusBadge>
@@ -516,279 +569,90 @@ function ApplicationDetailPage() {
           }
           actions={
             <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1 rounded-full"
-                onClick={handlePrintReceipt}
-              >
-                <Printer className="h-4 w-4" aria-hidden="true" />
-                Print receipt
-              </Button>
-              {canRestore ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 rounded-full"
-                  asChild
-                >
-                  <Link
-                    to="/applications/$applicationId/history"
-                    params={{ applicationId }}
-                  >
-                    <History className="h-4 w-4" aria-hidden="true" />
-                    Rollback
-                  </Link>
-                </Button>
-              ) : null}
               {app.may_cancel && !app.is_cancelled ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="text-destructive hover:text-destructive gap-1"
+                  className="text-destructive hover:text-destructive"
                   onClick={() => setCancelDialogOpen(true)}
                 >
-                  <XCircle className="h-4 w-4" aria-hidden="true" />
-                  Cancel
+                  Cancel request
                 </Button>
               ) : null}
+              {canRestore ? (
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link
+                    to="/applications/$applicationId/history"
+                    params={{ applicationId }}
+                  >
+                    <History className="size-4" aria-hidden="true" />
+                    History
+                  </Link>
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrintReceipt}
+              >
+                <Printer className="size-4" aria-hidden="true" />
+                Print receipt
+              </Button>
             </>
           }
         />
 
-        {isXl ? (
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <div className="space-y-3">
-              <RequestDetailsCard app={app} />
-              <PaymentBreakdownCard app={app} />
-              <PaymentStepCard
-                app={app}
-                uploads={paymentUploads}
-                remarks={paymentRemarks}
-                isSubmitting={paymentMutation.isPending}
-                hasSubmitError={paymentMutation.isError}
-                onUploadsChange={(nextUploads) => {
-                  if (paymentMutation.isError) {
-                    paymentMutation.reset();
-                  }
-                  setIsPaymentDraftDirty(true);
-                  setPaymentUploads(nextUploads);
-                }}
-                onRemarksChange={(value) => {
-                  if (paymentMutation.isError) {
-                    paymentMutation.reset();
-                  }
-                  setIsPaymentDraftDirty(true);
-                  setPaymentRemarks(value);
-                }}
-                onSubmit={handlePaymentSubmit}
-              />
-              <PaymentReferencesCard app={app} />
-              <ClearancesCard clearances={app.clearances} />
-              <EditRequestCard
-                editable={editable}
-                email={email}
-                contactNumber={contactNumber}
-                receiveMode={receiveMode}
-                paymentMethodId={paymentMethodId}
-                paymentMethods={paymentMethods}
-                secureEmail={secureEmail}
-                deliveryAddress={deliveryAddress}
-                purpose={purpose}
-                lines={lines}
-                lockedCompanionIds={lockedCompanionIds}
-                lockedCompanionLabels={lockedCompanionLabels}
-                canSubmitEdit={canSubmitEdit}
-                hasSaveError={patchMutation.isError}
-                onEmailChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setEmail(value);
-                }}
-                onContactNumberChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setContactNumber(value);
-                }}
-                onReceiveModeChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setReceiveMode(value);
-                }}
-                onPaymentMethodChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setPaymentMethodId(value);
-                }}
-                onSecureEmailChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setSecureEmail(value);
-                }}
-                onDeliveryAddressChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setDeliveryAddress(value);
-                }}
-                onPurposeChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setPurpose(value);
-                }}
-                onLinesChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setLines(value);
-                }}
-                onOpenCatalog={() => setAddCatalogOpen(true)}
-                onSave={() => patchMutation.mutate()}
-              />
-            </div>
-            <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start">
-              <MessagesCard applicationId={applicationId} />
-            </aside>
+        <div className="grid gap-x-10 gap-y-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0">
+            <Tabs value={tab} onValueChange={setTab} className="gap-6">
+              <TabsList>
+                <TabsTrigger value="request">Request</TabsTrigger>
+                <TabsTrigger value="payment">Payment</TabsTrigger>
+                <TabsTrigger value="messages">Messages</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="request" className="space-y-8">
+                <RequestDetailsSection app={app} />
+                <ClearancesSection clearances={app.clearances} />
+                <EditRequestSection {...editRequestProps} />
+              </TabsContent>
+
+              <TabsContent value="payment" className="space-y-8">
+                <PaymentBreakdownSection app={app} />
+                {paymentStepProps ? (
+                  <PaymentStepPanel {...paymentStepProps} />
+                ) : null}
+                <PaymentReferencesSection app={app} />
+              </TabsContent>
+
+              <TabsContent value="messages">
+                <MessagesPanel applicationId={applicationId} />
+              </TabsContent>
+            </Tabs>
           </div>
-        ) : (
-          <Tabs defaultValue="request" className="gap-3">
-            <TabsList className="grid h-auto w-full grid-cols-3 p-1">
-              <TabsTrigger value="request" className="min-h-10 px-2">
-                Request
-              </TabsTrigger>
-              <TabsTrigger value="payment" className="min-h-10 px-2">
-                Payment
-              </TabsTrigger>
-              <TabsTrigger value="messages" className="min-h-10 px-2">
-                Messages
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="request" className="space-y-3">
-              <RequestDetailsCard app={app} />
-              <ClearancesCard clearances={app.clearances} />
-              <EditRequestCard
-                editable={editable}
-                email={email}
-                contactNumber={contactNumber}
-                receiveMode={receiveMode}
-                paymentMethodId={paymentMethodId}
-                paymentMethods={paymentMethods}
-                secureEmail={secureEmail}
-                deliveryAddress={deliveryAddress}
-                purpose={purpose}
-                lines={lines}
-                lockedCompanionIds={lockedCompanionIds}
-                lockedCompanionLabels={lockedCompanionLabels}
-                canSubmitEdit={canSubmitEdit}
-                hasSaveError={patchMutation.isError}
-                onEmailChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setEmail(value);
-                }}
-                onContactNumberChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setContactNumber(value);
-                }}
-                onReceiveModeChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setReceiveMode(value);
-                }}
-                onPaymentMethodChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setPaymentMethodId(value);
-                }}
-                onSecureEmailChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setSecureEmail(value);
-                }}
-                onDeliveryAddressChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setDeliveryAddress(value);
-                }}
-                onPurposeChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setPurpose(value);
-                }}
-                onLinesChange={(value) => {
-                  if (patchMutation.isError) {
-                    patchMutation.reset();
-                  }
-                  setIsEditDraftDirty(true);
-                  setLines(value);
-                }}
-                onOpenCatalog={() => setAddCatalogOpen(true)}
-                onSave={() => patchMutation.mutate()}
-              />
-            </TabsContent>
-            <TabsContent value="payment" className="space-y-3">
-              <PaymentBreakdownCard app={app} />
-              <PaymentStepCard
-                app={app}
-                uploads={paymentUploads}
-                remarks={paymentRemarks}
-                isSubmitting={paymentMutation.isPending}
-                hasSubmitError={paymentMutation.isError}
-                onUploadsChange={(nextUploads) => {
-                  if (paymentMutation.isError) {
-                    paymentMutation.reset();
-                  }
-                  setIsPaymentDraftDirty(true);
-                  setPaymentUploads(nextUploads);
-                }}
-                onRemarksChange={(value) => {
-                  if (paymentMutation.isError) {
-                    paymentMutation.reset();
-                  }
-                  setIsPaymentDraftDirty(true);
-                  setPaymentRemarks(value);
-                }}
-                onSubmit={handlePaymentSubmit}
-              />
-              <PaymentReferencesCard app={app} />
-            </TabsContent>
-            <TabsContent value="messages">
-              <MessagesCard applicationId={applicationId} />
-            </TabsContent>
-          </Tabs>
-        )}
+
+          <aside className="xl:sticky xl:top-28 xl:self-start">
+            <RequestSummaryPanel
+              app={app}
+              action={
+                paymentDue ? (
+                  <Button type="button" onClick={() => setTab('payment')}>
+                    Submit payment proof
+                  </Button>
+                ) : null
+              }
+              footnote={
+                paymentDue
+                  ? 'Upload your receipt so the cashier can verify your payment.'
+                  : app.editable
+                    ? 'You can still change contact details and items while this request is in its first stage.'
+                    : 'Nothing is needed from you right now. The registrar will update this request as it moves along.'
+              }
+            />
+          </aside>
+        </div>
 
         <AddCatalogLinesDialog
           open={addCatalogOpen}

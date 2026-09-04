@@ -1,8 +1,8 @@
 import {
   DrsEmptyState,
+  DrsLoadingState,
   DrsPageHeader,
   DrsPageShell,
-  DrsSectionCard,
 } from '@/components/drs-ui.tsx';
 import {
   DRS_STUDENT_APPLY_PERMISSION,
@@ -11,9 +11,7 @@ import {
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { checkPermission, usePermission } from '@repo/hooks';
 import { Button } from '@repo/ui/components/button';
-import { Spinner } from '@repo/ui/components/spinner';
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
-import { FileText, ShieldCheck, Wrench } from 'lucide-react';
 import { ApplicationsDataTable } from './-applications-datatable.tsx';
 import { fetchWorkflowStageAccess } from './-lib/api/fetchWorkflowStageAccess.ts';
 import { loadMaintenanceAccess } from './maintenance/-lib/loadMaintenanceAccess.ts';
@@ -56,11 +54,7 @@ export const Route = createFileRoute('/')({
 
     return { permissions, access };
   },
-  pendingComponent: () => (
-    <div className="flex min-h-[40vh] items-center justify-center p-8">
-      <Spinner />
-    </div>
-  ),
+  pendingComponent: () => <DrsLoadingState label="Loading your requests…" />,
   component: Index,
 });
 
@@ -73,67 +67,35 @@ function Index() {
 
   if (hasCollege) {
     return (
-      <DrsPageShell maxWidth="xl" contentClassName="space-y-3">
+      <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
         <DrsPageHeader
-          eyebrow="Document Request System"
-          title="My applications"
-          description="Request documents, track stages, and message the registrar."
+          title="My requests"
+          description="Track the documents you have requested from the registrar. Select a request to view its progress, pay, or send a message."
           actions={
-            <>
-              <Button asChild size="sm" className="rounded-full">
-                <Link to="/apply">
-                  <FileText className="size-4" />
-                  Apply
-                </Link>
-              </Button>
-
-              {hasMaint ? (
-                <Button
-                  variant="outline"
-                  asChild
-                  size="sm"
-                  className="rounded-full"
-                >
-                  <Link to="/maintenance">
-                    <Wrench className="size-4" />
-                    Maintenance
-                  </Link>
-                </Button>
-              ) : null}
-            </>
+            <Button asChild size="sm">
+              <Link to="/apply">Request a document</Link>
+            </Button>
           }
         />
 
-        <DrsSectionCard
-          title="Applications"
-          description="Open a row for details, messages, payment, and edits when allowed."
-          icon={FileText}
-        >
-          <section className="flex flex-col gap-2">
-            <ApplicationsDataTable />
-          </section>
-        </DrsSectionCard>
+        <ApplicationsDataTable />
       </DrsPageShell>
     );
   }
 
   if (hasMaint) {
-    return (
-      <div id="root" className="bg-background min-h-screen">
-        <MaintenanceHome access={access} />
-      </div>
-    );
+    return <MaintenanceHome access={access} />;
   }
 
   return (
     <DrsPageShell
       maxWidth="sm"
-      contentClassName="flex min-h-[70dvh] items-center"
+      contentClassName="flex min-h-[60dvh] items-center"
     >
       <DrsEmptyState
-        icon={ShieldCheck}
-        title="No DRS access"
-        description="You do not have permission to use this DRS tenant. If you believe this is an error, contact your administrator."
+        title="You do not have access to this DRS site"
+        description="Document requests are opened per campus and per role. Ask the registrar's office to grant your account access to this site, or sign in with the account that has it."
+        className="w-full"
       />
     </DrsPageShell>
   );
