@@ -1,3 +1,4 @@
+import { DrsStatusBadge } from '@/components/drs-ui.tsx';
 import { Button } from '@repo/ui/components/button';
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
 import type { WorkflowTask } from '../-lib/api/workflow/types.ts';
@@ -29,14 +30,12 @@ export const TaskRow = ({
           <span className="font-medium">{task.name}</span>
           <span className="text-muted-foreground text-xs">{task.kind}</span>
           {task.is_required ? null : (
-            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px]">
-              optional
-            </span>
+            <DrsStatusBadge tone="neutral">Optional</DrsStatusBadge>
           )}
           {task.parallel_group ? (
-            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-600">
-              group: {task.parallel_group}
-            </span>
+            <DrsStatusBadge tone="info">
+              Group {task.parallel_group}
+            </DrsStatusBadge>
           ) : null}
         </div>
         <div className="mt-2">

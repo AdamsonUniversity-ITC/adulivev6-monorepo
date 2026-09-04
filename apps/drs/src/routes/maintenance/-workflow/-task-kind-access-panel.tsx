@@ -1,3 +1,4 @@
+import { DrsInlineLoading } from '@/components/drs-ui.tsx';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import {
@@ -104,7 +105,7 @@ export const TaskKindAccessPanel = ({
   );
 
   const accessBody = accessQuery.isLoading ? (
-    <p className="text-muted-foreground text-xs">Loading access…</p>
+    <DrsInlineLoading size="xs" label="Loading access…" />
   ) : accessQuery.isError ? (
     <p className="text-destructive text-xs">Could not load access.</p>
   ) : (
@@ -178,7 +179,7 @@ export const TaskKindAccessPanel = ({
           {readOnlyDescription ? ` — ${readOnlyDescription}` : null}
         </p>
         {accessQuery.isLoading ? (
-          <p className="text-muted-foreground">Loading roster…</p>
+          <DrsInlineLoading size="sm" label="Loading roster…" />
         ) : accessQuery.isError ? (
           <p className="text-destructive">Could not load roster.</p>
         ) : (

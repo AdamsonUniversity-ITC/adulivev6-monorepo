@@ -28,33 +28,78 @@ export type AuthUserLike = {
     fname?: string | null;
     lname?: string | null;
     emailadd?: string | null;
+    emp_no?: string | null;
+    student_no?: string | null;
+    agency_no?: string | null;
     [key: string]: unknown;
   } | null;
   [key: string]: unknown;
 };
 
+function firstNonEmpty(
+  ...values: Array<string | number | null | undefined>
+): string | null {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const trimmed = String(value).trim();
+    if (trimmed !== '') return trimmed;
+  }
+  return null;
+}
+
 /**
  * Monorepo MainNavigation pattern:
  * `${avatar_url}${user_info.id}_${image_id}`
+ * Prefer legacy profile id + role image_id; fall back to emp/student/agency/username.
  */
 export function getAvatarUrlFromAuthUser(
   user: AuthUserLike | null | undefined,
 ): string | null {
-  const profileId = user?.user_info?.id;
-  if (
-    profileId === null ||
-    profileId === undefined ||
-    String(profileId).trim() === ''
-  ) {
-    return null;
+  if (!user) return null;
+
+  const fromRoles = imageIdFromRoles(user.roles);
+  const parsedImageId = Number(user.image_id);
+  const imageId =
+    Number.isFinite(parsedImageId) && parsedImageId > 0
+      ? parsedImageId
+      : (fromRoles ?? AVATAR_TYPE_CODES.teacher);
+
+  const info = user.user_info;
+  const username =
+    typeof user.username === 'string' ? user.username.trim() : '';
+
+  // Legacy MainNavigation: always prefer user_info.id when present.
+  let profileId = firstNonEmpty(info?.id);
+
+  if (!profileId) {
+    if (
+      imageId === AVATAR_TYPE_CODES.admin ||
+      imageId === AVATAR_TYPE_CODES.teacher
+    ) {
+      profileId = firstNonEmpty(info?.emp_no, username);
+    } else if (
+      imageId === AVATAR_TYPE_CODES.college ||
+      imageId === AVATAR_TYPE_CODES.bed
+    ) {
+      profileId = firstNonEmpty(info?.student_no, username);
+    } else if (imageId === AVATAR_TYPE_CODES.agency) {
+      profileId = firstNonEmpty(
+        typeof info?.agency_no === 'string' ||
+          typeof info?.agency_no === 'number'
+          ? info.agency_no
+          : null,
+        username,
+      );
+    } else if (imageId === AVATAR_TYPE_CODES.parent) {
+      profileId = firstNonEmpty(username, user.email);
+    } else {
+      profileId = firstNonEmpty(info?.emp_no, info?.student_no, username);
+    }
   }
 
-  const imageId =
-    user?.image_id ??
-    imageIdFromRoles(user?.roles) ??
-    AVATAR_TYPE_CODES.teacher;
+  if (!profileId) return null;
 
-  return `${AVATAR_URL}${String(profileId).trim()}_${imageId}`;
+  return `${AVATAR_URL}${profileId}_${imageId}`;
 }
 
 export function imageIdFromRoles(

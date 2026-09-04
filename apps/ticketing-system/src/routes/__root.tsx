@@ -1,25 +1,43 @@
-import {
-  Outlet,
-  createRootRouteWithContext,
-  Link,
-} from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
+import { useLayoutEffect, useState } from "react";
 import { AuthLayout } from "@repo/ui/layouts/auth-layout";
 import { Toaster } from "@repo/ui/components/sonner";
-import { Button } from "@repo/ui/components/button";
-import { getBoardSubdomain, isPlatformHost } from "@/lib/adutsHost";
-import { ensureAuthenticated } from "@/lib/ensure-authenticated";
-import { authUserQueryOptions } from "@/lib/auth-queries";
 import {
-  isBoardAdminCapability,
-  isSuperAdmin,
-  normalizePermissions,
-} from "@/lib/aduts-access";
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@repo/ui/components/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { CommandPalette } from "@/components/command-palette";
+import { ShortcutsHelpDialog } from "@/components/shortcuts-help-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useAdutsShortcuts } from "@/hooks/use-aduts-shortcuts";
+import { fetchCurrentBoard } from "@/lib/aduts-api";
+import { getBoardSubdomain, isPlatformHost } from "@/lib/adutsHost";
+import {
+  accentForeground,
+  DEFAULT_THEME_PRESET,
+  normalizeAccentColor,
+  normalizeThemePreset,
+} from "@/lib/board-theme";
+import { formatBoardLabel } from "@/lib/format-labels";
+import { ensureAuthenticated } from "@/lib/ensure-authenticated";
+import { Button } from "@repo/ui/components/button";
 
 export interface RouterContext {
   queryClient: QueryClient;
 }
+
+const ACCENT_VARS = [
+  "--primary",
+  "--ring",
+  "--sidebar-primary",
+  "--sidebar-ring",
+  "--primary-foreground",
+  "--sidebar-primary-foreground",
+] as const;
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async ({ context }) => {
@@ -33,65 +51,100 @@ function RootComponent() {
     typeof window !== "undefined" ? window.location.hostname : "";
   const boardSlug = getBoardSubdomain(hostname);
   const platform = isPlatformHost(hostname);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
-  const authQuery = useQuery(authUserQueryOptions);
-  const permissions = normalizePermissions(authQuery.data ?? {});
-  const showAdmin = platform && isSuperAdmin(permissions);
-  const showManage = !platform && isBoardAdminCapability(permissions);
+  useAdutsShortcuts({
+    onOpenPalette: () => setPaletteOpen(true),
+    onOpenHelp: () => setHelpOpen(true),
+  });
+
+  const boardQuery = useQuery({
+    queryKey: ["aduts", "board"],
+    queryFn: fetchCurrentBoard,
+    enabled: !platform,
+  });
+
+  const headerLabel = platform
+    ? "Ticketing Platform"
+    : (boardQuery.data?.board_name ?? formatBoardLabel(boardSlug ?? ""));
+
+  const themePreset = platform
+    ? DEFAULT_THEME_PRESET
+    : normalizeThemePreset(boardQuery.data?.theme_preset);
+  const accent = platform
+    ? null
+    : normalizeAccentColor(boardQuery.data?.accent_color);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.boardTheme = themePreset;
+
+    if (accent) {
+      const fg = accentForeground(accent);
+      root.style.setProperty("--primary", accent);
+      root.style.setProperty("--ring", accent);
+      root.style.setProperty("--sidebar-primary", accent);
+      root.style.setProperty("--sidebar-ring", accent);
+      root.style.setProperty("--primary-foreground", fg);
+      root.style.setProperty("--sidebar-primary-foreground", fg);
+    } else {
+      for (const prop of ACCENT_VARS) {
+        root.style.removeProperty(prop);
+      }
+    }
+
+    return () => {
+      delete root.dataset.boardTheme;
+      for (const prop of ACCENT_VARS) {
+        root.style.removeProperty(prop);
+      }
+    };
+  }, [platform, themePreset, accent]);
 
   return (
-    <div className="bg-background min-h-screen">
-      <AuthLayout />
-      <Toaster richColors />
-      <div className="border-border bg-card/80 border-b">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-2">
-          <div className="leading-tight">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide">
-              AdUTS
-            </p>
-            <p className="text-sm font-medium">
-              {platform ? "Ticketing Platform" : `${boardSlug} board`}
-            </p>
-          </div>
-          <nav className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/">Home</Link>
-            </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/tickets">Tickets</Link>
-            </Button>
-            {!platform && (
-              <Button size="sm" asChild>
-                <Link to="/tickets/new">New ticket</Link>
+    <div
+      className="aduts-shell flex min-h-screen flex-col"
+      data-theme-preset={themePreset}
+    >
+      <div className="aduts-shell-content flex min-h-screen flex-1 flex-col">
+        <AuthLayout />
+        <Toaster richColors theme="system" />
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <ShortcutsHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <SidebarProvider className="bg-transparent has-data-[variant=inset]:bg-transparent! min-h-0 min-h-[calc(100svh-3.5rem)] flex-1">
+          <AppSidebar />
+          <SidebarInset className="bg-background/50 supports-backdrop-filter:bg-background/35 backdrop-blur-[2px]">
+            <header className="border-border/50 bg-background/65 supports-backdrop-filter:bg-background/45 sticky top-14 z-20 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-md sm:px-6">
+              <SidebarTrigger className="-ml-2" />
+              <div className="min-w-0 flex-1">
+                <p className="text-muted-foreground text-[10px] font-semibold tracking-[0.16em] uppercase">
+                  Ticketing System
+                </p>
+                <p className="truncate text-sm font-semibold tracking-tight">
+                  {headerLabel}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shadow-xs hidden sm:inline-flex"
+                onClick={() => setPaletteOpen(true)}
+              >
+                Search
+                <kbd className="text-muted-foreground ml-2 hidden font-mono text-[10px] md:inline">
+                  ⌘K
+                </kbd>
               </Button>
-            )}
-            {showAdmin && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/admin">Admin</Link>
-              </Button>
-            )}
-            {showManage && (
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/manage">Manage</Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/manage/staff">Staff</Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/manage/customers">Customers</Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/manage/admins">Admins</Link>
-                </Button>
-              </>
-            )}
-          </nav>
-        </div>
+              <ThemeToggle />
+            </header>
+            <div className="aduts-page-enter flex flex-1 flex-col px-4 py-6 sm:px-6 md:py-8">
+              <Outlet />
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
       </div>
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <Outlet />
-      </main>
     </div>
   );
 }

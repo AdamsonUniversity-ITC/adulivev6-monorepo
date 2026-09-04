@@ -25,7 +25,7 @@ export function DrsNotFoundPage({
         title={title}
         description={description}
         action={
-          <Button variant="outline" asChild className="rounded-full">
+          <Button variant="outline" asChild>
             <Link to={backTo}>{backLabel}</Link>
           </Button>
         }

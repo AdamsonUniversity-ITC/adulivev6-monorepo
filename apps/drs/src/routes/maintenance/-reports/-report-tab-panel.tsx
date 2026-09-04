@@ -24,17 +24,11 @@ export function ReportTabPanel({
   if (isError) {
     return (
       <DrsErrorState
-        title="Unable to load report"
-        description="Try adjusting filters or retry the request."
+        title="This report could not be loaded"
+        description="The request failed. Narrow the date range or try again."
         action={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            onClick={onRetry}
-          >
-            Retry
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            Try again
           </Button>
         }
       />

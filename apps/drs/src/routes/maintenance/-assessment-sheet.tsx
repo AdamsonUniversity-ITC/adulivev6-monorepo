@@ -1,3 +1,4 @@
+import { DrsInlineLoading } from '@/components/drs-ui.tsx';
 import { Button } from '@repo/ui/components/button';
 import {
   Card,
@@ -55,7 +56,7 @@ export const AssessmentSheet = (): JSX.Element => {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading settings…</p>
+        <DrsInlineLoading size="sm" label="Loading settings…" />
       ) : isError || !data ? (
         <p className="text-destructive text-sm">
           Could not load assessment settings. Check tenant context and try
@@ -141,7 +142,7 @@ export const AssessmentSheet = (): JSX.Element => {
                             .join(' · ') || 'No contact info'}
                         </p>
                         {user.role ? (
-                          <span className="bg-primary/10 text-primary mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium">
+                          <span className="bg-muted text-muted-foreground mt-1 inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium">
                             {user.role}
                           </span>
                         ) : null}

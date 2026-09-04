@@ -17,14 +17,14 @@ export function SimpleReportTable({ columns, rows }: SimpleReportTableProps) {
   if (rows.length === 0) {
     return (
       <DrsEmptyState
-        title="No data for the selected filters"
-        description="Try widening the date range or clearing one or more filters."
+        title="No data for these filters"
+        description="Nothing matched. Widen the date range or clear one of the filters above."
       />
     );
   }
 
   return (
-    <div className="drs-card overflow-x-auto rounded-xl border">
+    <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>

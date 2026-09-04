@@ -19,7 +19,10 @@ import { z } from 'zod';
 import { createDocumentGroup } from '../-lib/api/createDocumentGroup.ts';
 
 const formSchema = z.object({
-  group_name: z.string().min(1, { message: 'Group name is required.' }).max(255),
+  group_name: z
+    .string()
+    .min(1, { message: 'Group name is required.' })
+    .max(255),
 });
 
 type FormValues = z.infer<typeof formSchema>;

@@ -388,7 +388,7 @@ export function ApplicationMessagesPanel({
                 className="border-border bg-muted/20 flex items-center gap-2 rounded-md border p-2"
               >
                 <CheckCircle2
-                  className="h-4 w-4 text-green-600"
+                  className="text-status-success size-4"
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">

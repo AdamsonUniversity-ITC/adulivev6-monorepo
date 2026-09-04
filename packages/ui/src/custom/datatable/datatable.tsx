@@ -47,6 +47,10 @@ export type DataTableProps<TData, TValue = unknown> = {
   visibility?: DataTableVisibilityConfig;
   rowActions?: DataTableRowActionsConfig<TData>;
   onRowClick?: (row: Row<TData>) => void;
+  getRowProps?: (
+    row: Row<TData>,
+  ) => React.HTMLAttributes<HTMLTableRowElement> &
+    Record<string, string | undefined>;
   status?: DataTableStatusConfig;
   footer?: DataTableFooterConfig;
 
@@ -64,6 +68,7 @@ export function DataTable<TData, TValue = unknown>({
   visibility,
   rowActions,
   onRowClick,
+  getRowProps,
   status,
   footer,
   className,
@@ -308,30 +313,40 @@ export function DataTable<TData, TValue = unknown>({
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() ? 'selected' : undefined}
-                  className={cn(onRowClick && 'cursor-pointer')}
-                  onClick={
-                    onRowClick
-                      ? (event) => {
-                          if (isInteractiveRowClick(event.target)) return;
-                          onRowClick(row);
-                        }
-                      : undefined
-                  }
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowProps = getRowProps?.(row) ?? {};
+                const {
+                  className: rowClassName,
+                  onClick: rowOnClick,
+                  ...restRowProps
+                } = rowProps;
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() ? 'selected' : undefined}
+                    className={cn(onRowClick && 'cursor-pointer', rowClassName)}
+                    onClick={
+                      onRowClick || rowOnClick
+                        ? (event) => {
+                            if (isInteractiveRowClick(event.target)) return;
+                            rowOnClick?.(event);
+                            onRowClick?.(row);
+                          }
+                        : undefined
+                    }
+                    {...restRowProps}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

@@ -5,7 +5,7 @@ import {
   DrsNotFoundState,
   DrsPageHeader,
   DrsPageShell,
-  DrsSectionCard,
+  DrsPanel,
   DrsStatusBadge,
   formatStatusLabel,
   toneForStatus,
@@ -113,7 +113,7 @@ function HistoryCard({
   const restoreTitle = isLatest ? 'This is the current version.' : undefined;
 
   return (
-    <DrsSectionCard>
+    <DrsPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">
@@ -168,7 +168,7 @@ function HistoryCard({
         ) : null}
       </div>
       <div className="mt-4 space-y-4 text-sm">
-        <div className="bg-muted/20 grid gap-2 rounded-2xl border p-3 sm:grid-cols-2">
+        <div className="bg-muted/20 grid gap-2 rounded-md border p-3 sm:grid-cols-2">
           <div>
             <p className="text-muted-foreground text-xs">Status</p>
             <p className="font-medium">
@@ -208,7 +208,7 @@ function HistoryCard({
           </ul>
         </div>
       </div>
-    </DrsSectionCard>
+    </DrsPanel>
   );
 }
 
@@ -264,7 +264,6 @@ export function ApplicationHistoryContent({
   return (
     <DrsPageShell maxWidth="lg" contentClassName="space-y-3">
       <DrsPageHeader
-        eyebrow="Audit trail"
         title="Edit history"
         description="Review recorded application versions and restore an earlier runtime snapshot. Messages are excluded from rollback."
         actions={
@@ -272,7 +271,7 @@ export function ApplicationHistoryContent({
             type="button"
             variant="outline"
             size="sm"
-            className="gap-1 rounded-full"
+            className="gap-1"
             asChild
           >
             {backTo === 'staff' ? (
@@ -311,14 +310,9 @@ export function ApplicationHistoryContent({
           title="Request not found"
           description="This application ID may be incorrect, or the request may have been removed."
           action={
-            <Button
-              variant="outline"
-              asChild
-              size="sm"
-              className="rounded-full"
-            >
+            <Button variant="outline" asChild size="sm">
               <Link to={backTo === 'staff' ? '/staff/queue' : '/'}>
-                {backTo === 'staff' ? 'Back to queue' : 'Back to applications'}
+                {backTo === 'staff' ? 'Back to queue' : 'Back to my requests'}
               </Link>
             </Button>
           }

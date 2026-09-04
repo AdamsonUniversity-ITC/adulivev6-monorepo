@@ -1,11 +1,4 @@
 import { Button } from '@repo/ui/components/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui/components/card';
 import { Checkbox } from '@repo/ui/components/checkbox';
 import {
   Dialog,
@@ -31,9 +24,13 @@ import { FileUp, Plus, Search, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
 import {
+  DrsDataItem,
+  DrsDataList,
+  DrsOverline,
+  DrsPanel,
+  DrsSection,
   DrsStatusBadge,
   formatStatusLabel,
-  toneForStatus,
 } from '@/components/drs-ui.tsx';
 import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
 import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
@@ -42,7 +39,6 @@ import { formatFileSize, type TempUpload } from '@/lib/tempUploads.ts';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
 import { postApplicationSupportingRequirementUploads } from './-lib/api/postApplicationSupportingRequirementUploads.ts';
 import {
-  displayApplicationRef,
   type DRSApplicationClearanceRow,
   type DRSApplicationDetail,
 } from './-lib/types/applications.ts';
@@ -280,126 +276,166 @@ function formatPickupDate(value: string): string {
   });
 }
 
-export function RequestDetailsCard({ app }: { app: DRSApplicationDetail }) {
+/**
+ * Sticky rail on the detail pages. Answers "where is this request and what
+ * happens next" without the reader scanning the whole record.
+ */
+export function RequestSummaryPanel({
+  app,
+  action,
+  footnote,
+}: {
+  app: DRSApplicationDetail;
+  action?: React.ReactNode;
+  footnote?: React.ReactNode;
+}) {
+  const breakdown = paymentBreakdownFor(app);
+  const activeLines =
+    app.lines?.filter((line) => !line.is_cancelled).length ?? 0;
+
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">Request details</CardTitle>
-            <CardDescription>
-              Reference #{displayApplicationRef(app)} - Submitted{' '}
-              {app.created_at ? new Date(app.created_at).toLocaleString() : '-'}
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            <DrsStatusBadge tone={toneForStatus(app.status)}>
-              {formatStatusLabel(app.status)}
+    <DrsPanel contentClassName="space-y-4">
+      <div>
+        <p className="text-muted-foreground text-xs">Total amount due</p>
+        <div className="mt-1 flex flex-wrap items-baseline gap-2">
+          <p className="text-2xl font-semibold tracking-tight tabular-nums">
+            {breakdown.hasAmount
+              ? formatMoney(breakdown.total)
+              : 'Not assessed'}
+          </p>
+          {breakdown.hasAmount ? (
+            <DrsStatusBadge tone={app.is_paid ? 'success' : 'warning'}>
+              {app.is_paid ? 'Paid' : 'Unpaid'}
             </DrsStatusBadge>
-            {app.current_stage?.name ? (
-              <DrsStatusBadge tone="info">
-                {app.current_stage.name}
-              </DrsStatusBadge>
-            ) : null}
-            {app.is_paid ? (
-              <DrsStatusBadge tone="success">Paid</DrsStatusBadge>
-            ) : (
-              <DrsStatusBadge tone="warning">Unpaid</DrsStatusBadge>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground text-xs font-medium">
-              Student no.
-            </p>
-            <p className="font-medium">{app.student_no || '-'}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs font-medium">
-              School year / Sem
-            </p>
-            <p className="font-medium">
-              {app.school_year || '-'} - {app.semester || '-'}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs font-medium">
-              Receive mode
-            </p>
-            <p className="font-medium">
-              {formatStatusLabel(app.receive_mode)}
-              {app.secure_email_requested ? ' + Secure email (PDF)' : ''}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs font-medium">
-              Mode of payment
-            </p>
-            <p className="font-medium">{app.payment_method?.name || '-'}</p>
-            {app.payment_method?.description ? (
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
-                {app.payment_method.description}
-              </p>
-            ) : null}
-          </div>
-          {app.delivery_tracking_number ? (
-            <div>
-              <p className="text-muted-foreground text-xs font-medium">
-                Tracking number
-              </p>
-              <p className="font-medium">{app.delivery_tracking_number}</p>
-            </div>
-          ) : null}
-          {app.pickup_date ? (
-            <div>
-              <p className="text-muted-foreground text-xs font-medium">
-                Pickup date
-              </p>
-              <p className="font-medium">{formatPickupDate(app.pickup_date)}</p>
-            </div>
           ) : null}
         </div>
-        <RequestedLinesList app={app} />
-        <SupportingDocumentsSection app={app} />
-      </CardContent>
-    </Card>
+      </div>
+
+      <dl className="divide-border/70 divide-y border-t text-sm">
+        <div className="flex items-baseline justify-between gap-3 py-2">
+          <dt className="text-muted-foreground text-xs">Current stage</dt>
+          <dd className="text-right font-medium">
+            {app.current_stage?.name ?? formatStatusLabel(app.status)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3 py-2">
+          <dt className="text-muted-foreground text-xs">Items</dt>
+          <dd className="text-right font-medium tabular-nums">{activeLines}</dd>
+        </div>
+        {app.created_at ? (
+          <div className="flex items-baseline justify-between gap-3 py-2">
+            <dt className="text-muted-foreground text-xs">Submitted</dt>
+            <dd className="text-right font-medium">
+              {new Date(app.created_at).toLocaleDateString()}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {action ? <div className="grid gap-2">{action}</div> : null}
+      {footnote ? (
+        <p className="text-muted-foreground text-xs">{footnote}</p>
+      ) : null}
+    </DrsPanel>
+  );
+}
+
+export function RequestDetailsSection({ app }: { app: DRSApplicationDetail }) {
+  return (
+    <DrsSection
+      title="Request details"
+      description={
+        app.created_at
+          ? `Submitted ${new Date(app.created_at).toLocaleString()}`
+          : undefined
+      }
+      divided
+      contentClassName="space-y-6"
+    >
+      <DrsDataList columns={3}>
+        <DrsDataItem label="Student number">{app.student_no}</DrsDataItem>
+        <DrsDataItem label="School year and term">
+          {app.school_year || app.semester
+            ? `${app.school_year || '—'} · ${app.semester || '—'}`
+            : ''}
+        </DrsDataItem>
+        <DrsDataItem
+          label="Receive by"
+          hint={
+            app.secure_email_requested
+              ? 'A secure PDF copy will also be emailed'
+              : undefined
+          }
+        >
+          {formatStatusLabel(app.receive_mode)}
+        </DrsDataItem>
+        <DrsDataItem
+          label="Mode of payment"
+          hint={app.payment_method?.description}
+        >
+          {app.payment_method?.name}
+        </DrsDataItem>
+        {app.delivery_tracking_number ? (
+          <DrsDataItem label="Tracking number">
+            {app.delivery_tracking_number}
+          </DrsDataItem>
+        ) : null}
+        {app.pickup_date ? (
+          <DrsDataItem label="Pickup date">
+            {formatPickupDate(app.pickup_date)}
+          </DrsDataItem>
+        ) : null}
+      </DrsDataList>
+
+      <RequestedLinesList app={app} />
+      <SupportingDocumentsSection app={app} />
+    </DrsSection>
   );
 }
 
 function RequestedLinesList({ app }: { app: DRSApplicationDetail }) {
+  if (!app.lines?.length) {
+    return (
+      <div>
+        <DrsOverline>Requested items</DrsOverline>
+        <p className="text-muted-foreground mt-2 text-sm">
+          This request has no line items.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <p className="text-muted-foreground text-xs font-medium">Lines</p>
-      <ul className="bg-muted/20 mt-2 space-y-2 rounded-2xl border p-3">
-        {app.lines?.length ? (
-          app.lines.map((line) => (
-            <li
-              key={line.id}
-              className="bg-background/70 flex justify-between gap-3 rounded-xl px-3 py-2"
-            >
-              <span
-                className={`min-w-0 flex-1 truncate ${
+      <DrsOverline>Requested items</DrsOverline>
+      <table className="mt-2 w-full text-sm">
+        <thead className="sr-only">
+          <tr>
+            <th>Item</th>
+            <th>Quantity</th>
+          </tr>
+        </thead>
+        <tbody className="divide-border/70 divide-y border-y">
+          {app.lines.map((line) => (
+            <tr key={line.id}>
+              <td
+                className={`py-2 pr-4 ${
                   line.is_cancelled ? 'text-muted-foreground line-through' : ''
                 }`}
               >
                 {line.request_name}
-              </span>
-              <span
-                className={`text-muted-foreground shrink-0 ${
+              </td>
+              <td
+                className={`text-muted-foreground w-16 py-2 text-right tabular-nums ${
                   line.is_cancelled ? 'line-through' : ''
                 }`}
               >
-                x {line.quantity}
-              </span>
-            </li>
-          ))
-        ) : (
-          <li className="text-muted-foreground">No line items</li>
-        )}
-      </ul>
+                &times;{line.quantity}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -418,11 +454,9 @@ function SupportingDocumentsSection({ app }: { app: DRSApplicationDetail }) {
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-muted-foreground text-xs font-medium">
-        Supporting documents
-      </p>
-      <div className="bg-muted/20 space-y-3 rounded-2xl border p-3">
+    <div>
+      <DrsOverline>Supporting documents</DrsOverline>
+      <div className="divide-border/70 mt-2 divide-y border-y">
         {requirements.map(({ line, requirement }) => (
           <SupportingRequirementRow
             key={requirement.id}
@@ -472,10 +506,10 @@ function SupportingRequirementRow({
   });
 
   return (
-    <div className="bg-background/80 space-y-3 rounded-2xl border p-3 shadow-xs">
+    <div className="space-y-3 py-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-medium">{requirement.name}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{requirement.name}</p>
           <p className="text-muted-foreground text-xs">{lineName}</p>
           {requirement.instructions ? (
             <p className="text-muted-foreground mt-1 text-xs">
@@ -572,7 +606,7 @@ function SupportingRequirementRow({
   );
 }
 
-export function PaymentStepCard({
+export function PaymentStepPanel({
   app,
   uploads,
   remarks,
@@ -594,205 +628,216 @@ export function PaymentStepCard({
   if (!isPaymentCollectionOpen(app)) return null;
 
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <CardTitle className="text-base">Payment</CardTitle>
-        <CardDescription>
-          Upload your payment receipt so staff can verify your payment.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {app.payment_method ? (
-          <div className="bg-muted/20 rounded-2xl border p-3 text-sm">
-            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Mode of payment
+    <DrsPanel
+      title="Submit your payment"
+      description="Upload your transaction receipt so the cashier can verify it."
+      contentClassName="space-y-4"
+    >
+      {app.payment_method ? (
+        <div>
+          <DrsOverline>Mode of payment</DrsOverline>
+          <p className="mt-1 text-sm font-medium">{app.payment_method.name}</p>
+          {app.payment_method.description ? (
+            <p className="text-muted-foreground mt-0.5 text-xs leading-5">
+              {app.payment_method.description}
             </p>
-            <p className="mt-1 font-medium">{app.payment_method.name}</p>
-            {app.payment_method.description ? (
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
-                {app.payment_method.description}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-        <SupportingDocumentDropzone
-          label="Payment receipt"
-          description="PDF or image of your transaction receipt (max 3 files, 10 MB each)."
-          required
-          value={uploads}
-          onChange={onUploadsChange}
-          maxFiles={3}
-          maxSizeKb={10240}
-          allowedMimeTypes={[
-            'application/pdf',
-            'image/jpeg',
-            'image/png',
-            'image/webp',
-          ]}
-          disabled={isSubmitting}
-        />
-        <div className="space-y-2">
-          <Label htmlFor="payment-remarks">Remarks</Label>
-          <Textarea
-            id="payment-remarks"
-            value={remarks}
-            onChange={(event) => onRemarksChange(event.target.value)}
-            placeholder="Optional payment remarks"
-          />
+          ) : null}
         </div>
+      ) : null}
+      <SupportingDocumentDropzone
+        label="Payment receipt"
+        description="PDF or image of your transaction receipt (max 3 files, 10 MB each)."
+        required
+        value={uploads}
+        onChange={onUploadsChange}
+        maxFiles={3}
+        maxSizeKb={10240}
+        allowedMimeTypes={[
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+        ]}
+        disabled={isSubmitting}
+      />
+      <div className="space-y-2">
+        <Label htmlFor="payment-remarks">Remarks</Label>
+        <Textarea
+          id="payment-remarks"
+          value={remarks}
+          onChange={(event) => onRemarksChange(event.target.value)}
+          placeholder="Optional note for the cashier"
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           type="button"
           disabled={isSubmitting || uploads.length === 0}
           onClick={onSubmit}
-          className="rounded-full"
         >
-          Submit payment proof
+          {isSubmitting ? 'Submitting…' : 'Submit payment proof'}
         </Button>
-        {hasSubmitError ? (
-          <p className="text-destructive text-sm" role="alert">
-            Payment proof was not submitted. Check your receipt file and try
-            again.
+        {uploads.length === 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Attach at least one receipt to submit.
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      {hasSubmitError ? (
+        <p className="text-destructive text-sm" role="alert">
+          Payment proof was not submitted. Check your receipt file and try
+          again.
+        </p>
+      ) : null}
+    </DrsPanel>
   );
 }
 
-export function PaymentBreakdownCard({ app }: { app: DRSApplicationDetail }) {
+export function PaymentBreakdownSection({
+  app,
+}: {
+  app: DRSApplicationDetail;
+}) {
   const breakdown = paymentBreakdownFor(app);
 
   if (!breakdown.hasAmount) return null;
 
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <CardTitle className="text-base">Payment breakdown</CardTitle>
-        <CardDescription>
-          Summary of the assessed amount for this request.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+    <DrsSection
+      title="Assessment"
+      description="What this request costs, as assessed by the registrar."
+      divided
+    >
+      <table className="w-full text-sm">
+        <thead className="sr-only">
+          <tr>
+            <th>Item</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
         {breakdown.hasBreakdown ? (
-          <div className="bg-muted/20 space-y-2 rounded-2xl border p-3">
+          <tbody className="divide-border/70 divide-y">
             {breakdown.lines.map((line) => (
-              <div key={line.id} className="flex justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{line.label}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatMoney(line.unitPrice)} x {line.quantity}
-                  </p>
-                </div>
-                <p className="shrink-0 font-medium">
+              <tr key={line.id}>
+                <td className="py-2 pr-4">
+                  <span className="block">{line.label}</span>
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    {formatMoney(line.unitPrice)} &times; {line.quantity}
+                  </span>
+                </td>
+                <td className="py-2 text-right align-top tabular-nums">
                   {formatMoney(line.amount)}
-                </p>
-              </div>
+                </td>
+              </tr>
             ))}
             {breakdown.otherFees.map((fee) => (
-              <div key={fee.id} className="flex justify-between gap-3">
-                <p className="min-w-0 truncate font-medium">{fee.label}</p>
-                <p className="shrink-0 font-medium">
+              <tr key={fee.id}>
+                <td className="py-2 pr-4">{fee.label}</td>
+                <td className="py-2 text-right tabular-nums">
                   {formatMoney(fee.amount)}
-                </p>
-              </div>
+                </td>
+              </tr>
             ))}
-          </div>
+          </tbody>
         ) : null}
-        <div className="bg-primary/10 text-primary border-primary/20 flex justify-between gap-3 rounded-2xl border p-4">
-          <span className="font-medium">Total amount due</span>
-          <span className="font-semibold">{formatMoney(breakdown.total)}</span>
-        </div>
-      </CardContent>
-    </Card>
+        <tfoot>
+          <tr className="border-foreground/20 border-t-2">
+            <th scope="row" className="py-2 pr-4 text-left font-medium">
+              Total amount due
+            </th>
+            <td className="py-2 text-right text-base font-semibold tabular-nums">
+              {formatMoney(breakdown.total)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </DrsSection>
   );
 }
 
-export function PaymentReferencesCard({ app }: { app: DRSApplicationDetail }) {
+export function PaymentReferencesSection({
+  app,
+}: {
+  app: DRSApplicationDetail;
+}) {
   if (!app.payment_submission && !app.payment_verification) return null;
 
   const receipts = app.payment_submission?.receipts ?? [];
 
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <CardTitle className="text-base">Payment proof</CardTitle>
-        <CardDescription>
-          Receipt and verification details for this request.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        {app.payment_submission ? (
-          <div className="bg-muted/20 space-y-2 rounded-2xl border p-3">
-            <p className="text-muted-foreground text-xs font-medium">
-              Student payment proof
+    <DrsSection
+      title="Payment proof"
+      description="Receipt and verification details on file for this request."
+      divided
+      contentClassName="space-y-4 text-sm"
+    >
+      {app.payment_submission ? (
+        <div className="space-y-2">
+          <DrsOverline>Student payment proof</DrsOverline>
+          {app.payment_submission.submitted_at ? (
+            <p className="text-muted-foreground text-xs">
+              Uploaded{' '}
+              {new Date(app.payment_submission.submitted_at).toLocaleString()}
             </p>
-            {app.payment_submission.submitted_at ? (
-              <p className="text-muted-foreground text-xs">
-                Uploaded{' '}
-                {new Date(app.payment_submission.submitted_at).toLocaleString()}
-              </p>
-            ) : null}
-            {receipts.length > 0 ? (
-              <ul className="space-y-1">
-                {receipts.map((file) => (
-                  <li
-                    key={file.id}
-                    className="flex flex-wrap items-baseline gap-2"
+          ) : null}
+          {receipts.length > 0 ? (
+            <ul className="space-y-1">
+              {receipts.map((file) => (
+                <li
+                  key={file.id}
+                  className="flex flex-wrap items-baseline gap-2"
+                >
+                  <a
+                    href={file.url}
+                    className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
+                    onClick={(event) =>
+                      handlePrivateFileDownloadClick(
+                        event,
+                        file.url,
+                        file.file_name,
+                        file.expires_at,
+                        () => {
+                          toast.error(
+                            'Failed to download receipt. Please refresh and try again.',
+                          );
+                        },
+                      )
+                    }
                   >
-                    <a
-                      href={file.url}
-                      className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
-                      onClick={(event) =>
-                        handlePrivateFileDownloadClick(
-                          event,
-                          file.url,
-                          file.file_name,
-                          file.expires_at,
-                          () => {
-                            toast.error(
-                              'Failed to download receipt. Please refresh and try again.',
-                            );
-                          },
-                        )
-                      }
-                    >
-                      <span className="min-w-0 wrap-anywhere">
-                        {file.file_name}
-                      </span>
-                    </a>
-                    <span className="text-muted-foreground text-xs">
-                      {formatFileSize(file.size)}
+                    <span className="min-w-0 wrap-anywhere">
+                      {file.file_name}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            ) : app.payment_submission.reference_number ? (
-              <p className="font-medium">
-                Reference: {app.payment_submission.reference_number}
-              </p>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                No receipt on file.
-              </p>
-            )}
-            {app.payment_submission.remarks ? (
-              <p className="text-muted-foreground whitespace-pre-wrap">
-                {app.payment_submission.remarks}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-        {app.payment_verification ? (
-          <PaymentReferenceBlock
-            label="Verification notes"
-            reference={app.payment_verification.reference_number}
-            remarks={app.payment_verification.remarks}
-            timestampLabel="Verified"
-            timestamp={app.payment_verification.verified_at}
-          />
-        ) : null}
-      </CardContent>
-    </Card>
+                  </a>
+                  <span className="text-muted-foreground text-xs">
+                    {formatFileSize(file.size)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : app.payment_submission.reference_number ? (
+            <p className="font-medium">
+              Reference: {app.payment_submission.reference_number}
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-xs">No receipt on file.</p>
+          )}
+          {app.payment_submission.remarks ? (
+            <p className="text-muted-foreground whitespace-pre-wrap">
+              {app.payment_submission.remarks}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {app.payment_verification ? (
+        <PaymentReferenceBlock
+          label="Verification notes"
+          reference={app.payment_verification.reference_number}
+          remarks={app.payment_verification.remarks}
+          timestampLabel="Verified"
+          timestamp={app.payment_verification.verified_at}
+        />
+      ) : null}
+    </DrsSection>
   );
 }
 
@@ -810,91 +855,84 @@ function PaymentReferenceBlock({
   timestampLabel?: string;
 }) {
   return (
-    <div className="bg-muted/20 rounded-2xl border p-3">
-      <p className="text-muted-foreground text-xs font-medium">{label}</p>
-      <p className="mt-1 font-medium">{reference ?? '-'}</p>
+    <div className="space-y-1">
+      <DrsOverline>{label}</DrsOverline>
+      <p className="font-medium">{reference ?? '—'}</p>
       {timestamp ? (
-        <p className="text-muted-foreground mt-1 text-xs">
+        <p className="text-muted-foreground text-xs">
           {timestampLabel ?? 'Updated'} {new Date(timestamp).toLocaleString()}
         </p>
       ) : null}
       {remarks ? (
-        <p className="text-muted-foreground mt-2 whitespace-pre-wrap">
-          {remarks}
-        </p>
+        <p className="text-muted-foreground whitespace-pre-wrap">{remarks}</p>
       ) : null}
     </div>
   );
 }
 
-export function ClearancesCard({
+export function ClearancesSection({
   clearances,
 }: {
   clearances?: DRSApplicationClearanceRow[];
 }) {
   if (!clearances?.length) return null;
 
+  const cleared = clearances.filter(
+    (clearance) => clearance.status === 'cleared',
+  ).length;
+
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <CardTitle className="text-base">Clearances</CardTitle>
-        <CardDescription>
-          Status of each clearance department for this request.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <DrsSection
+      title="Clearances"
+      description={`${cleared} of ${clearances.length} departments have signed off.`}
+      divided
+    >
+      <ul className="divide-border/70 divide-y">
         {clearances.map((clearance) => (
-          <div
-            key={clearance.id}
-            className="bg-muted/20 rounded-2xl border p-3"
-          >
+          <li key={clearance.id} className="py-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-medium">{clearance.clearance_name}</p>
+              <p className="text-sm font-medium">{clearance.clearance_name}</p>
               <div className="flex flex-wrap items-center gap-2">
-                <DrsStatusBadge
-                  tone={clearance.status === 'cleared' ? 'success' : 'warning'}
-                >
-                  {formatStatusLabel(clearance.status)}
-                </DrsStatusBadge>
                 {clearance.cleared_at ? (
                   <span className="text-muted-foreground text-xs">
                     {new Date(clearance.cleared_at).toLocaleString()}
                   </span>
                 ) : null}
+                <DrsStatusBadge
+                  tone={clearance.status === 'cleared' ? 'success' : 'warning'}
+                >
+                  {formatStatusLabel(clearance.status)}
+                </DrsStatusBadge>
               </div>
             </div>
             {clearance.remarks ? (
-              <p className="text-muted-foreground mt-2 text-sm whitespace-pre-wrap">
+              <p className="text-muted-foreground mt-1 text-sm whitespace-pre-wrap">
                 {clearance.remarks}
               </p>
             ) : null}
-          </div>
+          </li>
         ))}
-      </CardContent>
-    </Card>
+      </ul>
+    </DrsSection>
   );
 }
 
-export function MessagesCard({ applicationId }: { applicationId: string }) {
+export function MessagesPanel({ applicationId }: { applicationId: string }) {
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <CardTitle className="text-base">Messages</CardTitle>
-        <CardDescription>
-          Chat with the registrar and any staff handling your request.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ApplicationMessagesPanel
-          applicationId={applicationId}
-          viewerRole="student"
-        />
-      </CardContent>
-    </Card>
+    <DrsPanel
+      title="Messages"
+      description="Ask the registrar about this request."
+      contentClassName="p-0"
+    >
+      <ApplicationMessagesPanel
+        applicationId={applicationId}
+        viewerRole="student"
+      />
+    </DrsPanel>
   );
 }
 
-export function EditRequestCard({
+export function EditRequestSection({
   editable,
   email,
   contactNumber,
@@ -955,190 +993,174 @@ export function EditRequestCard({
 
   if (!editable) {
     return (
-      <Card className="drs-card">
-        <CardHeader>
-          <CardTitle className="text-base">Edit request</CardTitle>
-          <CardDescription>
-            This request is locked because it has already moved beyond the
-            initial review stage.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="bg-muted/20 rounded-2xl border p-4">
-            <p className="font-medium">No changes are needed from this form.</p>
-            <p className="text-muted-foreground mt-1 leading-6">
-              You can still review the request details, upload any pending
-              supporting documents, submit payment information when requested,
-              or message the registrar for help.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <p className="text-muted-foreground text-xs font-medium">
-                Contact email
-              </p>
-              <p className="font-medium">{email || '-'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs font-medium">
-                Receive mode
-              </p>
-              <p className="font-medium">
-                {formatStatusLabel(receiveMode)}
-                {secureEmail ? ' + Secure email (PDF)' : ''}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs font-medium">
-                Mode of payment
-              </p>
-              <p className="font-medium">
-                {selectedPaymentMethod?.name || '-'}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <DrsSection
+        title="Request details are locked"
+        description="This request has moved past the initial review stage, so its contents can no longer be changed. You can still upload supporting documents, submit payment, or message the registrar."
+        divided
+      >
+        <DrsDataList columns={3}>
+          <DrsDataItem label="Contact email">{email}</DrsDataItem>
+          <DrsDataItem
+            label="Receive by"
+            hint={secureEmail ? 'Secure PDF copy also requested' : undefined}
+          >
+            {formatStatusLabel(receiveMode)}
+          </DrsDataItem>
+          <DrsDataItem label="Mode of payment">
+            {selectedPaymentMethod?.name}
+          </DrsDataItem>
+        </DrsDataList>
+      </DrsSection>
     );
   }
 
   return (
-    <Card className="drs-card">
-      <CardHeader>
-        <CardTitle className="text-base">Edit request</CardTitle>
-        <CardDescription>
-          While this request is still in its initial stage, you can change
-          contact details and adjust requested items.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <DrsSection
+      title="Edit request"
+      description="This request is still in its initial stage, so you can change your contact details and adjust the items you asked for."
+      divided
+      contentClassName="max-w-2xl space-y-6"
+    >
+      <div className="space-y-4">
+        <DrsOverline>Contact</DrsOverline>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
-              disabled={!editable}
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="contact">Contact number</Label>
             <Input
               id="contact"
               value={contactNumber}
               onChange={(e) => onContactNumberChange(e.target.value)}
-              disabled={!editable}
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>Receive mode</Label>
-          <Select
-            value={receiveMode}
-            onValueChange={(v) =>
-              onReceiveModeChange(v as 'delivery' | 'pickup')
-            }
-            disabled={!editable}
-          >
-            <SelectTrigger className="w-full sm:max-w-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pickup">Pickup</SelectItem>
-              <SelectItem value="delivery">Delivery</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Mode of payment</Label>
-          <Select
-            value={paymentMethodId || undefined}
-            onValueChange={onPaymentMethodChange}
-            disabled={!editable || paymentMethods.length === 0}
-          >
-            <SelectTrigger className="w-full sm:max-w-xs">
-              <SelectValue
-                placeholder={
-                  paymentMethods.length === 0
-                    ? 'No payment methods available'
-                    : 'Select payment method'
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {paymentMethods.map((method) => (
-                <SelectItem key={method.id} value={method.id}>
-                  {method.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedPaymentMethod?.description ? (
-            <p className="text-muted-foreground text-xs leading-5">
-              {selectedPaymentMethod.description}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex items-start gap-2">
-          <Checkbox
-            id="edit-secure-email"
-            checked={secureEmail}
-            onCheckedChange={(checked) => onSecureEmailChange(checked === true)}
-            disabled={!editable}
-          />
-          <div className="space-y-1">
-            <Label htmlFor="edit-secure-email">
-              Also receive a secure email (PDF) copy
-            </Label>
-            <p className="text-muted-foreground text-xs">
-              A protected PDF copy will be sent to your email address.
-            </p>
+      </div>
+
+      <div className="space-y-4">
+        <DrsOverline>Delivery and payment</DrsOverline>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-receive-mode">Receive by</Label>
+            <Select
+              value={receiveMode}
+              onValueChange={(v) =>
+                onReceiveModeChange(v as 'delivery' | 'pickup')
+              }
+            >
+              <SelectTrigger id="edit-receive-mode" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pickup">Pickup at registrar</SelectItem>
+                <SelectItem value="delivery">Courier delivery</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-payment-method">Mode of payment</Label>
+            <Select
+              value={paymentMethodId || undefined}
+              onValueChange={onPaymentMethodChange}
+              disabled={paymentMethods.length === 0}
+            >
+              <SelectTrigger id="edit-payment-method" className="w-full">
+                <SelectValue
+                  placeholder={
+                    paymentMethods.length === 0
+                      ? 'No payment methods available'
+                      : 'Select payment method'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((method) => (
+                  <SelectItem key={method.id} value={method.id}>
+                    {method.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedPaymentMethod?.description ? (
+              <p className="text-muted-foreground text-xs leading-5">
+                {selectedPaymentMethod.description}
+              </p>
+            ) : null}
           </div>
         </div>
+
         {receiveMode === 'delivery' ? (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="addr">Delivery address</Label>
             <Textarea
               id="addr"
+              rows={3}
               value={deliveryAddress}
               onChange={(e) => onDeliveryAddressChange(e.target.value)}
-              disabled={!editable}
             />
           </div>
         ) : null}
-        <div className="space-y-2">
+
+        <div className="flex items-start gap-2.5">
+          <Checkbox
+            id="edit-secure-email"
+            className="mt-0.5"
+            checked={secureEmail}
+            onCheckedChange={(checked) => onSecureEmailChange(checked === true)}
+          />
+          <div>
+            <Label htmlFor="edit-secure-email">
+              Also email me a secure PDF copy
+            </Label>
+            <p className="text-muted-foreground text-xs">
+              A password-protected PDF is sent to your email address.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor="purpose">Purpose</Label>
           <Textarea
             id="purpose"
+            rows={2}
+            placeholder="e.g. employment abroad, scholarship"
             value={purpose}
             onChange={(e) => onPurposeChange(e.target.value)}
-            disabled={!editable}
           />
         </div>
-        <RequestedItemsEditor
-          editable={editable}
-          lines={lines}
-          lockedCompanionIds={lockedCompanionIds}
-          lockedCompanionLabels={lockedCompanionLabels}
-          onLinesChange={onLinesChange}
-          onOpenCatalog={onOpenCatalog}
-        />
-        <Button
-          type="button"
-          disabled={!canSubmitEdit}
-          onClick={onSave}
-          className="rounded-full"
-        >
+      </div>
+
+      <RequestedItemsEditor
+        editable={editable}
+        lines={lines}
+        lockedCompanionIds={lockedCompanionIds}
+        lockedCompanionLabels={lockedCompanionLabels}
+        onLinesChange={onLinesChange}
+        onOpenCatalog={onOpenCatalog}
+      />
+
+      <div className="flex flex-wrap items-center gap-3 border-t pt-4">
+        <Button type="button" disabled={!canSubmitEdit} onClick={onSave}>
           Save changes
         </Button>
-        {hasSaveError ? (
-          <p className="text-destructive text-sm" role="alert">
-            Request changes were not saved. Review the fields and try again.
+        {lines.length === 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Add at least one item before saving.
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      {hasSaveError ? (
+        <p className="text-destructive text-sm" role="alert">
+          Request changes were not saved. Review the fields and try again.
+        </p>
+      ) : null}
+    </DrsSection>
   );
 }
 
@@ -1158,24 +1180,23 @@ function RequestedItemsEditor({
   onOpenCatalog: () => void;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Label>Requested items</Label>
+        <DrsOverline>Requested items</DrsOverline>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="gap-1 rounded-full"
           disabled={!editable}
           onClick={onOpenCatalog}
         >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add document or package
+          <Plus className="size-4" aria-hidden="true" />
+          Add item
         </Button>
       </div>
-      <div className="bg-muted/20 space-y-2 rounded-2xl border p-3">
+      <div className="divide-border/70 divide-y border-y">
         {lines.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground py-3 text-sm">
             No items yet. Add at least one document or package to save.
           </p>
         ) : null}
@@ -1188,24 +1209,31 @@ function RequestedItemsEditor({
           return (
             <div
               key={`${line.requestable_type}-${line.requestable_id}-${index}`}
-              className="bg-background/80 flex flex-col gap-2 rounded-xl p-3 sm:flex-row sm:items-center"
+              className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{line.label}</p>
+                <p className="text-sm font-medium">{line.label}</p>
                 {isLockedCompanion && lockedBy ? (
                   <p className="text-muted-foreground text-xs">
-                    Required with {lockedBy}. Cannot remove while that document
-                    is selected.
+                    Required with {lockedBy}. It cannot be removed while that
+                    document is selected.
                   </p>
                 ) : null}
               </div>
               <div className="flex items-center gap-2 sm:w-auto">
-                <div className="flex items-center gap-2 sm:w-40">
-                  <Label className="text-muted-foreground text-xs">Qty</Label>
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor={`line-qty-${index}`}
+                    className="text-muted-foreground text-xs"
+                  >
+                    Qty
+                  </Label>
                   <Input
+                    id={`line-qty-${index}`}
                     type="number"
                     min={1}
                     max={MAX_LINE_QTY}
+                    className="h-8 w-20"
                     value={line.quantity}
                     disabled={!editable}
                     onChange={(e) => {

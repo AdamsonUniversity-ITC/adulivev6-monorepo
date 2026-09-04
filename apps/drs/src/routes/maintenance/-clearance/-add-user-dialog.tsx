@@ -113,7 +113,7 @@ export const AddUserDialog = ({ departmentId }: Props) => {
               <p className="text-muted-foreground p-3 text-sm">Searching…</p>
             ) : hits.length === 0 ? (
               <p className="text-muted-foreground p-3 text-sm">
-                No employees found.
+                No employee matches that name or number.
               </p>
             ) : (
               hits.map((hit) => (
@@ -122,7 +122,9 @@ export const AddUserDialog = ({ departmentId }: Props) => {
                   type="button"
                   className="hover:bg-accent flex w-full flex-col rounded-md px-2 py-2 text-left text-sm"
                   onClick={() =>
-                    hit.user_id ? attachMutation.mutate(Number(hit.user_id)) : null
+                    hit.user_id
+                      ? attachMutation.mutate(Number(hit.user_id))
+                      : null
                   }
                   disabled={attachMutation.isPending || !hit.user_id}
                 >

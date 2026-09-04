@@ -1,0 +1,88 @@
+/* Rich-text editor styles — table and content area */
+.rich-text-editor-content {
+  .tiptap {
+    outline: none;
+    padding: 0.75rem 1rem;
+
+    > * + * {
+      margin-top: 0.5em;
+    }
+
+    ul,
+    ol {
+      padding-left: 1.5rem;
+    }
+
+    ul {
+      list-style-type: disc;
+    }
+
+    ol {
+      list-style-type: decimal;
+    }
+
+    img {
+      display: inline;
+      height: auto;
+      margin: 0;
+      max-width: 100%;
+      vertical-align: middle;
+    }
+
+    p.is-editor-empty:first-child::before {
+      color: var(--muted-foreground);
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      pointer-events: none;
+    }
+  }
+
+  .mention,
+  span[data-type='mention'] {
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, currentColor 14%, transparent);
+    padding: 0.05em 0.35em;
+    font-weight: 600;
+  }
+
+  .rich-content {
+    line-height: 1.6;
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      overflow: hidden;
+      border: 1px solid hsl(var(--border));
+    }
+
+    th,
+    td {
+      border: 1px solid hsl(var(--border));
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: hsl(var(--muted));
+      font-weight: 600;
+    }
+
+    table p {
+      margin: 0;
+    }
+
+    &.resize-cursor {
+      cursor: col-resize;
+    }
+
+    img {
+      display: inline;
+      height: auto;
+      margin: 0;
+      max-width: 100%;
+    }
+  }
+}

@@ -1,4 +1,10 @@
-import { DrsEmptyState, DrsSearchField } from '@/components/drs-ui.tsx';
+import {
+  DrsEmptyState,
+  DrsErrorState,
+  DrsLoadingState,
+  DrsSearchField,
+  DrsTableSkeleton,
+} from '@/components/drs-ui.tsx';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { checkPermission } from '@repo/hooks';
 import { Badge } from '@repo/ui/components/badge';
@@ -111,11 +117,21 @@ export function UserManagementSheet(): JSX.Element {
         </CardHeader>
         <CardContent className="space-y-3">
           {usersQuery.isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading users...</p>
+            <DrsTableSkeleton rows={5} columns={3} />
           ) : usersQuery.isError ? (
-            <p className="text-destructive text-sm">Could not load users.</p>
+            <DrsErrorState
+              title="Could not load users"
+              description="The user directory did not respond. Check your connection and try again."
+            />
           ) : rows.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No users found.</p>
+            <DrsEmptyState
+              title={search ? 'No matching users' : 'No users yet'}
+              description={
+                search
+                  ? 'No user matches that name, employee number, or email. Try a shorter search term.'
+                  : 'No DRS users have been added for this site yet.'
+              }
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -302,22 +318,15 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   });
 
   if (profileQuery.isLoading) {
-    return (
-      <Card className="drs-card">
-        <CardContent className="text-muted-foreground p-5 text-sm">
-          Loading profile...
-        </CardContent>
-      </Card>
-    );
+    return <DrsLoadingState label="Loading user profile…" />;
   }
 
   if (profileQuery.isError || !profileQuery.data) {
     return (
-      <Card className="drs-card">
-        <CardContent className="text-destructive p-5 text-sm">
-          Could not load profile.
-        </CardContent>
-      </Card>
+      <DrsErrorState
+        title="Could not load this user"
+        description="The profile did not load. Close this panel and select the user again."
+      />
     );
   }
 
@@ -362,7 +371,7 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
           <h3 className="text-sm font-medium">Permissions</h3>
           {canManagePermissions ? (
             <div className="space-y-2">
-              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3">
+              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-md border p-3">
                 <div>
                   <p className="text-sm font-medium">
                     {formatRolePermissionName(
@@ -385,7 +394,7 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
                   aria-label="Can cancel applications"
                 />
               </div>
-              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3">
+              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-md border p-3">
                 <div>
                   <p className="text-sm font-medium">
                     {formatRolePermissionName(DRS_ADMIN_ACCESS_PERMISSION)}
@@ -454,7 +463,7 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
               {(historyQuery.data ?? []).slice(0, 8).map((row) => (
                 <div
                   key={row.id}
-                  className="bg-muted/20 rounded-2xl border p-3 text-xs"
+                  className="bg-muted/20 rounded-md border p-3 text-xs"
                 >
                   <div className="font-medium">
                     {row.event || row.description || 'Assignment updated'}
@@ -512,7 +521,7 @@ function ResponsibilityRow({
   }, [item]);
 
   return (
-    <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-2xl border p-3 text-xs">
+    <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-md border p-3 text-xs">
       <div>
         <div className="font-medium capitalize">{label}</div>
         <div className="text-muted-foreground">

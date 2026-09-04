@@ -21,7 +21,9 @@ export function MaintenanceLoaderDataProvider({
   );
 }
 
-export function useMaintenanceLoaderData(): { access: MaintenanceLoaderAccess } {
+export function useMaintenanceLoaderData(): {
+  access: MaintenanceLoaderAccess;
+} {
   const ctx = useContext(MaintenanceLoaderDataContext);
   if (!ctx) {
     throw new Error(
