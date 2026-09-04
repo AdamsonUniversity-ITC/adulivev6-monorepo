@@ -1,8 +1,8 @@
-import { DollarSign, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, BadgeCheck } from 'lucide-react';
+import { PhilippinePeso, ShieldCheck, Truck, Calculator, Package, CreditCard, RefreshCw, BadgeCheck } from 'lucide-react';
 import { FilterPanelConfig } from './types';
 
 export const ROLES = [
-    { key: 'budget-access', label: 'Budget Office', icon: DollarSign },
+    { key: 'budget-access', label: 'Budget Office', icon: PhilippinePeso },
     { key: 'admin-access', label: 'Administration', icon: ShieldCheck },
     { key: 'controller-access', label: 'Controller', icon: BadgeCheck },
     { key: 'logistics-access', label: 'Purchasing', icon: Truck },
@@ -12,6 +12,22 @@ export const ROLES = [
 ] as const;
 
 export type PermissionKey = typeof ROLES[number]['key'];
+
+export function formatOrdinalApproval(value: number): string {
+    const approvalNumber = Math.max(1, Math.trunc(value) || 1);
+    const lastTwoDigits = approvalNumber % 100;
+    const suffix = lastTwoDigits >= 11 && lastTwoDigits <= 13
+        ? 'th'
+        : approvalNumber % 10 === 1
+            ? 'st'
+            : approvalNumber % 10 === 2
+                ? 'nd'
+                : approvalNumber % 10 === 3
+                    ? 'rd'
+                    : 'th';
+
+    return `${approvalNumber}${suffix} approval`;
+}
 
 export const ROLE_COLUMNS: Record<PermissionKey, string[]> = {
     'budget-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
@@ -159,7 +175,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'admin-access': {
-        status: { options: ADMIN_STATUS_OPTIONS, defaultLabel: 'For Budget Director' },
+        status: { options: ADMIN_STATUS_OPTIONS, defaultLabels: ['For Budget Director', 'On Process', 'For Approval'] },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -179,7 +195,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'logistics-access': {
-        status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabel: 'For Pricing' },
+        status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabels: ['For Pricing', 'For Purchase'] },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
@@ -189,7 +205,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         actions: COMMON_ACTIONS,
     },
     'accounting-access': {
-        status: { options: GENERAL_STATUS_OPTIONS },
+        status: { options: GENERAL_STATUS_OPTIONS, defaultLabel: 'Certified RS' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,

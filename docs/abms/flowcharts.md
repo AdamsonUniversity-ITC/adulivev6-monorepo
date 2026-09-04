@@ -134,13 +134,30 @@ flowchart TD
     J --> K[Keep current is_controlled value authoritative]
 ```
 
-## Logistics and Stockroom Reprint Warning
+## Stockroom-Type Print Eligibility
 
 ```mermaid
 flowchart TD
-    A[User selects Print RS] --> B{Active role is Logistics or Stockroom?}
+    A[User selects Print RS] --> B{Budget Request Entry or Stockroom role?}
+    B -- No --> C[Keep existing role print behavior]
+    B -- Yes --> D{Normalized RS type is stockroom?}
+    D -- No --> E[Allow existing print preview flow]
+    D -- Yes --> F{Status is Certified or Served variant?}
+    F -- No --> G[Disable action and guard preview opening]
+    F -- Yes --> E
+    E --> H{Stockroom role?}
+    H -- Yes --> I[Run latest any-user print-history check]
+    H -- No --> J[Open shared print preview]
+    I --> J
+```
+
+## Requisition Process Reprint Warning
+
+```mermaid
+flowchart TD
+    A[User selects Print RS] --> B{Logistics, Stockroom, Budget, or Administration?}
     B -- No --> C[Open existing RS print preview]
-    B -- Yes --> D[Request latest print event by another authenticated user]
+    B -- Yes --> D[Request latest print event by any user, including current user]
     D --> E{Lookup succeeds?}
     E -- No --> F[Show error and do not open preview]
     E -- Yes, none --> C
@@ -198,7 +215,10 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Budget or Administration selects RS to Process Today] --> B[Apply organizational school-year date search and sort filters]
-    B --> C[Include null blank and non-PNB payment forms across every RS type]
+    B --> BA{Active role}
+    BA -- Budget --> BB[Require current status for review]
+    BA -- Administration --> C[Retain status-wide scope]
+    BB --> C[Include null blank and non-PNB payment forms across every RS type]
     C --> D[Exclude trimmed case-insensitive exact PNB Credit Card Payment]
     D --> E[Apply stable cursor pagination]
     E --> F[Return rows for the normal RS process modal]
@@ -307,7 +327,7 @@ flowchart TD
     F -- No --> X[Return validation error]
     F -- Yes --> FP{Payee requirement satisfied?}
     FP -- No --> X
-    FP -- Yes --> G{Cashier request below PHP 1,000 without Supplier/Water or PNB exemption?}
+    FP -- Yes --> G{Cashier Reimbursement/Replenishment below PHP 1,000?}
     G -- Yes --> X
     G -- No --> H[Assign requisition number and persist calculated total]
 
@@ -333,12 +353,35 @@ flowchart TD
     F -- Confirm and Save --> H[Call existing idempotent quoted-price endpoint once]
     H --> I{Save succeeds?}
     I -- No --> J[Keep review open and show server error]
-    I -- Yes --> K[Keep blank items unquoted and forward RS to Budget Office]
-    K --> L[Administration accepts submitted quotes and may mark For Purchase]
-    L --> M[Logistics may price remaining items through another approval cycle]
-    M --> N{Every live item quoted and accepted?}
-    N -- No --> O[Disable and reject Send RS to WICO]
-    N -- Yes --> P[Lock header and items then move to PO on process at Stockroom]
+    I -- Yes --> K[Keep blank items unquoted; changed lines await acceptance at Budget Office]
+    K --> L[Administration accepts changed lines atomically and resets Controller to pending]
+    L --> M{Controller price-cycle decision}
+    M -- Disapprove --> N[Remain For Approval at Budget Office; allow later direct approval]
+    M -- Approve --> O[Administration may mark For Purchase]
+    O --> P{At least one accepted unresolved line?}
+    P -- No --> Q[Reject Send RS to WICO]
+    P -- Yes --> R[Dispatch all eligible lines and move header to PO on process at Stockroom]
+    R --> S[Stockroom tags dispatched lines Served or Unavailable]
+    S --> T{Every live line resolved?}
+    T -- Yes --> U[Mark header Served]
+    T -- No --> V[Return to Logistics and preserve completed lines]
+    V --> W[Clear unresolved dispatch and repeat pricing cycle]
+```
+
+## Stockroom Item Fulfillment
+
+```mermaid
+flowchart TD
+    A[Open eligible RS at Stockroom] --> B{RS type}
+    B -- Logistics --> C[Allow only dispatched unresolved lines]
+    B -- Stockroom certified --> D[Allow every active unresolved line]
+    C --> E[Tag individually or Select All Pending as Served]
+    D --> E
+    E --> F[Allow Served or positive-quantity Unavailable to return to Pending]
+    F --> G[Keep zero-quantity items Unavailable]
+    G --> H{All live lines Served or Unavailable?}
+    H -- No --> I[Reject header Mark Served]
+    H -- Yes --> J[Finalize header and lock completed lines]
 ```
 
 ## Logistics RS Item Description Editing
@@ -354,6 +397,24 @@ flowchart TD
     F -- No --> X
     F -- Yes --> G[Update descriptions atomically]
     G --> H[Return authoritative items without changing accounts quantities prices totals or balances]
+```
+
+## Stockroom Certified Quantity Editing
+
+```mermaid
+flowchart TD
+    A[Stockroom opens a Stockroom-type RS] --> B{Certified and currently at Stockroom?}
+    B -- No, including Served --> X[Hide editor and reject writes]
+    B -- Yes --> C[Edit quantities only; zero means unavailable stock]
+    C --> D[Submit item ID and quantity pairs idempotently]
+    D --> E[Authorize Stockroom and lock header, items, allocations, and proposals]
+    E --> F{State, ownership, typed unit, and allocations valid?}
+    F -- No --> X
+    F -- Yes --> G[Compute stored unit cost times quantity in exact cents]
+    G --> H[Aggregate old-to-new deltas per allocation and proposal]
+    H --> I{Resulting balances and totals valid?}
+    I -- No --> X
+    I -- Yes --> J[Update item totals, balances, and full header total atomically]
 ```
 
 ## Misrouted Requisition Returns
@@ -374,6 +435,81 @@ flowchart TD
     F --> I[Audit and commit idempotently]
     H --> I
     I --> J[Preserve items totals balances notes files and liquidation flags]
+```
+
+## For-Purchase Delivery-Fee Correction
+
+```mermaid
+flowchart TD
+    A[Logistics RS: For Purchase at Logistics] --> B[Logistics selects Return to Budget]
+    B --> C[Lock header and require logistics-access plus exact type/stage]
+    C --> D[Set On Process at Budget Office; from Logistics]
+    D --> E[Retain Controller approval, accepted prices, balances, and fulfillment metadata]
+    E --> F{Budget Director decision}
+    F -- No new item needed --> G[Continue normal approved Logistics routing]
+    F -- Delivery-fee item needed --> H[Select Reprocess RS]
+    H --> I[Set Reprocess at Department and Controller Pending]
+    I --> IA[Keep Served and Unavailable lines visible but locked]
+    IA --> J[Department edits Pending item details and may select another scoped account]
+    J --> JT[Atomically refund the old allocation and charge the recalculated destination total]
+    JT --> JA[New delivery-fee items select one initial scoped account]
+    JA --> K[Save as For Review at Budget Office]
+    K --> L[Repeat Budget, Controller, pricing acceptance, and price-reapproval gates]
+```
+
+## Requisition Process View Accounts
+
+```mermaid
+flowchart TD
+    A[Authorized role selects View Accounts] --> B[Send selected requisition ID]
+    B --> C[Require Budget, Administration, Controller, or Logistics access]
+    C --> D[Derive stored school year and exact typed Department or Section]
+    D --> E[Load every live scoped account allocation]
+    D --> F[Load positive stored item account references]
+    E --> G[Union by account ID without pagination]
+    F --> G
+    G --> H{Exactly one live scoped allocation?}
+    H -- Yes --> I[Display current remaining balance including zero]
+    H -- No --> J[Display Unavailable and data-quality warning]
+```
+
+## Cashier Accounting Correction and Controller Reapproval
+
+```mermaid
+flowchart TD
+    A[Certified Cashier RS] --> B{Current location}
+    B -->|Accounting Office, BAO, or HRMDO| C[Accounting read-only review]
+    B -->|Any other office| X[Excluded from Accounting worklist]
+    C --> D[Return to Budget locks and revalidates role, type, status, and location]
+    D --> E[Set For Budget Director at Budget Office; from exact office; Controller pending]
+    E --> F[Budget Director edits items with exact allocation and proposal reconciliation]
+    F --> G[Administration forwards to Controller as On Process]
+    G --> H{Controller decision}
+    H -->|Pending or Disapproved| I[Block onward Cashier routing]
+    H -->|Approved| J[Allow established Cashier destinations]
+    J --> K[HRMDO stores hrmdo; Accounting stores accounting office; BAO stores bao]
+```
+
+## Administration RS-Type Routing
+
+```mermaid
+flowchart TD
+    A[Administration opens RS at Budget Office] --> B{Send RS to Staff?}
+    B -- Yes --> C{On process and Controller approved?}
+    C -- No --> X[Hide or reject; change nothing]
+    C -- Yes --> D[Set for review and Controller pending; keep Budget Office]
+    B -- No --> E{Stored normalized RS type}
+    E -- Stockroom --> F[Expose and accept Forward to Stockroom only]
+    E -- Logistics --> G[Expose For Pricing after Controller approval]
+    G --> H[After accepted quote batch expose For Purchase]
+    E -- Cashier --> I[Expose established cashier-office destinations]
+    F --> J[Lock and revalidate type status location approval and role]
+    G --> J
+    H --> J
+    I --> J
+    J --> K{Request matches matrix and stage?}
+    K -- No --> X
+    K -- Yes --> L[Apply audited transition without changing financial data]
 ```
 
 ## Live Date-Range Report Projection
@@ -693,10 +829,10 @@ flowchart LR
     F --> G[Allow long groups to continue onto following Letter pages]
 ```
 
-The shared Requisition Slip is the portrait exception: its screen preview is
-8.5 by 11 inches, and print mode uses a 0.2-inch Letter page margin with no
-duplicate inner print padding. Requisition Process and Budget Request Entry
-both consume this same component.
+The shared Requisition Slip defaults to an 8.5-by-11-inch Letter portrait
+screen and print canvas with a 0.2-inch internal safety inset and zero CSS page
+margin. Requisition Process and Budget Request Entry both consume this same
+component and can select the retained General/PDF or Epson paper presets.
 
 ## Auditable RS Printing
 
@@ -731,6 +867,23 @@ flowchart LR
     F --> G
     G --> H[Generate Letter-landscape XLSX in an on-demand browser chunk]
     H --> I[Download descriptive filename without changing report data]
+```
+
+## Purchasing Accomplishment Report
+
+```mermaid
+flowchart TD
+    A[Logistics user selects From and To] --> B[Load header audits in inclusive application-timezone period]
+    B --> C[Keep arrivals into Logistics at For Pricing or For Purchase]
+    C --> D[Keep distinct live numbered RS]
+    D --> E{Current status Cancelled or Disapproved?}
+    E -- Yes --> F[Count in terminal total only]
+    E -- No --> G{Later recognized exit after a selected arrival?}
+    G -- Yes --> H[Count as Processed]
+    G -- No --> I[Remain in Total RS only]
+    F --> J[Return three summary totals and data-quality metadata]
+    H --> J
+    I --> J
 ```
 
 ## Idempotent Financial Mutation

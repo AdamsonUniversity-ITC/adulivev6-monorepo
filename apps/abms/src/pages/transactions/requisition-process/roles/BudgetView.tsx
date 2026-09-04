@@ -9,6 +9,8 @@ import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModa
 import { AccountsViewModal, AccountRow } from '../shared/components/AccountsViewModal';
 import { useRouteContext } from '@tanstack/react-router';
 import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
+import { UnreadChatBadge } from '../../../../features/requisition-chat/UnreadChatBadge';
+import { useRequisitionUnreadCounts } from '../../../../features/requisition-chat/useRequisitionUnreadCounts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -256,6 +258,8 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
 
     const [filterState, setFilterState] = useState<FilterState>(() => makeDefaultFilterState(FILTER_CFG));
     const [rows, setRows] = useState<BudgetRow[]>([]);
+    const { counts: unreadCounts, clearUnread, refreshOne: refreshUnreadCount } =
+        useRequisitionUnreadCounts(rows.map(row => row.id), currentUser.id);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [queried, setQueried] = useState(false);
@@ -382,9 +386,7 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
             try {
                 const res = await financeSvc.get('/abms/budget-request-entry/accounts', {
                     params: {
-                        departmentId: row.kind === 'Department' ? row.department_id : null,
-                        sectionId: row.kind === 'Section' ? row.section_id : null,
-                        currentSchoolYear,
+                        requisitionId: row.id,
                     },
                 });
                 setAccounts(res.data.accounts ?? []);
@@ -586,6 +588,7 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                                     <td style={cellStyle(t, COLUMNS.length, 2)}>{row.department_section}</td>
                                     <td style={cellStyle(t, COLUMNS.length, 3)}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ position: 'relative', flexShrink: 0 }}>
                                             <img
                                                 src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
                                                 alt={row.requested_by}
@@ -595,6 +598,8 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                                                         `https://ui-avatars.com/api/?name=${encodeURIComponent(row.requested_by)}&size=32&background=random`;
                                                 }}
                                             />
+                                            <UnreadChatBadge count={unreadCounts[row.id] ?? 0} />
+                                            </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                                 <span style={{ fontSize: 13, color: t.cellText, fontWeight: 500 }}>{row.requested_by}</span>
                                                 <span style={{ fontSize: 11, color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}>{row.requested_by_empno}</span>
@@ -643,7 +648,12 @@ export function BudgetView({ t, isDark, canSwitch, onSwitchRole, departments = [
                     isDark={isDark}
                     isLoading={modalLoading}
                     error={modalError}
-                    onClose={() => { setSelectedRow(null); setModalError(null); }}
+                    onClose={() => {
+                        void refreshUnreadCount(selectedRow.id);
+                        setSelectedRow(null);
+                        setModalError(null);
+                    }}
+                    onChatRead={clearUnread}
                     onAction={handleModalAction}
                     currentUser={currentUser}
                 />

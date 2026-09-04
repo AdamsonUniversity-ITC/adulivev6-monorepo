@@ -1,4 +1,4 @@
-import { RefreshCw, Save, XCircle } from 'lucide-react';
+import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AccountOption, DeptOption, ThemeTokens } from '../types';
 import { ActionBtn } from './ActionBtn';
 import { DeptSelect } from './DeptSelect';
@@ -17,13 +17,8 @@ interface FilterPanelProps {
     onMainChange: (value: string) => void;
     onSubChange: (value: string) => void;
     onRequery: () => void;
-    onSave: () => void;
-    onCancel: () => void;
     requeryReady: boolean;
     isQuerying: boolean;
-    isSaving: boolean;
-    isLoaded: boolean;
-    isWithinEntryPeriod: boolean;
     t: ThemeTokens;
     isDark: boolean;
 }
@@ -42,30 +37,29 @@ export function FilterPanel(props: FilterPanelProps) {
         onMainChange,
         onSubChange,
         onRequery,
-        onSave,
-        onCancel,
         requeryReady,
         isQuerying,
-        isSaving,
-        isLoaded,
-        isWithinEntryPeriod,
         t,
         isDark,
     } = props;
 
     return (
-        <div className="space-y-3 rounded-xl border p-3" style={{ background: t.inputBg, borderColor: t.inputBorder }}>
-            <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3">
+        <section className="budget-proposal-filter space-y-5 rounded-2xl border p-5" style={{ background: t.cardBg, borderColor: t.cardBorder, boxShadow: t.cardShadow }}>
+            <div className="flex items-start gap-3">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border" style={{ background: t.inputBg, borderColor: t.inputBorder, color: t.tableHeadText }}><SlidersHorizontal className="h-5 w-5" /></span>
+                <div><h2 className="text-lg font-bold" style={{ color: t.cardTitleColor }}>Proposal filters</h2><p className="mt-1 text-sm leading-6" style={{ color: t.cellMuted }}>Select the organizational unit and account scope, then load the proposal.</p></div>
+            </div>
+            <div className="grid min-w-0 grid-cols-1 items-end gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_auto]">
                 <div className="min-w-0 space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Department / Section</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Department / Section</label>
                     <DeptSelect value={selectedDept} valueKind={selectedDeptKind} onChange={onDeptChange} departments={departments} sections={sections} t={t} isDark={isDark} />
                 </div>
                 <div className="min-w-0 space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Main Account</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Main Account</label>
                     <StyledSelect value={selectedMain} onChange={onMainChange} options={mainAccountOptions} placeholder="Select main account..." t={t} isDark={isDark} />
                 </div>
                 <div className="min-w-0 space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Sub Account</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--abms-text-soft)' }}>Sub Account</label>
                     <StyledSelect
                         value={selectedSub}
                         onChange={onSubChange}
@@ -76,13 +70,8 @@ export function FilterPanel(props: FilterPanelProps) {
                         isDark={isDark}
                     />
                 </div>
+                <div className="flex md:col-span-2 xl:col-span-1 [&>button]:w-full [&>button]:justify-center xl:[&>button]:min-w-40"><ActionBtn token={t.btnRequery} icon={<RefreshCw className="w-5 h-5" />} label="Requery" onClick={onRequery} disabled={!requeryReady || isQuerying} loading={isQuerying} t={t} /></div>
             </div>
-
-            <div className="grid grid-cols-1 gap-2 border-t pt-3 sm:grid-cols-3" style={{ borderColor: t.divider }}>
-                <div className="flex [&>button]:w-full [&>button]:justify-center"><ActionBtn token={t.btnRequery} icon={<RefreshCw className="w-4 h-4" />} label="Requery" onClick={onRequery} disabled={!requeryReady || isQuerying} loading={isQuerying} t={t} /></div>
-                <div className="flex [&>button]:w-full [&>button]:justify-center"><ActionBtn token={t.btnSave} icon={<Save className="w-4 h-4" />} label="Save" onClick={onSave} loading={isSaving} disabled={!isLoaded || !isWithinEntryPeriod || isSaving} t={t} /></div>
-                <div className="flex [&>button]:w-full [&>button]:justify-center"><ActionBtn token={t.btnCancel} icon={<XCircle className="w-4 h-4" />} label="Cancel" onClick={onCancel} disabled={!isLoaded || !isWithinEntryPeriod || isSaving} t={t} /></div>
-            </div>
-        </div>
+        </section>
     );
 }

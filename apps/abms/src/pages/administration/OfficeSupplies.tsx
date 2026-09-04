@@ -50,13 +50,18 @@ interface CursorPage {
 }
 
 type SortDir = 'asc' | 'desc';
-type SortBy = 'item_name' | 'unit_cost';
+type SortBy = 'item_code' | 'item_name' | 'unit_cost';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod schema
 // ─────────────────────────────────────────────────────────────────────────────
 
 const officeSupplySchema = z.object({
+  item_code: z
+    .string()
+    .trim()
+    .min(1, 'Item code is required')
+    .max(255, 'Item code must not exceed 255 characters'),
   item_name: z
     .string()
     .min(1, 'Item name is required'),
@@ -75,6 +80,7 @@ const officeSupplySchema = z.object({
 type OfficeSupplyFormData = z.infer<typeof officeSupplySchema>;
 
 const EMPTY_DEFAULTS: OfficeSupplyFormData = {
+  item_code: '',
   item_name: '',
   unit_measurement: '',
   unit_cost: '',
@@ -140,7 +146,7 @@ export default function OfficeSupplies() {
 
   const [page, setPage] = useState<CursorPage | null>(loaderData.data as CursorPage);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('item_name');
+  const [sortBy, setSortBy] = useState<SortBy>('item_code');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [cursorIdx, setCursorIdx] = useState(0);
@@ -159,6 +165,7 @@ export default function OfficeSupplies() {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<OfficeSupplyFormData>({
     resolver: zodResolver(officeSupplySchema),
@@ -227,6 +234,7 @@ export default function OfficeSupplies() {
   const openEdit = (supply: OfficeSupply) => {
     setEditTarget(supply);
     reset({
+      item_code: supply.item_code,
       item_name: supply.item_name,
       unit_measurement: supply.unit_measurement,
       unit_cost: supply.unit_cost,
@@ -250,7 +258,13 @@ export default function OfficeSupplies() {
       setDialogOpen(false);
       fetchPage(cursors[cursorIdx]);
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
+      const err = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+      const validationErrors = err.response?.data?.errors;
+      if (validationErrors) {
+        (Object.entries(validationErrors) as Array<[keyof OfficeSupplyFormData, string[]]>).forEach(([field, messages]) => {
+          if (field in EMPTY_DEFAULTS && messages[0]) setError(field, { type: 'server', message: messages[0] });
+        });
+      }
       toast.error(editTarget ? 'Failed to update item' : 'Failed to add item', {
         description:
           err?.response?.data?.message ?? 'Please try again or contact support.',
@@ -348,10 +362,10 @@ export default function OfficeSupplies() {
                       />
                       <input
                         type="text"
-                        placeholder="Filter by item name…"
+                        placeholder="Filter by item code or name…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        aria-label="Filter office supplies by item name"
+                        aria-label="Filter office supplies by item code or item name"
                         className="text-xs h-8 pl-8 pr-3 rounded-md outline-none w-56"
                         style={inputStyle}
                       />
@@ -365,6 +379,7 @@ export default function OfficeSupplies() {
                       className="text-xs h-8 px-3 rounded-md outline-none"
                       style={inputStyle}
                     >
+                      <option value="item_code">Item Code</option>
                       <option value="item_name">Item Name</option>
                       <option value="unit_cost">Unit Cost</option>
                     </select>
@@ -380,7 +395,7 @@ export default function OfficeSupplies() {
                       }}
                     >
                       <SortIcon className="w-3 h-3" />
-                      {sortBy === 'item_name'
+                      {sortBy === 'item_name' || sortBy === 'item_code'
                         ? (sortDir === 'asc' ? 'A→Z' : 'Z→A')
                         : (sortDir === 'asc' ? 'Low→High' : 'High→Low')}
                     </button>
@@ -603,17 +618,23 @@ export default function OfficeSupplies() {
                 <form onSubmit={handleSubmit(onSubmit)} noValidate>
                   <div className="space-y-4 py-2">
 
-                    {/* Read-only item code shown when editing */}
-                    {editTarget && (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold uppercase tracking-widest" style={{ color: t.mutedText }}>
-                          Item Code
-                        </Label>
-                        <p className="text-sm font-mono font-semibold" style={{ color: t.tableHeadText }}>
-                          {editTarget.item_code}
-                        </p>
-                      </div>
-                    )}
+                    {/* Client-provided unique item code */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="item_code" className="text-xs font-bold uppercase tracking-widest" style={{ color: t.labelColor }}>
+                        Item Code
+                      </Label>
+                      <Input
+                        id="item_code"
+                        type="text"
+                        placeholder="Enter the client-provided item code"
+                        autoComplete="off"
+                        {...register('item_code')}
+                        style={inputStyle}
+                      />
+                      {errors.item_code && (
+                        <p className="text-xs text-red-500 mt-1">{errors.item_code.message}</p>
+                      )}
+                    </div>
 
                     {/* Item Name */}
                     <div className="space-y-1.5">

@@ -16,7 +16,8 @@ const HR_DATE_FORMATS = [
 
 const EMPTY_HR_DATE_PATTERN = /^0{4}[-/]0{1,2}[-/]0{1,2}/
 
-function parseHrDate(value: string): Date | null {
+/** Parse HR date strings (MySQL date/datetime and common local formats). */
+export function parseHrDate(value: string): Date | null {
   const trimmed = value.trim()
 
   if (EMPTY_HR_DATE_PATTERN.test(trimmed)) {

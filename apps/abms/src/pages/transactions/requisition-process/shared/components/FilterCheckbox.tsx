@@ -16,10 +16,10 @@ export function FilterCheckbox({ id, checked, onChange, label, t }: FilterCheckb
             style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 8,
                 cursor: 'pointer',
                 userSelect: 'none',
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: checked ? 600 : 400,
                 color: checked ? t.accentColor : t.cellText,
                 transition: 'color .12s ease',
@@ -34,9 +34,9 @@ export function FilterCheckbox({ id, checked, onChange, label, t }: FilterCheckb
                 onClick={() => onChange(!checked)}
                 onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && onChange(!checked)}
                 style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: 3,
+                    width: 16,
+                    height: 16,
+                    borderRadius: 4,
                     border: `1.5px solid ${checked ? t.accentColor : t.checkboxBorder}`,
                     background: checked ? t.accentColor : 'transparent',
                     display: 'flex',
@@ -48,7 +48,7 @@ export function FilterCheckbox({ id, checked, onChange, label, t }: FilterCheckb
                 }}
             >
                 {checked && (
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <svg width="10" height="10" viewBox="0 0 8 8" fill="none">
                         <path d="M1.5 4L3.2 5.8L6.5 2.2" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 )}

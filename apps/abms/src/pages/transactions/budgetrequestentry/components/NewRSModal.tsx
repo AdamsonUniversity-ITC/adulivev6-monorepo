@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    ChevronDown, FilePlus, RefreshCw, Search, X,
+    AlertTriangle, Banknote, Box, Check, ChevronDown, CreditCard, Droplets, FilePlus, HeartHandshake, Info, RefreshCw, Repeat2, Search, ShoppingCart, UserRound, WalletCards, X,
 } from 'lucide-react';
 import type { PayeeDetails, ThemeTokens } from '../types';
 import { Btn } from './common';
@@ -10,6 +10,7 @@ import { SupplyListPanel } from './SupplyListPanel';
 
 export type RSType = 'stockroom' | 'logistics' | 'cashier' | null;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PAYMENT_FORMS = [
     'Payment for Supplier/Water',
     'Reimbursement/Replenishment',
@@ -20,12 +21,15 @@ export const PAYMENT_FORMS = [
 
 ];
 
+const PAYMENT_FORM_ICONS = [Droplets, Repeat2, UserRound, HeartHandshake, WalletCards, CreditCard];
+
 export interface RSTypeOption {
     id: RSType;
     label: string;
     note: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const RS_TYPES: RSTypeOption[] = [
     {
         id: 'stockroom',
@@ -55,6 +59,7 @@ export function NewRSModal({
     const [selected, setSelected] = useState<RSType>('stockroom');
     const [paymentForm, setPaymentForm] = useState('');
     const [paymentFormError, setPaymentFormError] = useState<string | null>(null);
+    const [paymentFormOpen, setPaymentFormOpen] = useState(false);
     const [showSupplyList, setShowSupplyList] = useState(false);
     const [showPayeeModal, setShowPayeeModal] = useState(false);
     const [pendingType, setPendingType] = useState<RSType>(null);
@@ -66,6 +71,7 @@ export function NewRSModal({
             setSelected('stockroom');
             setPaymentForm('');
             setPaymentFormError(null);
+            setPaymentFormOpen(false);
             setShowSupplyList(false);
             setShowPayeeModal(false);
             setPendingType(null);
@@ -115,7 +121,7 @@ export function NewRSModal({
             `}</style>
 
             <div
-                className="mx-auto flex min-h-full w-full max-w-[1116px] flex-col items-center justify-start gap-3 lg:flex-row lg:items-center lg:justify-center lg:gap-4"
+                className="mx-auto flex min-h-full w-full max-w-[1380px] flex-col items-center justify-start gap-3 lg:flex-row lg:items-center lg:justify-center lg:gap-4"
             >
                 {/* Supply list panel — shown to the left when toggled */}
                 {showSupplyList && (
@@ -131,7 +137,7 @@ export function NewRSModal({
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="new-rs-modal-title"
-                    className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[580px] min-w-0 flex-col overflow-hidden rounded-2xl"
+                    className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[720px] min-w-0 flex-col overflow-hidden rounded-2xl"
                     style={{
                         background: t.cardBg,
                         border: `1px solid ${t.cardBorder}`,
@@ -145,26 +151,31 @@ export function NewRSModal({
                     style={{
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                        padding: '14px 20px',
+                        padding: '28px 36px 22px',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}
                 >
-                    <div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full" style={{ background: isDark ? 'rgba(37,99,235,.18)' : '#eef4ff', color: t.cellBlue }}>
+                            <FilePlus className="h-7 w-7" />
+                        </div>
+                        <div>
                         <h2
                             id="new-rs-modal-title"
-                            className="text-sm font-bold tracking-tight"
+                            className="text-2xl font-extrabold tracking-tight"
                             style={{ color: t.titleColor }}
                         >
                             New Requisition Slip
                         </h2>
-                        <p className="text-[11px] mt-0.5" style={{ color: t.cellMuted }}>
+                        <p className="mt-1 text-sm" style={{ color: t.cellMuted }}>
                             Select the type of budget request to proceed.
                         </p>
+                        </div>
                     </div>
                     <button
                         onClick={onClose}
                         disabled={isLoading}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150"
+                        className="flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-150"
                         style={{
                             background: 'transparent',
                             borderColor: t.cardBorder,
@@ -181,43 +192,44 @@ export function NewRSModal({
                             (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                         }}
                     >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {/* ── Body ── */}
-                <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6 sm:px-11">
 
                     {/* RS Type options */}
                     <p
-                        className="text-[10px] font-bold uppercase tracking-widest mb-3"
+                        className="mb-1 text-sm font-extrabold uppercase tracking-widest"
                         style={{ color: t.tableHeadText }}
                     >
-                        Request Type
+                        1. Request Type
                     </p>
+                    <p className="mb-5 text-sm" style={{ color: t.cellMuted }}>Choose the category that best matches your request.</p>
 
                     <div
-                        className="rounded-xl overflow-hidden mb-4"
-                        style={{ border: `1px solid ${t.cardBorder}` }}
+                        className="mb-7 space-y-3"
                     >
                         {RS_TYPES.map((opt, i) => {
                             const isSel = selected === opt.id;
                             return (
                                 <div
                                     key={opt.id}
-                                    style={{
-                                        borderBottom: i < RS_TYPES.length - 1
-                                            ? `1px solid ${t.sectionDivider}` : 'none',
-                                    }}
+                                    className="overflow-hidden rounded-2xl"
+                                    style={{ border: `1.5px solid ${isSel ? t.cellBlue : t.cardBorder}` }}
                                 >
                                     {/* Clickable row */}
                                     <div
                                         onClick={() => {
                                             setSelected(opt.id);
                                             setPaymentFormError(null);
-                                            if (opt.id !== 'cashier') setPaymentForm('');
+                                            if (opt.id !== 'cashier') {
+                                                setPaymentForm('');
+                                                setPaymentFormOpen(false);
+                                            }
                                         }}
-                                        className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-150"
+                                        className="flex cursor-pointer items-center gap-5 px-6 py-5 transition-all duration-150"
                                         style={{
                                             background: isSel
                                                 ? (isDark ? 'rgba(37,99,235,0.14)' : 'rgba(219,234,254,0.60)')
@@ -234,9 +246,9 @@ export function NewRSModal({
                                     >
                                         {/* Radio dot */}
                                         <div
-                                            className="mt-0.5 shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
+                                            className="shrink-0 flex items-center justify-center rounded-full transition-all duration-150"
                                             style={{
-                                                width: 15, height: 15,
+                                                width: 24, height: 24,
                                                 border: `2px solid ${isSel
                                                     ? (isDark ? '#3b82f6' : '#1d4ed8')
                                                     : t.checkboxBorder}`,
@@ -247,17 +259,19 @@ export function NewRSModal({
                                         >
                                             {isSel && (
                                                 <div style={{
-                                                    width: 5, height: 5,
+                                                    width: 8, height: 8,
                                                     borderRadius: '50%',
                                                     background: '#fff',
                                                 }} />
                                             )}
                                         </div>
 
-                                        {/* Text */}
+                                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full" style={{ background: isDark ? 'rgba(37,99,235,.16)' : '#eaf1ff', color: t.cellBlue }}>
+                                            {i === 0 ? <Box className="h-8 w-8" /> : i === 1 ? <ShoppingCart className="h-8 w-8" /> : <WalletCards className="h-8 w-8" />}
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <p
-                                                className="text-[11px] font-semibold leading-snug"
+                                                className="text-base font-bold leading-snug"
                                                 style={{
                                                     color: isSel
                                                         ? (isDark ? t.cellText : '#0a1628')
@@ -267,7 +281,7 @@ export function NewRSModal({
                                                 {opt.label}
                                             </p>
                                             <p
-                                                className="text-[10px] mt-1 leading-snug"
+                                                className="mt-1 text-sm leading-relaxed"
                                                 style={{ color: isDark ? t.cellAmber : '#b45309' }}
                                             >
                                                 {opt.note}
@@ -282,43 +296,75 @@ export function NewRSModal({
                     {/* Payment Form — always shown, enabled only for cashier */}
                     <div className="mb-4">
                         <label
-                            className="block text-[10px] font-bold uppercase tracking-widest mb-1.5"
+                            className="mb-2 block text-sm font-extrabold uppercase tracking-widest"
                             style={{ color: t.tableHeadText }}
                         >
-                            Payment Form
+                            2. Payment Form
                             {selected === 'cashier' && <span style={{ color: t.cellRed }}> *</span>}
                         </label>
-                        <div style={{ position: 'relative' }}>
-                            <select
-                                value={paymentForm}
-                                onChange={e => {
-                                    setPaymentForm(e.target.value);
-                                    setPaymentFormError(null);
-                                }}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                aria-haspopup="listbox"
+                                aria-expanded={paymentFormOpen}
                                 disabled={selected !== 'cashier'}
-                                className="w-full rounded-lg text-[11px] font-semibold px-3 py-2 border outline-none transition-all duration-150"
+                                onClick={() => setPaymentFormOpen(open => !open)}
+                                onKeyDown={event => {
+                                    if (event.key === 'Escape') setPaymentFormOpen(false);
+                                }}
+                                className="flex w-full items-center justify-between rounded-xl border px-4 py-4 text-left text-sm font-semibold outline-none transition-all duration-150"
                                 style={{
                                     background: selected === 'cashier' ? t.inputBg : (isDark ? 'rgba(10,18,42,0.4)' : 'rgba(241,245,249,0.8)'),
-                                    borderColor: t.inputBorder,
+                                    borderColor: paymentFormOpen ? t.cellBlue : t.inputBorder,
                                     color: paymentForm ? t.inputText : t.inputPlaceholder,
                                     opacity: selected === 'cashier' ? 1 : 0.45,
-                                    cursor: selected === 'cashier' ? 'default' : 'not-allowed',
-                                    appearance: 'none', WebkitAppearance: 'none',
-                                    colorScheme: isDark ? 'dark' : 'light',
-                                    paddingRight: 28,
+                                    cursor: selected === 'cashier' ? 'pointer' : 'not-allowed',
+                                    boxShadow: paymentFormOpen ? `0 0 0 2px ${isDark ? 'rgba(59,130,246,.16)' : 'rgba(37,99,235,.10)'}` : 'none',
                                 }}
                             >
-                                <option value="">— Select —</option>
-                                {PAYMENT_FORMS.map(f => <option key={f} value={f}>{f}</option>)}
-                            </select>
-                            <ChevronDown
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                                style={{
-                                    width: 13, height: 13,
-                                    color: t.cellMuted,
-                                    opacity: selected === 'cashier' ? 1 : 0.4,
-                                }}
-                            />
+                                <span>{paymentForm || '— Select payment form —'}</span>
+                                <ChevronDown className={`h-4 w-4 transition-transform ${paymentFormOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {paymentFormOpen && selected === 'cashier' && (
+                                <div
+                                    role="listbox"
+                                    aria-label="Payment form"
+                                    className="absolute inset-x-0 top-full z-30 overflow-hidden rounded-b-xl border shadow-xl"
+                                    style={{ background: t.cardBg, borderColor: t.inputBorder }}
+                                >
+                                    {['', ...PAYMENT_FORMS].map((form, index) => {
+                                        const active = paymentForm === form;
+                                        const OptionIcon = index > 0 ? PAYMENT_FORM_ICONS[index - 1] : Banknote;
+                                        return (
+                                            <button
+                                                key={form || 'empty'}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={active}
+                                                onClick={() => {
+                                                    setPaymentForm(form);
+                                                    setPaymentFormError(null);
+                                                    setPaymentFormOpen(false);
+                                                }}
+                                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
+                                                style={{
+                                                    background: active ? (isDark ? '#1d4ed8' : '#1769d2') : 'transparent',
+                                                    color: active ? '#fff' : t.inputText,
+                                                }}
+                                                onMouseEnter={event => {
+                                                    if (!active) event.currentTarget.style.background = t.rowHoverBg;
+                                                }}
+                                                onMouseLeave={event => {
+                                                    if (!active) event.currentTarget.style.background = 'transparent';
+                                                }}
+                                            >
+                                                <span className="w-4 shrink-0">{active ? <Check className="h-4 w-4" /> : <OptionIcon className="h-4 w-4" style={{ color: active ? '#fff' : t.cellBlue }} />}</span>
+                                                {form || '— Select payment form —'}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                         {paymentFormError && (
                             <p role="alert" className="mt-1.5 text-[10px] font-semibold" style={{ color: t.cellRed }}>
@@ -329,40 +375,42 @@ export function NewRSModal({
 
                     {/* Data Privacy notice */}
                     <div
-                        className="rounded-xl px-4 py-3 mb-4 text-[10px] leading-relaxed"
+                        className="mb-4 flex gap-4 rounded-xl px-5 py-4 text-sm leading-relaxed"
                         style={{
                             background: t.inputBg,
                             border: `1px solid ${t.cardBorder}`,
                             color: t.cellMuted,
                         }}
                     >
-                        In compliance with the Data Privacy Act, we would like to secure your consent on the general use and sharing of information
+                        <Info className="mt-0.5 h-6 w-6 shrink-0" style={{ color: t.cellBlue }} />
+                        <span>In compliance with the Data Privacy Act, we would like to secure your consent on the general use and sharing of information
                         obtained from you in the course of transactions with any employee of the AdU Finance department. These data, which includes
                         your sensitive or personal information, may be collected, processed or stored in accordance with AdU retention and disposal
                         policies for legitimate purposes, and to comply with AdU internal policies and its reporting obligations to government
-                        authorities under applicable laws.
+                        authorities under applicable laws.</span>
                     </div>
 
                     {/* NOTE — visible only for stockroom */}
                     {selected === 'stockroom' && (
                         <div
-                            className="rounded-xl px-4 py-3 mb-4"
+                            className="mb-4 flex gap-4 rounded-xl px-5 py-4"
                             style={{
                                 background: isDark ? 'rgba(251,191,36,0.07)' : 'rgba(253,230,138,0.30)',
                                 border: `1px solid ${isDark ? 'rgba(251,191,36,0.22)' : 'rgba(202,138,4,0.30)'}`,
                             }}
                         >
-                            <p
-                                className="text-[10px] font-bold uppercase tracking-widest mb-1"
+                            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0" style={{ color: isDark ? t.cellAmber : '#d97706' }} />
+                            <div><p
+                                className="mb-1 text-sm font-bold uppercase tracking-widest"
                                 style={{ color: isDark ? t.cellAmber : '#b45309' }}
                             >
                                 Note
                             </p>
-                            <p className="text-[10px] leading-relaxed" style={{ color: isDark ? '#e5c97a' : '#92400e' }}>
+                            <p className="text-sm leading-relaxed" style={{ color: isDark ? '#e5c97a' : '#1f2937' }}>
                                 For Office Supplies / Stockable / Inventoriable Items (WICO / Stockroom) — you may search
                                 for the item(s) using the button below to check availability in WICO / Stockroom.
                                 If not available, you may request the item(s) through the Logistics Office under For Purchase.
-                            </p>
+                            </p></div>
                         </div>
                     )}
 
@@ -383,7 +431,7 @@ export function NewRSModal({
 
                     {/* Footer actions */}
                     <div
-                        className="grid shrink-0 grid-cols-1 gap-2 p-3 min-[420px]:grid-cols-2 sm:flex sm:justify-end sm:px-5 sm:py-3.5"
+                        className="grid shrink-0 grid-cols-1 gap-3 p-4 min-[420px]:grid-cols-2 sm:flex sm:justify-end sm:px-9 sm:py-5"
                         style={{
                             background: t.cardHeaderBg,
                             borderTop: `1px solid ${t.sectionDivider}`,

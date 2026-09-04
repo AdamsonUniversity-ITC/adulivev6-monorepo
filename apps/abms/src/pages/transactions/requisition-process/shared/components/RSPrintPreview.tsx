@@ -19,23 +19,13 @@ const RS_TYPE_OPTIONS = [
 const RS_PAPER_OPTIONS = [
     { id: 'letter-portrait', group: 'General / PDF', label: 'Letter — Portrait (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.2in', compact: false },
     { id: 'epson-letter-portrait', group: 'Epson LX-300-II', label: 'Letter (8.5 × 11 in)', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'Letter portrait', margin: '.3in', scale: .97, compact: false },
-    { id: 'epson-legal-portrait', group: 'Epson LX-300-II', label: 'Legal (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
-    { id: 'epson-institution-legal-portrait', group: 'Epson LX-300-II', label: 'Institution Legal / Long Bond (8.5 × 13 in)', width: '8.5in', height: '13in', layoutHeight: '13in', pageSize: '8.5in 13in', margin: '.1in .1in', scale: 1, compact: false },
-    { id: 'epson-half-institution-legal', group: 'Epson LX-300-II', label: 'Half Institution Legal (8.5 × 6.5 in)', width: '8.5in', height: '6.5in', layoutHeight: '6.5in', pageSize: '8.5in 6.5in', margin: '.12in .15in .15in', compact: true },
-    { id: 'half-legal-crosswise', label: 'Half Legal — PDF / Modern Printer (8.5 × 7 in)', width: '8.5in', height: '7in', layoutHeight: '7in', pageSize: '8.5in 7in', margin: '.3in', compact: true },
-    { id: 'half-legal-on-letter', label: 'Half Legal — Legacy Printer on Letter (Recommended)', width: '8.5in', height: '11in', layoutHeight: '7in', pageSize: 'Letter portrait', margin: '.3in', compact: true },
-    { id: 'half-legal-on-legal', label: 'Half Legal — On Full Legal Sheet', width: '8.5in', height: '14in', layoutHeight: '7in', pageSize: 'Legal portrait', margin: '.3in', compact: true },
-    { id: 'half-institution-legal-crosswise', label: 'Half Institution Legal — PDF / Modern Printer (8.5 × 6.5 in)', width: '8.5in', height: '6.5in', layoutHeight: '6.5in', pageSize: '8.5in 6.5in', margin: '.3in', compact: true },
-    { id: 'half-institution-legal-on-letter', label: 'Half Institution Legal — Legacy Printer on Letter (Recommended)', width: '8.5in', height: '11in', layoutHeight: '6.5in', pageSize: 'Letter portrait', margin: '.3in', compact: true },
-    { id: 'half-institution-legal-on-full-sheet', label: 'Half Institution Legal — Full 8.5 × 13 Sheet via Legacy Driver', width: '8.5in', height: '13in', layoutHeight: '6.5in', pageSize: '8.5in 13in', margin: '.3in', compact: true },
-    { id: 'institution-legal-portrait', label: 'Institution Legal / Long Bond — Portrait (8.5 × 13 in)', width: '8.5in', height: '13in', layoutHeight: '13in', pageSize: '8.5in 13in', margin: '.3in', compact: false },
-    { id: 'legal-portrait', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
-    { id: 'a4-portrait', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', layoutHeight: '297mm', pageSize: 'A4 portrait', margin: '.3in', compact: false },
-    { id: 'letter-landscape', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Letter landscape', margin: '.3in', compact: false },
-    { id: 'institution-legal-landscape', label: 'Institution Legal / Long Bond — Landscape (13 × 8.5 in)', width: '13in', height: '8.5in', layoutHeight: '8.5in', pageSize: '13in 8.5in', margin: '.3in', compact: false },
-    { id: 'legal-landscape', label: 'Legal — Landscape (14 × 8.5 in)', width: '14in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Legal landscape', margin: '.3in', compact: false },
-    { id: 'a4-landscape', label: 'A4 — Landscape (297 × 210 mm)', width: '297mm', height: '210mm', layoutHeight: '210mm', pageSize: 'A4 landscape', margin: '.3in', compact: false },
-    { id: 'printer-default', label: 'Printer Default / Any Paper', width: '8.5in', height: '11in', layoutHeight: '11in', pageSize: 'auto', margin: '.3in', compact: false },
+    { id: 'epson-legal-portrait', group: 'Epson LX-300-II', label: 'Legal (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in',scale: .90, compact: false },
+    { id: 'epson-half-legal', group: 'Epson LX-300-II', label: 'Half Legal — Upper Half of Legal Portrait', width: '8.5in', height: '14in', layoutHeight: '7in', pageSize: 'Legal portrait', margin: '.3in', scale: .95, compact: true },
+    { id: 'legal-portrait', group: 'General / PDF', label: 'Legal — Portrait (8.5 × 14 in)', width: '8.5in', height: '14in', layoutHeight: '14in', pageSize: 'Legal portrait', margin: '.3in', compact: false },
+    { id: 'a4-portrait', group: 'General / PDF', label: 'A4 — Portrait (210 × 297 mm)', width: '210mm', height: '297mm', layoutHeight: '297mm', pageSize: 'A4 portrait', margin: '.3in', compact: false },
+    { id: 'letter-landscape', group: 'General / PDF', label: 'Letter — Landscape (11 × 8.5 in)', width: '11in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Letter landscape', margin: '.3in', compact: false },
+    { id: 'legal-landscape', group: 'General / PDF', label: 'Legal — Landscape (14 × 8.5 in)', width: '14in', height: '8.5in', layoutHeight: '8.5in', pageSize: 'Legal landscape', margin: '.3in', compact: false },
+    { id: 'a4-landscape', group: 'General / PDF', label: 'A4 — Landscape (297 × 210 mm)', width: '297mm', height: '210mm', layoutHeight: '210mm', pageSize: 'A4 landscape', margin: '.3in', compact: false },
 ] as const;
 
 type RsPaperId = typeof RS_PAPER_OPTIONS[number]['id'];
@@ -55,9 +45,10 @@ function valuesOf(value: unknown): Record<string, unknown> {
     try { return JSON.parse(value) as Record<string, unknown>; } catch { return {}; }
 }
 
-export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: {
-    row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; onClose: () => void;
+export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPaperId = 'letter-portrait', onClose }: {
+    row: RSProcessRow; items: RSLineItem[]; payeeDetail: PayeeDetail | null; printedBy: string; initialPaperId?: RsPaperId; onClose: () => void;
 }) {
+    const isStockroomRs = String(row.rstype ?? '').trim().toLowerCase() === 'stockroom';
     const money = (value: number | null | undefined) => new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
     const [printedAt, setPrintedAt] = useState(() => new Date());
     const [isPreparingPrint, setIsPreparingPrint] = useState(false);
@@ -86,32 +77,24 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
     const [reviewedDate, setReviewedDate] = useState<string | null>(null);
     const [certifiedDate, setCertifiedDate] = useState<string | null>(null);
     const [printAccountCodes, setPrintAccountCodes] = useState<Record<number, string>>({});
-    const [paperId, setPaperId] = useState<RsPaperId>('letter-portrait');
+    const [paperId, setPaperId] = useState<RsPaperId>(initialPaperId);
     const selectedPaper = RS_PAPER_OPTIONS.find(option => option.id === paperId) ?? RS_PAPER_OPTIONS[0];
     const contentScale = 'scale' in selectedPaper ? selectedPaper.scale : 1;
-    const isHalfInstitutionLegal = paperId.includes('half-institution-legal');
-    const isHalfLegal = selectedPaper.compact && !isHalfInstitutionLegal;
-    const isPrinterDefault = paperId === 'printer-default';
-    const isFullInstitutionLegacyDriver = paperId === 'half-institution-legal-on-full-sheet';
-    const isEpsonInstitutionPaper = paperId === 'epson-institution-legal-portrait';
-    const isEpsonHalfInstitutionPaper = paperId === 'epson-half-institution-legal';
-    const usesLetterDriverCanvas = isFullInstitutionLegacyDriver
-        || isEpsonHalfInstitutionPaper;
-    const printPaperHeight = usesLetterDriverCanvas ? '11in' : selectedPaper.height;
+    const isEpsonPaper = selectedPaper.group === 'Epson LX-300-II';
+    const isHalfLegal = selectedPaper.compact;
+    const printPaperHeight = selectedPaper.height;
     const printLayoutHeight = selectedPaper.layoutHeight;
-    const printPageSize = usesLetterDriverCanvas ? 'Letter portrait' : selectedPaper.pageSize;
-    const hasHalfLegalCutGuide = paperId === 'half-legal-on-letter'
-        || paperId === 'half-legal-on-legal'
-        || paperId === 'half-institution-legal-on-letter'
-        || paperId === 'half-institution-legal-on-full-sheet';
-    const sheetPadding = isEpsonInstitutionPaper || isEpsonHalfInstitutionPaper
-        ? selectedPaper.margin
-        : paperId === 'half-institution-legal-on-letter'
-        || paperId === 'half-institution-legal-on-full-sheet'
-        ? '.15in .10in .15in'
-        : paperId === 'half-legal-on-letter'
-            ? '.08in .3in .3in'
-            : selectedPaper.margin;
+    const printPageSize = `${selectedPaper.width} ${selectedPaper.height}`;
+    const sheetPadding = selectedPaper.margin;
+
+    useEffect(() => {
+        const pageStyle = document.createElement('style');
+        pageStyle.dataset.rsPrintPageSize = paperId;
+        pageStyle.textContent = `@page { size: ${printPageSize} !important; margin: 0 !important; }`;
+        document.head.appendChild(pageStyle);
+
+        return () => pageStyle.remove();
+    }, [paperId, printPageSize]);
 
     const handlePrint = async () => {
         if (printRequestInFlight.current) return;
@@ -193,7 +176,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             <button onClick={onClose} disabled={isPreparingPrint}><X size={16} /> Close</button>
         </div>
         <article
-            className={`rs-print-page${isHalfLegal ? ' rs-paper-half-legal' : ''}${isHalfInstitutionLegal ? ' rs-paper-half-institution' : ''}${isPrinterDefault ? ' rs-paper-printer-default' : ''}`}
+            className={`rs-print-page${isEpsonPaper ? ' rs-paper-epson' : ''}${isHalfLegal ? ' rs-paper-half-legal' : ''}`}
             style={{ width: selectedPaper.width, minHeight: selectedPaper.height }}
             onClick={event => event.stopPropagation()}
         >
@@ -248,20 +231,29 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
                 </section>
 
                 <footer className="rs-footer">
-                    <section className="rs-certification">
+                    <section className={`rs-certification${isStockroomRs ? ' rs-certification-stockroom' : ''}`}>
                         <div className="rs-print-info">
                             <span>Print Date: {printDate}</span><span>Print Time: {printTime}</span>
                             <span>Printed By: {printedBy || '—'}</span>
                         </div>
+                        {isStockroomRs && <>
+                            <div className="rs-signature-certification">
+                                <span>Approved By:</span>
+                                <div className="rs-footer-signature"><div /><span>Office Head</span></div>
+                            </div>
+                            <div className="rs-signature-certification">
+                                <span>Received By:</span>
+                                <div className="rs-footer-signature"><div /><span>Office Representative</span></div>
+                            </div>
+                        </>}
                         <div className="rs-budget-certification">
                             <span>Budget Certified By:</span>
-                            <div className="rs-controller-signature"><div /><span>Controller</span></div>
+                            <div className="rs-footer-signature"><div /><span>Controller</span></div>
                         </div>
                     </section>
                     <p>“In compliance with the requirement of the Data Privacy Act, we would like to secure your consent on the general use and sharing of information obtained from you in the course of transaction/s with any employee of the Adu Finance department. These data, which includes your sensitive or personal information, may be collected, processed or stored in accordance with the AdU retention and disposal policies for legitimate purposes. They may be used to implement transactions which you request, allow or authorize, and to comply with the AdU internal policies and its reporting obligations to government authorities under applicable laws.”</p>
                 </footer>
             </div>
-            {hasHalfLegalCutGuide && <div className="rs-half-legal-cut-guide" aria-hidden="true" />}
         </article>
         <style>{`
             .rs-print-overlay{position:fixed;inset:0;z-index:200000;background:rgba(15,23,42,.76);overflow:auto;padding:70px 20px 40px}
@@ -288,53 +280,55 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, onClose }: 
             .rs-details{box-sizing:border-box;min-height:38mm;padding:6mm 8mm 4mm}.rs-details>div{display:grid;grid-template-columns:27mm 1fr;gap:8px;min-height:8mm;align-items:start}.rs-details i{font-size:12.5px}.rs-details strong,.rs-details span{font-size:14px}.rs-payee-summary span{font-size:12.5px;line-height:1.45}
             .rs-signing-space{flex:1;min-height:34mm}
             .rs-certification{display:grid;grid-template-columns:1fr auto;column-gap:14mm;align-items:end;padding:0 3mm 3mm}
+            .rs-certification-stockroom{grid-template-columns:minmax(35mm,1fr) repeat(3,minmax(36mm,45mm));column-gap:6mm}
             .rs-print-info{display:flex;flex-direction:column;font-size:10.5px;line-height:1.5}
             .rs-budget-certification{width:52mm;font-size:10.5px;text-align:left}
-            .rs-controller-signature{width:52mm;text-align:center;font-size:11.5px}.rs-controller-signature div{height:6mm;border-bottom:1px solid #000}.rs-controller-signature span{display:block;margin-top:2px}
+            .rs-signature-certification{width:100%;font-size:10.5px;text-align:left}
+            .rs-footer-signature{width:100%;text-align:center;font-size:11.5px}.rs-footer-signature div{height:6mm;border-bottom:1px solid #000}.rs-footer-signature span{display:block;margin-top:2px;white-space:nowrap}
             .rs-footer{font-size:9.5px;line-height:1.28;padding-top:4mm;text-align:justify}
             .rs-footer p{margin:2mm 0 0}
-            .rs-paper-half-legal{font-size:11.5px}
-            .rs-paper-half-legal .rs-report-header{min-height:10mm}
-            .rs-paper-half-legal .rs-title h1{font-size:22px}
-            .rs-paper-half-legal .rs-title h2{font-size:14px;margin-top:2px}
-            .rs-paper-half-legal .rs-review-dates{gap:2px 7px;font-size:9.5px;padding-bottom:1.5mm}
-            .rs-paper-half-legal .rs-document-meta>div{min-height:7mm;padding:3px 6px}
-            .rs-paper-half-legal .rs-document-meta b{font-size:10px}
-            .rs-paper-half-legal .rs-document-meta span{font-size:11.5px}
-            .rs-paper-half-legal .rs-items th,.rs-paper-half-legal .rs-items td{padding:4px 6px}
-            .rs-paper-half-legal .rs-items th{font-size:10px}
-            .rs-paper-half-legal .rs-items tbody td{font-size:11.5px;height:7.5mm}
-            .rs-paper-half-legal .rs-items tfoot td{font-size:11.5px}
-            .rs-paper-half-legal .rs-items tfoot td:last-child{font-size:13px}
-            .rs-paper-half-legal .rs-details{min-height:25mm;padding:3mm 5mm 2mm}
-            .rs-paper-half-legal .rs-details>div{grid-template-columns:24mm 1fr;min-height:5.5mm}
-            .rs-paper-half-legal .rs-details i{font-size:10.5px}
-            .rs-paper-half-legal .rs-details strong,.rs-paper-half-legal .rs-details span{font-size:11.5px}
-            .rs-paper-half-legal .rs-payee-summary span{font-size:10px;line-height:1.25}
-            .rs-paper-half-legal .rs-signing-space{min-height:8mm}
+            .rs-paper-epson,.rs-paper-epson *{font-family:Tahoma,Arial,sans-serif;font-weight:400!important}
+            .rs-paper-epson{font-size:13.5px}
+            .rs-paper-epson .rs-title h1{font-size:28px}
+            .rs-paper-epson .rs-title h2{font-size:18px}
+            .rs-paper-epson .rs-review-dates{font-size:12px}
+            .rs-paper-epson .rs-document-meta b{font-size:12.5px}
+            .rs-paper-epson .rs-document-meta span{font-size:14px}
+            .rs-paper-epson .rs-items th,.rs-paper-epson .rs-items td{font-size:12pt}
+            .rs-paper-epson .rs-items tbody td{line-height:1.3}
+            .rs-paper-epson .rs-items tfoot td:last-child{font-size:13pt}
+            .rs-paper-epson .rs-details i{font-size:12.5px}
+            .rs-paper-epson .rs-details strong,.rs-paper-epson .rs-details span{font-size:14px}
+            .rs-paper-epson .rs-payee-summary span{font-size:12.5px;line-height:1.3}
+            .rs-paper-epson .rs-print-info,.rs-paper-epson .rs-budget-certification,.rs-paper-epson .rs-signature-certification{font-size:11px}
+            .rs-paper-epson .rs-footer-signature{font-size:11px}
+            .rs-paper-epson .rs-footer{font-size:10px;line-height:1.25}
+            .rs-paper-half-legal .rs-sheet{height:7in;min-height:7in;max-height:7in;overflow:hidden}
+            .rs-paper-half-legal .rs-report-header{min-height:12mm}
+            .rs-paper-half-legal .rs-title h2{margin-top:2px}
+            .rs-paper-half-legal .rs-review-dates{gap:3px 8px;padding-bottom:2mm}
+            .rs-paper-half-legal .rs-information-box{flex:1 1 auto;min-height:0;overflow:hidden}
+            .rs-paper-half-legal .rs-document-meta>div{min-height:8mm;padding:4px 7px}
+            .rs-paper-half-legal .rs-items th,.rs-paper-half-legal .rs-items td{padding:5px 7px}
+            .rs-paper-half-legal .rs-items tbody td{height:9mm}
+            .rs-paper-half-legal .rs-details{flex:1 1 auto;min-height:0;overflow:hidden;padding:4mm 6mm 3mm}
+            .rs-paper-half-legal .rs-details>div{grid-template-columns:27mm 1fr;min-height:7mm}
+            .rs-paper-half-legal .rs-signing-space{display:none}
             .rs-paper-half-legal .rs-certification{column-gap:8mm;padding:0 2mm 1.5mm}
-            .rs-paper-half-legal .rs-print-info,.rs-paper-half-legal .rs-budget-certification{font-size:8.5px}
-            .rs-paper-half-legal .rs-budget-certification,.rs-paper-half-legal .rs-controller-signature{width:45mm}
-            .rs-paper-half-legal .rs-controller-signature{font-size:9px}
-            .rs-paper-half-legal .rs-controller-signature div{height:3mm}
-            .rs-paper-half-legal .rs-footer{font-size:8px;line-height:1.18;padding-top:1.5mm}
+            .rs-paper-half-legal .rs-budget-certification{width:45mm}
+            .rs-paper-half-legal .rs-certification-stockroom{grid-template-columns:minmax(31mm,1fr) repeat(3,minmax(31mm,39mm));column-gap:3mm}
+            .rs-paper-half-legal .rs-footer-signature div{height:3mm}
+            .rs-paper-half-legal .rs-footer{flex:0 0 auto;padding-top:2mm}
             .rs-paper-half-legal .rs-footer p{margin-top:1mm}
-            .rs-paper-half-institution .rs-review-dates{margin-top:-8mm}
-            .rs-paper-half-institution .rs-signing-space{flex:1 1 0;min-height:0}
-            .rs-paper-half-institution .rs-certification{padding-bottom:.5mm}
-            .rs-paper-half-institution .rs-controller-signature div{height:3mm}
-            .rs-half-legal-cut-guide{box-sizing:border-box;width:100%;height:0;border-top:1px dashed #64748b}
             @media(max-width:720px){.rs-print-overlay{padding:118px 12px 28px}.rs-print-toolbar{left:12px;right:12px;top:12px;flex-wrap:wrap}.rs-paper-selector{order:3;flex:1 0 100%}.rs-paper-selector select{max-width:none;min-width:0;flex:1}}
             @media print{
                 html,body{margin:0!important;padding:0!important;width:auto!important;min-height:auto!important}
                 body>*:not(.rs-print-overlay){display:none!important}
                 body *{visibility:hidden!important}.rs-print-page,.rs-print-page *{visibility:visible!important}
                 .rs-print-overlay{position:static!important;width:auto!important;background:none!important;padding:0!important}
-                .rs-print-page{position:static!important;width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : printPaperHeight}!important;margin:0!important;padding:0!important;box-shadow:none!important}
-                .rs-sheet{width:${isPrinterDefault ? '100%' : selectedPaper.width}!important;min-height:${isPrinterDefault ? 'auto' : printLayoutHeight}!important;padding:${sheetPadding}!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-                .rs-paper-printer-default,.rs-paper-printer-default .rs-sheet{min-height:auto!important}
+                .rs-print-page{position:static!important;width:${selectedPaper.width}!important;min-height:${printPaperHeight}!important;margin:0!important;padding:0!important;box-shadow:none!important}
+                .rs-sheet{width:${selectedPaper.width}!important;min-height:${printLayoutHeight}!important;padding:${sheetPadding}!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
                 .rs-print-toolbar{display:none!important}
-                .rs-half-legal-cut-guide{width:${selectedPaper.width}!important}
                 @page{size:${printPageSize};margin:0}
             }
         `}</style>

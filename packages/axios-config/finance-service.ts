@@ -17,7 +17,7 @@ type IdempotentConfig = InternalAxiosRequestConfig & {
     __financialFingerprint?: string;
 };
 
-const financialMutation = /^\/?abms\/(?:budget-proposal-entry\/save|budget-adjustment-entry(?:\/?$|\/\d+$)|budget-request-entry(?:\/?$|\/items(?:\/\d+)?$|\/\d+\/items$|\/\d+\/(?:save|print-events)$|\/\d+$)|requisition-process\/\d+(?:\/items|\/item-descriptions|\/quoted-prices|\/accept-quoted-prices)?$|liquidation-submission\/rs\/\d+\/returned-amounts$)/;
+const financialMutation = /^\/?abms\/(?:budget-proposal-entry\/save|budget-adjustment-entry(?:\/?$|\/\d+$)|budget-request-entry(?:\/?$|\/items(?:\/\d+)?$|\/\d+\/items$|\/\d+\/(?:save|print-events)$|\/\d+$)|requisition-process\/\d+(?:\/items|\/item-descriptions|\/stockroom-quantities|\/stockroom-fulfillment|\/quoted-prices|\/accept-quoted-prices)?$|liquidation-submission\/rs\/\d+\/returned-amounts$)/;
 const storagePrefix = 'abms-financial-idempotency:';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

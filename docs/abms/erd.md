@@ -108,6 +108,15 @@ erDiagram
         decimal quoted_price
         decimal unused_amount
         boolean isreviewed
+        boolean is_quoted_price_accepted
+        datetime quoted_price_accepted_at
+        string quoted_price_accepted_by
+        boolean is_dispatched_to_stockroom
+        datetime dispatched_to_stockroom_at
+        string dispatched_to_stockroom_by
+        string fulfillment_status "pending served unavailable"
+        datetime fulfilled_at
+        string fulfilled_by
         datetime deleted_at
     }
     PAYEE_DETAILS {
@@ -171,7 +180,7 @@ erDiagram
     }
     OFFICE_SUPPLIES {
         bigint id PK
-        string item_code
+        string item_code "client-provided; unique including soft-deleted rows"
         string item_name
         decimal unit_cost
         string unit_measurement
@@ -308,6 +317,7 @@ erDiagram
 - Many business tables use soft deletes. Current operational queries and live date-ranged reports exclude trashed rows unless a specific report contract explicitly says otherwise.
 - A saved liquidation summary is stored on `budget_request_entry`: returned amount is the sum of live item returns, liquidated amount is live item total cost less that return, and the username/date identify the latest successful save. This does not itself approve or remove the requisition from the liquidation queue.
 - `budget_request_entry.is_controlled` is an unsigned tiny integer state, not a boolean: `0` means pending Controller decision, `1` approved, and `2` disapproved. Forwarding or re-forwarding to the Controller resets it to `0`; reprocessing also resets it. The column is non-null with database default `0` and is audited with the requisition model.
+- Requisition item quote acceptance and Stockroom dispatch are explicit operational flags. Fulfillment is `pending`, `served`, or `unavailable`; actor/time metadata is nullable because compatibility backfill never fabricates terminal history. These fields do not replace item quantity, unit cost, total, allocation identity, or header workflow state.
 
 ## Financial Hardening Tables and Precision
 

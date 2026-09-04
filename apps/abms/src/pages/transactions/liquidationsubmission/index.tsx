@@ -123,19 +123,19 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
     return (
         <>
             <Toasts items={toasts} isDark={isDark} onDismiss={id => setToasts(p => p.filter(t => t.id !== id))} />
-            <div className="space-y-5">
-            <PageHeader title="Liquidation Submission" description="View and manage liquidation records." />
+            <div className="liquidation-submission-page space-y-5 overflow-x-hidden">
+            <PageHeader className="liquidation-page-header" title="Liquidation Submission" description="Review requisitions requiring liquidation and manage their supporting records." />
 
             <div
-                className="rounded-2xl overflow-hidden"
+                className="liquidation-filter-workspace rounded-2xl p-5"
                 style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}
             >
                 {/* ── Filter Section ── */}
                 <div
-                    className="grid grid-cols-1 items-center gap-4 px-4 py-3 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,1fr)_auto] lg:px-6"
-                    style={{ borderBottom: `1px solid ${t.sectionDivider}` }}
+                    className="grid grid-cols-1 items-end gap-4 md:grid-cols-2 xl:grid-cols-[minmax(320px,1fr)_minmax(260px,auto)_auto]"
                 >
-                    <div className="min-w-0 w-full">
+                    <div className="min-w-0 w-full space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: t.tableHeadText }}>Department / Section</label>
                         <DeptDropdown
                             value={selectedDeptId}
                             valueKind={selectedDeptKind}
@@ -148,7 +148,8 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                         />
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-start gap-4 lg:justify-center">
+                    <div className="liquidation-sort-control flex min-h-11 flex-wrap items-center justify-start gap-4 rounded-xl border px-4" style={{ borderColor: t.inputBorder, background: t.inputBg }}>
+                        <span className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: t.tableHeadText }}>Sort</span>
                         <Checkbox checked={ascending} onChange={handleAscending} label="Ascending" t={t} isDark={isDark} />
                         <Checkbox checked={descending} onChange={handleDescending} label="Descending" t={t} isDark={isDark} />
                     </div>
@@ -156,7 +157,7 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                     <button
                         onClick={fetchRecords}
                         disabled={requeryDisabled}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-bold transition-all duration-150 select-none sm:w-auto"
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-5 py-2.5 text-base font-bold transition-all duration-200 active:scale-[0.98] select-none focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-blue-400/40 xl:min-w-40"
                         style={{
                             background: requeryDisabled ? t.btnDisBg : t.btnRefresh.bg,
                             borderColor: requeryDisabled ? t.btnDisBorder : t.btnRefresh.border,
@@ -166,14 +167,20 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                         onMouseEnter={e => { if (!requeryDisabled) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
                         onMouseLeave={e => { if (!requeryDisabled) (e.currentTarget as HTMLElement).style.background = t.btnRefresh.bg; }}
                     >
-                        <RefreshCw className={`w-3.5 h-3.5${isLoading ? ' animate-spin' : ''}`} />
+                        <RefreshCw className={`w-5 h-5${isLoading ? ' animate-spin' : ''}`} />
                         {isLoading ? 'Loading…' : 'Requery'}
                     </button>
                 </div>
+            </div>
 
                 {/* ── Table ── */}
+            <div className="liquidation-records-card overflow-hidden rounded-2xl" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}>
+                <header className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}` }}>
+                    <div><h2 className="text-lg font-bold" style={{ color: t.titleColor }}>Liquidation records</h2><p className="mt-1 text-sm" style={{ color: t.cellMuted }}>Select a requisition to review its items and documents.</p></div>
+                    <span className="inline-flex min-h-11 w-fit items-center rounded-lg border px-4 text-sm font-bold" style={{ background: t.inputBg, borderColor: t.inputBorder, color: t.cellBlue }}>{records.length} {records.length === 1 ? 'record' : 'records'}</span>
+                </header>
                 <div style={{ overflowX: 'auto' }}>
-                    <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 900 }}>
+                    <table className="liquidation-records-table w-full" style={{ borderCollapse: 'collapse', minWidth: 900 }}>
                         <thead>
                             <tr style={{ background: t.tableHeadBg }}>
                                 {TABLE_COLS.map((col, i) => (
@@ -226,6 +233,15 @@ function LiquidationSubmissionInner({ t, isDark }: { t: typeof T.dark; isDark: b
                                         <tr
                                             key={row.id}
                                             onClick={() => void openLiquidationModal(row)}
+                                            onKeyDown={event => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    openLiquidationModal(row);
+                                                }
+                                            }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label={`Open liquidation record ${row.requisition_no}`}
                                             style={{ background: baseBg, transition: 'background .1s', cursor: 'pointer' }}
                                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.rowHoverBg; }}
                                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = baseBg; }}
@@ -313,7 +329,7 @@ export default function LiquidationSubmission() {
         <AdamsonBudgetLayout>
             {(isDark: boolean) => {
                 const t = isDark ? T.dark : T.light;
-                return <div className="mx-auto max-w-7xl"><LiquidationSubmissionInner t={t} isDark={isDark} /></div>;
+                return <div className="mx-auto w-full max-w-[1600px]"><LiquidationSubmissionInner t={t} isDark={isDark} /></div>;
             }}
         </AdamsonBudgetLayout>
     );

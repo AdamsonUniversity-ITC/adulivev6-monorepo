@@ -9,6 +9,8 @@ import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModa
 import { AccountsViewModal, AccountRow } from '../shared/components/AccountsViewModal';
 import { useRouteContext } from '@tanstack/react-router';
 import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
+import { UnreadChatBadge } from '../../../../features/requisition-chat/UnreadChatBadge';
+import { useRequisitionUnreadCounts } from '../../../../features/requisition-chat/useRequisitionUnreadCounts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -247,7 +249,11 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
         () => makeDefaultFilterState(FILTER_CFG)
     );
     const [rows, setRows] = useState<StockroomRow[]>([]);
+    const { counts: unreadCounts, clearUnread, refreshOne: refreshUnreadCount } =
+        useRequisitionUnreadCounts(rows.map(row => row.id), currentUser.id);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const loadMoreInFlightRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [queried, setQueried] = useState(false);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -304,6 +310,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
 
         setNextCursor(null);
         setHasMore(false);
+        setRows([]);
         setLoading(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
@@ -322,24 +329,29 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
     }, [filterState]);
 
     const handleLoadMore = useCallback(async () => {
-        if (!nextCursor || loading) return false;
+        if (!nextCursor || loading || loadingMore || loadMoreInFlightRef.current) return false;
         const parsed = StockroomQuerySchema.safeParse(buildQuery(filterState));
         if (!parsed.success) return false;
-        setLoading(true);
+        loadMoreInFlightRef.current = true;
+        setLoadingMore(true);
         try {
             const res = await financeSvc.get('/abms/requisition-process/getrs', {
                 params: { ...parsed.data, per_page: 10, cursor: nextCursor },
             });
-            setRows(prev => [...prev, ...(res.data.data ?? [])]);
+            setRows(prev => {
+                const existingIds = new Set(prev.map(row => row.id));
+                return [...prev, ...(res.data.data ?? []).filter((row: StockroomRow) => !existingIds.has(row.id))];
+            });
             setNextCursor(res.data.meta?.next_cursor ?? null);
             setHasMore(res.data.meta?.has_more ?? false);
             return true;
         } catch {
             return false;
         } finally {
-            setLoading(false);
+            loadMoreInFlightRef.current = false;
+            setLoadingMore(false);
         }
-    }, [filterState, nextCursor, loading]);
+    }, [filterState, nextCursor, loading, loadingMore]);
 
     // Handle row click — fetch line items then open the RS Process modal
     const handleRowClick = useCallback(async (row: StockroomRow) => {
@@ -375,9 +387,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             try {
                 const res = await financeSvc.get('/abms/budget-request-entry/accounts', {
                     params: {
-                        departmentId: row.kind === 'Department' ? row.department_id : null,
-                        sectionId: row.kind === 'Section' ? row.section_id : null,
-                        currentSchoolYear,
+                        requisitionId: row.id,
                     },
                 });
                 setAccounts(res.data.accounts ?? []);
@@ -416,7 +426,10 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             setModalError(null);
             setModalLoading(true);
             try {
-                await financeSvc.put(`/abms/requisition-process/${row.id}`, { action });
+                await financeSvc.put(`/abms/requisition-process/${row.id}`, {
+                    action,
+                    ...(action === 'Mark Served' && row.logistics_workflow_v2 ? { workflow_version: 2 } : {}),
+                });
                 setSelectedRow(null);
                 const actionLabel = action === 'Return to Administration' ? 'Return to Budget' : action;
                 addToast('success', `"${actionLabel}" applied to RS ${row.requisition_no}.`);
@@ -436,6 +449,26 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
             setSelectedRow(prev => prev ? { ...prev, note: row.note ?? null } : prev);
             setRows(prev => prev.map(r => r.id === row.id ? { ...r, note: row.note ?? null } : r));
             addToast('success', `Note saved for RS ${row.requisition_no}.`);
+            return;
+        }
+
+        // Quantity saving is completed atomically by the modal's dedicated
+        // Stockroom endpoint. Keep the Certified RS open and synchronize the
+        // authoritative items and recalculated total returned by the backend.
+        if (action === 'Save Items') {
+            setSelectedRow(prev => prev
+                ? { ...prev, items: row.items, total_amount: row.total_amount }
+                : prev);
+            setRows(prev => prev.map(r => r.id === row.id
+                ? { ...r, total_amount: row.total_amount }
+                : r));
+            addToast('success', `Quantities and totals updated for RS ${row.requisition_no}.`);
+            return;
+        }
+
+        if (action === 'Save Fulfillment') {
+            setSelectedRow(prev => prev ? { ...prev, items: row.items } : prev);
+            addToast('success', `Item fulfillment updated for RS ${row.requisition_no}.`);
             return;
         }
 
@@ -493,7 +526,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                     </tr>
                 </thead>
                 <tbody>
-                    {loading && (
+                    {loading && rows.length === 0 && (
                         <tr>
                             <td colSpan={COLUMNS.length} style={{ padding: '52px 16px', textAlign: 'center', fontSize: 13, color: t.cellMuted }}>
                                 Loading…
@@ -532,7 +565,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                         </tr>
                     )}
 
-                    {!loading && !error && rows.map((row, idx) => {
+                    {!error && rows.map((row, idx) => {
                         const tagged = !!row.for_liquidation;
                         const baseBg = tagged
                             ? liquidationRowBg(isDark)
@@ -540,7 +573,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                         const hoverBg = tagged ? liquidationRowHoverBg(isDark) : t.rowHoverBg;
                         return (
                         <tr
-                            key={`${row.requisition_no}-${idx}`}
+                                key={row.id}
                             onClick={() => handleRowClick(row)}
                             style={{
                                 background: baseBg,
@@ -565,7 +598,8 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                             </td>
                             <td style={cellStyle(t, COLUMNS.length, 3)}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <img
+                                            <div style={{ position: 'relative', flexShrink: 0 }}>
+                                            <img
                                         src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requested_by_empno}_2`}
                                         alt={row.requested_by}
                                         style={{
@@ -577,7 +611,9 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                                             (e.currentTarget as HTMLImageElement).src =
                                                 `https://ui-avatars.com/api/?name=${encodeURIComponent(row.requested_by)}&size=32&background=random`;
                                         }}
-                                    />
+                                            />
+                                            <UnreadChatBadge count={unreadCounts[row.id] ?? 0} />
+                                            </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <span style={{ fontSize: 13, color: t.cellText, fontWeight: 500 }}>
                                             {row.requested_by}
@@ -608,9 +644,9 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                         <tr>
                             <td colSpan={COLUMNS.length} style={{ padding: '16px', textAlign: 'center', color: t.cellMuted }}>
                                 <InfiniteScrollSentinel
-                                    key={nextCursor}
                                     hasMore={hasMore}
-                                    loading={loading}
+                                    loading={loadingMore}
+                                    loadKey={nextCursor}
                                     onLoadMore={handleLoadMore}
                                 />
                             </td>
@@ -630,7 +666,12 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                     isDark={isDark}
                     isLoading={modalLoading}
                     error={modalError}
-                    onClose={() => { setSelectedRow(null); setModalError(null); }}
+                    onClose={() => {
+                        void refreshUnreadCount(selectedRow.id);
+                        setSelectedRow(null);
+                        setModalError(null);
+                    }}
+                    onChatRead={clearUnread}
                     onAction={handleModalAction}
                     currentUser={currentUser}
                 />

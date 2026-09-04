@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AdamsonBudgetLayout from '../../../layouts/Screenlayout';
-import { RefreshCw, FilePlus, ClipboardList, Search, Copy } from 'lucide-react';
+import { RefreshCw, FilePlus, ClipboardList, Search, Copy, CircleAlert } from 'lucide-react';
 import { budgetrequestentryRoute } from '../../../router';
 import { useRouteContext } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config/finance-service';
@@ -11,9 +11,10 @@ import { Btn, Checkbox, DeptDropdown, StatusBadge, Toasts } from './components/c
 import { NewRSModal } from './components/NewRSModal';
 import { RSFormModal } from './components/RSFormModal';
 import { RSViewModal } from './components/RSViewModal';
-import { PageHeader } from '../../../components/ui/Page';
 import { organizationalUnitKey } from '../../../lib/organizationalUnit';
 import { InfiniteScrollSentinel } from '../../../components/InfiniteScrollSentinel';
+import { UnreadChatBadge } from '../../../features/requisition-chat/UnreadChatBadge';
+import { useRequisitionUnreadCounts } from '../../../features/requisition-chat/useRequisitionUnreadCounts';
 
 function BudgetRequestEntryInner({
     t, isDark,
@@ -66,6 +67,9 @@ function BudgetRequestEntryInner({
     const [rsFormType, setRSFormType] = useState<RSType>(null);
     const [rsHeaderId, setRsHeaderId] = useState<number | null>(null);
     const [isCreatingRS, setIsCreatingRS] = useState(false);
+    const currentUserId = user?.username ?? '';
+    const { counts: unreadCounts, clearUnread, refreshOne: refreshUnreadCount } =
+        useRequisitionUnreadCounts(records.map(record => record.id), currentUserId);
 
     // Stores the full header data returned by the store endpoint
     interface RSHeaderData {
@@ -228,8 +232,13 @@ function BudgetRequestEntryInner({
             <RSViewModal
                 open={showViewModal}
                 recordId={viewModalId}
-                onClose={() => { setShowViewModal(false); setViewModalId(null); }}
+                onClose={() => {
+                    if (viewModalId) void refreshUnreadCount(viewModalId);
+                    setShowViewModal(false);
+                    setViewModalId(null);
+                }}
                 onUpdated={() => { handleRefresh(); }}
+                onChatRead={clearUnread}
                 t={t}
                 isDark={isDark}
                 currentUser={user ? { id: user.username ?? '', name: user.name ?? user.username ?? '' } : { id: '', name: '' }}
@@ -340,79 +349,74 @@ function BudgetRequestEntryInner({
             />
 
             {/* ── Page title ─────────────────────────────────────────────── */}
-            <PageHeader
-                className="mb-5"
-                title="Budget Request Entry"
-                description="Manage and track Requisition Slips (RS) across departments and sections."
-            />
-
-            {/* ── Single card ────────────────────────────────────────────── */}
-            <div
-                className="rounded-2xl overflow-hidden"
-                style={{
-                    background: t.cardBg,
-                    border: `1px solid ${t.cardBorder}`,
-                    boxShadow: t.cardShadow,
-                }}
-            >
+            <header className="mb-5">
+                <h1 className="font-[var(--abms-font-display)] text-3xl font-extrabold tracking-tight sm:text-4xl" style={{ color: t.titleColor }}>
+                    Budget Request Entry
+                </h1>
+                <p className="mt-2 text-sm sm:text-base" style={{ color: t.subColor }}>
+                    Manage and track Requisition Slips (RS) across departments and sections.
+                </p>
+            </header>
 
                 {/* ══ Filter workspace ═════════════════════════════════════ */}
                 <div
-                    className="grid grid-cols-1 gap-3 p-4 lg:grid-cols-3"
-                    style={{
-                        background: t.cardHeaderBg,
-                        borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                    }}
+                    className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.2fr_1fr]"
                 >
                     {/* View-option checkboxes */}
-                    <div className="flex min-h-24 flex-col justify-between gap-3 rounded-xl border p-4" style={{ background: t.inputBg, borderColor: t.inputBorder }}>
+                    <div className="flex min-h-40 flex-col justify-between gap-5 rounded-2xl border p-5" style={{ background: t.cardBg, borderColor: t.cardBorder, boxShadow: t.cardShadow }}>
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: t.tableHeadText }}>View Options</p>
-                            <p className="mt-1 text-[10px]" style={{ color: t.cellMuted }}>Choose which requisition slips to display.</p>
+                            <p className="text-xs font-extrabold uppercase tracking-[0.14em]" style={{ color: t.tableHeadText }}>View Options</p>
+                            <p className="mt-2 text-xs" style={{ color: t.cellMuted }}>Choose which requisition slips to display.</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        <div className="flex flex-wrap items-center gap-x-8 gap-y-3 pb-1">
                             <Checkbox checked={viewAll} onChange={v => { setViewAll(v); if (v) setViewServedByWico(false); }} label="View All" t={t} isDark={isDark} />
                             <Checkbox checked={viewServedByWico} onChange={v => { setViewServedByWico(v); if (v) setViewAll(false); }} label="Served by WICO" t={t} isDark={isDark} />
                         </div>
                     </div>
 
                     {/* Date filter */}
-                    <div className="flex min-h-24 flex-col justify-between gap-3 rounded-xl border p-4" style={{ background: t.inputBg, borderColor: t.inputBorder }}>
+                    <div className="flex min-h-40 flex-col justify-between gap-5 rounded-2xl border p-5" style={{ background: t.cardBg, borderColor: t.cardBorder, boxShadow: t.cardShadow }}>
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: t.tableHeadText }}>Date Range</p>
-                                <p className="mt-1 text-[10px]" style={{ color: t.cellMuted }}>Limit results to a specific period.</p>
+                                <p className="text-xs font-extrabold uppercase tracking-[0.14em]" style={{ color: t.tableHeadText }}>Date Range</p>
+                                <p className="mt-2 text-xs" style={{ color: t.cellMuted }}>Limit results to a specific period.</p>
                             </div>
-                            <Checkbox checked={filterByDate} onChange={v => { setFilterByDate(v); if (!v) { setDateFrom(''); setDateTo(''); } }} label="Enable" t={t} isDark={isDark} />
+                            <Checkbox checked={filterByDate} onChange={v => { setFilterByDate(v); if (!v) { setDateFrom(''); setDateTo(''); } }} label="Enable" t={t} isDark={isDark} variant="switch" />
                         </div>
                         <div className="grid min-w-0 grid-cols-1 items-center gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-                            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} disabled={!filterByDate} className="min-w-0 rounded-lg border px-2.5 py-2 text-[11px] font-semibold outline-none transition-all duration-150" style={{ background: t.cardHeaderBg, borderColor: t.inputBorder, color: dateFrom ? t.inputText : t.inputPlaceholder, colorScheme: isDark ? 'dark' : 'light', opacity: filterByDate ? 1 : 0.38, cursor: filterByDate ? 'default' : 'not-allowed' }} />
-                            <span className="hidden text-[10px] font-bold min-[480px]:inline" style={{ color: t.cellMuted }}>to</span>
-                            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} disabled={!filterByDate} className="min-w-0 rounded-lg border px-2.5 py-2 text-[11px] font-semibold outline-none transition-all duration-150" style={{ background: t.cardHeaderBg, borderColor: t.inputBorder, color: dateTo ? t.inputText : t.inputPlaceholder, colorScheme: isDark ? 'dark' : 'light', opacity: filterByDate ? 1 : 0.38, cursor: filterByDate ? 'default' : 'not-allowed' }} />
+                            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} disabled={!filterByDate} className="min-w-0 rounded-lg border px-4 py-3 text-sm font-semibold outline-none transition-all duration-150" style={{ background: t.inputBg, borderColor: t.inputBorder, color: dateFrom ? t.inputText : t.inputPlaceholder, colorScheme: isDark ? 'dark' : 'light', opacity: filterByDate ? 1 : 0.48, cursor: filterByDate ? 'default' : 'not-allowed' }} />
+                            <span className="hidden text-xs font-bold min-[480px]:inline" style={{ color: t.cellMuted }}>to</span>
+                            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} disabled={!filterByDate} className="min-w-0 rounded-lg border px-4 py-3 text-sm font-semibold outline-none transition-all duration-150" style={{ background: t.inputBg, borderColor: t.inputBorder, color: dateTo ? t.inputText : t.inputPlaceholder, colorScheme: isDark ? 'dark' : 'light', opacity: filterByDate ? 1 : 0.48, cursor: filterByDate ? 'default' : 'not-allowed' }} />
                         </div>
                     </div>
 
                     {/* Department dropdown */}
-                    <div className="flex min-h-24 min-w-0 flex-col justify-between gap-3 rounded-xl border p-4" style={{ background: t.inputBg, borderColor: t.inputBorder }}>
+                    <div className="flex min-h-40 min-w-0 flex-col justify-between gap-5 rounded-2xl border p-5" style={{ background: t.cardBg, borderColor: t.cardBorder, boxShadow: t.cardShadow }}>
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: t.tableHeadText }}>Department / Section</p>
-                            <p className="mt-1 text-[10px]" style={{ color: t.cellMuted }}>Select the requesting organizational unit.</p>
+                            <p className="text-xs font-extrabold uppercase tracking-[0.14em]" style={{ color: t.tableHeadText }}>Department / Section</p>
+                            <p className="mt-2 text-xs" style={{ color: t.cellMuted }}>Select the requesting organizational unit.</p>
                         </div>
                         <DeptDropdown value={selectedDept} onChange={setSelectedDept} options={deptOptions} t={t} isDark={isDark} />
                     </div>
                 </div>
 
                 {/* ══ Balanced action strip ═══════════════════════════════ */}
-                <div className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-2 xl:grid-cols-4" style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}` }}>
-                    <Btn className="h-10 w-full justify-center" token={t.btnRefresh} icon={<RefreshCw className={`w-3.5 h-3.5${isLoadingRecords ? ' animate-spin' : ''}`} />} label={isLoadingRecords ? 'Loading…' : 'Refresh Records'} onClick={handleRefresh} disabled={isLoadingRecords} t={t} />
-                    <div className="flex" title={!selectedDept ? 'Please select a Department or Section first' : ''}><Btn className="h-10 w-full justify-center" token={t.btnNew} icon={<FilePlus className="w-3.5 h-3.5" />} label="New Requisition Slip" onClick={() => setShowNewRS(true)} disabled={!selectedDept} t={t} /></div>
-                    <Btn className="h-10 w-full justify-center" token={usePrevSY ? t.btnNew : t.btnPrevSY} icon={usePrevSY ? <RefreshCw className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} label={usePrevSY ? 'Use Current School Year' : 'Use Previous School Year'} onClick={handleToggleSY} t={t} />
-                    <div className="flex h-10 items-center justify-center gap-2 rounded-lg border px-3" style={{ borderColor: `${LIQUIDATION_COLOR}55`, background: isDark ? `${LIQUIDATION_COLOR}1a` : `${LIQUIDATION_COLOR}14` }}><span className="h-2 w-2 rounded-full" style={{ background: LIQUIDATION_COLOR }} /><span className="text-[11px] font-bold tracking-wide" style={{ color: isDark ? '#fde047' : '#854d0e' }}>Yellow rows require liquidation</span></div>
+                <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <Btn className="h-14 w-full justify-center text-sm" token={t.btnRefresh} icon={<RefreshCw className={`h-5 w-5${isLoadingRecords ? ' animate-spin' : ''}`} />} label={isLoadingRecords ? 'Loading…' : 'Refresh Records'} onClick={handleRefresh} disabled={isLoadingRecords} t={t} />
+                    <div className="flex" title={!selectedDept ? 'Please select a Department or Section first' : ''}><Btn className="h-14 w-full justify-center text-sm" token={t.btnNew} icon={<FilePlus className="h-5 w-5" />} label="New Requisition Slip" onClick={() => setShowNewRS(true)} disabled={!selectedDept} t={t} /></div>
+                    <Btn className="h-14 w-full justify-center text-sm" token={usePrevSY ? t.btnNew : t.btnPrevSY} icon={usePrevSY ? <RefreshCw className="h-5 w-5" /> : <Copy className="h-5 w-5" />} label={usePrevSY ? 'Use Current School Year' : 'Use Previous School Year'} onClick={handleToggleSY} t={t} />
+                    <div className="flex h-14 items-center justify-center gap-3 rounded-xl border px-4" style={{ borderColor: `${LIQUIDATION_COLOR}88`, background: isDark ? `${LIQUIDATION_COLOR}16` : `${LIQUIDATION_COLOR}0d` }}><CircleAlert className="h-5 w-5 shrink-0" style={{ color: isDark ? '#fde047' : '#d97706' }} /><span className="text-xs font-bold tracking-wide" style={{ color: isDark ? '#fde047' : '#b45309' }}>Yellow rows require liquidation</span></div>
                 </div>
+
+            {/* ── Records card ───────────────────────────────────────────── */}
+            <div
+                className="overflow-hidden rounded-2xl"
+                style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}
+            >
 
                 {/* ══ ROW 2 — Search + count pill ═══════════════════════════ */}
                 <div
-                    className="flex flex-col items-stretch gap-2 px-4 py-2.5 min-[480px]:flex-row min-[480px]:items-center sm:px-5"
+                    className="flex flex-col items-stretch gap-3 p-4 min-[480px]:flex-row min-[480px]:items-center sm:px-5"
                     style={{
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
@@ -420,7 +424,7 @@ function BudgetRequestEntryInner({
                 >
                     {/* Count pill */}
                     <span
-                        className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md shrink-0"
+                        className="shrink-0 rounded-lg px-5 py-3 text-sm font-bold"
                         style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
                     >
                         {displayed.length} {displayed.length === 1 ? 'record' : 'records'}{hasMore ? '+' : ''}
@@ -429,7 +433,7 @@ function BudgetRequestEntryInner({
                     {/* Search */}
                     <div className="relative min-w-0 flex-1">
                         <Search
-                            className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2"
                             style={{ color: t.cellMuted }}
                         />
                         <input
@@ -437,7 +441,7 @@ function BudgetRequestEntryInner({
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Search by RS number, payee, or requested by…"
-                            className="w-full pl-8 pr-3 py-2 rounded-xl text-[11px] font-semibold border outline-none transition-all duration-150"
+                            className="w-full rounded-xl border py-3 pl-12 pr-4 text-sm font-semibold outline-none transition-all duration-150"
                             style={{ background: t.inputBg, borderColor: t.inputBorder, color: t.inputText }}
                             onFocus={e => { (e.target as HTMLElement).style.borderColor = isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)'; }}
                             onBlur={e => { (e.target as HTMLElement).style.borderColor = t.inputBorder; }}
@@ -573,11 +577,12 @@ function BudgetRequestEntryInner({
                                         >
                                             <div className="flex items-center gap-3">
                                                 {/* Avatar */}
+                                                <div className="relative shrink-0" style={{ width: 42, height: 42 }}>
                                                 {row.requestedBy && row.requestedBy !== '—' ? (
                                                     <img
                                                         src={`https://live.adamson.edu.ph/legacy/primarypicavatar/getuserimg_idno.php?x=${row.requestedBy}_2`}
                                                         alt={row.requestedByName}
-                                                        className="rounded-full shrink-0 object-cover"
+                                                        className="rounded-full object-cover"
                                                         style={{
                                                             width: 42, height: 42,
                                                             border: `2px solid ${isDark ? 'rgba(100,160,255,0.30)' : 'rgba(37,99,235,0.20)'}`,
@@ -591,7 +596,7 @@ function BudgetRequestEntryInner({
                                                 ) : null}
                                                 {/* Fallback initials avatar */}
                                                 <div
-                                                    className="rounded-full shrink-0 items-center justify-center font-bold text-[13px] select-none"
+                                                    className="rounded-full items-center justify-center font-bold text-[13px] select-none"
                                                     style={{
                                                         width: 42, height: 42,
                                                         background: isDark ? 'rgba(59,130,246,0.22)' : 'rgba(219,234,254,0.80)',
@@ -604,6 +609,8 @@ function BudgetRequestEntryInner({
                                                         ? row.requestedByName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
                                                         : row.requestedBy.slice(0, 2).toUpperCase()
                                                     }
+                                                </div>
+                                                <UnreadChatBadge count={unreadCounts[row.id] ?? 0} />
                                                 </div>
                                                 {/* Name + employee no */}
                                                 <div className="min-w-0">
@@ -713,7 +720,7 @@ export default function BudgetRequestEntry() {
         <AdamsonBudgetLayout>
             {(isDark: boolean) => {
                 const t = isDark ? T.dark : T.light;
-                return <div className="mx-auto max-w-7xl"><BudgetRequestEntryInner t={t} isDark={isDark} /></div>;
+                return <div className="mx-auto w-full max-w-[1600px]"><BudgetRequestEntryInner t={t} isDark={isDark} /></div>;
             }}
         </AdamsonBudgetLayout>
     );

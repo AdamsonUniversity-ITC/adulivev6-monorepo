@@ -102,41 +102,42 @@ export function AttachmentsModal({
                 padding: 16,
             }}
         >
-            <div
+            <div className="abms-attachments-modal"
                 onClick={e => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Add requisition files"
                 style={{
-                    width: '100%', maxWidth: 480,
+                    width: '100%', maxWidth: 620,
                     background: t.cardBg, border: `1px solid ${t.cardBorder}`,
-                    borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                    borderRadius: 14, boxShadow: '0 18px 60px rgba(0,0,0,0.24)',
                     display: 'flex', flexDirection: 'column',
                     maxHeight: 'calc(100dvh - 24px)',
                     overflow: 'hidden',
                 }}
             >
+                <style>{`.abms-attachments-modal button { min-height: 42px; padding: 10px 18px !important; border-radius: 10px !important; font-size: 13px !important; }`}</style>
                 {/* Header */}
                 <div
                     style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '14px 18px', borderBottom: `1px solid ${t.cardHeaderBorder}`,
+                        padding: '20px 24px', borderBottom: `1px solid ${t.cardHeaderBorder}`,
                     }}
                 >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: t.cellText, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Paperclip style={{ width: 14, height: 14 }} />
+                    <span style={{ fontSize: 20, fontWeight: 800, color: t.cellText, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Paperclip style={{ width: 22, height: 22 }} />
                         Add Files
                     </span>
                     <button
                         onClick={onClose}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.cellMuted }}
                     >
-                        <X style={{ width: 16, height: 16 }} />
+                        <X style={{ width: 19, height: 19 }} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: 18, overflowY: 'auto', minHeight: 0, flex: 1 }}>
+                <div style={{ padding: 22, overflowY: 'auto', minHeight: 0, flex: 1 }}>
                     <div
                         onClick={handleDropzoneClick}
                         onDragOver={e => { e.preventDefault(); setIsDragActive(true); }}
@@ -144,7 +145,7 @@ export function AttachmentsModal({
                         onDrop={e => { e.preventDefault(); setIsDragActive(false); handleFilesSelected(e.dataTransfer.files); }}
                         style={{
                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                            gap: 6, padding: '28px 12px', borderRadius: 10,
+                            gap: 9, padding: '42px 18px', borderRadius: 14,
                             border: `1.5px dashed ${isDragActive ? (isDark ? 'rgba(99,155,255,0.80)' : 'rgba(37,99,235,0.60)') : t.inputBorder}`,
                             background: isDragActive
                                 ? (isDark ? 'rgba(37,99,235,0.10)' : 'rgba(219,234,254,0.50)')
@@ -153,11 +154,11 @@ export function AttachmentsModal({
                             transition: 'border-color .15s ease, background .15s ease',
                         }}
                     >
-                        <UploadCloud style={{ width: 22, height: 22, color: t.cellMuted }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: t.cellText }}>
+                        <UploadCloud style={{ width: 36, height: 36, color: t.cellBlue }} />
+                        <span style={{ fontSize: 16, fontWeight: 700, color: t.cellText }}>
                             Drag & drop files here, or click to browse
                         </span>
-                        <span style={{ fontSize: 9, color: t.cellMuted }}>
+                        <span style={{ fontSize: 12, color: t.cellMuted }}>
                             Accepted: images, PDF, Excel (.xls, .xlsx, .csv), max 25 MB each
                         </span>
 

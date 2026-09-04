@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, Check, ChevronDown, User, X } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Check, ChevronDown, Landmark, User, X } from 'lucide-react';
 import type { PayeeDetails, ThemeTokens } from '../types';
 import { Btn } from './common';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PAYEE_REQUIRED_FORMS = ['Payment for Supplier/Water', 'Payment for Honorarium'] as const;
 
 export interface PayeeDetails {
@@ -21,6 +22,7 @@ export interface PayeeDetails {
     bankAddress: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const EMPTY_PAYEE: PayeeDetails = {
     payee: '',
     tinNo: '',
@@ -36,6 +38,7 @@ export const EMPTY_PAYEE: PayeeDetails = {
     bankAddress: '',
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const BANK_OPTIONS = ['PNB', 'BDO', 'Metrobank', 'BPI'];
 
 function CheckRow({
@@ -52,11 +55,22 @@ function CheckRow({
     isDark: boolean;
 }) {
     return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 6 }}>
+        <label
+            style={{
+                display: 'flex', alignItems: 'center', gap: 9,
+                minHeight: 32, cursor: 'pointer', margin: 0,
+                padding: '5px 0', userSelect: 'none',
+            }}
+        >
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={event => onChange(event.target.checked)}
+                className="sr-only"
+            />
             <div
-                onClick={() => onChange(!checked)}
                 style={{
-                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                    width: 17, height: 17, borderRadius: 4, flexShrink: 0,
                     border: `1.5px solid ${checked ? (isDark ? '#60a5fa' : '#3b82f6') : t.inputBorder}`,
                     background: checked ? (isDark ? 'rgba(96,165,250,0.18)' : 'rgba(59,130,246,0.10)') : t.inputBg,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -65,7 +79,7 @@ function CheckRow({
             >
                 {checked && <Check style={{ width: 10, height: 10, color: isDark ? '#60a5fa' : '#3b82f6', strokeWidth: 3 }} />}
             </div>
-            <span style={{ fontSize: 11, fontWeight: 600, color: t.inputText }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.inputText }}>{label}</span>
         </label>
     );
 }
@@ -142,7 +156,7 @@ export function PayeeDetailsModal({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="payee-details-title"
-                className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 w-full max-w-[480px] flex-col overflow-hidden rounded-2xl"
+                className="payee-details-modal flex max-h-[calc(100dvh-1.5rem)] min-h-0 w-full max-w-[520px] flex-col overflow-hidden rounded-2xl"
                 style={{
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
@@ -150,21 +164,26 @@ export function PayeeDetailsModal({
                     animation: 'modal-in .18s ease both',
                 }}
             >
+                <style>{`
+                    .payee-details-modal input, .payee-details-modal select { min-height: 44px; border-radius: 10px !important; font-size: 12px !important; }
+                    .payee-details-modal .payee-choice { min-height: 70px; padding: 12px 14px; border: 1px solid ${t.inputBorder}; border-radius: 11px; }
+                `}</style>
                 {/* Header */}
                 <div style={{
-                    padding: '14px 20px 12px',
+                    padding: '18px 22px 16px',
                     borderBottom: `1px solid ${t.sectionDivider}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <User style={{ width: 15, height: 15, color: isDark ? '#60a5fa' : '#3b82f6' }} />
-                        <span id="payee-details-title" style={{ fontSize: 13, fontWeight: 800, color: t.cardTitle }}>Payee Details</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <User style={{ width: 26, height: 26, color: isDark ? '#60a5fa' : '#1d4ed8' }} />
+                        <div><span id="payee-details-title" style={{ display: 'block', fontSize: 20, fontWeight: 800, color: t.cardTitle }}>Payee Details</span>
+                        <span style={{ fontSize: 12, color: t.cellMuted }}>Provide the payee information and payment details.</span></div>
                     </div>
                     <button
                         onClick={onClose}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.cellMuted, display: 'flex', padding: 2 }}
                     >
-                        <X style={{ width: 15, height: 15 }} />
+                        <X style={{ width: 20, height: 20 }} />
                     </button>
                 </div>
 
@@ -203,6 +222,7 @@ export function PayeeDetailsModal({
                     {/* Classification checkboxes */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Classification <span style={{ color: '#f87171' }}>*</span></div>
+                        <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
                         {isHonorariumPayment && (
                             <>
                                 <CheckRow
@@ -251,16 +271,17 @@ export function PayeeDetailsModal({
                                 />
                             </>
                         )}
+                        </div>
                     </div>
 
                     {/* Mode of Payment */}
                     <div style={{ marginBottom: 16 }}>
                         <div style={sectionHead}>Mode of Payment <span style={{ color: '#f87171' }}>*</span></div>
-                        {(['cheque', 'bank_transfer'] as const).map(opt => {
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{(['cheque', 'bank_transfer'] as const).map(opt => {
                             const isSelected = opt === 'cheque' ? form.mopCheque : form.mopBankTransfer;
                             const label = opt === 'cheque' ? 'Cheque' : 'Bank Transfer';
                             return (
-                                <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 6 }}>
+                                <label key={opt} className="payee-choice" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 0, borderColor: isSelected ? t.cellBlue : t.inputBorder, background: isSelected ? (isDark ? 'rgba(37,99,235,.12)' : 'rgba(239,246,255,.8)') : 'transparent' }}>
                                     <div
                                         onClick={() => {
                                             set('mopCheque', opt === 'cheque');
@@ -281,10 +302,11 @@ export function PayeeDetailsModal({
                                             }} />
                                         )}
                                     </div>
-                                    <span style={{ fontSize: 11, fontWeight: 600, color: t.inputText }}>{label}</span>
+                                    {opt === 'cheque' ? <BadgeCheck className="h-5 w-5" style={{ color: t.cellBlue }} /> : <Landmark className="h-5 w-5" style={{ color: t.cellBlue }} />}
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: t.inputText }}>{label}<small style={{ display: 'block', marginTop: 2, color: t.cellMuted, fontWeight: 400 }}>{opt === 'cheque' ? 'Payment via cheque' : 'Direct bank transfer'}</small></span>
                                 </label>
                             );
-                        })}
+                        })}</div>
                     </div>
 
                     {/* Bank Transfer fields */}
@@ -298,10 +320,10 @@ export function PayeeDetailsModal({
                                 marginBottom: 4,
                             }}
                         >
-                            <div style={{ ...sectionHead, marginBottom: 12 }}>Bank Transfer Details</div>
+                            <div style={{ ...sectionHead, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}><Landmark className="h-4 w-4" /> Bank Transfer Details</div>
 
                             {/* Bank Name */}
-                            <div style={{ marginBottom: 12 }}>
+                            <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-2"><div style={{ marginBottom: 12 }}>
                                 <label style={labelStyle}>Bank Name <span style={{ color: '#f87171' }}>*</span></label>
                                 <div style={{ position: 'relative' }}>
                                     <select
@@ -354,7 +376,7 @@ export function PayeeDetailsModal({
                                     onChange={e => set('bankAddress', e.target.value)}
                                     placeholder="Enter bank address"
                                 />
-                            </div>
+                            </div></div>
                         </div>
                     )}
                 </div>

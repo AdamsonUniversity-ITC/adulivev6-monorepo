@@ -2,20 +2,24 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     X, FileText, Building2, User, Hash, Calendar,
-    DollarSign, MapPin, ArrowRightLeft, CheckCircle2,
+    PhilippinePeso, MapPin, ArrowRightLeft, CheckCircle2,
     Clock, Package, Stamp, ShieldCheck, Truck, Calculator,
     CreditCard, ChevronDown, ChevronUp,
     Eye, MessageSquare, History, Send, RefreshCw, Printer, XCircle,
     AlertTriangle, AlertCircle, ArrowRight, ShoppingCart, Pencil, Save,
     Warehouse, BookOpen, Users, Briefcase, Landmark, Banknote,
-    Undo2, PackageCheck, CircleDollarSign, Paperclip, ExternalLink,
+    Undo2, PackageCheck, Paperclip, ExternalLink,
 } from 'lucide-react';
 import { Theme } from '../types.ts';
-import { PermissionKey } from '../constants.ts';
+import { formatOrdinalApproval, PermissionKey } from '../constants.ts';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import echo from '../../../../../lib/echo';
+import { subscribeToRequisitionChat } from '../../../../../features/requisition-chat/realtime';
 import { RSPrintPreview } from './RSPrintPreview';
 import { formatAccountCode } from '../../../shared/accountCode';
+import {
+    canPrintStockroomRequisition,
+    STOCKROOM_PRINT_RESTRICTION_MESSAGE,
+} from '../../../shared/stockroomPrintEligibility';
 import {
     EditableAccountPickerModal,
     type EditableAccountOption,
@@ -37,6 +41,15 @@ export interface RSLineItem {
     total_cost: number;
     quoted_price?: number | null;
     isreviewed?: boolean;
+    is_quoted_price_accepted?: boolean;
+    quoted_price_accepted_at?: string | null;
+    quoted_price_accepted_by?: string | null;
+    is_dispatched_to_stockroom?: boolean;
+    dispatched_to_stockroom_at?: string | null;
+    dispatched_to_stockroom_by?: string | null;
+    fulfillment_status?: 'pending' | 'served' | 'unavailable';
+    fulfilled_at?: string | null;
+    fulfilled_by?: string | null;
 }
 
 interface EditableItemDraft {
@@ -67,6 +80,13 @@ export interface RSProcessRow {
     is_cash_advance?: boolean;
     /** 0 = pending, 1 = approved, 2 = disapproved by Controller */
     is_controlled?: number;
+    controller_approval_count?: number;
+    controller_review_count?: number;
+    price_reapproval_count?: number;
+    was_price_reapproved?: boolean;
+    is_controller_rereview?: boolean;
+    is_price_reapproval?: boolean;
+    logistics_workflow_v2?: boolean;
     /** RS type (e.g. "Cashier") — used for workflow gates and client-facing display. */
     rstype?: string | null;
     // Extended fields (populated when modal fetches detail)
@@ -91,13 +111,142 @@ interface AuditRecord {
     id: number;
     history_key: string;
     source: 'audit' | 'print';
+    entity_type?: 'requisition' | 'item';
+    entity_id?: number;
+    entity_label?: string;
     event: string;
     user_id: string | number | null;
     username: string | null;
     user_name: string;
     created_at: string;
-    old_values: Record<string, any>;
-    new_values: Record<string, any>;
+    old_values: Record<string, unknown> | string;
+    new_values: Record<string, unknown> | string;
+}
+
+const AUDIT_FIELD_LABELS: Record<string, string> = {
+    rstype: 'Request Type',
+    requisition_number: 'RS Number',
+    payment_form: 'Payment Form',
+    department_id: 'Department Record',
+    section_id: 'Section Record',
+    requested_by: 'Requested By',
+    total_amount: 'Total Amount',
+    school_year: 'School Year',
+    is_controlled: 'Controller Decision',
+    location: 'Current Office',
+    from: 'Previous Office',
+    for_liquidation: 'For Liquidation',
+    is_cash_advance: 'Cash Advance',
+    is_approve: 'Approved',
+    is_liquidated: 'Liquidated',
+    liquidated_by: 'Liquidated By',
+    liquidation_date: 'Liquidation Date',
+    liquidated_amount: 'Liquidated Amount',
+    returned_amount: 'Returned Amount',
+    budget_request_entry_id: 'Requisition Slip',
+    account_id: 'Account Record',
+    account_code: 'Account Code',
+    unit_cost: 'Unit Cost',
+    unit_of_measurement: 'Unit of Measurement',
+    total_cost: 'Total Cost',
+    quoted_price: 'Quoted Price',
+    is_quoted_price_accepted: 'Quoted Price Acceptance',
+    quoted_price_accepted_at: 'Price Accepted On',
+    quoted_price_accepted_by: 'Price Accepted By',
+    is_dispatched_to_stockroom: 'Sent to Stockroom',
+    dispatched_to_stockroom_at: 'Sent to Stockroom On',
+    dispatched_to_stockroom_by: 'Sent to Stockroom By',
+    fulfillment_status: 'Item Fulfillment',
+    fulfilled_at: 'Fulfilled On',
+    fulfilled_by: 'Fulfilled By',
+    unused_amount: 'Unused or Returned Amount',
+    isreviewed: 'Item Reviewed',
+    deleted_at: 'Removed On',
+};
+
+const AUDIT_MONEY_FIELDS = new Set([
+    'total_amount', 'unit_cost', 'total_cost', 'quoted_price',
+    'liquidated_amount', 'returned_amount', 'unused_amount',
+]);
+
+const AUDIT_BOOLEAN_FIELDS = new Set([
+    'for_liquidation', 'is_cash_advance', 'is_approve', 'is_liquidated',
+    'is_quoted_price_accepted', 'is_dispatched_to_stockroom', 'isreviewed',
+]);
+
+const AUDIT_TECHNICAL_FIELDS = new Set(['id', 'budget_request_entry_id', 'created_at', 'updated_at']);
+
+function auditValues(value: AuditRecord['old_values']): Record<string, unknown> {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+    if (typeof value !== 'string' || value.trim() === '') return {};
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed as Record<string, unknown>
+            : {};
+    } catch {
+        return {};
+    }
+}
+
+function readableAuditLabel(key: string): string {
+    return AUDIT_FIELD_LABELS[key] ?? key
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function titleCaseAuditValue(value: string): string {
+    return value.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function readableAuditValue(key: string, value: unknown): string {
+    if (value === null || value === undefined || value === '') return 'Not set';
+    if (typeof value === 'string' && ['{', '['].includes(value.trim().charAt(0))) {
+        try {
+            const parsed: unknown = JSON.parse(value);
+            if (typeof parsed === 'object' && parsed !== null) {
+                return readableAuditValue(key, parsed);
+            }
+        } catch {
+            // Keep malformed legacy text readable as its original string.
+        }
+    }
+    if (key === 'is_controlled') {
+        return ({ 0: 'Pending', 1: 'Approved', 2: 'Disapproved' } as Record<number, string>)[Number(value)]
+            ?? `Decision ${String(value)}`;
+    }
+    if (AUDIT_BOOLEAN_FIELDS.has(key)) {
+        return ['1', 'true', 'yes'].includes(String(value).toLowerCase()) ? 'Yes' : 'No';
+    }
+    if (AUDIT_MONEY_FIELDS.has(key) && Number.isFinite(Number(value))) {
+        return new Intl.NumberFormat('en-PH', {
+            style: 'currency', currency: 'PHP', minimumFractionDigits: 2,
+        }).format(Number(value));
+    }
+    if (key === 'quantity' && Number.isFinite(Number(value))) {
+        return new Intl.NumberFormat('en-PH', { maximumFractionDigits: 4 }).format(Number(value));
+    }
+    if ((key.endsWith('_at') || key.endsWith('_date') || key === 'liquidation_date') && !Number.isNaN(Date.parse(String(value)))) {
+        return new Date(String(value)).toLocaleString('en-PH', {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true,
+        });
+    }
+    if (key === 'account_id' || key === 'department_id' || key === 'section_id' || key === 'budget_request_entry_id') {
+        return `Record #${String(value)}`;
+    }
+    if (Array.isArray(value)) {
+        return value.length === 0 ? 'None' : value.map(item => readableAuditValue('', item)).join(', ');
+    }
+    if (typeof value === 'object') {
+        return Object.entries(value as Record<string, unknown>)
+            .map(([nestedKey, nestedValue]) => `${readableAuditLabel(nestedKey)}: ${readableAuditValue(nestedKey, nestedValue)}`)
+            .join('; ');
+    }
+    if (['status', 'location', 'from', 'rstype', 'fulfillment_status'].includes(key)) {
+        return titleCaseAuditValue(String(value));
+    }
+    return String(value);
 }
 
 interface PriorPrintEvent {
@@ -195,17 +344,14 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
         { label: 'Cash Management', icon: Banknote, variant: 'secondary', visibleOn: ['on process'], locationFilter: ['budget office'], forwardGroup: true },
     ],
     'controller-access': [
-        { label: 'Controller Approve', icon: CheckCircle2, variant: 'success', visibleOn: ['on process'], locationFilter: ['budget office'] },
-        { label: 'Controller Disapprove', icon: XCircle, variant: 'danger', visibleOn: ['on process'], locationFilter: ['budget office'] },
+        { label: 'Controller Approve', icon: CheckCircle2, variant: 'success', visibleOn: ['on process', 'for approval'], locationFilter: ['budget office'] },
+        { label: 'Controller Disapprove', icon: XCircle, variant: 'danger', visibleOn: ['on process', 'for approval'], locationFilter: ['budget office'] },
     ],
     'logistics-access': [
         { label: 'Mark Served', variant: 'success', visibleOn: ['certified rs', 'unserved rs'] },
         { label: 'Mark Unserved', variant: 'secondary', visibleOn: ['certified rs'] },
     ],
-    'accounting-access': [
-        { label: 'Post Entry', variant: 'primary', visibleOn: ['certified rs', 'served'] },
-        { label: 'Certify RS', variant: 'success', visibleOn: ['for certification'] },
-    ],
+    'accounting-access': [],
     // 'stockroom-access' has no footer actions — its return and Mark Served
     // buttons live in COMMON_ACTIONS so they render in the toolbar
     // beside RS Process History / Print RS instead of the action footer.
@@ -220,10 +366,10 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // Each entry's `toolbarGroup` ('left' | 'right', defaults to 'left') decides
 // which side of the toolbar it renders in; order within the array is the
 // render order within that group (see leftToolbarActions/rightToolbarActions
-// below). 'For Purchase' is gated to admin-access + status 'for budget
-// director' + location 'budget office', matching the Forward-to… group's
-// visibility rules. Return actions are restricted by both role and exact
-// workflow stage; Mark Served remains restricted to Stockroom.
+// below). Administration destinations are also filtered by the stored RS
+// type, while status/location/Controller gates still determine their exact
+// workflow stage. Return actions are restricted by both role and exact stage;
+// Mark Served remains restricted to Stockroom.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
     { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
@@ -236,8 +382,18 @@ const COMMON_ACTIONS: RoleAction[] = [
     },
     {
         label: 'Return to Administration', displayLabel: 'Return to Budget', icon: Undo2, variant: 'primary',
+        visibleOn: ['for purchase'], restrictedTo: ['logistics-access'],
+        locationFilter: ['logistics'], toolbarGroup: 'left',
+    },
+    {
+        label: 'Return to Administration', displayLabel: 'Return to Budget', icon: Undo2, variant: 'primary',
         visibleOn: ['certified'], restrictedTo: ['stockroom-access'],
         locationFilter: ['stockroom'], toolbarGroup: 'left',
+    },
+    {
+        label: 'Return to Administration', displayLabel: 'Return to Budget', icon: Undo2, variant: 'primary',
+        visibleOn: ['certified'], restrictedTo: ['accounting-access'],
+        locationFilter: ['accounting office', 'bao', 'hrmdo'], toolbarGroup: 'left',
     },
     {
         label: 'Return to Logistics', icon: Undo2, variant: 'primary',
@@ -245,7 +401,7 @@ const COMMON_ACTIONS: RoleAction[] = [
         locationFilter: ['stockroom'], toolbarGroup: 'left',
     },
     {
-        label: 'For Pricing', icon: CircleDollarSign, variant: 'secondary',
+        label: 'For Pricing', icon: PhilippinePeso, variant: 'secondary',
         visibleOn: ['on process'], restrictedTo: ['admin-access'],
         locationFilter: ['budget office'], toolbarGroup: 'left',
     },
@@ -265,6 +421,12 @@ const COMMON_ACTIONS: RoleAction[] = [
 const CANCEL_ACTION: RoleAction = {
     label: 'Mark as Cancelled', icon: XCircle, variant: 'danger', visibleOn: '*',
 };
+
+const CANCEL_HIDDEN_ROLES: PermissionKey[] = [
+    'logistics-access',
+    'stockroom-access',
+    'accounting-access',
+];
 
 /** Terminal statuses — once an entry lands here, the workflow is over, so
  *  "Mark as Cancelled" and "For Liquidation" hide regardless of role.
@@ -366,7 +528,7 @@ function itemTdStyle(
 
 function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
     const icons: Record<PermissionKey, React.ReactNode> = {
-        'budget-access': <DollarSign style={{ width: 14, height: 14 }} />,
+        'budget-access': <PhilippinePeso style={{ width: 14, height: 14 }} />,
         'admin-access': <ShieldCheck style={{ width: 14, height: 14 }} />,
         'controller-access': <Stamp style={{ width: 14, height: 14 }} />,
         'logistics-access': <Truck style={{ width: 14, height: 14 }} />,
@@ -381,7 +543,7 @@ function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Confirmation copy — per-action phrasing for the confirm modal
 // ─────────────────────────────────────────────────────────────────────────────
-function getConfirmCopy(action: string): { verb: string; danger: boolean; consequence: string } {
+function getConfirmCopy(action: string, roleKey?: PermissionKey, status?: string | null): { verb: string; danger: boolean; consequence: string } {
     const map: Record<string, { verb: string; danger?: boolean; consequence?: string }> = {
         'Mark as Reviewed': { verb: 'mark this requisition slip as reviewed' },
         'Mark as Cancelled': { verb: 'cancel this requisition slip', danger: true },
@@ -407,7 +569,10 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean; conseq
             verb: 'return this requisition slip to Logistics',
             consequence: 'The RS will resume the For Purchase stage and its accepted quoted prices will be retained.',
         },
-        'Send RS to Staff': { verb: 'send this requisition slip to staff' },
+        'Send RS to Staff': {
+            verb: 'send this requisition slip to staff',
+            consequence: 'The status will return to For Review and the Controller approval will reset to Pending.',
+        },
         'For Purchase': { verb: 'mark this requisition slip as for purchase' },
         'Forward to Stockroom': { verb: 'forward this requisition slip to the Stockroom' },
         'Forward to Accounting': { verb: 'forward this requisition slip to Accounting' },
@@ -418,7 +583,19 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean; conseq
         'For Liquidation': { verb: 'mark this requisition slip for liquidation' },
         'Cash Advance': { verb: 'toggle this requisition slip as cash advance' },
     };
-    const entry = map[action] ?? { verb: `proceed with "${action}"` };
+    const entry = action === 'Return to Administration'
+        && roleKey === 'logistics-access'
+        && status?.toLowerCase() === 'for purchase'
+        ? {
+            verb: 'return this requisition slip to the Budget Office',
+            consequence: 'The existing Controller approval remains valid. The Budget Director may select Reprocess RS if the department must add a delivery-fee item.',
+        }
+        : action === 'Return to Administration' && roleKey === 'accounting-access'
+        ? {
+            verb: 'return this requisition slip to the Budget Office for correction',
+            consequence: 'Its Controller approval will reset to Pending and another Controller review will be required.',
+        }
+        : map[action] ?? { verb: `proceed with "${action}"` };
     return {
         verb: entry.verb,
         danger: !!entry.danger,
@@ -430,17 +607,18 @@ function getConfirmCopy(action: string): { verb: string; danger: boolean; conseq
 // ConfirmActionModal — shown before an action button's onAction actually fires
 // ─────────────────────────────────────────────────────────────────────────────
 function ConfirmActionModal({
-    action, displayAction, row, t, isDark, onCancel, onConfirm,
+    action, displayAction, row, roleKey, t, isDark, onCancel, onConfirm,
 }: {
     action: string;
     displayAction?: string;
     row: RSProcessRow;
+    roleKey: PermissionKey;
     t: Theme;
     isDark: boolean;
     onCancel: () => void;
     onConfirm: () => void;
 }) {
-    const { verb, danger, consequence } = getConfirmCopy(action);
+    const { verb, danger, consequence } = getConfirmCopy(action, roleKey, row.status);
     const actionLabel = displayAction ?? action;
     const tone = danger
         ? { bg: `${t.cellAmber}1f`, border: `${t.cellAmber}66`, text: t.cellAmber, hover: `${t.cellAmber}38` }
@@ -544,7 +722,7 @@ function PriorPrintWarningModal({
     onNo: () => void;
     onYes: () => void;
 }) {
-    const printerName = event?.user_name?.trim() || event?.username?.trim() || 'another user';
+    const printerName = event?.user_name?.trim() || event?.username?.trim() || 'a user';
     const priorPrintDate = event ? formatPriorPrintDate(event.created_at) : '';
 
     return createPortal(
@@ -676,6 +854,7 @@ function ActionButton({
 
     return (
         <button
+            className="rs-process-action-button"
             onClick={onClick}
             style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -716,6 +895,7 @@ function ToolbarButton({
 
     return (
         <button
+            className="rs-process-toolbar-button"
             onClick={disabled ? undefined : onClick}
             title={title}
             disabled={disabled}
@@ -761,6 +941,7 @@ interface RSProcessModalProps {
     isLoading?: boolean;
     error?: string | null;
     onClose: () => void;
+    onChatRead?: (recordId: number) => void;
     /** Called when a role action button is clicked */
     onAction?: (action: string, row: RSProcessRow) => void;
     /** Current logged-in user — required for chat */
@@ -768,7 +949,7 @@ interface RSProcessModalProps {
 }
 
 export function RSProcessModal({
-    row, roleKey, roleLabel, t, isDark, isLoading = false, error = null, onClose, onAction,
+    row, roleKey, roleLabel, t, isDark, isLoading = false, error = null, onClose, onChatRead, onAction,
     currentUser = { id: '', name: '' },
 }: RSProcessModalProps) {
     const [itemsExpanded, setItemsExpanded] = useState(true);
@@ -841,7 +1022,12 @@ export function RSProcessModal({
     }, [row.id]);
 
     async function handleOpenPrintPreview() {
-        const requiresDuplicatePrintCheck = roleKey === 'logistics-access' || roleKey === 'stockroom-access';
+        const requiresDuplicatePrintCheck = [
+            'logistics-access',
+            'stockroom-access',
+            'budget-access',
+            'admin-access',
+        ].includes(roleKey);
         if (!requiresDuplicatePrintCheck) {
             setShowPrintPreview(true);
             return;
@@ -855,7 +1041,7 @@ export function RSProcessModal({
 
         try {
             const response = await financeSvc.get(
-                `/abms/budget-request-entry/${row.id}/latest-other-print-event`
+                `/abms/budget-request-entry/${row.id}/latest-print-event`
             );
             const priorPrint = response.data?.data as PriorPrintEvent | null;
             if (activePrintRowId.current !== row.id) return;
@@ -879,14 +1065,28 @@ export function RSProcessModal({
     }
 
     // ── Item editing state ───────────────────────────────────────────────────
-    const canBudgetEditItems = roleKey === 'budget-access'
+    const workflowV2 = !!row.logistics_workflow_v2;
+    const isStockroomRequest = (row.rstype ?? '').trim().toLowerCase() === 'stockroom';
+    const isLogisticsRequest = (row.rstype ?? '').trim().toLowerCase() === 'logistics';
+    const isCashierRequest = (row.rstype ?? '').trim().toLowerCase() === 'cashier';
+    const canBudgetEditItems = (
+        roleKey === 'budget-access'
         && (row.status ?? '').toLowerCase() === 'for review'
-        && (row.location ?? '').toLowerCase() === 'budget office';
+        && (row.location ?? '').toLowerCase() === 'budget office'
+    ) || (
+        roleKey === 'admin-access'
+        && isCashierRequest
+        && (row.status ?? '').toLowerCase() === 'for budget director'
+        && (row.location ?? '').toLowerCase() === 'budget office'
+    );
     const canLogisticsEditDescriptions = roleKey === 'logistics-access'
         && ['for pricing', 'for purchase'].includes((row.status ?? '').trim().toLowerCase())
         && (row.location ?? '').trim().toLowerCase() === 'logistics';
-    const canEditItems = canBudgetEditItems || canLogisticsEditDescriptions;
-    const isStockroomRequest = (row.rstype ?? '').toLowerCase() === 'stockroom';
+    const canStockroomEditQuantities = roleKey === 'stockroom-access'
+        && isStockroomRequest
+        && (row.status ?? '').trim().toLowerCase() === 'certified'
+        && (row.location ?? '').trim().toLowerCase() === 'stockroom';
+    const canEditItems = canBudgetEditItems || canLogisticsEditDescriptions || canStockroomEditQuantities;
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [itemDrafts, setItemDrafts] = useState<Record<number, EditableItemDraft>>({});
     const [accountPickerItemId, setAccountPickerItemId] = useState<number | null>(null);
@@ -912,6 +1112,8 @@ export function RSProcessModal({
     const [isSavingPrices, setIsSavingPrices] = useState(false);
     const savingPricesRef = useRef(false);
     const [pricesError, setPricesError] = useState<string | null>(null);
+    const stockroomPrintBlocked = roleKey === 'stockroom-access'
+        && !canPrintStockroomRequisition(row.rstype, row.status);
 
     // ── Accept quoted prices (admin-only, for approval stage) ────────────────
     // Clicking "Accept Quoted Prices" fetches a preview of what the change
@@ -919,7 +1121,12 @@ export function RSProcessModal({
     // The actual write is POST'd only after the user confirms.
     const canAcceptQuotedPrices = roleKey === 'admin-access'
         && (row.status ?? '').toLowerCase() === 'for approval'
-        && (row.location ?? '').toLowerCase() === 'budget office';
+        && (row.location ?? '').toLowerCase() === 'budget office'
+        && (!workflowV2 || (row.items ?? []).some(item => (
+            item.quoted_price != null
+            && !item.is_quoted_price_accepted
+            && (item.fulfillment_status ?? 'pending') === 'pending'
+        )));
 
     interface QuotedPricePreviewItem {
         id: number;
@@ -938,6 +1145,8 @@ export function RSProcessModal({
         balance_after: number | null;
         sufficient: boolean | null;
         isreviewed: boolean;
+        is_quoted_price_accepted?: boolean;
+        fulfillment_status?: 'pending' | 'served' | 'unavailable';
     }
 
     const [acceptPreviewOpen, setAcceptPreviewOpen] = useState(false);
@@ -997,7 +1206,12 @@ export function RSProcessModal({
             setAcceptPreviewOpen(false);
             const updatedItems: RSLineItem[] = res.data?.items ?? row.items ?? [];
             const updatedTotal = Number(res.data?.data?.total_amount ?? row.total_amount);
-            onAction?.('Accept Quoted Prices', { ...row, items: updatedItems, total_amount: updatedTotal });
+            onAction?.('Accept Quoted Prices', {
+                ...row,
+                items: updatedItems,
+                total_amount: updatedTotal,
+                is_controlled: Number(res.data?.data?.is_controlled ?? row.is_controlled),
+            });
         } catch (err: any) {
             setAcceptError(err?.response?.data?.message ?? 'Failed to accept quoted prices. No changes were applied.');
         } finally {
@@ -1005,13 +1219,74 @@ export function RSProcessModal({
         }
     }
 
-    // The Quoted Price column itself is only shown to: logistics, while
-    // they're actively entering prices (canPriceItems above); and admin,
-    // once the RS has reached the Budget Office for approval — i.e. after
-    // logistics has already priced it. Every other role/stage never sees
-    // this column at all.
+    const stockroomFulfillmentActive = workflowV2
+        && roleKey === 'stockroom-access'
+        && (row.location ?? '').trim().toLowerCase() === 'stockroom'
+        && (
+            (isStockroomRequest && (row.status ?? '').trim().toLowerCase() === 'certified')
+            || (isLogisticsRequest && ['po on process', 'p.o. on process'].includes((row.status ?? '').trim().toLowerCase()))
+        );
+    const [isSavingFulfillment, setIsSavingFulfillment] = useState(false);
+    const [fulfillmentError, setFulfillmentError] = useState<string | null>(null);
+
+    const fulfillmentEligible = useCallback((item: RSLineItem) => (
+        stockroomFulfillmentActive
+        && (isStockroomRequest || !!item.is_dispatched_to_stockroom)
+    ), [stockroomFulfillmentActive, isStockroomRequest]);
+
+    async function saveFulfillment(items: Array<{ id: number; fulfillment_status: 'pending' | 'served' }>) {
+        if (isSavingFulfillment || items.length === 0) return;
+        setIsSavingFulfillment(true);
+        setFulfillmentError(null);
+        try {
+            const res = await financeSvc.put(`/abms/requisition-process/${row.id}/stockroom-fulfillment`, {
+                workflow_version: 2,
+                items,
+            });
+            onAction?.('Save Fulfillment', {
+                ...row,
+                items: res.data?.items ?? row.items ?? [],
+            });
+        } catch (err: any) {
+            setFulfillmentError(err?.response?.data?.message ?? 'Failed to update item fulfillment. No changes were applied.');
+        } finally {
+            setIsSavingFulfillment(false);
+        }
+    }
+
+    function toggleFulfillmentItem(item: RSLineItem) {
+        if (!fulfillmentEligible(item) || Number(item.quantity) === 0) return;
+        const current = item.fulfillment_status ?? 'pending';
+        void saveFulfillment([{
+            id: item.id,
+            fulfillment_status: current === 'served' ? 'pending' : 'served',
+        }]);
+    }
+
+    function toggleAllFulfillment() {
+        const eligible = (row.items ?? []).filter(item => fulfillmentEligible(item) && Number(item.quantity) > 0);
+        const pending = eligible.filter(item => (item.fulfillment_status ?? 'pending') === 'pending');
+        const targets = pending.length > 0
+            ? pending.map(item => ({ id: item.id, fulfillment_status: 'served' as const }))
+            : eligible
+                .filter(item => item.fulfillment_status === 'served')
+                .map(item => ({ id: item.id, fulfillment_status: 'pending' as const }));
+        void saveFulfillment(targets);
+    }
+
+    // Logistics retains historical visibility after an RS leaves its queue,
+    // so keep its submitted supplier prices visible on later reopen. Editing
+    // remains restricted by canPriceItems to an active Logistics pricing or
+    // purchase stage; historical/pending values are read-only.
+    const hasStoredQuotedPrices = (row.items ?? []).some(item => item.quoted_price != null);
     const showQuotedPriceColumn = canPriceItems
+        || (roleKey === 'logistics-access' && isLogisticsRequest && hasStoredQuotedPrices)
         || (roleKey === 'admin-access'
+            && (row.status ?? '').toLowerCase() === 'for approval'
+            && (row.location ?? '').toLowerCase() === 'budget office')
+        || (workflowV2
+            && roleKey === 'controller-access'
+            && isLogisticsRequest
             && (row.status ?? '').toLowerCase() === 'for approval'
             && (row.location ?? '').toLowerCase() === 'budget office');
 
@@ -1029,29 +1304,25 @@ export function RSProcessModal({
         if (!row.id || !currentUser.id) return;
         let isSubscribed = true;
         try {
-            const channel = echo
-                .private(`requisition-chat.${row.id}`)
-                .listen('.RequisitionChatMessageSent', (e: ChatMessage) => {
+            const unsubscribe = subscribeToRequisitionChat(row.id, (e: ChatMessage) => {
                     if (!isSubscribed) return;
                     if (seenMessageIds.current.has(e.id)) return;
                     seenMessageIds.current.add(e.id);
                     if (showChatRef.current) {
                         setIncomingMessage(e);
+                        onChatRead?.(row.id);
                     } else {
                         setUnreadCount(c => c + 1);
                     }
                 });
             return () => {
                 isSubscribed = false;
-                try {
-                    channel.stopListening('.RequisitionChatMessageSent');
-                    echo.leave(`requisition-chat.${row.id}`);
-                } catch { }
+                unsubscribe();
             };
         } catch {
             return;
         }
-    }, [row.id, currentUser.id]);
+    }, [row.id, currentUser.id, onChatRead]);
 
     // Fetch unread count when modal mounts / row changes
     useEffect(() => {
@@ -1059,16 +1330,26 @@ export function RSProcessModal({
         setUnreadCount(0);
         seenMessageIds.current.clear();
         financeSvc.get(`/abms/budget-request-entry/chats/unread-counts`, {
-            params: { userId: currentUser.id, ids: [row.id] },
+            params: { ids: [row.id] },
         }).then(res => {
             setUnreadCount(res.data[String(row.id)] ?? 0);
         }).catch(() => { });
     }, [row.id, currentUser.id]);
 
+    function toggleChat() {
+        setShowChat(previous => {
+            const next = !previous;
+            if (next) {
+                setUnreadCount(0);
+                onChatRead?.(row.id);
+            }
+            return next;
+        });
+    }
+
     function triggerAction(action: RoleAction) {
         if (action.label === 'Chat / Messages') {
-            setShowChat(p => !p);
-            setUnreadCount(0);
+            toggleChat();
             return;
         }
         if (action.label === 'RS Process History') {
@@ -1076,6 +1357,7 @@ export function RSProcessModal({
             return;
         }
         if (action.label === 'Print RS') {
+            if (stockroomPrintBlocked) return;
             void handleOpenPrintPreview();
             return;
         }
@@ -1182,6 +1464,10 @@ export function RSProcessModal({
     function startEditingItems() {
         const drafts: typeof itemDrafts = {};
         (row.items ?? []).forEach(item => {
+            if (
+                (item.fulfillment_status ?? 'pending') !== 'pending'
+                && ! (canStockroomEditQuantities && item.fulfillment_status === 'unavailable')
+            ) return;
             drafts[item.id] = {
                 account_id: Number(item.account_id ?? 0),
                 account_code: item.account_code,
@@ -1230,7 +1516,14 @@ export function RSProcessModal({
                         description: draft.description,
                     })),
                 }
-                : {
+                : canStockroomEditQuantities
+                    ? {
+                        items: Object.entries(itemDrafts).map(([id, draft]) => ({
+                            id: Number(id),
+                            quantity: draft.quantity,
+                        })),
+                    }
+                    : {
                     items: Object.entries(itemDrafts).map(([id, draft]) => ({
                         id: Number(id),
                         account_id: draft.account_id,
@@ -1242,7 +1535,9 @@ export function RSProcessModal({
                 };
             const endpoint = canLogisticsEditDescriptions
                 ? `/abms/requisition-process/${row.id}/item-descriptions`
-                : `/abms/requisition-process/${row.id}/items`;
+                : canStockroomEditQuantities
+                    ? `/abms/requisition-process/${row.id}/stockroom-quantities`
+                    : `/abms/requisition-process/${row.id}/items`;
             const res = await financeSvc.put(endpoint, payload);
             const updatedItems: RSLineItem[] = (res.data?.items ?? row.items ?? []).map((item: RSLineItem) => ({
                 ...item,
@@ -1254,7 +1549,12 @@ export function RSProcessModal({
             const updatedTotal = Number(res.data?.data?.total_amount ?? row.total_amount);
             setIsEditingItems(false);
             setItemDrafts({});
-            onAction?.('Save Items', { ...row, items: updatedItems, total_amount: updatedTotal });
+            onAction?.('Save Items', {
+                ...row,
+                items: updatedItems,
+                total_amount: updatedTotal,
+                is_controlled: Number(res.data?.data?.is_controlled ?? row.is_controlled ?? 0),
+            });
         } catch (err: any) {
             setItemsError(err?.response?.data?.message ?? 'Failed to save item changes. No changes were applied.');
         } finally {
@@ -1266,7 +1566,11 @@ export function RSProcessModal({
     function startPricingItems() {
         const drafts: typeof priceDrafts = {};
         (row.items ?? []).forEach(item => {
-            drafts[item.id] = item.quoted_price ?? null;
+            if (workflowV2 && (item.fulfillment_status ?? 'pending') !== 'pending') return;
+            const storedQuote = item.quoted_price;
+            drafts[item.id] = storedQuote === null || storedQuote === undefined
+                ? null
+                : Number(storedQuote);
         });
         setPriceDrafts(drafts);
         setChangedPriceItemIds({});
@@ -1314,8 +1618,7 @@ export function RSProcessModal({
             const payload = {
                 items: Object.entries(priceDrafts)
                     .filter((entry): entry is [string, number] => (
-                        changedPriceItemIds[Number(entry[0])] === true
-                        && entry[1] !== null
+                        entry[1] !== null
                     ))
                     .map(([id, quoted_price]) => ({
                         id: Number(id),
@@ -1355,8 +1658,15 @@ export function RSProcessModal({
     const matchesStatus = (a: RoleAction) =>
         a.visibleOn === '*' || a.visibleOn.some(s => s.toLowerCase() === statusLower);
 
-    const matchesRole = (a: RoleAction) =>
-        !a.restrictedTo || a.restrictedTo.includes(roleKey);
+    const matchesRole = (a: RoleAction) => {
+        if (a.restrictedTo && !a.restrictedTo.includes(roleKey)) return false;
+        if (
+            roleKey === 'accounting-access'
+            && a.label === 'Return to Administration'
+            && !isCashierRequest
+        ) return false;
+        return true;
+    };
 
     const matchesLocation = (a: RoleAction) =>
         !a.locationFilter || a.locationFilter.some(l => l.toLowerCase() === locationLower);
@@ -1365,6 +1675,26 @@ export function RSProcessModal({
         a.label !== 'Reprocess RS' || statusLower !== 'reprocess';
 
     const controllerDecision = Number(row.is_controlled ?? 0);
+    const lineItems: RSLineItem[] = row.items ?? [];
+    const hasEditableLineItem = lineItems.some(item => (
+        (item.fulfillment_status ?? 'pending') === 'pending'
+        || (canStockroomEditQuantities && item.fulfillment_status === 'unavailable')
+    ));
+    const hasPendingQuotedPriceAcceptance = workflowV2
+        && isLogisticsRequest
+        && lineItems.some(item => (
+            (item.fulfillment_status ?? 'pending') === 'pending'
+            && item.quoted_price != null
+            && !item.is_quoted_price_accepted
+        ));
+    const showControllerPriceApprovalNotice = workflowV2
+        && roleKey === 'admin-access'
+        && isLogisticsRequest
+        && statusLower === 'for approval'
+        && locationLower === 'budget office'
+        && !hasPendingQuotedPriceAcceptance
+        && controllerDecision !== 1
+        && lineItems.some(item => item.quoted_price != null && item.is_quoted_price_accepted);
 
     const isControllerDecisionAction = (a: RoleAction) =>
         a.label === 'Controller Approve'
@@ -1373,6 +1703,30 @@ export function RSProcessModal({
     const isAdminOnwardAction = (a: RoleAction) =>
         a.forwardGroup
         || ['For Pricing', 'Send RS to Staff'].includes(a.label);
+
+    const isAdministrationDestinationAction = (a: RoleAction) => [
+        'Stockroom',
+        'Accounting',
+        'Acctg. Director',
+        'HRMDO',
+        'BAO',
+        'Cash Management',
+        'For Pricing',
+        'For Purchase',
+    ].includes(a.label);
+
+    const matchesRequestTypeRouting = (a: RoleAction) => {
+        if (roleKey !== 'admin-access' || !isAdministrationDestinationAction(a)) {
+            return true;
+        }
+
+        const requestType = (row.rstype ?? '').trim().toLowerCase();
+        if (requestType === 'stockroom') return a.label === 'Stockroom';
+        if (requestType === 'logistics') return ['For Pricing', 'For Purchase'].includes(a.label);
+        if (requestType === 'cashier') return !['Stockroom', 'For Pricing', 'For Purchase'].includes(a.label);
+
+        return false;
+    };
 
     const matchesControllerWorkflow = (a: RoleAction) => {
         /*
@@ -1385,8 +1739,17 @@ export function RSProcessModal({
             roleKey === 'controller-access'
             && isControllerDecisionAction(a)
         ) {
-            return statusLower === 'on process'
-                && controllerDecision === 0;
+            if (statusLower === 'on process') {
+                return controllerDecision === 0;
+            }
+
+            if (workflowV2 && isLogisticsRequest && statusLower === 'for approval') {
+                return a.label === 'Controller Approve'
+                    ? [0, 2].includes(controllerDecision)
+                    : controllerDecision === 0;
+            }
+
+            return false;
         }
 
         /*
@@ -1422,25 +1785,31 @@ export function RSProcessModal({
                 && controllerDecision === 1;
         }
 
+        if (roleKey === 'admin-access' && a.label === 'For Purchase' && workflowV2) {
+            return statusLower === 'for approval'
+                && controllerDecision === 1
+                && !hasPendingQuotedPriceAcceptance;
+        }
+
         return true;
     };
 
     // Toolbar (top): common actions, split left/right via each action's toolbarGroup.
-    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && isNotAlreadyReprocessed(a));
-    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && isNotAlreadyReprocessed(a));
+    const leftToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup !== 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a) && isNotAlreadyReprocessed(a));
+    const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a) && isNotAlreadyReprocessed(a));
 
     // Footer (bottom): role-specific transition buttons only
     const roleActions = ROLE_ACTIONS[roleKey] ?? [];
-    const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a));
-    const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a));
+    const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a));
+    const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a));
 
-    const cancelVisible = matchesStatus(CANCEL_ACTION) && !isTerminal;
+    const cancelVisible = !CANCEL_HIDDEN_ROLES.includes(roleKey)
+        && matchesStatus(CANCEL_ACTION)
+        && !isTerminal;
 
     const toolbarTone = (a: RoleAction): 'accent' | 'success' | 'neutral' =>
         a.variant === 'primary' ? 'accent' : a.variant === 'success' ? 'success' : 'neutral';
 
-    // Mock line items if not provided
-    const lineItems: RSLineItem[] = row.items ?? [];
     const quotedPricesAccepted = lineItems.length > 0
         && lineItems.some(item => item.quoted_price != null)
         && lineItems
@@ -1457,10 +1826,33 @@ export function RSProcessModal({
             Math.round(Number(item.unit_cost) * 100)
             === Math.round(Number(item.quoted_price) * 100)
         ));
+    const dispatchableItemCount = workflowV2
+        ? lineItems.filter(item => (
+            (item.fulfillment_status ?? 'pending') === 'pending'
+            && !!item.is_quoted_price_accepted
+            && item.quoted_price != null
+            && Number(item.quoted_price) > 0
+            && Math.round(Number(item.unit_cost) * 100) === Math.round(Number(item.quoted_price) * 100)
+        )).length
+        : (allQuotedPricesAccepted ? lineItems.length : 0);
+    const allItemsResolved = lineItems.length > 0
+        && lineItems.every(item => ['served', 'unavailable'].includes(item.fulfillment_status ?? 'pending'));
+    const resolvedItemCount = lineItems.filter(item => ['served', 'unavailable'].includes(item.fulfillment_status ?? 'pending')).length;
+    const showFulfillmentColumn = workflowV2
+        && roleKey === 'stockroom-access'
+        && (isStockroomRequest || isLogisticsRequest);
+    const hasPendingFulfillment = lineItems.some(item => (
+        fulfillmentEligible(item)
+        && Number(item.quantity) > 0
+        && (item.fulfillment_status ?? 'pending') === 'pending'
+    ));
+    const selectableFulfillmentCount = lineItems.filter(item => (
+        fulfillmentEligible(item)
+        && Number(item.quantity) > 0
+        && item.fulfillment_status !== 'unavailable'
+    )).length;
 
-    // Column count for the Requested Items table — 7 when the Quoted Price
-    // column is visible (see showQuotedPriceColumn above), 6 otherwise.
-    const totalCols = showQuotedPriceColumn ? 7 : 6;
+    const totalCols = (showQuotedPriceColumn ? 7 : 6) + (showFulfillmentColumn ? 1 : 0);
 
     // Client-side mirror of the backend's validation — purely for disabling
     // the Save button / giving instant feedback. The backend re-validates
@@ -1468,6 +1860,10 @@ export function RSProcessModal({
     const draftsValid = !isEditingItems || Object.values(itemDrafts).every(d => {
         if (canLogisticsEditDescriptions) {
             return d.description.trim().length > 0 && d.description.length <= 500;
+        }
+
+        if (canStockroomEditQuantities) {
+            return Number.isInteger(d.quantity) && d.quantity >= 0;
         }
 
         return Number.isInteger(d.account_id) && d.account_id > 0
@@ -1485,11 +1881,12 @@ export function RSProcessModal({
             );
     });
 
-    // Logistics may price a subset and complete the remaining rows during a
-    // later For Purchase cycle. At least one submitted quote is required and
-    // every submitted value must remain finite and positive.
+    // Logistics may review and resubmit an existing quote without changing its
+    // numeric value. This is required when an older reprocessed RS returns to
+    // For Pricing with retained quote data. Every populated draft is submitted;
+    // blank rows remain unquoted for a later cycle.
     const submittedPriceDrafts = Object.entries(priceDrafts)
-        .filter(([id]) => changedPriceItemIds[Number(id)] === true)
+        .filter(([, value]) => value !== null)
         .map(([, value]) => value);
     const priceDraftsValid = !isPricingItems || (
         submittedPriceDrafts.length > 0
@@ -1501,7 +1898,6 @@ export function RSProcessModal({
     );
 
     const quotedPriceConfirmationItems = lineItems.flatMap(item => {
-        if (changedPriceItemIds[item.id] !== true) return [];
         const quotedPrice = priceDrafts[item.id];
         if (quotedPrice === null || quotedPrice === undefined) return [];
 
@@ -1532,7 +1928,7 @@ export function RSProcessModal({
         <>
             {/* ── Backdrop ──────────────────────────────────────────────── */}
             <div
-                className="abms-modal-backdrop"
+                className="abms-modal-backdrop rs-process-main-backdrop"
                 style={{
                     position: 'fixed', inset: 0, zIndex: 60,
                     background: 'rgba(0,0,0,0.60)',
@@ -1543,22 +1939,28 @@ export function RSProcessModal({
                 onClick={e => { if (e.target === e.currentTarget) onClose(); }}
             >
                 {/* ── Modal shell ─────────────────────────────────────────── */}
-                <div style={{
+                <div
+                    className="rs-process-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Requisition Slip ${row.requisition_no}`}
+                    style={{
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     boxShadow: t.cardShadow,
                     borderRadius: 14,
                     width: '100%',
-                    maxWidth: 780,
+                    maxWidth: 1280,
                     maxHeight: 'calc(100dvh - 48px)',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                }}>
+                    }}
+                >
 
                     {/* ── Forward to… strip — admin-only, sits above everything else ── */}
                     {visibleForwardActions.length > 0 && (
-                        <div style={{
+                        <div className="rs-process-forward-actions" style={{
                             display: 'grid',
                             gridTemplateColumns: `repeat(${visibleForwardActions.length}, 1fr)`,
                             gap: 6,
@@ -1632,14 +2034,14 @@ export function RSProcessModal({
                     )}
 
                     {/* ── Toolbar ─────────────────────────────────────────── */}
-                    <div style={{
+                    <div className="rs-process-toolbar" style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         gap: 8, padding: '8px 14px',
                         background: t.cardHeaderBg,
                         borderBottom: `1px solid ${t.cardHeaderBorder}`,
                         flexShrink: 0, flexWrap: 'nowrap', overflow: 'hidden',
                     }}>
-                        <div style={{
+                        <div className="rs-process-toolbar-group" style={{
                             display: 'flex', gap: 1, flexWrap: 'nowrap', alignItems: 'center',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             border: `1px solid ${t.cardBorder}`,
@@ -1654,7 +2056,7 @@ export function RSProcessModal({
                                             t={t}
                                             isDark={isDark}
                                             tone={showChat ? 'accent' : 'neutral'}
-                                            onClick={() => { setShowChat(p => !p); setUnreadCount(0); }}
+                                            onClick={toggleChat}
                                         />
                                         {unreadCount > 0 && (
                                             <span style={{
@@ -1682,7 +2084,7 @@ export function RSProcessModal({
                                 )
                             ))}
                         </div>
-                        <div style={{
+                        <div className="rs-process-toolbar-group" style={{
                             display: 'flex', gap: 1, flexWrap: 'nowrap', alignItems: 'center',
                             background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                             border: `1px solid ${t.cardBorder}`,
@@ -1690,21 +2092,37 @@ export function RSProcessModal({
                         }}>
                             {rightToolbarActions.map(action => (
                                 (() => {
-                                    const forPurchaseBlocked = action.label === 'For Purchase' && !quotedPricesAccepted;
-                                    const sendToWicoBlocked = action.label === 'Send RS to WICO' && !allQuotedPricesAccepted;
+                                    const forPurchaseBlocked = action.label === 'For Purchase'
+                                        && (workflowV2
+                                            ? controllerDecision !== 1 || hasPendingQuotedPriceAcceptance
+                                            : !quotedPricesAccepted);
+                                    const sendToWicoBlocked = action.label === 'Send RS to WICO'
+                                        && (workflowV2 ? dispatchableItemCount === 0 || controllerDecision !== 1 : !allQuotedPricesAccepted);
+                                    const markServedBlocked = action.label === 'Mark Served' && workflowV2 && !allItemsResolved;
                                     const printHistoryCheckPending = action.label === 'Print RS' && isCheckingPrintHistory;
-                                    const disabled = forPurchaseBlocked || sendToWicoBlocked || printHistoryCheckPending;
+                                    const stockroomPrintActionBlocked = action.label === 'Print RS' && stockroomPrintBlocked;
+                                    const disabled = forPurchaseBlocked || sendToWicoBlocked || markServedBlocked || printHistoryCheckPending || stockroomPrintActionBlocked;
                                     const disabledTitle = forPurchaseBlocked
-                                        ? 'Accept quoted prices before marking this RS for purchase.'
+                                        ? (workflowV2
+                                            ? hasPendingQuotedPriceAcceptance
+                                                ? 'Administration must accept every pending quoted-price revision first.'
+                                                : 'Controller approval is required before marking this RS for purchase.'
+                                            : 'Accept quoted prices before marking this RS for purchase.')
                                         : sendToWicoBlocked
-                                            ? (
+                                            ? (workflowV2
+                                                ? 'At least one unresolved item must have an accepted price and Controller approval before sending to WICO.'
+                                                : (
                                                 allItemsHaveQuotedPrices
                                                     ? 'Administration must accept all quoted prices before sending this RS to WICO.'
                                                     : 'Enter quoted prices for every item before sending this RS to WICO.'
-                                            )
+                                                ))
+                                            : markServedBlocked
+                                                ? 'Resolve every active item as Served or Unavailable before marking the RS served.'
                                             : printHistoryCheckPending
-                                                ? 'Checking whether another user already printed this RS.'
-                                                : undefined;
+                                                ? 'Checking whether this RS was already printed.'
+                                                : stockroomPrintActionBlocked
+                                                    ? STOCKROOM_PRINT_RESTRICTION_MESSAGE
+                                                    : undefined;
                                     return (
                                         <ToolbarButton
                                             key={action.label}
@@ -1744,7 +2162,7 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Info band — Department/RS No., Requested By/Date ── */}
-                    <div style={{
+                    <div className="rs-process-info-band" style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr auto',
                         gap: '10px 24px',
@@ -1874,7 +2292,7 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Scrollable body ─────────────────────────────────── */}
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                    <div className="rs-process-scroll-body" style={{ overflowY: 'auto', flex: 1 }}>
 
                         {/* ── Loading overlay ─────────────────────────────── */}
                         {isLoading && (
@@ -1911,6 +2329,7 @@ export function RSProcessModal({
                         <div style={{ display: isLoading || error ? 'none' : undefined }}>
                             {/* Section header */}
                             <div
+                                className="rs-process-items-header"
                                 style={{
                                     width: '100%', display: 'flex', alignItems: 'center',
                                     gap: 10, padding: '11px 20px',
@@ -1921,7 +2340,8 @@ export function RSProcessModal({
                                 <button
                                     onClick={() => setItemsExpanded(p => !p)}
                                     style={{
-                                        flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10,
+                                        flex: roleKey === 'controller-access' ? '0 0 auto' : '1 1 auto',
+                                        minWidth: 0, display: 'flex', alignItems: 'center', gap: 10,
                                         background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
                                         textAlign: 'left',
                                     }}
@@ -1937,21 +2357,54 @@ export function RSProcessModal({
                                     <span style={{ fontSize: 11, fontWeight: 700, color: t.titleColor, flex: 1, textAlign: 'left', letterSpacing: '0.02em' }}>
                                         Requested Items
                                     </span>
-                                    {lineItems.length > 0 && (
-                                        <span style={{
-                                            fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                                            borderRadius: 20, letterSpacing: '0.06em',
-                                            background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(29,78,216,0.08)',
-                                            border: `1px solid ${isDark ? 'rgba(96,165,250,0.28)' : 'rgba(37,99,235,0.22)'}`,
-                                            color: t.accentColor,
-                                        }}>
-                                            {lineItems.length} {lineItems.length === 1 ? 'item' : 'items'}
-                                        </span>
-                                    )}
                                 </button>
 
+                                {roleKey === 'controller-access' && (
+                                    <div
+                                        title="Controller workflow arrivals and successful approvals recorded in the requisition audit history"
+                                        style={{
+                                            flex: '1 1 320px', minWidth: 0,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            textAlign: 'center', padding: '0 8px',
+                                        }}
+                                    >
+                                        <span style={{
+                                            fontSize: 12, fontWeight: 800,
+                                            color: isDark ? '#5eead4' : '#0f766e',
+                                            lineHeight: 1.35, letterSpacing: '0.01em',
+                                        }}>
+                                            Sent to Controller: {Number(row.controller_review_count ?? 0)} time(s)
+                                            {' · '}Approved by Controller: {Number(row.controller_approval_count ?? 0)} time(s)
+                                            {Number(row.price_reapproval_count ?? 0) > 0
+                                                ? ` · Price reapproved: ${Number(row.price_reapproval_count ?? 0)} time(s)`
+                                                : ''}
+                                            {workflowV2 && isLogisticsRequest && statusLower === 'for approval'
+                                                ? ` · Price reapproval: ${formatOrdinalApproval(Number(row.controller_approval_count ?? 0) + (controllerDecision === 1 ? 0 : 1))}`
+                                                : ''}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {lineItems.length > 0 && (
+                                    <span style={{
+                                        fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                                        borderRadius: 20, letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                                        background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(29,78,216,0.08)',
+                                        border: `1px solid ${isDark ? 'rgba(96,165,250,0.28)' : 'rgba(37,99,235,0.22)'}`,
+                                        color: t.accentColor, flexShrink: 0,
+                                    }}>
+                                        {lineItems.length} {lineItems.length === 1 ? 'item' : 'items'}
+                                    </span>
+                                )}
+
+                                {stockroomFulfillmentActive && itemsExpanded && lineItems.length > 0 && (
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: t.cellMuted, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                        {resolvedItemCount}/{lineItems.length} resolved
+                                    </span>
+                                )}
+
                                 {/* Budget full-item or Logistics description-only controls */}
-                                {canEditItems && !isPricingItems && itemsExpanded && lineItems.length > 0 && (
+                                {canEditItems && hasEditableLineItem && !isPricingItems && itemsExpanded && lineItems.length > 0 && (
                                     isEditingItems ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                             {itemsError && (
@@ -1962,9 +2415,13 @@ export function RSProcessModal({
                                             <button
                                                 onClick={handleSaveItems}
                                                 disabled={isSavingItems || !draftsValid}
-                                                title={!draftsValid
+                                            title={!draftsValid
                                                     ? 'Complete every required item field before saving'
-                                                    : canLogisticsEditDescriptions ? 'Save item description changes' : 'Save item changes'}
+                                                    : canLogisticsEditDescriptions
+                                                        ? 'Save item description changes'
+                                                        : canStockroomEditQuantities
+                                                            ? 'Save served quantity changes and recalculate balances'
+                                                            : 'Save item changes'}
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: 6,
                                                     padding: '5px 12px', borderRadius: 8,
@@ -1999,7 +2456,11 @@ export function RSProcessModal({
                                     ) : (
                                         <button
                                             onClick={startEditingItems}
-                                            title={canLogisticsEditDescriptions ? 'Edit item descriptions' : 'Edit items'}
+                                            title={canLogisticsEditDescriptions
+                                                ? 'Edit item descriptions'
+                                                : canStockroomEditQuantities
+                                                    ? 'Edit quantities for unavailable stock'
+                                                    : 'Edit items'}
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                                                 minHeight: 34, padding: '7px 13px', borderRadius: 8,
@@ -2012,7 +2473,11 @@ export function RSProcessModal({
                                             onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.16)' : 'rgba(219,234,254,0.72)'; }}
                                         >
                                             <Pencil style={{ width: 14, height: 14 }} />
-                                            {canLogisticsEditDescriptions ? 'Edit Descriptions' : 'Edit Items'}
+                                            {canLogisticsEditDescriptions
+                                                ? 'Edit Descriptions'
+                                                : canStockroomEditQuantities
+                                                    ? 'Edit Quantities'
+                                                    : 'Edit Items'}
                                         </button>
                                     )
                                 )}
@@ -2138,26 +2603,82 @@ export function RSProcessModal({
 
                             {/* Items table */}
                             {itemsExpanded && (
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="rs-process-items-table-container" style={{ overflowX: 'hidden' }}>
+                                    {showControllerPriceApprovalNotice && (
+                                        <div
+                                            role="status"
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 9,
+                                                padding: '9px 14px',
+                                                borderBottom: `1px solid ${controllerDecision === 2
+                                                    ? (isDark ? 'rgba(248,113,113,0.32)' : 'rgba(220,38,38,0.22)')
+                                                    : (isDark ? 'rgba(251,191,36,0.30)' : 'rgba(217,119,6,0.22)')}`,
+                                                background: controllerDecision === 2
+                                                    ? (isDark ? 'rgba(239,68,68,0.10)' : 'rgba(254,226,226,0.72)')
+                                                    : (isDark ? 'rgba(245,158,11,0.10)' : 'rgba(254,243,199,0.72)'),
+                                                color: controllerDecision === 2
+                                                    ? (isDark ? '#fca5a5' : '#b91c1c')
+                                                    : (isDark ? '#fcd34d' : '#92400e'),
+                                                fontSize: 11, fontWeight: 700, lineHeight: 1.4,
+                                            }}
+                                        >
+                                            {controllerDecision === 2
+                                                ? <XCircle style={{ width: 15, height: 15, flexShrink: 0 }} />
+                                                : <ShieldCheck style={{ width: 15, height: 15, flexShrink: 0 }} />}
+                                            <span>
+                                                {controllerDecision === 2
+                                                    ? 'Controller disapproved this pricing cycle. Controller approval is required before For Purchase becomes available.'
+                                                    : 'Quoted prices are accepted. This RS now requires Controller approval before For Purchase becomes available.'}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {fulfillmentError && (
+                                        <div style={{ padding: '8px 14px', fontSize: 11, color: t.cellAmber, borderBottom: `1px solid ${t.rowBorder}` }}>
+                                            {fulfillmentError}
+                                        </div>
+                                    )}
                                     {lineItems.length > 0 ? (
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isEditingItems && canBudgetEditItems ? 820 : 600 }}>
+                                        <table className={`rs-process-items-table${showQuotedPriceColumn ? ' has-quoted-price' : ''}${showFulfillmentColumn ? ' has-fulfillment' : ''}`} style={{ width: '100%', borderCollapse: 'collapse', minWidth: 0, tableLayout: 'fixed' }}>
+                                            <colgroup>
+                                                <col className="rs-item-col-account" />
+                                                <col className="rs-item-col-description" />
+                                                <col className="rs-item-col-quantity" />
+                                                <col className="rs-item-col-uom" />
+                                                <col className="rs-item-col-money" />
+                                                {showQuotedPriceColumn && <col className="rs-item-col-money" />}
+                                                <col className="rs-item-col-money" />
+                                                {showFulfillmentColumn && <col className="rs-item-col-fulfillment" />}
+                                            </colgroup>
                                             <thead>
                                                 <tr style={{ background: t.tableHeadBg }}>
-                                                    {(showQuotedPriceColumn
-                                                        ? ['Account Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Quoted Price', 'Total Cost']
-                                                        : ['Account Code', 'Description', 'Qty', 'UOM', 'Unit Cost', 'Total Cost']
-                                                    ).map((col, i, arr) => (
+                                                    {[
+                                                        'Account Code', 'Description', 'Qty', 'UOM', 'Unit Cost',
+                                                        ...(showQuotedPriceColumn ? ['Quoted Price'] : []),
+                                                        'Total Cost',
+                                                        ...(showFulfillmentColumn ? ['served-checkbox'] : []),
+                                                    ].map((col, i, arr) => (
                                                         <th key={col} style={{
-                                                            padding: '10px 14px',
+                                                            padding: col === 'served-checkbox' ? '6px 8px' : '10px 14px',
                                                             fontSize: 10, fontWeight: 700,
                                                             textTransform: 'uppercase', letterSpacing: '0.08em',
                                                             color: t.tableHeadText,
                                                             borderBottom: `2px solid ${t.tableHeadBorder}`,
                                                             borderRight: i < arr.length - 1 ? `1px solid ${t.tableHeadBorder}` : 'none',
-                                                            textAlign: i >= 2 ? 'right' : 'left',
+                                                            textAlign: col === 'served-checkbox' ? 'center' : i >= 2 ? 'right' : 'left',
                                                             whiteSpace: 'nowrap',
+                                                            width: col === 'served-checkbox' ? 46 : undefined,
                                                         }}>
-                                                            {col}
+                                                            {col === 'served-checkbox' ? (
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectableFulfillmentCount > 0 && !hasPendingFulfillment}
+                                                                    disabled={isSavingFulfillment || selectableFulfillmentCount === 0}
+                                                                    onChange={toggleAllFulfillment}
+                                                                    title={hasPendingFulfillment ? 'Mark all eligible items served' : 'Untag all served items'}
+                                                                    aria-label={hasPendingFulfillment ? 'Mark all eligible items served' : 'Untag all served items'}
+                                                                    style={{ width: 15, height: 15, margin: 0, cursor: isSavingFulfillment ? 'wait' : 'pointer', accentColor: '#059669' }}
+                                                                />
+                                                            ) : col}
                                                         </th>
                                                     ))}
                                                 </tr>
@@ -2168,7 +2689,15 @@ export function RSProcessModal({
                                                     const rowEditing = isEditingItems && !!draft;
                                                     const priceDraft = priceDrafts[item.id];
                                                     const rowPricing = isPricingItems && priceDraft !== undefined;
-                                                    const liveTotal = rowEditing && canBudgetEditItems ? draft.quantity * draft.unit_cost : item.total_cost;
+                                                    const fulfillmentStatus = item.fulfillment_status ?? 'pending';
+                                                    const legacyResolved = workflowV2
+                                                        && ['served', 'served rs', 'served by wico'].includes(statusLower)
+                                                        && fulfillmentStatus === 'pending'
+                                                        && !item.fulfilled_at;
+                                                    const canToggleFulfillment = fulfillmentEligible(item) && Number(item.quantity) > 0;
+                                                    const liveTotal = rowEditing && (canBudgetEditItems || canStockroomEditQuantities)
+                                                        ? draft.quantity * draft.unit_cost
+                                                        : item.total_cost;
                                                     const rowBg = idx % 2 === 0 ? t.rowEvenBg : t.rowOddBg;
                                                     const inputStyle: React.CSSProperties = {
                                                         width: '100%', maxWidth: 90, padding: '4px 8px',
@@ -2236,12 +2765,25 @@ export function RSProcessModal({
                                                                             lineHeight: 1.35,
                                                                         }}
                                                                     />
-                                                                ) : item.description}
+                                                                ) : (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                                        <span>{item.description}</span>
+                                                                        {canBudgetEditItems && fulfillmentStatus !== 'pending' && (
+                                                                            <span style={{
+                                                                                padding: '2px 6px', borderRadius: 999,
+                                                                                border: `1px solid ${t.cellGreen}66`, color: t.cellGreen,
+                                                                                fontSize: 8, fontWeight: 800, whiteSpace: 'nowrap',
+                                                                            }}>
+                                                                                {fulfillmentStatus.toUpperCase()} · LOCKED
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 2, 'right', false, true)}>
-                                                                {rowEditing && canBudgetEditItems ? (
+                                                                {rowEditing && (canBudgetEditItems || canStockroomEditQuantities) ? (
                                                                     <input
-                                                                        type="number" min={1} step={1}
+                                                                        type="number" min={canStockroomEditQuantities ? 0 : 1} step={1}
                                                                         value={draft.quantity}
                                                                         disabled={isSavingItems}
                                                                         onChange={e => updateItemDraft(item.id, {
@@ -2287,23 +2829,63 @@ export function RSProcessModal({
                                                                             )}
                                                                             style={inputStyle}
                                                                         />
-                                                                    ) : (item.quoted_price != null ? formatAmount(item.quoted_price) : '—')}
+                                                                    ) : (
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                                                                            <span>{item.quoted_price != null ? formatAmount(item.quoted_price) : '—'}</span>
+                                                                            {workflowV2 && item.quoted_price != null && (
+                                                                                <span style={{
+                                                                                    fontSize: 8, fontWeight: 800, letterSpacing: '0.04em',
+                                                                                    color: item.is_quoted_price_accepted ? t.cellGreen : t.cellAmber,
+                                                                                }}>
+                                                                                    {item.is_quoted_price_accepted ? 'ADMIN ACCEPTED' : 'AWAITING ACCEPTANCE'}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                             )}
                                                             <td style={{
-                                                                ...itemTdStyle(t, totalCols, totalCols - 1, 'right', false, true),
-                                                                borderRight: 'none',
+                                                                ...itemTdStyle(t, totalCols, totalCols - (showFulfillmentColumn ? 2 : 1), 'right', false, true),
+                                                                borderRight: showFulfillmentColumn ? `1px solid ${t.rowBorder}` : 'none',
                                                                 fontWeight: rowEditing && liveTotal !== item.total_cost ? 700 : undefined,
                                                                 color: rowEditing && liveTotal !== item.total_cost ? t.accentColor : undefined,
                                                             }}>
                                                                 {formatAmount(liveTotal)}
                                                             </td>
+                                                            {showFulfillmentColumn && (
+                                                                <td style={{
+                                                                    ...itemTdStyle(t, totalCols, totalCols - 1, 'center', false, false),
+                                                                    borderRight: 'none', width: 46, minWidth: 46, padding: '6px 8px',
+                                                                }}>
+                                                                    {fulfillmentStatus === 'unavailable' ? (
+                                                                        <span
+                                                                            title="Unavailable — quantity is zero"
+                                                                            aria-label="Unavailable — quantity is zero"
+                                                                            style={{ color: isDark ? '#fcd34d' : '#b45309', fontSize: 14, fontWeight: 900 }}
+                                                                        >—</span>
+                                                                    ) : (
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={fulfillmentStatus === 'served'}
+                                                                            disabled={!canToggleFulfillment || isSavingFulfillment || legacyResolved}
+                                                                            onChange={() => toggleFulfillmentItem(item)}
+                                                                            title={legacyResolved
+                                                                                ? 'Historical item-level fulfillment evidence is unavailable.'
+                                                                                : fulfillmentStatus === 'served'
+                                                                                    ? `Served${item.fulfilled_by ? ` by ${item.fulfilled_by}` : ''}; uncheck to return to Pending`
+                                                                                    : 'Check to mark this item Served'}
+                                                                            aria-label={fulfillmentStatus === 'served' ? 'Mark item pending' : 'Mark item served'}
+                                                                            style={{ width: 15, height: 15, margin: 0, cursor: canToggleFulfillment ? 'pointer' : 'default', accentColor: '#059669' }}
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })}
-                                                {isEditingItems && canBudgetEditItems && (
+                                                {isEditingItems && (canBudgetEditItems || canStockroomEditQuantities) && (
                                                     <tr style={{ background: isDark ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.05)' }}>
-                                                        <td colSpan={totalCols - 1} style={{
+                                                        <td colSpan={totalCols - (showFulfillmentColumn ? 2 : 1)} style={{
                                                             padding: '10px 14px', fontSize: 11, fontWeight: 700,
                                                             textAlign: 'right', color: t.cellMuted,
                                                             borderTop: `1px solid ${t.rowBorder}`,
@@ -2318,6 +2900,7 @@ export function RSProcessModal({
                                                         }}>
                                                             {formatAmount(editedTotal)}
                                                         </td>
+                                                        {showFulfillmentColumn && <td style={{ borderTop: `1px solid ${t.rowBorder}` }} />}
                                                     </tr>
                                                 )}
                                             </tbody>
@@ -2366,9 +2949,9 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Notes + Mark as Cancelled  |  Total Amount + Status ── */}
-                    <div style={{ display: 'flex', flexShrink: 0, borderTop: `1px solid ${t.cardHeaderBorder}` }}>
+                    <div className="rs-process-summary-footer" style={{ display: 'flex', flexShrink: 0, borderTop: `1px solid ${t.cardHeaderBorder}` }}>
                         {/* Left: notes + cancel */}
-                        <div style={{
+                        <div className="rs-process-notes-panel" style={{
                             flex: '1 1 60%', minWidth: 0,
                             padding: '14px 20px',
                             borderRight: `1px solid ${t.cardHeaderBorder}`,
@@ -2378,7 +2961,7 @@ export function RSProcessModal({
                                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: t.labelColor }}>
                                     Notes
                                 </span>
-                                {!isEditingNote && (
+                                {!isEditingNote && roleKey !== 'accounting-access' && (
                                     <button
                                         onClick={() => setIsEditingNote(true)}
                                         title="Edit note"
@@ -2497,8 +3080,8 @@ export function RSProcessModal({
                         </div>
 
                         {/* Right: total amount + status */}
-                        <div style={{ flex: '1 1 40%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{
+                        <div className="rs-process-total-summary" style={{ flex: '1 1 40%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                            <div className="rs-process-total-panel" style={{
                                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
                                 justifyContent: 'center', gap: 8, padding: '16px 20px',
                                 background: isDark ? 'rgba(74,222,128,0.07)' : 'rgba(74,222,128,0.06)',
@@ -2570,7 +3153,7 @@ export function RSProcessModal({
                                         </button>
                                     )}
                             </div>
-                            <div style={{
+                            <div className="rs-process-status-panel" style={{
                                 padding: '9px 20px', textAlign: 'center',
                                 background: statusColors.bg,
                                 borderTop: `1px solid ${statusColors.border}`,
@@ -2588,31 +3171,33 @@ export function RSProcessModal({
                     </div>
 
                     {/* ── Action footer — role-specific buttons ───────────── */}
-                    {visibleRoleActions.length > 0 && (
+                    {(visibleRoleActions.length > 0 || roleKey === 'controller-access') && (
                         <>
                             <div style={{ height: 1, background: t.cardHeaderBorder, flexShrink: 0 }} />
-                            <div style={{
+                            <div className="rs-process-role-footer" style={{
                                 display: 'flex', alignItems: 'center',
                                 justifyContent: 'space-between',
                                 gap: 10, padding: '12px 20px',
                                 background: t.cardHeaderBg,
-                                flexShrink: 0, flexWrap: 'wrap',
+                                flexShrink: 0, flexWrap: 'nowrap',
                             }}>
                                 {/* Left: role label */}
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                                    textTransform: 'uppercase', color: t.labelColor,
-                                    padding: '4px 10px', borderRadius: 20,
-                                    background: isDark ? 'rgba(96,165,250,0.09)' : 'rgba(29,78,216,0.06)',
-                                    border: `1px solid ${t.dividerColor}`,
-                                }}>
-                                    <span style={{ color: t.accentColor }}><RoleIcon roleKey={roleKey} /></span>
-                                    {roleLabel} Actions
-                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
+                                    <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                                        fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                                        textTransform: 'uppercase', color: t.labelColor,
+                                        padding: '4px 10px', borderRadius: 20,
+                                        background: isDark ? 'rgba(96,165,250,0.09)' : 'rgba(29,78,216,0.06)',
+                                        border: `1px solid ${t.dividerColor}`,
+                                    }}>
+                                        <span style={{ color: t.accentColor }}><RoleIcon roleKey={roleKey} /></span>
+                                        {roleLabel} Actions
+                                    </span>
+                                </div>
 
                                 {/* Right: action buttons */}
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <div className="rs-process-role-actions" style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', justifyContent: 'flex-end', flexShrink: 0 }}>
                                     {visibleRoleActions.map(action => (
                                         <ActionButton
                                             key={action.label}
@@ -3156,6 +3741,7 @@ export function RSProcessModal({
                     action={pendingAction.label}
                     displayAction={pendingAction.displayLabel}
                     row={row}
+                    roleKey={roleKey}
                     t={t}
                     isDark={isDark}
                     onCancel={() => setPendingAction(null)}
@@ -3360,6 +3946,7 @@ export function RSProcessModal({
                     items={row.items ?? []}
                     payeeDetail={payeeDetail}
                     printedBy={currentUser.name || currentUser.id || '—'}
+                    initialPaperId={roleKey === 'logistics-access' ? 'epson-half-legal' : 'letter-portrait'}
                     onClose={() => setShowPrintPreview(false)}
                 />
             )}
@@ -4111,29 +4698,16 @@ function RSAuditHistoryModal({
         financeSvc
             .get(`/abms/budget-request-entry/${entryId}/audit-history`)
             .then(res => {
-                console.log('=== AUDIT HISTORY DATA ===');
-                console.log('Full response:', res.data);
-                res.data.audits?.forEach((audit, idx) => {
-                    console.log(`\n--- Audit ${idx} ---`);
-                    console.log('Event:', audit.event);
-                    console.log('new_values:', audit.new_values);
-                    console.log('new_values type:', typeof audit.new_values);
-                    console.log('new_values keys:', audit.new_values ? Object.keys(audit.new_values) : 'null');
-                    console.log('old_values:', audit.old_values);
-                    console.log('old_values type:', typeof audit.old_values);
-                    console.log('old_values keys:', audit.old_values ? Object.keys(audit.old_values) : 'null');
-                });
                 setAudits(res.data.audits ?? []);
             })
-            .catch(err => {
-                setError(err.response?.data?.message ?? 'Failed to load history');
+            .catch((requestError: unknown) => {
+                setError((requestError as { response?: { data?: { message?: string } } })
+                    .response?.data?.message ?? 'Failed to load history');
             })
             .finally(() => setIsLoading(false));
     }, [open, entryId]);
 
     if (!open) return null;
-
-    const targetColumns = ['location', 'requisition_number', 'status', 'total_amount', 'from'];
 
     return createPortal(
         <>
@@ -4226,7 +4800,9 @@ function RSAuditHistoryModal({
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                         <span style={{ fontSize: 11, fontWeight: 700, color: t.tableHeadText }}>
-                                            {audit.event.charAt(0).toUpperCase() + audit.event.slice(1)}
+                                            {audit.source === 'print'
+                                                ? 'Requisition Slip Printed'
+                                                : `${audit.entity_type === 'item' ? 'Item' : 'Requisition Slip'} ${titleCaseAuditValue(audit.event)}`}
                                         </span>
                                         <span style={{ marginLeft: 'auto', fontSize: 9, color: t.cellMuted }}>
                                             {new Date(audit.created_at).toLocaleDateString('en-PH')} {new Date(audit.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
@@ -4243,16 +4819,40 @@ function RSAuditHistoryModal({
                                         <span style={{ fontWeight: 600, color: t.titleColor }}>{audit.user_name}</span>
                                     </div>
 
-                                    {/* Changes */}
-                                    {audit.event.toLowerCase() === 'updated' && (
-                                        <div style={{ fontSize: 10, marginTop: 8, paddingLeft: 12, paddingTop: 8, borderLeft: `2px solid ${isDark ? 'rgba(96,165,250,0.40)' : 'rgba(59,130,246,0.30)'}`, borderTop: `1px solid ${isDark ? 'rgba(96,165,250,0.20)' : 'rgba(59,130,246,0.15)'}` }}>
-                                            <div style={{ fontWeight: 700, color: t.cellText, marginBottom: 8, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em' }}>Changes</div>
-                                            {(() => {
-                                                const newVals = audit.new_values ?? {};
-                                                const oldVals = audit.old_values ?? {};
-                                                const allKeys = Object.keys(newVals);
+                                    {audit.entity_label && audit.source === 'audit' && (
+                                        <div style={{
+                                            display: 'inline-flex', alignItems: 'center',
+                                            maxWidth: '100%', marginBottom: 7,
+                                            padding: '3px 8px', borderRadius: 999,
+                                            background: audit.entity_type === 'item'
+                                                ? (isDark ? 'rgba(16,185,129,0.12)' : 'rgba(236,253,245,0.95)')
+                                                : (isDark ? 'rgba(96,165,250,0.12)' : 'rgba(239,246,255,0.95)'),
+                                            border: `1px solid ${audit.entity_type === 'item'
+                                                ? (isDark ? 'rgba(52,211,153,0.35)' : 'rgba(5,150,105,0.25)')
+                                                : (isDark ? 'rgba(96,165,250,0.35)' : 'rgba(37,99,235,0.22)')}`,
+                                            color: audit.entity_type === 'item'
+                                                ? (isDark ? '#6ee7b7' : '#047857')
+                                                : (isDark ? '#93c5fd' : '#1d4ed8'),
+                                            fontSize: 9, fontWeight: 700,
+                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        }} title={audit.entity_label}>
+                                            {audit.entity_label}
+                                        </div>
+                                    )}
 
-                                                console.log('Rendering changes for audit', audit.id, '- Keys:', allKeys);
+                                    {/* Changes */}
+                                    {audit.source === 'audit' && (
+                                        <div style={{ fontSize: 10, marginTop: 8, paddingLeft: 12, paddingTop: 8, borderLeft: `2px solid ${isDark ? 'rgba(96,165,250,0.40)' : 'rgba(59,130,246,0.30)'}`, borderTop: `1px solid ${isDark ? 'rgba(96,165,250,0.20)' : 'rgba(59,130,246,0.15)'}` }}>
+                                            <div style={{ fontWeight: 700, color: t.cellText, marginBottom: 8, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                                                {audit.event.toLowerCase() === 'updated' ? 'Changes' : 'Recorded Details'}
+                                            </div>
+                                            {(() => {
+                                                const newVals = auditValues(audit.new_values);
+                                                const oldVals = auditValues(audit.old_values);
+                                                const allKeys = Array.from(new Set([
+                                                    ...Object.keys(oldVals),
+                                                    ...Object.keys(newVals),
+                                                ])).filter(key => !AUDIT_TECHNICAL_FIELDS.has(key));
 
                                                 if (allKeys.length === 0) {
                                                     return <span style={{ color: t.cellMuted, fontSize: 9 }}>No changes recorded</span>;
@@ -4261,20 +4861,18 @@ function RSAuditHistoryModal({
                                                 return allKeys.map(key => {
                                                     const oldVal = oldVals[key];
                                                     const newVal = newVals[key];
-
-                                                    console.log(`Key: ${key}, Old: ${oldVal}, New: ${newVal}`);
-
-                                                    const displayKey = key.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                                                     return (
                                                         <div key={key} style={{ marginBottom: 8 }}>
-                                                            <div style={{ fontWeight: 600, color: t.tableHeadText, marginBottom: 3, fontSize: 9 }}>{displayKey}</div>
+                                                            <div style={{ fontWeight: 600, color: t.tableHeadText, marginBottom: 3, fontSize: 9 }}>{readableAuditLabel(key)}</div>
                                                             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                                                <span style={{ background: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(254,242,242,0.80)', padding: '4px 8px', borderRadius: 4, color: isDark ? '#fca5a5' : '#dc2626', fontSize: 9, fontFamily: 'monospace', flex: 1, wordBreak: 'break-word' }}>
-                                                                    {oldVal === null || oldVal === undefined ? '(empty)' : String(oldVal)}
+                                                                <span style={{ background: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(254,242,242,0.80)', padding: '4px 8px', borderRadius: 4, color: isDark ? '#fca5a5' : '#dc2626', fontSize: 9, flex: 1, wordBreak: 'break-word' }}>
+                                                                    <span style={{ display: 'block', marginBottom: 2, fontSize: 7.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', opacity: 0.75 }}>Previous</span>
+                                                                    {readableAuditValue(key, oldVal)}
                                                                 </span>
                                                                 <span style={{ color: t.cellMuted, fontWeight: 700, whiteSpace: 'nowrap' }}>→</span>
-                                                                <span style={{ background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(236,253,245,0.90)', padding: '4px 8px', borderRadius: 4, color: isDark ? '#86efac' : '#059669', fontSize: 9, fontFamily: 'monospace', flex: 1, wordBreak: 'break-word' }}>
-                                                                    {newVal === null || newVal === undefined ? '(empty)' : String(newVal)}
+                                                                <span style={{ background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(236,253,245,0.90)', padding: '4px 8px', borderRadius: 4, color: isDark ? '#86efac' : '#059669', fontSize: 9, flex: 1, wordBreak: 'break-word' }}>
+                                                                    <span style={{ display: 'block', marginBottom: 2, fontSize: 7.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', opacity: 0.75 }}>New</span>
+                                                                    {readableAuditValue(key, newVal)}
                                                                 </span>
                                                             </div>
                                                         </div>

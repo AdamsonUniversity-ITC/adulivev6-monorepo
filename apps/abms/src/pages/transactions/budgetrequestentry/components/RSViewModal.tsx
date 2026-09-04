@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    AlertCircle, AlertTriangle, ClipboardList,
-    Paperclip, Plus, Printer, RefreshCw, Save, StickyNote, Trash2, User, X,
+    AlertCircle, AlertTriangle, Building2, CalendarDays, CircleDollarSign, ClipboardList, GraduationCap,
+    Paperclip, Plus, Printer, RefreshCw, Save, Search, StickyNote, Trash2, User, X,
 } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
-import echo from '../../../../lib/echo';
+import { subscribeToRequisitionChat } from '../../../../features/requisition-chat/realtime';
 import type {
     ChatMessage,
     PayeeDetailRecord,
@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { fmtCurrency, formatRequisitionNumber, isZeroRequisitionNumber, normalizeEntryStatus } from '../utils';
 import { AddItemModal } from './AddItemModal';
+import { SelectAccountModal, type AccountOption } from './SelectAccountModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { ChatModal, RSChatBadge } from './chat';
 import { StatusBadge } from './common';
@@ -22,6 +23,10 @@ import { PAYEE_VIEW_REQUIRED_FORMS, PayeeDetailsViewModal } from './PayeeDetails
 import { RSPrintPreview } from '../../requisition-process/shared/components/RSPrintPreview';
 import type { RSLineItem, RSProcessRow } from '../../requisition-process/shared/components/RSProcessModal';
 import { formatAccountCode } from '../../shared/accountCode';
+import {
+    canPrintStockroomRequisition,
+    STOCKROOM_PRINT_RESTRICTION_MESSAGE,
+} from '../../shared/stockroomPrintEligibility';
 
 export interface RSViewHeader {
     id: number;
@@ -72,6 +77,7 @@ type RawLineItem = Partial<RSFormItem> & {
     unit_cost?: string | number | null;
     unit_of_measurement?: string | null;
     total_cost?: string | number | null;
+    fulfillment_status?: 'pending' | 'served' | 'unavailable';
 };
 
 function getErrorMessage(err: unknown): string | undefined {
@@ -81,12 +87,13 @@ function getErrorMessage(err: unknown): string | undefined {
 }
 
 export function RSViewModal({
-    open, recordId, onClose, onUpdated, t, isDark, currentUser,
+    open, recordId, onClose, onUpdated, onChatRead, t, isDark, currentUser,
 }: {
     open: boolean;
     recordId: number | null;
     onClose: () => void;
     onUpdated: () => void;
+    onChatRead?: (recordId: number) => void;
     t: ThemeTokens;
     isDark: boolean;
     currentUser: { id: string; name: string };
@@ -100,6 +107,7 @@ export function RSViewModal({
     const [itemActionError, setItemActionError] = useState<string | null>(null);
     const [hoveredRow, setHoveredRow] = useState<number | null>(null);
     const [showAddItem, setShowAddItem] = useState(false);
+    const [accountItemId, setAccountItemId] = useState<number | null>(null);
     const [showAttachments, setShowAttachments] = useState(false);
     const [showAttachedFiles, setShowAttachedFiles] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<RSAttachedFile[]>([]);
@@ -131,6 +139,13 @@ export function RSViewModal({
     const isReprocessAtDepartment = normalizeEntryStatus(header?.status, header?.requisition_number) === 'reprocess'
         && (header?.location ?? '').toLowerCase() === 'department';
     const canEdit = !!header && (isUnsavedRS || isReprocessAtDepartment);
+    const stockroomPrintBlocked = !!header
+        && !canPrintStockroomRequisition(header.rstype, header.status);
+
+    function openPrintPreview() {
+        if (stockroomPrintBlocked) return;
+        setShowPrintPreview(true);
+    }
 
     // ── Persistent realtime subscription — lives while modal is open, not just when chat is open ──
     const seenMessageIds = useRef<Set<number>>(new Set());
@@ -138,9 +153,7 @@ export function RSViewModal({
         if (!open || !recordId || !currentUser.id) return;
         let isSubscribed = true;
         try {
-            const channel = echo
-                .private(`requisition-chat.${recordId}`)
-                .listen('.RequisitionChatMessageSent', (e: ChatMessage) => {
+            const unsubscribe = subscribeToRequisitionChat(recordId, (e: ChatMessage) => {
                     if (!isSubscribed) return;
                     // Deduplicate — StrictMode mounts effects twice in dev,
                     // which can leave two listeners on the same channel.
@@ -148,23 +161,19 @@ export function RSViewModal({
                     seenMessageIds.current.add(e.id);
                     if (showChatRef.current) {
                         setIncomingMessage(e);
+                        onChatRead?.(recordId);
                     } else {
                         setUnreadCount(c => c + 1);
                     }
                 });
             return () => {
                 isSubscribed = false;
-                try {
-                    channel.stopListening('.RequisitionChatMessageSent');
-                    echo.leave(`requisition-chat.${recordId}`);
-                } catch {
-                    // The realtime client may already have removed the channel.
-                }
+                unsubscribe();
             };
         } catch {
             return;
         }
-    }, [open, recordId, currentUser.id]);
+    }, [open, recordId, currentUser.id, onChatRead]);
 
     useEffect(() => {
         if (!open || !recordId) return;
@@ -174,6 +183,7 @@ export function RSViewModal({
         setItemActionError(null);
         setDirty(false);
         setShowAddItem(false);
+        setAccountItemId(null);
         setShowAttachments(false);
         setShowAttachedFiles(false);
         setAttachedFiles([]);
@@ -191,14 +201,14 @@ export function RSViewModal({
             .then(res => {
                 const nextHeader = res.data.header as RSViewHeader;
                 setHeader(nextHeader);
-                setItems(res.data.items ?? []);
+                setItems((res.data.items ?? []).map(normalizeLineItem));
                 setPayeeDetail(res.data.payee_detail ?? null);
                 setPayeeInput(nextHeader.payee === '—' ? '' : nextHeader.payee ?? '');
             })
             .catch(() => setError('Failed to load requisition slip details.'))
             .finally(() => setLoading(false));
         financeSvc.get(`/abms/budget-request-entry/chats/unread-counts`, {
-            params: { userId: currentUser.id, ids: [recordId] },
+            params: { ids: [recordId] },
         }).then(res => {
             setUnreadCount(res.data[String(recordId)] ?? 0);
         }).catch(() => { });
@@ -231,6 +241,17 @@ export function RSViewModal({
                 setIsLoadingQuotedPreview(false);
             });
     }, [open, recordId, currentUser.id]);
+
+    function toggleChat() {
+        setShowChat(previous => {
+            const next = !previous;
+            if (next && recordId) {
+                setUnreadCount(0);
+                onChatRead?.(recordId);
+            }
+            return next;
+        });
+    }
 
     if (!open) return null;
 
@@ -280,10 +301,17 @@ export function RSViewModal({
             unitOfMeasurement: String(raw.unitOfMeasurement ?? raw.unit_of_measurement ?? ''),
             totalCost: Number(raw.totalCost ?? raw.total_cost ?? 0),
             unused_amount: Number(raw.unused_amount ?? 0),
+            fulfillment_status: raw.fulfillment_status ?? 'pending',
         };
     }
 
+    function isResolvedItem(item: RSFormItem): boolean {
+        return (item.fulfillment_status ?? 'pending') !== 'pending';
+    }
+
     function updateEditableItem(itemId: number, patch: Partial<RSFormItem>) {
+        const itemToUpdate = items.find(item => item.id === itemId);
+        if (!itemToUpdate || isResolvedItem(itemToUpdate)) return;
         setItemActionError(null);
         setItems(prev => prev.map(item => {
             if (item.id !== itemId) return item;
@@ -306,7 +334,7 @@ export function RSViewModal({
             throw new Error('Add at least one item before saving the requisition slip.');
         }
 
-        const payload = items.map(item => {
+        const payload = items.filter(item => !isResolvedItem(item)).map(item => {
             const description = item.itemDescription.trim();
             const unitOfMeasurement = item.unitOfMeasurement.trim();
             const quantity = Number(item.quantity);
@@ -319,12 +347,15 @@ export function RSViewModal({
 
             return {
                 id: item.id,
+                account_id: item.account_id,
                 description,
                 quantity,
                 unit_cost: unitCost,
                 unit_of_measurement: unitOfMeasurement,
             };
         });
+
+        if (payload.length === 0) return grandTotal;
 
         const res = await financeSvc.put(`/abms/budget-request-entry/${header.id}/items`, { items: payload });
         const nextItems = (res.data?.items ?? []).map(normalizeLineItem);
@@ -358,8 +389,32 @@ export function RSViewModal({
         setDirty(true);
     }
 
+    function handleAccountSelect(account: AccountOption) {
+        if (accountItemId === null) return;
+
+        setItems(prev => prev.map(item => item.id === accountItemId
+            ? {
+                ...item,
+                account_id: account.account_id,
+                accountNo: account.account_code,
+                mainAccountCode: account.main_account_code ?? '',
+                accountName: account.account_name,
+                accountParentId: account.account_parent_id,
+                availableBalance: Number(account.balance),
+            }
+            : item));
+        setAccountItemId(null);
+        setItemActionError(null);
+        setDirty(true);
+    }
+
     async function handleDeleteItem(itemId: number) {
         if (items.length <= 1) return; // must keep at least 1 item
+        const item = items.find(candidate => candidate.id === itemId);
+        if (!item || isResolvedItem(item)) {
+            setItemActionError('Served or unavailable items are locked and cannot be removed.');
+            return;
+        }
         setItemActionError(null);
         try {
             await financeSvc.delete(`/abms/budget-request-entry/items/${itemId}`);
@@ -481,16 +536,15 @@ export function RSViewModal({
     }
 
     // Shared display field
-    const displayField = (label: string, value: string, mono = false, color?: string) => (
-        <div>
-            <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
-                {label}
+    const displayField = (label: string, value: string, mono = false, color?: string, icon?: React.ReactNode) => (
+        <div className="rs-view-meta-card">
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '.06em', color: t.tableHeadText, marginBottom: 7 }}>
+                {icon}{label}
             </span>
             <div style={{
-                padding: '7px 12px', borderRadius: 8,
-                background: isDark ? 'rgba(10,22,50,0.60)' : 'rgba(220,234,255,0.60)',
-                border: `1px solid ${t.sectionDivider}`,
-                fontSize: 11, fontWeight: 600,
+                padding: '0 22px', borderRadius: 8,
+                background: 'transparent', border: 'none',
+                fontSize: 12, fontWeight: 700,
                 color: color ?? t.cellText,
                 minHeight: 32,
                 fontFamily: mono ? "'JetBrains Mono', monospace" : 'inherit',
@@ -515,7 +569,7 @@ export function RSViewModal({
                 background: isDark ? 'rgba(0,0,0,0.70)' : 'rgba(0,20,60,0.42)',
                 backdropFilter: 'blur(5px)',
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-                padding: '24px 16px',
+                padding: '12px',
                 overflowY: 'auto',
             }}
         >
@@ -526,9 +580,9 @@ export function RSViewModal({
                 }
             `}</style>
 
-            <div
+            <div className="abms-rs-view-modal"
                 style={{
-                    width: '100%', maxWidth: '900px',
+                    width: '100%', maxWidth: '980px',
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
                     borderRadius: 18,
@@ -539,13 +593,26 @@ export function RSViewModal({
                     marginBottom: 24,
                 }}
             >
+                <style>{`
+                    .abms-rs-view-modal { font-size: 13px; line-height: 1.45; }
+                    .abms-rs-view-modal .rs-view-meta-card { min-height: 68px; padding: 12px 14px; border: 1px solid ${t.sectionDivider}; border-radius: 10px; background: ${t.cardHeaderBg}; }
+                    .abms-rs-view-modal .rs-view-action { min-height: 40px; padding: 8px 14px !important; border-radius: 9px !important; font-size: 13px !important; }
+                    .abms-rs-view-modal .rs-view-main-table { margin: 0 16px 16px; border: 1px solid ${t.tableHeadBorder}; border-radius: 10px; overflow: auto; }
+                    .abms-rs-view-modal .rs-view-main-table th { font-size: 11px !important; padding: 11px 12px !important; }
+                    .abms-rs-view-modal .rs-view-main-table td { font-size: 13px !important; padding: 10px 12px !important; }
+                    .abms-rs-view-modal .rs-view-quotation { font-size: 13px; }
+                    .abms-rs-view-modal .rs-view-quotation th { font-size: 11px !important; }
+                    .abms-rs-view-modal .rs-view-quotation td { font-size: 12px !important; }
+                    @media (max-width: 900px) { .abms-rs-view-modal .rs-view-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+                    @media (max-width: 600px) { .abms-rs-view-modal .rs-view-meta-grid { grid-template-columns: 1fr !important; } }
+                `}</style>
                 {/* ── Header ── */}
-                <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '16px 22px' }}>
+                <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '18px 20px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                         <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <span
-                                    className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md"
+                                    className="rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-widest"
                                     style={{ background: t.pillBg, color: t.pillText, border: `1px solid ${t.pillBorder}` }}
                                 >
                                     Requisition Slip
@@ -564,16 +631,16 @@ export function RSViewModal({
                                     </span>
                                 )}
                             </div>
-                            <h2 className="text-sm font-bold tracking-tight mt-1.5 leading-snug" style={{ color: t.titleColor }}>
+                            <h2 className="mt-3 text-lg font-extrabold tracking-tight leading-snug" style={{ color: t.titleColor }}>
                                 {header ? rsTypeLabel[header.rstype] ?? header.rstype.toUpperCase() : 'Loading…'}
                             </h2>
-                            <p className="text-[10px] mt-0.5" style={{ color: t.cellMuted }}>
+                            <p className="mt-1 text-sm" style={{ color: t.cellMuted }}>
                                 {header ? `RS No. ${formatRequisitionNumber(header.requisition_number)}` : ''}
                             </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-150"
                             style={{ background: 'transparent', borderColor: t.cardBorder, color: t.cellMuted }}
                             onMouseEnter={e => {
                                 (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
@@ -586,49 +653,44 @@ export function RSViewModal({
                                 (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                             }}
                         >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
 
                     {/* Meta info grid */}
                     {header && (
-                        <div className="grid gap-3 mt-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+                        <div className="rs-view-meta-grid mt-4 grid gap-3" style={{ gridTemplateColumns: '310px repeat(3, minmax(0, 1fr))' }}>
                             {/* RS No. — enlarged + highlighted */}
-                            <div>
-                                <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
-                                    RS No.
+                            <div className="row-span-2 overflow-hidden rounded-xl border-l-8 p-5" style={{ background: isDark ? 'rgba(37,99,235,0.12)' : 'linear-gradient(120deg,#f7faff,#edf4ff)', borderColor: t.cellBlue }}>
+                                <span style={{ display: 'block', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 14 }}>
+                                    Requisition No.
                                 </span>
                                 <div style={{
-                                    padding: '7px 12px', borderRadius: 8,
-                                    background: isDark ? 'rgba(37,99,235,0.18)' : 'rgba(219,234,254,0.80)',
-                                    border: `1.5px solid ${isDark ? 'rgba(99,155,255,0.55)' : 'rgba(37,99,235,0.45)'}`,
+                                    background: 'transparent',
                                     color: isDark ? '#93c5fd' : '#1d4ed8',
-                                    fontSize: 16, fontWeight: 700,
+                                    fontSize: 28, fontWeight: 800,
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontVariantNumeric: 'tabular-nums',
                                     letterSpacing: '0.04em',
-                                    minHeight: 40,
+                                    minHeight: 54,
                                     display: 'flex', alignItems: 'center', gap: 8,
-                                    boxShadow: isDark
-                                        ? '0 0 0 3px rgba(59,130,246,0.12)'
-                                        : '0 0 0 3px rgba(37,99,235,0.08)',
                                 }}>
-                                    <ClipboardList style={{ width: 14, height: 14, opacity: 0.7, flexShrink: 0 }} />
                                     {formatRequisitionNumber(header.requisition_number)}
+                                    <ClipboardList style={{ width: 22, height: 22, opacity: 0.7, flexShrink: 0 }} />
                                 </div>
                             </div>
-                            {displayField('Department / Section', header.department)}
-                            {displayField('School Year', header.school_year)}
+                            {displayField('Department / Section', header.department, false, undefined, <Building2 className="h-4 w-4" />)}
+                            {displayField('School Year', header.school_year, false, undefined, <GraduationCap className="h-4 w-4" />)}
                             {displayField('Date', header.created_at
                                 ? new Date(header.created_at).toLocaleDateString('en-US', {
                                     weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
                                 })
-                                : '—'
+                                : '—', false, undefined, <CalendarDays className="h-4 w-4" />
                             )}
-                            {displayField('Requested By', header.requested_by_name)}
+                            {displayField('Requested By', header.requested_by_name, false, undefined, <User className="h-4 w-4" />)}
                             {isEditableCashier ? (
-                                <div>
-                                    <span style={{ display: 'block', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
+                                <div className="rs-view-meta-card">
+                                    <span style={{ display: 'block', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: t.tableHeadText, marginBottom: 4 }}>
                                         Payee <span style={{ color: t.cellRed }}>(required)</span>
                                     </span>
                                     <input
@@ -655,8 +717,8 @@ export function RSViewModal({
                                     />
                                     {isCashierPayeeMissing && <span style={{ display: 'block', marginTop: 3, color: t.cellRed, fontSize: 9 }}>Payee is required.</span>}
                                 </div>
-                            ) : displayField('Payee', header.payee)}
-                            {displayField('Total Amount', `₱ ${fmtCurrency(grandTotal)}`, true, t.cellGreen)}
+                            ) : displayField('Payee', header.payee, false, undefined, <User className="h-4 w-4" />)}
+                            {displayField('Total Amount', `₱ ${fmtCurrency(grandTotal)}`, true, t.cellGreen, <CircleDollarSign className="h-4 w-4" />)}
                         </div>
                     )}
 
@@ -666,7 +728,7 @@ export function RSViewModal({
                             <button
                                 onClick={() => handleResave()}
                                 disabled={isResaveDisabled}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isResaveDisabled ? t.btnDisBg : t.btnNew.bg,
                                     borderColor: isResaveDisabled ? t.btnDisBorder : t.btnNew.border,
@@ -685,7 +747,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={() => setShowAddItem(true)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{ background: t.btnRefresh.bg, borderColor: t.btnRefresh.border, color: t.btnRefresh.text }}
                                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnRefresh.hover; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnRefresh.bg; }}
@@ -694,7 +756,7 @@ export function RSViewModal({
                                 New Item
                             </button>
                             <RSChatBadge
-                                onClick={() => { setShowChat(p => !p); setUnreadCount(0); }}
+                                onClick={toggleChat}
                                 unreadCount={unreadCount}
                                 active={showChat}
                                 t={t}
@@ -702,11 +764,18 @@ export function RSViewModal({
                             />
                             {!isUnsavedRS && (
                                 <button
-                                    onClick={() => setShowPrintPreview(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
-                                    style={{ background: t.btnPrevSY.bg, borderColor: t.btnPrevSY.border, color: t.btnPrevSY.text }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
-                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
+                                    onClick={openPrintPreview}
+                                    disabled={stockroomPrintBlocked}
+                                    title={stockroomPrintBlocked ? STOCKROOM_PRINT_RESTRICTION_MESSAGE : 'Print RS'}
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
+                                    style={{
+                                        background: stockroomPrintBlocked ? t.btnDisBg : t.btnPrevSY.bg,
+                                        borderColor: stockroomPrintBlocked ? t.btnDisBorder : t.btnPrevSY.border,
+                                        color: stockroomPrintBlocked ? t.btnDisText : t.btnPrevSY.text,
+                                        cursor: stockroomPrintBlocked ? 'not-allowed' : 'pointer',
+                                    }}
+                                    onMouseEnter={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
+                                    onMouseLeave={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
                                 >
                                     <Printer className="w-3.5 h-3.5" />
                                     Print RS
@@ -714,7 +783,7 @@ export function RSViewModal({
                             )}
                             <button
                                 onClick={() => setShowAttachments(true)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(167,139,250,0.10)' : 'rgba(237,233,254,0.55)',
                                     borderColor: isDark ? 'rgba(167,139,250,0.35)' : 'rgba(139,92,246,0.40)',
@@ -728,7 +797,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={openAttachedFilesModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                     borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -744,7 +813,7 @@ export function RSViewModal({
                             {header.payment_form && PAYEE_VIEW_REQUIRED_FORMS.includes(header.payment_form) && payeeDetail && (
                                 <button
                                     onClick={() => setShowPayeeView(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                         borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -762,7 +831,7 @@ export function RSViewModal({
                                 <button
                                     onClick={handleDiscardRS}
                                     disabled={isDiscarding || isResaving}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                         borderColor: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
@@ -785,7 +854,7 @@ export function RSViewModal({
                             )}
                             <button
                                 onClick={onClose}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                     borderColor: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
@@ -828,7 +897,7 @@ export function RSViewModal({
                             {header.payment_form && PAYEE_VIEW_REQUIRED_FORMS.includes(header.payment_form) && payeeDetail && (
                                 <button
                                     onClick={() => setShowPayeeView(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                    className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                     style={{
                                         background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                         borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -842,25 +911,32 @@ export function RSViewModal({
                                 </button>
                             )}
                             <RSChatBadge
-                                onClick={() => { setShowChat(p => !p); setUnreadCount(0); }}
+                                onClick={toggleChat}
                                 unreadCount={unreadCount}
                                 active={showChat}
                                 t={t}
                                 isDark={isDark}
                             />
                             <button
-                                onClick={() => setShowPrintPreview(true)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
-                                style={{ background: t.btnPrevSY.bg, borderColor: t.btnPrevSY.border, color: t.btnPrevSY.text }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
+                                onClick={openPrintPreview}
+                                disabled={stockroomPrintBlocked}
+                                title={stockroomPrintBlocked ? STOCKROOM_PRINT_RESTRICTION_MESSAGE : 'Print RS'}
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
+                                style={{
+                                    background: stockroomPrintBlocked ? t.btnDisBg : t.btnPrevSY.bg,
+                                    borderColor: stockroomPrintBlocked ? t.btnDisBorder : t.btnPrevSY.border,
+                                    color: stockroomPrintBlocked ? t.btnDisText : t.btnPrevSY.text,
+                                    cursor: stockroomPrintBlocked ? 'not-allowed' : 'pointer',
+                                }}
+                                onMouseEnter={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.hover; }}
+                                onMouseLeave={e => { if (!stockroomPrintBlocked) (e.currentTarget as HTMLElement).style.background = t.btnPrevSY.bg; }}
                             >
                                 <Printer className="w-3.5 h-3.5" />
                                 Print RS
                             </button>
                             <button
                                 onClick={openAttachedFilesModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(96,165,250,0.12)' : 'rgba(219,234,254,0.60)',
                                     borderColor: isDark ? 'rgba(96,165,250,0.40)' : 'rgba(37,99,235,0.35)',
@@ -874,7 +950,7 @@ export function RSViewModal({
                             </button>
                             <button
                                 onClick={onClose}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-150 select-none whitespace-nowrap"
+                                className="rs-view-action inline-flex items-center gap-1.5 border font-bold transition-all duration-150 select-none whitespace-nowrap"
                                 style={{
                                     background: isDark ? 'rgba(248,113,113,0.10)' : 'rgba(254,226,226,0.60)',
                                     borderColor: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(220,38,38,0.28)',
@@ -961,7 +1037,7 @@ export function RSViewModal({
                         )}
 
                         {quotedPricePreview?.has_quoted_prices && (
-                            <div
+                            <div className="rs-view-quotation"
                                 style={{
                                     margin: '16px 18px',
                                     borderRadius: 14,
@@ -1141,14 +1217,25 @@ export function RSViewModal({
                                 </div>
 
                                 {/* Item quotation comparison */}
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="rs-view-quoted-table-container rs-fixed-items-table-container" style={{ overflowX: 'hidden' }}>
                                     <table
+                                        className="rs-fixed-items-table rs-view-quoted-table"
                                         style={{
                                             width: '100%',
-                                            minWidth: 850,
+                                            minWidth: 0,
+                                            tableLayout: 'fixed',
                                             borderCollapse: 'collapse',
                                         }}
                                     >
+                                        <colgroup>
+                                            <col className="rs-col-account" />
+                                            <col className="rs-col-description" />
+                                            <col className="rs-col-quantity" />
+                                            <col className="rs-col-money" />
+                                            <col className="rs-col-money" />
+                                            <col className="rs-col-money" />
+                                            <col className="rs-col-money" />
+                                        </colgroup>
                                         <thead>
                                             <tr style={{ background: t.tableHeadBg }}>
                                                 {[
@@ -1438,8 +1525,18 @@ export function RSViewModal({
                             </div>
                         )}
                         {/* Items table */}
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: canEdit ? 760 : 720 }}>
+                        <div className="rs-view-main-table rs-fixed-items-table-container" style={{ overflowX: 'hidden' }}>
+                            <table className={`rs-fixed-items-table rs-view-items-table${canEdit ? ' can-edit' : ''}`} style={{ width: '100%', borderCollapse: 'collapse', minWidth: 0, tableLayout: 'fixed' }}>
+                                <colgroup>
+                                    <col className="rs-col-row" />
+                                    <col className="rs-col-account" />
+                                    <col className="rs-col-description" />
+                                    <col className="rs-col-money" />
+                                    <col className="rs-col-quantity" />
+                                    <col className="rs-col-uom" />
+                                    <col className="rs-col-money" />
+                                    {canEdit && <col className="rs-col-actions" />}
+                                </colgroup>
                                 <thead>
                                     <tr style={{ background: t.tableHeadBg }}>
                                         {[
@@ -1488,7 +1585,10 @@ export function RSViewModal({
                                                 ) : 'No items on this requisition slip.'}
                                             </td>
                                         </tr>
-                                    ) : items.map((item, i) => (
+                                    ) : items.map((item, i) => {
+                                        const itemResolved = isResolvedItem(item);
+                                        const itemEditable = canEdit && !itemResolved;
+                                        return (
                                         <tr
                                             key={item.id}
                                             onMouseEnter={() => setHoveredRow(item.id)}
@@ -1503,19 +1603,47 @@ export function RSViewModal({
                                                 {i + 1}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, color: t.cellBlue, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
-                                                {formatAccountCode(item.mainAccountCode, item.accountNo)}
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                                                    <span>{formatAccountCode(item.mainAccountCode, item.accountNo)}</span>
+                                                    {isReprocessAtDepartment && itemEditable && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setAccountItemId(item.id)}
+                                                            title="Transfer this item to another budget account."
+                                                            style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                                                fontFamily: 'inherit', fontSize: 8, fontWeight: 800,
+                                                                letterSpacing: '.05em', textTransform: 'uppercase',
+                                                                color: t.cellBlue, background: 'transparent',
+                                                                border: 'none', padding: 0, cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            <Search style={{ width: 9, height: 9 }} />
+                                                            Change account
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellText, borderRight: `1px solid ${t.rowBorder}` }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         value={item.itemDescription}
                                                         onChange={e => updateEditableItem(item.id, { itemDescription: e.target.value })}
                                                         style={{ width: '100%', minWidth: 180, border: `1px solid ${t.inputBorder}`, borderRadius: 8, background: t.inputBg, color: t.inputText, padding: '6px 8px', fontSize: 11, outline: 'none' }}
                                                     />
-                                                ) : (item.itemDescription || <span style={{ color: t.cellMuted, fontStyle: 'italic' }}>—</span>)}
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                        <span>{item.itemDescription || '—'}</span>
+                                                        {itemResolved && (
+                                                            <span style={{ padding: '2px 6px', borderRadius: 999, fontSize: 8, fontWeight: 800, color: t.cellGreen, border: `1px solid ${t.cellGreen}66`, whiteSpace: 'nowrap' }}>
+                                                                {(item.fulfillment_status ?? 'served').toUpperCase()} · LOCKED
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         type="number"
                                                         min="0.01"
@@ -1527,7 +1655,7 @@ export function RSViewModal({
                                                 ) : <>₱ {fmtCurrency(parseFloat(item.unitCost) || 0)}</>}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: t.cellText, textAlign: 'right', borderRight: `1px solid ${t.rowBorder}`, fontFamily: "'JetBrains Mono', monospace" }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         type="number"
                                                         min="1"
@@ -1539,7 +1667,7 @@ export function RSViewModal({
                                                 ) : (item.quantity || '0')}
                                             </td>
                                             <td style={{ padding: '7px 12px', fontSize: 11, color: t.cellMuted, borderRight: `1px solid ${t.rowBorder}`, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                {canEdit ? (
+                                                {itemEditable ? (
                                                     <input
                                                         value={item.unitOfMeasurement}
                                                         onChange={e => updateEditableItem(item.id, { unitOfMeasurement: e.target.value })}
@@ -1554,16 +1682,16 @@ export function RSViewModal({
                                                 <td style={{ padding: '4px 6px', textAlign: 'center' }}>
                                                     <button
                                                         onClick={() => handleDeleteItem(item.id)}
-                                                        disabled={items.length <= 1}
-                                                        title={items.length <= 1 ? 'Cannot remove the only item' : 'Remove item'}
-                                                        style={{ width: 24, height: 24, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: items.length <= 1 ? 'not-allowed' : 'pointer', color: items.length <= 1 ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)') : t.cellMuted, transition: 'all .12s ease' }}
+                                                        disabled={items.length <= 1 || itemResolved}
+                                                        title={itemResolved ? 'Resolved items are locked' : items.length <= 1 ? 'Cannot remove the only item' : 'Remove item'}
+                                                        style={{ width: 24, height: 24, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: items.length <= 1 || itemResolved ? 'not-allowed' : 'pointer', color: items.length <= 1 || itemResolved ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)') : t.cellMuted, transition: 'all .12s ease' }}
                                                         onMouseEnter={e => {
-                                                            if (items.length <= 1) return;
+                                                            if (items.length <= 1 || itemResolved) return;
                                                             (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.14)' : 'rgba(254,226,226,0.70)';
                                                             (e.currentTarget as HTMLElement).style.color = t.cellRed;
                                                         }}
                                                         onMouseLeave={e => {
-                                                            if (items.length <= 1) return;
+                                                            if (items.length <= 1 || itemResolved) return;
                                                             (e.currentTarget as HTMLElement).style.background = 'transparent';
                                                             (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                                                         }}
@@ -1573,7 +1701,8 @@ export function RSViewModal({
                                                 </td>
                                             )}
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -1581,7 +1710,7 @@ export function RSViewModal({
                         {/* Grand total */}
                         {items.length > 0 && (
                             <div style={{
-                                padding: '10px 22px',
+                                margin: '0 18px 18px', padding: '10px 14px', borderRadius: 10,
                                 background: t.totalBg,
                                 borderTop: `1px solid ${t.totalBorder}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
@@ -1657,6 +1786,20 @@ export function RSViewModal({
                     currentSchoolYear={header.school_year}
                     rsHeaderId={header.id}
                     rsType={header.rstype as RSType}
+                />
+            )}
+
+            {isReprocessAtDepartment && header && (
+                <SelectAccountModal
+                    open={accountItemId !== null}
+                    onClose={() => setAccountItemId(null)}
+                    onSelect={handleAccountSelect}
+                    t={t}
+                    isDark={isDark}
+                    departmentId={header.department_id ?? ''}
+                    sectionId={header.section_id ?? ''}
+                    currentSchoolYear={header.school_year}
+                    requisitionId={header.id}
                 />
             )}
 

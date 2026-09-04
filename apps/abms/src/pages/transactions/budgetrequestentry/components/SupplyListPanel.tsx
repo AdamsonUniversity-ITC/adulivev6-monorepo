@@ -67,39 +67,46 @@ export function SupplyListPanel({
     return (
 
         <div
-            className="min-h-0"
+            className="abms-reference-picker min-h-0"
             style={{
-                width: '100%', maxWidth: '520px',
+                width: '100%', maxWidth: '640px',
                 background: t.cardBg,
                 border: `1px solid ${t.cardBorder}`,
-                borderRadius: '16px',
+                borderRadius: '28px',
                 boxShadow: t.cardShadow,
                 overflow: 'hidden',
                 display: 'flex', flexDirection: 'column',
                 maxHeight: 'calc(100dvh - 24px)',
             }}
         >
+            <style>{`
+                .abms-reference-picker tbody td { padding: 12px 16px !important; font-size: 12px !important; }
+                .abms-reference-picker > div:last-child { padding: 12px 16px !important; }
+                .abms-reference-picker > div:last-child button { padding: 8px 12px !important; font-size: 11px !important; border-radius: 12px !important; }
+                .abms-reference-picker > div:last-child span { font-size: 11px !important; }
+                @media (max-width: 640px) { .abms-reference-picker tbody td { padding: 14px 16px !important; font-size: 13px !important; } }
+            `}</style>
             {/* Header */}
             <div
                 style={{
                     background: t.cardHeaderBg,
                     borderBottom: `1px solid ${t.cardHeaderBorder}`,
-                    padding: '14px 20px',
+                    padding: '20px 24px',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     flexShrink: 0,
                 }}
             >
                 <div>
-                    <h2 className="text-sm font-bold tracking-tight" style={{ color: t.titleColor }}>
+                    <h2 className="text-lg font-extrabold tracking-tight" style={{ color: t.titleColor }}>
                         Stockable / Inventoriable Items
                     </h2>
-                    <p className="text-[11px] mt-0.5" style={{ color: t.cellMuted }}>
+                    <p className="mt-1 text-sm" style={{ color: t.cellMuted }}>
                         WICO / Stockroom supply list — read only
                     </p>
                 </div>
                 <button
                     onClick={onClose}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg border transition-all duration-150"
+                    className="flex h-10 w-10 items-center justify-center rounded-2xl border transition-all duration-150"
                     style={{ background: 'transparent', borderColor: t.cardBorder, color: t.cellMuted }}
                     onMouseEnter={e => {
                         (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
@@ -112,14 +119,14 @@ export function SupplyListPanel({
                         (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                     }}
                 >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="h-5 w-5" />
                 </button>
             </div>
 
             {/* Search bar */}
             <div
                 style={{
-                    padding: '10px 16px',
+                    padding: '14px 20px',
                     background: t.cardHeaderBg,
                     borderBottom: `1px solid ${t.cardHeaderBorder}`,
                     flexShrink: 0,
@@ -127,7 +134,7 @@ export function SupplyListPanel({
             >
                 <div className="relative">
                     <Search
-                        className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2"
                         style={{ color: t.cellMuted }}
                     />
                     <input
@@ -135,7 +142,7 @@ export function SupplyListPanel({
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Search code, name, unit…"
-                        className="w-full pl-8 pr-3 py-2 rounded-xl text-[11px] font-semibold border outline-none transition-all duration-150"
+                        className="w-full rounded-2xl border py-3 pl-11 pr-4 text-sm font-medium outline-none transition-all duration-150"
                         style={{ background: t.inputBg, borderColor: t.inputBorder, color: t.inputText }}
                         onFocus={e => { (e.target as HTMLElement).style.borderColor = isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)'; }}
                         onBlur={e => { (e.target as HTMLElement).style.borderColor = t.inputBorder; }}
@@ -152,8 +159,8 @@ export function SupplyListPanel({
                                 <th
                                     key={col}
                                     style={{
-                                        padding: '9px 14px',
-                                        fontSize: '9px',
+                                        padding: '12px 16px',
+                                        fontSize: '11px',
                                         fontWeight: 700,
                                         textTransform: 'uppercase',
                                         letterSpacing: '.08em',

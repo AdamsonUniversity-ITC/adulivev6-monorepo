@@ -133,7 +133,7 @@ export default function RequisitionProcess() {
         <AdamsonBudgetLayout>
             {(isDark: boolean) => {
                 const t = isDark ? T.dark : T.light;
-                return <div className="mx-auto max-w-7xl"><RequisitionProcessInner t={t} isDark={isDark} /></div>;
+                return <div className="mx-auto w-full max-w-[1600px]"><RequisitionProcessInner t={t} isDark={isDark} /></div>;
             }}
         </AdamsonBudgetLayout>
     );

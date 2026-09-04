@@ -81,12 +81,12 @@ export function SelectSupplyModal({
                 .supply-row:hover { cursor: pointer; }
             `}</style>
 
-            <div
+            <div className="abms-reference-picker"
                 style={{
-                    width: '100%', maxWidth: '560px',
+                    width: '100%', maxWidth: '700px',
                     background: t.cardBg,
                     border: `1px solid ${t.cardBorder}`,
-                    borderRadius: 18,
+                    borderRadius: 20,
                     boxShadow: t.cardShadow,
                     overflow: 'hidden',
                     animation: 'supply-in .20s cubic-bezier(.22,1,.36,1)',
@@ -94,19 +94,27 @@ export function SelectSupplyModal({
                     maxHeight: 'calc(100dvh - 24px)',
                 }}
             >
+                <style>{`
+                    .abms-reference-picker input { padding: 12px 16px 12px 42px !important; border-radius: 12px !important; font-size: 11px !important; }
+                    .abms-reference-picker table th { padding: 12px 16px !important; font-size: 11px !important; }
+                    .abms-reference-picker table td { padding: 12px 16px !important; font-size: 12px !important; }
+                    .abms-reference-picker > div:last-child { padding: 12px 16px !important; }
+                    .abms-reference-picker > div:last-child button { padding: 8px 12px !important; font-size: 11px !important; border-radius: 12px !important; }
+                    .abms-reference-picker > div:last-child span { font-size: 11px !important; }
+                `}</style>
                 {/* Header */}
-                <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>
-                        <h2 style={{ fontSize: 13, fontWeight: 700, color: t.titleColor, margin: 0 }}>
+                        <h2 style={{ fontSize: 20, fontWeight: 800, color: t.titleColor, margin: 0 }}>
                             Select Supply Item
                         </h2>
-                        <p style={{ fontSize: 10, color: t.cellMuted, margin: '2px 0 0' }}>
+                        <p style={{ fontSize: 13, color: t.cellMuted, margin: '6px 0 0' }}>
                             Click a row to auto-fill the item details.
                         </p>
                     </div>
                     <button
                         onClick={onClose}
-                        style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${t.cardBorder}`, color: t.cellMuted, cursor: 'pointer', transition: 'all .12s ease', flexShrink: 0 }}
+                        style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${t.cardBorder}`, color: t.cellMuted, cursor: 'pointer', transition: 'all .12s ease', flexShrink: 0 }}
                         onMouseEnter={e => {
                             (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
                             (e.currentTarget as HTMLElement).style.borderColor = isDark ? 'rgba(248,113,113,0.40)' : 'rgba(220,38,38,0.30)';
@@ -118,12 +126,12 @@ export function SelectSupplyModal({
                             (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                         }}
                     >
-                        <X style={{ width: 14, height: 14 }} />
+                        <X style={{ width: 19, height: 19 }} />
                     </button>
                 </div>
 
                 {/* Search */}
-                <div style={{ padding: '10px 16px', background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, flexShrink: 0 }}>
+                <div style={{ padding: '14px 20px', background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}`, flexShrink: 0 }}>
                     <div style={{ position: 'relative' }}>
                         <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: t.cellMuted }} />
                         <input
