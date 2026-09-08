@@ -85,6 +85,12 @@ function FiledLeaveAfterCutoffPage() {
 
   const hasDateRange = dateFrom !== "" && dateTo !== ""
   const selectedEmployeeNo = selectedEmployee?.emp_no?.trim() || ""
+  const hasReportFilters =
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    employmentTypeFilter !== "all" ||
+    classificationFilter !== "all"
+  const canLoadLeave = selectedEmployeeNo !== "" || hasReportFilters
 
   const printStatusParams = React.useMemo(
     () =>
@@ -146,13 +152,13 @@ function FiledLeaveAfterCutoffPage() {
 
   const { data, isPending, isFetching, isError } = useFiledLeaveAfterCutoffReport(
     listParams,
-    { enabled: selectedEmployeeNo !== "" },
+    { enabled: canLoadLeave },
   )
 
   const paginatedResponse = isPaginatedFiledLeaveAfterCutoffResponse(data)
     ? data
     : undefined
-  const isListLoading = selectedEmployeeNo !== "" && (isPending || isFetching)
+  const isListLoading = canLoadLeave && (isPending || isFetching)
 
   const printedApplicationIds = React.useMemo(
     () => new Set(printStatus?.printed_application_ids ?? []),
@@ -176,7 +182,7 @@ function FiledLeaveAfterCutoffPage() {
 
   const handlePrint = React.useCallback(
     async (mode: PrintMode, batch?: AfterCutoffPrintBatch) => {
-      if (!hasDateRange || selectedEmployeeNo === "") {
+      if (!hasDateRange) {
         return
       }
 
@@ -184,7 +190,7 @@ function FiledLeaveAfterCutoffPage() {
 
       try {
         const response = await fetchFiledLeaveAfterCutoffReport({
-          search: selectedEmployeeNo,
+          search: selectedEmployeeNo || undefined,
           date_from: dateFrom,
           date_to: dateTo,
           classification:
@@ -291,7 +297,7 @@ function FiledLeaveAfterCutoffPage() {
                 size="lg"
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("initial")}
-                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
+                disabled={isPrinting || !hasDateRange}
               >
                 <Printer className="size-4" />
                 {isPrinting ? "Preparing..." : "Print report"}
@@ -306,7 +312,7 @@ function FiledLeaveAfterCutoffPage() {
                 variant="outline"
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("batch", batch)}
-                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
+                disabled={isPrinting || !hasDateRange}
               >
                 <Printer className="size-4" />
                 <span className="flex flex-col items-start text-left leading-tight">
@@ -326,7 +332,7 @@ function FiledLeaveAfterCutoffPage() {
                 size="lg"
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("remaining")}
-                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
+                disabled={isPrinting || !hasDateRange}
               >
                 <Printer className="size-4" />
                 {isPrinting
@@ -342,7 +348,7 @@ function FiledLeaveAfterCutoffPage() {
                 variant={showPrintRemaining ? "outline" : "default"}
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("all")}
-                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
+                disabled={isPrinting || !hasDateRange}
               >
                 <Printer className="size-4" />
                 {isPrinting ? "Preparing..." : "Print all"}
@@ -357,9 +363,9 @@ function FiledLeaveAfterCutoffPage() {
             </p>
           ) : null}
 
-          {!hasDateRange || selectedEmployeeNo === "" ? (
+          {!hasDateRange ? (
             <p className="text-muted-foreground text-xs sm:text-right">
-              Choose an employee and set leave date from and to to enable printing.
+              Set leave date from and to to enable printing.
             </p>
           ) : null}
         </div>
@@ -392,6 +398,7 @@ function FiledLeaveAfterCutoffPage() {
             hasPrintHistory={printStatus?.has_print_history === true}
             printedApplicationIds={printedApplicationIds}
             remainingCount={printStatus?.remaining_count ?? 0}
+            canLoadLeave={canLoadLeave}
             selectedEmployee={selectedEmployee}
             onEmployeeChange={(employee) => {
               setSelectedEmployee(employee)

@@ -23,6 +23,40 @@ export type FiledLeaveReportListParams = FiledLeaveReportDepartmentParams & {
   per_page?: number
   section_id?: string | number
   all?: boolean
+  exclude_printed?: boolean
+  leave_application_ids?: number[]
+}
+
+export type FiledLeavePrintBatch = {
+  printed_at: string
+  printed_by: string
+  count: number
+  leave_application_ids: number[]
+}
+
+export type FiledLeavePrintStatus = {
+  total_in_range: number
+  printed_count: number
+  remaining_count: number
+  has_print_history: boolean
+  printed_application_ids: number[]
+  batches: FiledLeavePrintBatch[]
+}
+
+export type FiledLeavePrintStatusParams = {
+  date_from: string
+  date_to: string
+  search?: string
+  status?: string
+  section_id?: string | number
+  classification?: string
+  employment_type?: string
+}
+
+export type RecordFiledLeavePrintParams = {
+  date_from: string
+  date_to: string
+  leave_application_ids: number[]
 }
 
 export type FiledLeaveReportAllResponse = {
@@ -57,4 +91,26 @@ export async function fetchFiledLeaveReportDepartments(
   )
 
   return response.data.data ?? []
+}
+
+export async function fetchFiledLeavePrintStatus(
+  params: FiledLeavePrintStatusParams,
+): Promise<FiledLeavePrintStatus> {
+  const response = await hrmdoSvc.get<{ data: FiledLeavePrintStatus }>(
+    "v1/reports/filed-leave/print-status",
+    { params },
+  )
+
+  return response.data.data
+}
+
+export async function recordFiledLeavePrint(
+  params: RecordFiledLeavePrintParams,
+): Promise<FiledLeavePrintStatus> {
+  const response = await hrmdoSvc.post<{ data: FiledLeavePrintStatus }>(
+    "v1/reports/filed-leave/print-log",
+    params,
+  )
+
+  return response.data.data
 }

@@ -72,6 +72,20 @@ function assertAfter(today: Date, end: Date, leadDays: number): string | null {
   return null
 }
 
+function assertAfterStart(today: Date, start: Date, leadDays: number): string | null {
+  const daysAfter = differenceInCalendarDays(today, start)
+
+  if (daysAfter <= 0) {
+    return "This leave type must be filed after the first leave day."
+  }
+
+  if (leadDays > 0 && daysAfter > leadDays) {
+    return `This leave type must be filed within ${leadDays} day(s) after the first leave day.`
+  }
+
+  return null
+}
+
 function assertAfterOrOn(today: Date, end: Date, leadDays: number): string | null {
   const daysAfter = differenceInCalendarDays(today, end)
 
@@ -121,6 +135,8 @@ export function validateLeaveFilingTiming(
       return assertAfter(today, end, leadDays)
     case "AFTER_OR_ON":
       return assertAfterOrOn(today, end, leadDays)
+    case "AFTER_START":
+      return assertAfterStart(today, start, leadDays)
     case "WITHIN_MONTH":
       return assertWithinMonth(today, start)
     default:
