@@ -21,6 +21,7 @@ import {
   fetchFiledLeaveAfterCutoffReport,
   isPaginatedFiledLeaveAfterCutoffResponse,
   recordAfterCutoffPrint,
+  type AfterCutoffPrintBatch,
 } from "@/lib/filed-leave-after-cutoff-report-api"
 import {
   mapLeaveApplicationsToFiledLeaveReportRows,
@@ -33,7 +34,20 @@ import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-shee
 import { FiledLeaveAfterCutoffDataTable } from "./-filed-leave-after-cutoff-datatable"
 import { FiledLeaveAfterCutoffPrint } from "./-filed-leave-after-cutoff-print"
 
-type PrintMode = "initial" | "remaining" | "all"
+type PrintMode = "initial" | "remaining" | "all" | "batch"
+
+function formatBatchPrintedAtLabel(printedAt: string): string {
+  const parsed = new Date(printedAt)
+
+  if (Number.isNaN(parsed.getTime())) {
+    return printedAt
+  }
+
+  return parsed.toLocaleString("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+}
 
 export const Route = createFileRoute("/reports/filed-leave-after-cutoff")({
   component: FiledLeaveAfterCutoffPage,
@@ -151,7 +165,7 @@ function FiledLeaveAfterCutoffPage() {
   }, [])
 
   const handlePrint = React.useCallback(
-    async (mode: PrintMode) => {
+    async (mode: PrintMode, batch?: AfterCutoffPrintBatch) => {
       if (!hasDateRange) {
         return
       }
@@ -168,6 +182,8 @@ function FiledLeaveAfterCutoffPage() {
             employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
           all: true,
           exclude_printed: mode === "remaining",
+          leave_application_ids:
+            mode === "batch" ? batch?.leave_application_ids : undefined,
         })
 
         const records = response.data ?? []
@@ -179,33 +195,51 @@ function FiledLeaveAfterCutoffPage() {
           return
         }
 
+        const batchPrintedAt =
+          mode === "batch" && batch?.printed_at
+            ? new Date(batch.printed_at)
+            : new Date()
+        const shouldRecordPrint = mode === "initial" || mode === "remaining"
+
         // Commit the print markup before window.print() so the print snapshot
         // includes every row instead of the previous (or empty) render.
         ReactDOM.flushSync(() => {
           setPrintSubtitle(
-            mode === "remaining" ? "Remaining approved applications." : undefined,
+            mode === "remaining"
+              ? "Remaining approved applications."
+              : mode === "batch"
+                ? `Reprint of ${rows.length} application(s) printed on ${formatBatchPrintedAtLabel(batch?.printed_at ?? "")}.`
+                : mode === "all"
+                  ? "All approved applications in this range."
+                  : undefined,
           )
           setPrintRows(rows)
-          setPrintedAt(new Date())
+          setPrintedAt(
+            Number.isNaN(batchPrintedAt.getTime()) ? new Date() : batchPrintedAt,
+          )
         })
 
         window.print()
 
-        await recordAfterCutoffPrint({
-          date_from: dateFrom,
-          date_to: dateTo,
-          leave_application_ids: rows.map((row) => Number(row.id)),
-        })
+        if (shouldRecordPrint) {
+          await recordAfterCutoffPrint({
+            date_from: dateFrom,
+            date_to: dateTo,
+            leave_application_ids: rows.map((row) => Number(row.id)),
+          })
 
-        await queryClient.invalidateQueries({
-          queryKey: ["filed-leave-after-cutoff-print-status"],
-        })
+          await queryClient.invalidateQueries({
+            queryKey: ["filed-leave-after-cutoff-print-status"],
+          })
+        }
       } finally {
         setIsPrinting(false)
       }
     },
     [dateFrom, dateTo, hasDateRange, leaveTypeNames, queryClient, classificationFilter, employmentTypeFilter],
   )
+
+  const printBatches = printStatus?.batches ?? []
 
   const showPrintRemaining =
     hasDateRange &&
@@ -252,6 +286,28 @@ function FiledLeaveAfterCutoffPage() {
                 {isPrinting ? "Preparing..." : "Print report"}
               </Button>
             ) : null}
+
+            {printBatches.map((batch, index) => (
+              <Button
+                key={`${batch.printed_at}-${batch.printed_by}-${index}`}
+                type="button"
+                size="lg"
+                variant="outline"
+                className="w-full shadow-sm sm:w-auto"
+                onClick={() => void handlePrint("batch", batch)}
+                disabled={isPrinting || !hasDateRange}
+              >
+                <Printer className="size-4" />
+                <span className="flex flex-col items-start text-left leading-tight">
+                  <span>
+                    {isPrinting ? "Preparing..." : `Print ${batch.count}`}
+                  </span>
+                  <span className="text-muted-foreground text-[11px] font-normal">
+                    {formatBatchPrintedAtLabel(batch.printed_at)}
+                  </span>
+                </span>
+              </Button>
+            ))}
 
             {showPrintRemaining ? (
               <Button

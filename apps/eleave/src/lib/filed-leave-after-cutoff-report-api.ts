@@ -14,6 +14,7 @@ export type FiledLeaveAfterCutoffReportListParams = {
   employment_type?: string
   all?: boolean
   exclude_printed?: boolean
+  leave_application_ids?: number[]
 }
 
 export type FiledLeaveAfterCutoffReportAllResponse = {
@@ -23,12 +24,20 @@ export type FiledLeaveAfterCutoffReportAllResponse = {
   }
 }
 
+export type AfterCutoffPrintBatch = {
+  printed_at: string
+  printed_by: string
+  count: number
+  leave_application_ids: number[]
+}
+
 export type AfterCutoffPrintStatus = {
   total_in_range: number
   printed_count: number
   remaining_count: number
   has_print_history: boolean
   printed_application_ids: number[]
+  batches: AfterCutoffPrintBatch[]
 }
 
 export type AfterCutoffPrintStatusParams = {
