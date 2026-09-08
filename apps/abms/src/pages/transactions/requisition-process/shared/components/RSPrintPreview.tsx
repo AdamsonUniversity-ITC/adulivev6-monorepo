@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import type { RSLineItem, RSProcessRow } from './RSProcessModal';
+import { displayRequisitionStatus } from '../../../shared/requisitionStatus';
 
 interface PayeeDetail {
     tin: string | null; is_adu_employee: boolean; is_vat_registered: boolean;
@@ -197,7 +198,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
                         <div><b>Department:</b><span>{row.department_section || '—'}</span></div>
                         <div><b>Requisition No.:</b><span>{row.requisition_no || '—'}</span></div>
                         <div><b>Requisition Date:</b><span>{formatDate(row.date)}</span></div>
-                        <div><b>Status:</b><span className="rs-status">{row.status || '—'}</span></div>
+                        <div><b>Status:</b><span className="rs-status">{displayRequisitionStatus(row.status)}</span></div>
                     </section>
 
                     <table className="rs-items">

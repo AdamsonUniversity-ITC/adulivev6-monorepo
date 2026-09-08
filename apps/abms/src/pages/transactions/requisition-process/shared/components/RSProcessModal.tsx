@@ -16,6 +16,7 @@ import { financeSvc } from '@repo/axios-config/finance-service';
 import { subscribeToRequisitionChat } from '../../../../../features/requisition-chat/realtime';
 import { RSPrintPreview } from './RSPrintPreview';
 import { formatAccountCode } from '../../../shared/accountCode';
+import { displayRequisitionStatus } from '../../../shared/requisitionStatus';
 import {
     canPrintStockroomRequisition,
     STOCKROOM_PRINT_RESTRICTION_MESSAGE,
@@ -196,7 +197,8 @@ function readableAuditLabel(key: string): string {
 }
 
 function titleCaseAuditValue(value: string): string {
-    return value.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+    return displayRequisitionStatus(value.replace(/_/g, ' '))
+        .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
 function readableAuditValue(key: string, value: unknown): string {
@@ -1654,6 +1656,7 @@ export function RSProcessModal({
     const requestTypeLabel = requestTypeDisplayLabel(row.rstype);
     const isTerminal = TERMINAL_STATUSES.includes(statusLower);
     const isUnsaved = !row.requisition_no || String(row.requisition_no).trim() === '0' || statusLower === 'unsaved';
+    const isSupplierLiquidation = Boolean(row.for_liquidation) && !Boolean(row.is_cash_advance);
 
     const matchesStatus = (a: RoleAction) =>
         a.visibleOn === '*' || a.visibleOn.some(s => s.toLowerCase() === statusLower);
@@ -2211,7 +2214,7 @@ export function RSProcessModal({
                                 border: `1px solid ${statusColors.border}`,
                                 flexShrink: 0,
                             }}>
-                                {row.status?.toUpperCase() ?? '—'}
+                                {displayRequisitionStatus(row.status).toUpperCase()}
                             </span>
                         </div>
 
@@ -3109,17 +3112,17 @@ export function RSProcessModal({
                                                 marginTop: 2,
                                                 padding: '5px 12px', borderRadius: 20,
                                                 fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                                border: row.for_liquidation ? `1px solid ${LIQUIDATION_COLOR}88` : `1px solid ${t.cardBorder}`,
-                                                background: row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent',
-                                                color: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
+                                                border: isSupplierLiquidation ? `1px solid ${LIQUIDATION_COLOR}88` : `1px solid ${t.cardBorder}`,
+                                                background: isSupplierLiquidation ? `${LIQUIDATION_COLOR}22` : 'transparent',
+                                                color: isSupplierLiquidation ? LIQUIDATION_COLOR : t.cellMuted,
                                                 cursor: 'pointer', transition: 'background .14s ease',
                                             }}
-                                            onMouseEnter={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}38` : `${t.cellMuted}1a`)}
-                                            onMouseLeave={e => (e.currentTarget.style.background = row.for_liquidation ? `${LIQUIDATION_COLOR}22` : 'transparent')}
+                                            onMouseEnter={e => (e.currentTarget.style.background = isSupplierLiquidation ? `${LIQUIDATION_COLOR}38` : `${t.cellMuted}1a`)}
+                                            onMouseLeave={e => (e.currentTarget.style.background = isSupplierLiquidation ? `${LIQUIDATION_COLOR}22` : 'transparent')}
                                         >
                                             <span style={{
                                                 display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                                                background: row.for_liquidation ? LIQUIDATION_COLOR : t.cellMuted,
+                                                background: isSupplierLiquidation ? LIQUIDATION_COLOR : t.cellMuted,
                                                 flexShrink: 0,
                                             }} />
                                             For Liquidation - Supplier
@@ -3164,7 +3167,7 @@ export function RSProcessModal({
                                     background: statusColors.text, flexShrink: 0,
                                 }} />
                                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: statusColors.text }}>
-                                    {row.status?.toUpperCase() ?? '—'}
+                                    {displayRequisitionStatus(row.status).toUpperCase()}
                                 </span>
                             </div>
                         </div>

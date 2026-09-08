@@ -58,8 +58,13 @@ flowchart TD
     A[Open add-adjustment modal] --> B[Display current school year from Budget Settings]
     B --> C[Submit typed unit, account IDs, description, and amounts]
     C --> D[Backend resolves current school year from Budget Settings]
-    D --> E[Resolve and lock exactly one typed-unit proposal]
-    E --> F{Exact live allocation exists?}
+    D --> E{Typed-unit proposal state?}
+    E -- Multiple or deleted --> X[Return validation error; change nothing]
+    E -- None --> EA{Confirmed addition only and active unit?}
+    EA -- No --> X
+    EA -- Yes --> EB[Create zero-valued proposal using authenticated user]
+    E -- Exactly one --> F{Exact live allocation exists?}
+    EB --> F
     F -- Yes --> G[Lock existing allocation]
     F -- No --> H{Positive net and no deleted or duplicate allocation?}
     H -- No --> X[Return validation error; change nothing]
@@ -69,6 +74,7 @@ flowchart TD
     J --> K{Balances nonnegative and within schema range?}
     K -- No --> X
     K -- Yes --> L[Create adjustment and commit allocation and proposal balances atomically]
+    L --> M[Dashboard reads proposal generated Released; Budget Review sums allocation generated Released per main account]
 ```
 
 ## Requisition and Balance Lifecycle

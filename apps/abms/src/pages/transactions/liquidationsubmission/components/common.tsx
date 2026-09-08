@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, Info, X } from 'lucide-react';
 import type { DeptOption, ToastItem, ToastKind } from '../types';
 import type { T } from '../theme';
+import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
 const TOAST_CFG: Record<ToastKind, {
     dark:  { bg: string; border: string; text: string; sub: string };
@@ -282,7 +283,7 @@ export function StatusBadge({ status, isDark }: { status: string; isDark: boolea
             textTransform: 'uppercase', whiteSpace: 'nowrap',
             background: s.bg, color: s.text, border: `1px solid ${s.border}`,
         }}>
-            {status?.toUpperCase() ?? '—'}
+            {displayRequisitionStatus(status).toUpperCase()}
         </span>
     );
 }

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { budgetadjustmententryRoute } from '../../router.tsx';
 import { financeSvc } from '@repo/axios-config';
+import { isAxiosError } from 'axios';
 import { PageHeader } from '../../components/ui/Page';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,6 +187,7 @@ interface UnitOption {
     id: string;
     name: string;
     kind: 'Department' | 'Section';
+    proposalState: 'none' | 'one' | 'multiple';
 }
 
 interface Account {
@@ -208,9 +210,21 @@ interface AdjustmentEntry {
     sub_account:  Account | null;
 }
 
+interface UnitLoaderOption {
+    id: string | number;
+    name: string;
+    proposal_state?: UnitOption['proposalState'];
+}
+
+interface ApiErrorBody {
+    message?: string;
+    errors?: Record<string, string[]>;
+}
+
 interface CreateAdjustmentResponse {
     entry: AdjustmentEntry;
     allocation_created?: boolean;
+    proposal_created?: boolean;
     allocation_id?: number;
     allocation_balance?: string;
     proposal_balance?: string;
@@ -233,6 +247,8 @@ interface DropdownOption {
     label: string;
     code?: string;
     kind?: 'Department' | 'Section';
+    proposalState?: 'none' | 'one' | 'multiple';
+    disabled?: boolean;
 }
 
 function SearchableDropdown({
@@ -290,6 +306,7 @@ function SearchableDropdown({
     }
 
     function handleSelect(id: string) {
+        if (options.find(option => option.id === id)?.disabled) return;
         onChange(id);
         setOpen(false);
         setQuery('');
@@ -375,17 +392,20 @@ function SearchableDropdown({
                                 <button
                                     key={item.id}
                                     type="button"
+                                    disabled={item.disabled}
                                     className="w-full text-left px-4 py-2 text-xs transition-all duration-100 flex items-center justify-between gap-3"
                                     style={{
-                                        color:      isSelected ? t.dropdownSelectedText : t.dropdownText,
+                                        color:      item.disabled ? t.cellMuted : (isSelected ? t.dropdownSelectedText : t.dropdownText),
                                         background: isSelected ? t.dropdownSelected     : 'transparent',
                                         fontWeight: isSelected ? 600 : 400,
+                                        cursor: item.disabled ? 'not-allowed' : 'pointer',
+                                        opacity: item.disabled ? 0.65 : 1,
                                         borderBottom: idx < filtered.length - 1
                                             ? `1px solid ${t.rowBorder}` : 'none',
                                     }}
                                     onClick={() => handleSelect(item.id)}
-                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = t.dropdownHover; }}
-                                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                                    onMouseEnter={e => { if (!isSelected && !item.disabled) (e.currentTarget as HTMLElement).style.background = t.dropdownHover; }}
+                                    onMouseLeave={e => { if (!isSelected && !item.disabled) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                                 >
                                     <span className="truncate">
                                         {showCode && item.code
@@ -393,11 +413,23 @@ function SearchableDropdown({
                                             : item.label}
                                     </span>
                                     {showKindBadge && item.kind && (
-                                        <span
-                                            className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md shrink-0"
-                                            style={kindStyle(item.kind)}
-                                        >
-                                            {item.kind === 'Department' ? 'Dept' : 'Sec'}
+                                        <span className="flex shrink-0 items-center gap-1.5">
+                                            {item.proposalState === 'none' && (
+                                                <span className="rounded-md border border-amber-400/60 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-300">
+                                                    No proposal
+                                                </span>
+                                            )}
+                                            {item.proposalState === 'multiple' && (
+                                                <span className="rounded-md border border-red-400/60 bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-600 dark:text-red-300">
+                                                    Conflict
+                                                </span>
+                                            )}
+                                            <span
+                                                className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md"
+                                                style={kindStyle(item.kind)}
+                                            >
+                                                {item.kind === 'Department' ? 'Dept' : 'Sec'}
+                                            </span>
                                         </span>
                                     )}
                                 </button>
@@ -714,7 +746,7 @@ function AddAdjustmentModal({
     currentSchoolYear,
 }: {
     onClose:            () => void;
-    onSuccess:          (entry: AdjustmentEntry, allocationCreated: boolean) => void;
+    onSuccess:          (entry: AdjustmentEntry, allocationCreated: boolean, proposalCreated: boolean) => void;
     t:                  typeof T.dark;
     isDark:             boolean;
     units:              UnitOption[];
@@ -725,6 +757,7 @@ function AddAdjustmentModal({
     const [form,                setForm]                = useState<ModalForm>(EMPTY_FORM);
     const [errors,              setErrors]              = useState<FormErrors>({});
     const [submitting,          setSubmitting]          = useState(false);
+    const [confirmingSpecial,   setConfirmingSpecial]   = useState(false);
 
     function patch<K extends keyof ModalForm>(key: K, val: ModalForm[K]) {
         setForm(prev => ({ ...prev, [key]: val }));
@@ -746,6 +779,8 @@ function AddAdjustmentModal({
         id:    u.id,
         label: u.name,
         kind:  u.kind,
+        proposalState: u.proposalState,
+        disabled: u.proposalState === 'multiple',
     }));
 
     const mainAccOptions: DropdownOption[] = mainAccounts.map(a => ({
@@ -760,7 +795,7 @@ function AddAdjustmentModal({
         code:  a.account_code,
     }));
 
-    async function handleSubmit() {
+    async function handleSubmit(createMissingProposal = false) {
         // ── Client-side validation (Zod)
         const result = adjustmentSchema.safeParse(form);
         if (!result.success) {
@@ -773,11 +808,30 @@ function AddAdjustmentModal({
             return;
         }
 
+        const selectedUnit = units.find(u => u.id === form.unitId);
+        if (selectedUnit?.proposalState === 'multiple') {
+            setErrors({ unitId: 'Multiple proposals exist for this unit and school year. Contact support before continuing.' });
+            return;
+        }
+        if (selectedUnit?.proposalState === 'none' && !createMissingProposal) {
+            const additional = parseFloat(form.additional) || 0;
+            const deduction = parseFloat(form.deduction) || 0;
+            if (additional <= 0 || deduction !== 0) {
+                setErrors({
+                    additional: 'A unit without a proposal requires an additional amount greater than zero.',
+                    deduction: deduction !== 0 ? 'The first special budget cannot include a deduction.' : undefined,
+                });
+                return;
+            }
+            setErrors({});
+            setConfirmingSpecial(true);
+            return;
+        }
+
         setErrors({});
         setSubmitting(true);
 
         try {
-            const selectedUnit = units.find(u => u.id === form.unitId);
             const rawUnitId    = form.unitId.replace(/^(dept|sec)-/, '');
 
             const payload = {
@@ -788,15 +842,17 @@ function AddAdjustmentModal({
                 description:     form.description.trim(),
                 additional:      parseFloat(form.additional) || 0,
                 deduction:       parseFloat(form.deduction)  || 0,
+                ...(createMissingProposal ? { create_missing_proposal: true } : {}),
             };
 
             const { data } = await financeSvc.post<CreateAdjustmentResponse>('/abms/budget-adjustment-entry', payload);
 
-            onSuccess(data.entry, data.allocation_created === true);
+            onSuccess(data.entry, data.allocation_created === true, data.proposal_created === true);
             onClose();
-        } catch (err: any) {
-            const serverErrors = err?.response?.data?.errors as Record<string, string[]> | undefined;
-            const serverMsg    = err?.response?.data?.message as string | undefined;
+        } catch (err: unknown) {
+            setConfirmingSpecial(false);
+            const serverErrors = isAxiosError<ApiErrorBody>(err) ? err.response?.data?.errors : undefined;
+            const serverMsg = isAxiosError<ApiErrorBody>(err) ? err.response?.data?.message : undefined;
 
             if (serverErrors) {
                 const mapped: FormErrors = {};
@@ -818,7 +874,7 @@ function AddAdjustmentModal({
     }
 
     function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
-        if (e.target === e.currentTarget && !submitting) onClose();
+        if (e.target === e.currentTarget && !submitting && !confirmingSpecial) onClose();
     }
 
     const errStyle = { color: isDark ? '#f87171' : '#dc2626', fontSize: '9px', marginTop: '3px', fontWeight: 600 };
@@ -922,6 +978,12 @@ function AddAdjustmentModal({
                             hasError={!!errors.unitId}
                         />
                         {errors.unitId && <p style={errStyle}>{errors.unitId}</p>}
+                        {units.find(unit => unit.id === form.unitId)?.proposalState === 'none' && !errors.unitId && (
+                            <p className="mt-1.5 flex items-start gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
+                                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                                No proposal exists for this unit in {currentSchoolYear ?? 'the current school year'}. Saving an addition will require confirmation.
+                            </p>
+                        )}
                     </div>
 
                     {/* Main Account */}
@@ -1091,7 +1153,7 @@ function AddAdjustmentModal({
                     </button>
                     <button
                         type="button"
-                        onClick={handleSubmit}
+                        onClick={() => handleSubmit()}
                         disabled={submitting}
                         className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-150"
                         style={{
@@ -1110,6 +1172,35 @@ function AddAdjustmentModal({
                         }
                     </button>
                 </div>
+
+                {confirmingSpecial && (
+                    <div
+                        className="absolute inset-0 z-20 flex items-center justify-center p-4"
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="special-budget-confirmation-title"
+                        style={{ background: t.modalOverlay, backdropFilter: 'blur(3px)' }}
+                    >
+                        <div className="w-full max-w-md rounded-2xl p-5" style={{ background: t.modalBg, border: `1px solid ${isDark ? 'rgba(251,191,36,.55)' : 'rgba(245,158,11,.50)'}`, boxShadow: t.modalShadow }}>
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                                <div>
+                                    <h3 id="special-budget-confirmation-title" className="text-base font-bold" style={{ color: t.titleColor }}>Create a special budget?</h3>
+                                    <p className="mt-2 text-sm leading-relaxed" style={{ color: t.cellMuted }}>
+                                        {units.find(unit => unit.id === form.unitId)?.name} has no proposal for {currentSchoolYear ?? 'the current school year'}. This will create its budget structure and open a balance of ₱{fmt(parseFloat(form.additional) || 0)} under the selected account.
+                                    </p>
+                                    <p className="mt-2 text-xs font-semibold text-amber-600 dark:text-amber-300">This action is recorded as a budget adjustment and can only be reversed while the funds remain available.</p>
+                                </div>
+                            </div>
+                            <div className="mt-5 flex flex-wrap justify-end gap-2.5">
+                                <button type="button" onClick={() => setConfirmingSpecial(false)} disabled={submitting} className="min-h-11 rounded-xl border px-4 text-sm font-bold" style={{ borderColor: t.inputBorder, color: t.cellMuted }}>Go back</button>
+                                <button type="button" onClick={() => handleSubmit(true)} disabled={submitting} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-bold text-white disabled:opacity-60">
+                                    {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</> : <><AlertTriangle className="h-4 w-4" /> Confirm special budget</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1118,6 +1209,28 @@ function AddAdjustmentModal({
 // ─────────────────────────────────────────────────────────────────────────────
 // View Adjustment Entry Modal — read-only, shows all fields including school year
 // ─────────────────────────────────────────────────────────────────────────────
+function AdjustmentDetailRow({
+    label,
+    children,
+    t,
+}: {
+    label: string;
+    children: React.ReactNode;
+    t: typeof T.dark;
+}) {
+    return (
+        <div className="flex items-start gap-3">
+            <span
+                className="w-24 shrink-0 pt-0.5 text-[9px] font-bold uppercase tracking-widest"
+                style={{ color: t.cellMuted }}
+            >
+                {label}
+            </span>
+            <div className="min-w-0 flex-1">{children}</div>
+        </div>
+    );
+}
+
 function ViewAdjustmentModal({
     entry,
     onClose,
@@ -1138,20 +1251,6 @@ function ViewAdjustmentModal({
     const hasDeduction  = Number(entry.deduction)  > 0;
 
     const divider = <div style={{ height: '1px', background: t.divider }} />;
-
-    function Row({ label, children }: { label: string; children: React.ReactNode }) {
-        return (
-            <div className="flex items-start gap-3">
-                <span
-                    className="text-[9px] font-bold uppercase tracking-widest shrink-0 pt-0.5"
-                    style={{ color: t.cellMuted, width: '96px' }}
-                >
-                    {label}
-                </span>
-                <div className="flex-1 min-w-0">{children}</div>
-            </div>
-        );
-    }
 
     return (
         <div
@@ -1245,19 +1344,19 @@ function ViewAdjustmentModal({
                         }}
                     >
                         {/* Date */}
-                        <Row label="Date">
+                        <AdjustmentDetailRow label="Date" t={t}>
                             <span
                                 className="text-xs font-mono"
                                 style={{ color: t.cellMuted, fontVariantNumeric: 'tabular-nums' }}
                             >
                                 {entry.created_at?.slice(0, 10) ?? '—'}
                             </span>
-                        </Row>
+                        </AdjustmentDetailRow>
 
                         {divider}
 
                         {/* Unit */}
-                        <Row label="Department / Section">
+                        <AdjustmentDetailRow label="Department / Section" t={t}>
                             <div className="flex items-center gap-2">
                                 {unitKind && (
                                     <span
@@ -1278,12 +1377,12 @@ function ViewAdjustmentModal({
                                     {unitName}
                                 </span>
                             </div>
-                        </Row>
+                        </AdjustmentDetailRow>
 
                         {divider}
 
                         {/* Main Account */}
-                        <Row label="Main Account">
+                        <AdjustmentDetailRow label="Main Account" t={t}>
                             <div className="flex flex-col gap-0.5">
                                 {entry.main_account?.account_code && (
                                     <span className="text-[9px] font-mono font-bold" style={{ color: t.cellMuted }}>
@@ -1294,12 +1393,12 @@ function ViewAdjustmentModal({
                                     {entry.main_account?.account_name ?? '—'}
                                 </span>
                             </div>
-                        </Row>
+                        </AdjustmentDetailRow>
 
                         {divider}
 
                         {/* Sub Account */}
-                        <Row label="Sub Account">
+                        <AdjustmentDetailRow label="Sub Account" t={t}>
                             <div className="flex flex-col gap-0.5">
                                 {entry.sub_account?.account_code && (
                                     <span className="text-[9px] font-mono font-bold" style={{ color: t.cellMuted }}>
@@ -1310,16 +1409,16 @@ function ViewAdjustmentModal({
                                     {entry.sub_account?.account_name ?? '—'}
                                 </span>
                             </div>
-                        </Row>
+                        </AdjustmentDetailRow>
 
                         {divider}
 
                         {/* Description */}
-                        <Row label="Description">
+                        <AdjustmentDetailRow label="Description" t={t}>
                             <span className="text-xs font-semibold leading-relaxed" style={{ color: t.cellText }}>
                                 {entry.description || '—'}
                             </span>
-                        </Row>
+                        </AdjustmentDetailRow>
                     </div>
 
                     {/* ── Amount cards */}
@@ -1458,9 +1557,9 @@ function EditAdjustmentModal({
 
             onSuccess(data.entry as AdjustmentEntry);
             onClose();
-        } catch (err: any) {
-            const serverErrors = err?.response?.data?.errors as Record<string, string[]> | undefined;
-            const serverMsg    = err?.response?.data?.message as string | undefined;
+        } catch (err: unknown) {
+            const serverErrors = isAxiosError<ApiErrorBody>(err) ? err.response?.data?.errors : undefined;
+            const serverMsg = isAxiosError<ApiErrorBody>(err) ? err.response?.data?.message : undefined;
 
             if (serverErrors) {
                 const mapped: EditErrors = {};
@@ -1789,10 +1888,10 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
     const [viewTarget,      setViewTarget]      = useState<AdjustmentEntry | null>(null);
 
     // ── Merge departments + sections into a single unit list ─────────────────
-    const units: UnitOption[] = [
-        ...(departments ?? []).map((d: any) => ({ id: `dept-${d.id}`, name: d.name, kind: 'Department' as const })),
-        ...(sections    ?? []).map((s: any) => ({ id: `sec-${s.id}`,  name: s.name, kind: 'Section'    as const })),
-    ].sort((a, b) => a.name.localeCompare(b.name));
+    const [units, setUnits] = useState<UnitOption[]>(() => [
+        ...(departments ?? []).map((d: UnitLoaderOption) => ({ id: `dept-${d.id}`, name: d.name, kind: 'Department' as const, proposalState: d.proposal_state ?? 'one' })),
+        ...(sections ?? []).map((s: UnitLoaderOption) => ({ id: `sec-${s.id}`, name: s.name, kind: 'Section' as const, proposalState: s.proposal_state ?? 'one' })),
+    ].sort((a, b) => a.name.localeCompare(b.name)));
 
     const mainAccounts: Account[] = main_accounts ?? [];
     const subAccounts:  Account[] = sub_accounts  ?? [];
@@ -1818,15 +1917,25 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
     }, [searchRaw, fetchEntries]);
 
     // ── On successful create: prepend to list + show toast ───────────────────
-    function handleEntryCreated(newEntry: AdjustmentEntry, allocationCreated: boolean) {
+    function handleEntryCreated(newEntry: AdjustmentEntry, allocationCreated: boolean, proposalCreated: boolean) {
         setEntries(prev => {
             if (!prev) return prev;
             return { ...prev, data: [newEntry, ...prev.data] };
         });
+        if (proposalCreated) {
+            const unitKey = newEntry.department?.cid
+                ? `dept-${newEntry.department.cid}`
+                : newEntry.section?.cid ? `sec-${newEntry.section.cid}` : null;
+            if (unitKey) {
+                setUnits(current => current.map(unit => unit.id === unitKey ? { ...unit, proposalState: 'one' } : unit));
+            }
+        }
         addToast(
             'success',
-            allocationCreated ? 'Account allocation created' : 'Adjustment entry saved',
-            allocationCreated
+            proposalCreated ? 'Special budget created' : (allocationCreated ? 'Account allocation created' : 'Adjustment entry saved'),
+            proposalCreated
+                ? `"${newEntry.description}" established the unit's current-year budget and opening account balance.`
+                : allocationCreated
                 ? `"${newEntry.description}" created the account allocation and added its opening balance.`
                 : `"${newEntry.description}" was created successfully.`,
         );
@@ -1861,8 +1970,8 @@ function BudgetAdjustmentEntryInner({ t, isDark }: { t: typeof T.dark; isDark: b
                 `"${deleteTarget.description}" was removed successfully.`,
             );
             setDeleteTarget(null);
-        } catch (err: any) {
-            const msg = err?.response?.data?.message as string | undefined;
+        } catch (err: unknown) {
+            const msg = isAxiosError<ApiErrorBody>(err) ? err.response?.data?.message : undefined;
             addToast(
                 'error',
                 'Deletion failed',
