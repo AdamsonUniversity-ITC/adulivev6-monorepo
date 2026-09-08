@@ -22,6 +22,7 @@ import {
   getAvatarUrlFromEmpNo,
   getEmployeeInitials,
 } from "@/lib/employee-teacher-display"
+import type { EmployeeSearchRecord } from "@/lib/employees-api"
 import type { PaginatedLeaveApplicationsResponse } from "@/lib/leave-applications-api"
 import {
   mapLeaveApplicationsToFiledLeaveReportRows,
@@ -33,6 +34,7 @@ import {
   CLASSIFICATION_FILTER_OPTIONS,
   EMPLOYMENT_TYPE_FILTER_OPTIONS,
 } from "./-report-employment-filters"
+import { EmployeeReportSearch } from "./-employee-report-search"
 
 const NOT_PRINTED_ROW_CLASS =
   "bg-amber-50/80 hover:bg-amber-50 border-l-2 border-l-amber-400"
@@ -78,6 +80,8 @@ type FiledLeaveAfterCutoffDataTableProps = {
   hasPrintHistory: boolean
   printedApplicationIds: ReadonlySet<number>
   remainingCount: number
+  selectedEmployee: EmployeeSearchRecord | null
+  onEmployeeChange: (employee: EmployeeSearchRecord | null) => void
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
   onEmploymentTypeFilterChange: (value: string) => void
@@ -99,6 +103,8 @@ export function FiledLeaveAfterCutoffDataTable({
   hasPrintHistory,
   printedApplicationIds,
   remainingCount,
+  selectedEmployee,
+  onEmployeeChange,
   onDateFromChange,
   onDateToChange,
   onEmploymentTypeFilterChange,
@@ -219,7 +225,7 @@ export function FiledLeaveAfterCutoffDataTable({
   )
 
   const hasActiveFilters =
-    tanstack.hook.keyword.trim() !== "" ||
+    selectedEmployee !== null ||
     dateFrom !== "" ||
     dateTo !== "" ||
     employmentTypeFilter !== "all" ||
@@ -349,13 +355,14 @@ export function FiledLeaveAfterCutoffDataTable({
 
       <DataTable<FiledLeaveReportRow>
         tanstack={tanstack}
-        data={tableData}
+        data={selectedEmployee ? tableData : { ...tableData, data: [], total: 0, from: 0, to: 0 }}
         states={{ isFetching: isLoading }}
         config={{
-          search: true,
-          pagination: true,
-          searchMode: "enter",
-          searchPlaceholder: "Search by name or employee number (press Enter)...",
+          search: false,
+          pagination: selectedEmployee !== null,
+          emptyMessage: selectedEmployee
+            ? "No result found."
+            : "Choose an employee to see filed leave.",
           fn: {
             onClick: handleRowClick,
             getRowClassName,
@@ -363,12 +370,13 @@ export function FiledLeaveAfterCutoffDataTable({
         }}
         columns={columns}
         styles={{
-          searchbar: "pl-8",
           wrapper: "min-w-0",
         }}
-      />
+      >
+        <EmployeeReportSearch value={selectedEmployee} onChange={onEmployeeChange} />
+      </DataTable>
 
-      {!isLoading ? (
+      {selectedEmployee && !isLoading ? (
         <p className="text-muted-foreground text-sm">
           {tableData.total} leave application{tableData.total === 1 ? "" : "s"}
         </p>

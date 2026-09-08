@@ -31,7 +31,10 @@ import {
 import type { HrApprovalRow } from "@/lib/map-hr-approval-row"
 import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-sheet"
 
+import type { EmployeeSearchRecord } from "@/lib/employees-api"
+
 import { FiledLeaveAfterCutoffDataTable } from "./-filed-leave-after-cutoff-datatable"
+import { formatReportEmployeeLabel } from "./-employee-report-search"
 import { FiledLeaveAfterCutoffPrint } from "./-filed-leave-after-cutoff-print"
 
 type PrintMode = "initial" | "remaining" | "all" | "batch"
@@ -72,6 +75,8 @@ function FiledLeaveAfterCutoffPage() {
     undefined,
   )
   const [isPrinting, setIsPrinting] = React.useState(false)
+  const [selectedEmployee, setSelectedEmployee] =
+    React.useState<EmployeeSearchRecord | null>(null)
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
@@ -79,6 +84,7 @@ function FiledLeaveAfterCutoffPage() {
   )
 
   const hasDateRange = dateFrom !== "" && dateTo !== ""
+  const selectedEmployeeNo = selectedEmployee?.emp_no?.trim() || ""
 
   const printStatusParams = React.useMemo(
     () =>
@@ -107,7 +113,7 @@ function FiledLeaveAfterCutoffPage() {
   React.useEffect(() => {
     tanstackHook.setPage(1)
   }, [
-    tanstackHook.keyword,
+    selectedEmployeeNo,
     dateFrom,
     dateTo,
     employmentTypeFilter,
@@ -119,7 +125,7 @@ function FiledLeaveAfterCutoffPage() {
     () => ({
       page: tanstackHook.page,
       per_page: tanstackHook.rows,
-      search: tanstackHook.keyword.trim() || undefined,
+      search: selectedEmployeeNo || undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       classification:
@@ -130,7 +136,7 @@ function FiledLeaveAfterCutoffPage() {
     [
       tanstackHook.page,
       tanstackHook.rows,
-      tanstackHook.keyword,
+      selectedEmployeeNo,
       dateFrom,
       dateTo,
       classificationFilter,
@@ -138,12 +144,15 @@ function FiledLeaveAfterCutoffPage() {
     ],
   )
 
-  const { data, isPending, isFetching, isError } = useFiledLeaveAfterCutoffReport(listParams)
+  const { data, isPending, isFetching, isError } = useFiledLeaveAfterCutoffReport(
+    listParams,
+    { enabled: selectedEmployeeNo !== "" },
+  )
 
   const paginatedResponse = isPaginatedFiledLeaveAfterCutoffResponse(data)
     ? data
     : undefined
-  const isListLoading = isPending || isFetching
+  const isListLoading = selectedEmployeeNo !== "" && (isPending || isFetching)
 
   const printedApplicationIds = React.useMemo(
     () => new Set(printStatus?.printed_application_ids ?? []),
@@ -151,6 +160,7 @@ function FiledLeaveAfterCutoffPage() {
   )
 
   const handleClearFilters = React.useCallback(() => {
+    setSelectedEmployee(null)
     tanstackHook.setKeyword("")
     setDateFrom("")
     setDateTo("")
@@ -166,7 +176,7 @@ function FiledLeaveAfterCutoffPage() {
 
   const handlePrint = React.useCallback(
     async (mode: PrintMode, batch?: AfterCutoffPrintBatch) => {
-      if (!hasDateRange) {
+      if (!hasDateRange || selectedEmployeeNo === "") {
         return
       }
 
@@ -174,6 +184,7 @@ function FiledLeaveAfterCutoffPage() {
 
       try {
         const response = await fetchFiledLeaveAfterCutoffReport({
+          search: selectedEmployeeNo,
           date_from: dateFrom,
           date_to: dateTo,
           classification:
@@ -236,7 +247,7 @@ function FiledLeaveAfterCutoffPage() {
         setIsPrinting(false)
       }
     },
-    [dateFrom, dateTo, hasDateRange, leaveTypeNames, queryClient, classificationFilter, employmentTypeFilter],
+    [dateFrom, dateTo, hasDateRange, leaveTypeNames, queryClient, classificationFilter, employmentTypeFilter, selectedEmployeeNo],
   )
 
   const printBatches = printStatus?.batches ?? []
@@ -280,7 +291,7 @@ function FiledLeaveAfterCutoffPage() {
                 size="lg"
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("initial")}
-                disabled={isPrinting || !hasDateRange}
+                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
               >
                 <Printer className="size-4" />
                 {isPrinting ? "Preparing..." : "Print report"}
@@ -295,7 +306,7 @@ function FiledLeaveAfterCutoffPage() {
                 variant="outline"
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("batch", batch)}
-                disabled={isPrinting || !hasDateRange}
+                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
               >
                 <Printer className="size-4" />
                 <span className="flex flex-col items-start text-left leading-tight">
@@ -315,7 +326,7 @@ function FiledLeaveAfterCutoffPage() {
                 size="lg"
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("remaining")}
-                disabled={isPrinting || !hasDateRange}
+                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
               >
                 <Printer className="size-4" />
                 {isPrinting
@@ -331,7 +342,7 @@ function FiledLeaveAfterCutoffPage() {
                 variant={showPrintRemaining ? "outline" : "default"}
                 className="w-full shadow-sm sm:w-auto"
                 onClick={() => void handlePrint("all")}
-                disabled={isPrinting || !hasDateRange}
+                disabled={isPrinting || !hasDateRange || selectedEmployeeNo === ""}
               >
                 <Printer className="size-4" />
                 {isPrinting ? "Preparing..." : "Print all"}
@@ -346,9 +357,9 @@ function FiledLeaveAfterCutoffPage() {
             </p>
           ) : null}
 
-          {!hasDateRange ? (
+          {!hasDateRange || selectedEmployeeNo === "" ? (
             <p className="text-muted-foreground text-xs sm:text-right">
-              Set leave date from and to to enable printing.
+              Choose an employee and set leave date from and to to enable printing.
             </p>
           ) : null}
         </div>
@@ -381,6 +392,11 @@ function FiledLeaveAfterCutoffPage() {
             hasPrintHistory={printStatus?.has_print_history === true}
             printedApplicationIds={printedApplicationIds}
             remainingCount={printStatus?.remaining_count ?? 0}
+            selectedEmployee={selectedEmployee}
+            onEmployeeChange={(employee) => {
+              setSelectedEmployee(employee)
+              tanstackHook.setPage(1)
+            }}
             onDateFromChange={setDateFrom}
             onDateToChange={setDateTo}
             onEmploymentTypeFilterChange={setEmploymentTypeFilter}
@@ -408,7 +424,9 @@ function FiledLeaveAfterCutoffPage() {
           printedAt={printedAt}
           subtitle={printSubtitle}
           filterSummary={{
-            search: "",
+            employee: selectedEmployee
+              ? formatReportEmployeeLabel(selectedEmployee)
+              : "",
             dateFrom,
             dateTo,
             employmentType: employmentTypeFilter,

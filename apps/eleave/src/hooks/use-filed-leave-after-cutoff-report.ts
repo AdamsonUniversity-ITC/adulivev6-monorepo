@@ -9,11 +9,12 @@ import {
 
 export function useFiledLeaveAfterCutoffReport(
   params: FiledLeaveAfterCutoffReportListParams,
+  options?: { enabled?: boolean },
 ) {
   return useQuery({
     queryKey: ["filed-leave-after-cutoff-report", params],
     queryFn: () => fetchFiledLeaveAfterCutoffReport(params),
-    enabled: !params.all,
+    enabled: (options?.enabled ?? true) && !params.all,
     placeholderData: keepPreviousData,
   })
 }

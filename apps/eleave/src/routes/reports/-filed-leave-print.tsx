@@ -19,7 +19,7 @@ type FiledLeavePrintProps = {
   rows: FiledLeaveReportRow[]
   leaveTypes: LeaveTypeRecord[]
   filterSummary: {
-    search: string
+    employee: string
     dateFrom: string
     dateTo: string
     status: string
@@ -105,10 +105,10 @@ export function FiledLeavePrint({
         <h1 className="text-lg font-semibold">Filed Leave Report</h1>
         <p className="text-sm text-slate-600">Printed at {printedAtLabel}</p>
         <dl className="mt-2 grid gap-1 text-xs text-slate-600 sm:grid-cols-1">
-          {filterSummary.search ? (
+          {filterSummary.employee ? (
             <div>
-              <dt className="inline font-medium">Search: </dt>
-              <dd className="inline">{filterSummary.search}</dd>
+              <dt className="inline font-medium">Employee: </dt>
+              <dd className="inline">{filterSummary.employee}</dd>
             </div>
           ) : null}
           {leaveDateFilterLabel ? (

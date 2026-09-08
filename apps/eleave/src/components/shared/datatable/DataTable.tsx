@@ -228,7 +228,7 @@ function DataTable<TData = unknown>({
               <TableCell
                 colSpan={columnCount}
                 className="h-24 text-center">
-                No result found.
+                {config?.emptyMessage ?? "No result found."}
               </TableCell>
             </TableRow>
           )}

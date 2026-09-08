@@ -25,7 +25,10 @@ import {
 import type { HrApprovalRow } from "@/lib/map-hr-approval-row"
 import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-sheet"
 
+import type { EmployeeSearchRecord } from "@/lib/employees-api"
+
 import { FiledLeaveDataTable } from "./-filed-leave-datatable"
+import { formatReportEmployeeLabel } from "./-employee-report-search"
 import { FiledLeavePrint } from "./-filed-leave-print"
 
 export const Route = createFileRoute("/reports/filed-leave")({
@@ -49,16 +52,20 @@ function FiledLeavePage() {
   const [printRows, setPrintRows] = React.useState<FiledLeaveReportRow[]>([])
   const [printedAt, setPrintedAt] = React.useState<Date | null>(null)
   const [isPrinting, setIsPrinting] = React.useState(false)
+  const [selectedEmployee, setSelectedEmployee] =
+    React.useState<EmployeeSearchRecord | null>(null)
 
   const leaveTypeNames = React.useMemo(
     () => new Map(leaveTypes.map((type) => [type.id, type.leave_name])),
     [leaveTypes],
   )
 
+  const selectedEmployeeNo = selectedEmployee?.emp_no?.trim() || ""
+
   React.useEffect(() => {
     tanstackHook.setPage(1)
   }, [
-    tanstackHook.keyword,
+    selectedEmployeeNo,
     dateFrom,
     dateTo,
     statusFilter,
@@ -70,7 +77,7 @@ function FiledLeavePage() {
 
   const departmentParams = React.useMemo(
     () => ({
-      search: tanstackHook.keyword.trim() || undefined,
+      search: selectedEmployeeNo || undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
@@ -80,7 +87,7 @@ function FiledLeavePage() {
         employmentTypeFilter !== "all" ? employmentTypeFilter : undefined,
     }),
     [
-      tanstackHook.keyword,
+      selectedEmployeeNo,
       dateFrom,
       dateTo,
       statusFilter,
@@ -109,7 +116,7 @@ function FiledLeavePage() {
     () => ({
       page: tanstackHook.page,
       per_page: tanstackHook.rows,
-      search: tanstackHook.keyword.trim() || undefined,
+      search: selectedEmployeeNo || undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       status: statusFilter !== "all" ? statusFilter : undefined,
@@ -122,7 +129,7 @@ function FiledLeavePage() {
     [
       tanstackHook.page,
       tanstackHook.rows,
-      tanstackHook.keyword,
+      selectedEmployeeNo,
       dateFrom,
       dateTo,
       statusFilter,
@@ -132,10 +139,12 @@ function FiledLeavePage() {
     ],
   )
 
-  const { data, isPending, isFetching, isError } = useFiledLeaveReport(listParams)
+  const { data, isPending, isFetching, isError } = useFiledLeaveReport(listParams, {
+    enabled: selectedEmployeeNo !== "",
+  })
 
   const paginatedResponse = isPaginatedFiledLeaveResponse(data) ? data : undefined
-  const isListLoading = isPending || isFetching
+  const isListLoading = selectedEmployeeNo !== "" && (isPending || isFetching)
 
   const departmentLabel =
     departmentFilter === "all"
@@ -144,6 +153,7 @@ function FiledLeavePage() {
         departmentFilter)
 
   const handleClearFilters = React.useCallback(() => {
+    setSelectedEmployee(null)
     tanstackHook.setKeyword("")
     setDateFrom("")
     setDateTo("")
@@ -160,6 +170,10 @@ function FiledLeavePage() {
   }, [])
 
   const handlePrint = React.useCallback(async () => {
+    if (selectedEmployeeNo === "") {
+      return
+    }
+
     setIsPrinting(true)
 
     try {
@@ -186,7 +200,7 @@ function FiledLeavePage() {
     } finally {
       setIsPrinting(false)
     }
-  }, [leaveTypeNames, listParams])
+  }, [leaveTypeNames, listParams, selectedEmployeeNo])
 
   return (
     <div className="min-w-0 space-y-6 sm:space-y-8">
@@ -208,7 +222,7 @@ function FiledLeavePage() {
           size="lg"
           className="w-full shadow-sm sm:w-auto"
           onClick={() => void handlePrint()}
-          disabled={isPrinting}
+          disabled={isPrinting || selectedEmployeeNo === ""}
         >
           <Printer className="size-4" />
           {isPrinting ? "Preparing..." : "Print report"}
@@ -242,6 +256,11 @@ function FiledLeavePage() {
             employmentTypeFilter={employmentTypeFilter}
             classificationFilter={classificationFilter}
             departments={departments}
+            selectedEmployee={selectedEmployee}
+            onEmployeeChange={(employee) => {
+              setSelectedEmployee(employee)
+              tanstackHook.setPage(1)
+            }}
             onDateFromChange={setDateFrom}
             onDateToChange={setDateTo}
             onStatusFilterChange={setStatusFilter}
@@ -270,7 +289,9 @@ function FiledLeavePage() {
           leaveTypes={leaveTypes}
           printedAt={printedAt}
           filterSummary={{
-            search: tanstackHook.keyword.trim(),
+            employee: selectedEmployee
+              ? formatReportEmployeeLabel(selectedEmployee)
+              : "",
             dateFrom,
             dateTo,
             status: statusFilter,
