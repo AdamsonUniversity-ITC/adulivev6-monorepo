@@ -7,11 +7,14 @@ import {
   type FiledLeaveReportListParams,
 } from "@/lib/filed-leave-report-api"
 
-export function useFiledLeaveReport(params: FiledLeaveReportListParams) {
+export function useFiledLeaveReport(
+  params: FiledLeaveReportListParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: ["filed-leave-report", params],
     queryFn: () => fetchFiledLeaveReport(params),
-    enabled: !params.all,
+    enabled: (options?.enabled ?? true) && !params.all,
     placeholderData: keepPreviousData,
   })
 }

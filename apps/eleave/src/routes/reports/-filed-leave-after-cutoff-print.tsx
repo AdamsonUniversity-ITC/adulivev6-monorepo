@@ -22,7 +22,7 @@ type FiledLeaveAfterCutoffPrintProps = {
   rows: FiledLeaveReportRow[]
   leaveTypes: LeaveTypeRecord[]
   filterSummary: {
-    search: string
+    employee: string
     dateFrom: string
     dateTo: string
     employmentType: string
@@ -120,10 +120,10 @@ export function FiledLeaveAfterCutoffPrint({
               <dd className="inline">{dateRangeLabel}</dd>
             </div>
           ) : null}
-          {filterSummary.search ? (
+          {filterSummary.employee ? (
             <div>
-              <dt className="inline font-medium">Search: </dt>
-              <dd className="inline">{filterSummary.search}</dd>
+              <dt className="inline font-medium">Employee: </dt>
+              <dd className="inline">{filterSummary.employee}</dd>
             </div>
           ) : null}
           {filterSummary.employmentType !== "all" ? (

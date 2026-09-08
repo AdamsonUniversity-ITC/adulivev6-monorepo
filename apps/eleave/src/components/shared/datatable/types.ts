@@ -14,6 +14,7 @@ export type DatatableConfig = {
    */
   searchDebounceMs?: number;
   searchPlaceholder?: string;
+  emptyMessage?: string;
   fn?: {
     onClick?: (row: unknown) => void;
     onDoubleClick?: (row: unknown) => void;
