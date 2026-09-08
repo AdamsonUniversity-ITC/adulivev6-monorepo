@@ -82,7 +82,7 @@ export function RolePage({
             )}
 
             <section
-                className="overflow-hidden rounded-2xl"
+                className="requisition-process-records overflow-hidden rounded-2xl"
                 style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}
                 aria-label={`${role.label} requisition records`}
             >

@@ -615,6 +615,45 @@ select.requisition-filter-control {
   font-size: 1rem !important;
 }
 
+/* Keep long requester names inside their worklist column. The fourth column is
+   Requested By for every requisition-process role table. */
+.requisition-process-records table {
+  min-width: 74rem !important;
+}
+
+.requisition-process-records th:nth-child(4),
+.requisition-process-records td:nth-child(4) {
+  width: 16.25rem;
+  min-width: 16.25rem;
+}
+
+.requisition-process-records tbody td:nth-child(4) > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.requisition-process-records tbody td:nth-child(4) > div > :last-child {
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.requisition-process-records tbody td:nth-child(4) > div > :last-child > :first-child {
+  display: block;
+  max-width: 100%;
+  white-space: normal !important;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.35;
+}
+
+.requisition-process-records tbody td:nth-child(4) > div > :last-child > :last-child:not(:first-child) {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
 .rs-process-modal input[type='checkbox'] {
   min-height: 1rem;
 }
