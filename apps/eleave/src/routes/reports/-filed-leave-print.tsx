@@ -28,6 +28,7 @@ type FiledLeavePrintProps = {
     classification: string
   }
   printedAt: Date
+  subtitle?: string
 }
 
 function resolveStatusLabel(value: string): string {
@@ -57,6 +58,7 @@ export function FiledLeavePrint({
   leaveTypes,
   filterSummary,
   printedAt,
+  subtitle,
 }: FiledLeavePrintProps) {
   const leaveTypesById = React.useMemo(
     () => buildLeaveTypesById(leaveTypes),
@@ -103,6 +105,9 @@ export function FiledLeavePrint({
       <header className="mb-4 border-b pb-3">
         <p className="text-sm text-slate-600 mb-2">Eleave - Adamson University</p>
         <h1 className="text-lg font-semibold">Filed Leave Report</h1>
+        {subtitle ? (
+          <p className="text-sm text-slate-600">{subtitle}</p>
+        ) : null}
         <p className="text-sm text-slate-600">Printed at {printedAtLabel}</p>
         <dl className="mt-2 grid gap-1 text-xs text-slate-600 sm:grid-cols-1">
           {filterSummary.employee ? (

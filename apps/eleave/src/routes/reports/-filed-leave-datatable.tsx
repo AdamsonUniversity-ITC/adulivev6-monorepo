@@ -30,12 +30,16 @@ import {
   type FiledLeaveReportRow,
 } from "@/lib/map-filed-leave-report-row"
 import { formatLeaveDayCount } from "@/routes/my-leave/leave-form/utils"
+import { PendingStatusBadge } from "@/routes/my-leave/-leave-status-badge"
 import { LEAVE_STATUS_FILTER_OPTIONS } from "@/routes/my-leave/-leave-status"
 import {
   CLASSIFICATION_FILTER_OPTIONS,
   EMPLOYMENT_TYPE_FILTER_OPTIONS,
 } from "./-report-employment-filters"
 import { EmployeeReportSearch } from "./-employee-report-search"
+
+const NOT_PRINTED_ROW_CLASS =
+  "bg-amber-50/80 hover:bg-amber-50 border-l-2 border-l-amber-400"
 
 function mapToRecordPagination(
   response: PaginatedLeaveApplicationsResponse | undefined,
@@ -78,6 +82,10 @@ type FiledLeaveDataTableProps = {
   employmentTypeFilter: string
   classificationFilter: string
   departments: FiledLeaveReportDepartment[]
+  canLoadLeave: boolean
+  hasPrintHistory: boolean
+  printedApplicationIds: ReadonlySet<number>
+  remainingCount: number
   selectedEmployee: EmployeeSearchRecord | null
   onEmployeeChange: (employee: EmployeeSearchRecord | null) => void
   onDateFromChange: (value: string) => void
@@ -103,6 +111,10 @@ export function FiledLeaveDataTable({
   employmentTypeFilter,
   classificationFilter,
   departments,
+  canLoadLeave,
+  hasPrintHistory,
+  printedApplicationIds,
+  remainingCount,
   selectedEmployee,
   onEmployeeChange,
   onDateFromChange,
@@ -114,6 +126,15 @@ export function FiledLeaveDataTable({
   onClearFilters,
   onRowClick,
 }: FiledLeaveDataTableProps) {
+  const hasDateRange = dateFrom !== "" && dateTo !== ""
+  const showPrintHighlight = hasDateRange && hasPrintHistory
+
+  const isNotPrintedRow = React.useCallback(
+    (row: FiledLeaveReportRow) =>
+      showPrintHighlight && !printedApplicationIds.has(Number(row.id)),
+    [printedApplicationIds, showPrintHighlight],
+  )
+
   const rows = React.useMemo(
     () => mapLeaveApplicationsToFiledLeaveReportRows(response?.data ?? [], leaveTypeNames),
     [leaveTypeNames, response?.data],
@@ -134,6 +155,7 @@ export function FiledLeaveDataTable({
           const teacher = item.record.employee_teacher
           const avatarUrl = getAvatarUrlFromEmpNo(item.employeeNo)
           const displayName = formatEmployeeNameLastFirst(teacher, item.employee)
+          const notPrinted = isNotPrintedRow(item)
 
           return (
             <div className="flex items-center gap-3 py-1">
@@ -144,7 +166,14 @@ export function FiledLeaveDataTable({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{displayName}</p>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-semibold">{displayName}</p>
+                  {notPrinted ? (
+                    <PendingStatusBadge className="text-[10px]">
+                      Not printed
+                    </PendingStatusBadge>
+                  ) : null}
+                </div>
                 <p className="text-muted-foreground text-xs tabular-nums">
                   {item.employeeNo}
                 </p>
@@ -206,7 +235,7 @@ export function FiledLeaveDataTable({
         },
       },
     ],
-    [],
+    [isNotPrintedRow],
   )
 
   const hasActiveFilters =
@@ -223,6 +252,17 @@ export function FiledLeaveDataTable({
       onRowClick(row.original)
     },
     [onRowClick],
+  )
+
+  const getRowClassName = React.useCallback(
+    (row: Row<FiledLeaveReportRow>) => {
+      if (isNotPrintedRow(row.original)) {
+        return NOT_PRINTED_ROW_CLASS
+      }
+
+      return undefined
+    },
+    [isNotPrintedRow],
   )
 
   if (isError) {
@@ -358,20 +398,27 @@ export function FiledLeaveDataTable({
             </Select>
           </label>
         </div>
+
+        {showPrintHighlight && remainingCount > 0 ? (
+          <p className="text-muted-foreground mt-3 text-xs">
+            Amber rows are applications not yet printed for this date range.
+          </p>
+        ) : null}
       </section>
 
       <DataTable<FiledLeaveReportRow>
         tanstack={tanstack}
-        data={selectedEmployee ? tableData : { ...tableData, data: [], total: 0, from: 0, to: 0 }}
+        data={canLoadLeave ? tableData : { ...tableData, data: [], total: 0, from: 0, to: 0 }}
         states={{ isFetching: isLoading }}
         config={{
           search: false,
-          pagination: selectedEmployee !== null,
-          emptyMessage: selectedEmployee
+          pagination: canLoadLeave,
+          emptyMessage: canLoadLeave
             ? "No result found."
             : "Choose an employee to see filed leave.",
           fn: {
             onClick: handleRowClick,
+            getRowClassName,
           },
         }}
         columns={columns}
@@ -382,7 +429,7 @@ export function FiledLeaveDataTable({
         <EmployeeReportSearch value={selectedEmployee} onChange={onEmployeeChange} />
       </DataTable>
 
-      {selectedEmployee && !isLoading ? (
+      {canLoadLeave && !isLoading ? (
         <p className="text-muted-foreground text-sm">
           {tableData.total} leave application{tableData.total === 1 ? "" : "s"}
         </p>

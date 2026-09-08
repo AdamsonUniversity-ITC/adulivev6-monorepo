@@ -34,7 +34,8 @@ Leave-types API must select `hris_id` on the teacher so Emp lookup succeeds.
 
 - `ANYTIME`
 - `BEFORE` / `BEFORE_OR_ON`
-- `AFTER` / `AFTER_OR_ON`
+- `AFTER` / `AFTER_OR_ON` (after the leave end date)
+- `AFTER_START` (after the first leave day; `required_lead_days` is an optional deadline from that start date, `0` means no deadline)
 - `WITHIN_MONTH` (e.g. birthday leave)
 
 ## Apply-Time Credit Checks

@@ -80,6 +80,7 @@ type FiledLeaveAfterCutoffDataTableProps = {
   hasPrintHistory: boolean
   printedApplicationIds: ReadonlySet<number>
   remainingCount: number
+  canLoadLeave: boolean
   selectedEmployee: EmployeeSearchRecord | null
   onEmployeeChange: (employee: EmployeeSearchRecord | null) => void
   onDateFromChange: (value: string) => void
@@ -103,6 +104,7 @@ export function FiledLeaveAfterCutoffDataTable({
   hasPrintHistory,
   printedApplicationIds,
   remainingCount,
+  canLoadLeave,
   selectedEmployee,
   onEmployeeChange,
   onDateFromChange,
@@ -355,12 +357,12 @@ export function FiledLeaveAfterCutoffDataTable({
 
       <DataTable<FiledLeaveReportRow>
         tanstack={tanstack}
-        data={selectedEmployee ? tableData : { ...tableData, data: [], total: 0, from: 0, to: 0 }}
+        data={canLoadLeave ? tableData : { ...tableData, data: [], total: 0, from: 0, to: 0 }}
         states={{ isFetching: isLoading }}
         config={{
           search: false,
-          pagination: selectedEmployee !== null,
-          emptyMessage: selectedEmployee
+          pagination: canLoadLeave,
+          emptyMessage: canLoadLeave
             ? "No result found."
             : "Choose an employee to see filed leave.",
           fn: {
@@ -376,7 +378,7 @@ export function FiledLeaveAfterCutoffDataTable({
         <EmployeeReportSearch value={selectedEmployee} onChange={onEmployeeChange} />
       </DataTable>
 
-      {selectedEmployee && !isLoading ? (
+      {canLoadLeave && !isLoading ? (
         <p className="text-muted-foreground text-sm">
           {tableData.total} leave application{tableData.total === 1 ? "" : "s"}
         </p>
