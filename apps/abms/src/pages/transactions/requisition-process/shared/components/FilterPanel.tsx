@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Check, ChevronDown, RotateCcw, Search, SlidersHoriz
 import { Checkbox } from '@repo/ui/components/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/popover';
 import { FilterPanelConfig, FilterState, Theme, getDefaultStatusSelection, makeDefaultFilterState } from '../types';
+import { displayRequisitionStatus } from '../../../shared/requisitionStatus';
 
 const LEGENDS = { liquidation: '#eab308', reprocessed: '#8b5cf6', price: '#14b8a6' };
 const same = (a: string[], b: string[]) => a.length === b.length && a.every(item => b.includes(item));
@@ -21,7 +22,12 @@ function StatusSelect({ config, value, apply, t }: {
     const defaultValues = getDefaultStatusSelection(config);
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(value);
-    const summary = value.includes(all) ? 'All statuses' : value.length > 1 ? `${value[0]} +${value.length - 1}` : (value[0] ?? defaultValues[0] ?? all);
+    const selectedSummary = value[0] ?? defaultValues[0] ?? all;
+    const summary = value.includes(all)
+        ? 'All statuses'
+        : value.length > 1
+            ? `${displayRequisitionStatus(selectedSummary)} +${value.length - 1}`
+            : displayRequisitionStatus(selectedSummary);
     const changeOpen = (next: boolean) => { setOpen(next); setDraft(value); };
     const toggle = (status: string) => {
         if (status === all) return setDraft([all]);
@@ -43,9 +49,10 @@ function StatusSelect({ config, value, apply, t }: {
             <div className="max-h-72 overflow-y-auto p-2" role="group" aria-label="Available statuses">
                 {options.map(status => {
                     const checked = draft.includes(status);
+                    const statusLabel = status === all ? 'All statuses' : displayRequisitionStatus(status);
                     return <label key={status} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[15px] hover:bg-primary/10">
-                        <Checkbox checked={checked} onCheckedChange={() => toggle(status)} aria-label={status === all ? 'All statuses' : status} />
-                        <span className="min-w-0 flex-1">{status === all ? 'All statuses' : status}</span>
+                        <Checkbox checked={checked} onCheckedChange={() => toggle(status)} aria-label={statusLabel} />
+                        <span className="min-w-0 flex-1">{statusLabel}</span>
                         {checked && <Check className="h-4 w-4" style={{ color: t.accentColor }} aria-hidden="true" />}
                     </label>;
                 })}

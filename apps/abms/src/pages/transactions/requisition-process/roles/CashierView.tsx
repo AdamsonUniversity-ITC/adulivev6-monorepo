@@ -4,6 +4,7 @@ import { financeSvc } from '@repo/axios-config/finance-service';
 import { Theme, FilterState, makeDefaultFilterState, DeptOption } from '../shared/types';
 import { ROLES, ROLE_FILTER_CONFIGS, ROLE_COLUMNS } from '../shared/constants';
 import { RolePage } from '../shared/components/RolePage';
+import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -69,7 +70,7 @@ function StatusBadge({ status }: { status: string | null }) {
             textTransform: 'uppercase', whiteSpace: 'nowrap',
             background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
         }}>
-            {status?.toUpperCase() ?? '—'}
+            {displayRequisitionStatus(status).toUpperCase()}
         </span>
     );
 }

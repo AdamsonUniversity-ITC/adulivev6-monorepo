@@ -11,6 +11,7 @@ import { useRouteContext } from '@tanstack/react-router';
 import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
 import { UnreadChatBadge } from '../../../../features/requisition-chat/UnreadChatBadge';
 import { useRequisitionUnreadCounts } from '../../../../features/requisition-chat/useRequisitionUnreadCounts';
+import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -118,7 +119,7 @@ function StatusBadge({ status, t, isDark }: { status: string | null; t: Theme; i
             textTransform: 'uppercase', whiteSpace: 'nowrap',
             background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
         }}>
-            {status?.toUpperCase() ?? '—'}
+            {displayRequisitionStatus(status).toUpperCase()}
         </span>
     );
 }

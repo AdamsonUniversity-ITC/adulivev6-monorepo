@@ -11,6 +11,7 @@ import { useRouteContext } from '@tanstack/react-router';
 import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
 import { UnreadChatBadge } from '../../../../features/requisition-chat/UnreadChatBadge';
 import { useRequisitionUnreadCounts } from '../../../../features/requisition-chat/useRequisitionUnreadCounts';
+import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod — query schema
@@ -127,7 +128,7 @@ function StatusBadge({ status, t, isDark }: { status: string | null; t: Theme; i
             textTransform: 'uppercase', whiteSpace: 'nowrap',
             background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
         }}>
-            {status?.toUpperCase() ?? '—'}
+            {displayRequisitionStatus(status).toUpperCase()}
         </span>
     );
 }
@@ -426,7 +427,8 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
                 const res = await financeSvc.put(`/abms/requisition-process/${row.id}`, { action });
                 if (action === 'For Liquidation') {
                     const updated = !!res.data?.data?.for_liquidation;
-                    setSelectedRow(prev => prev ? { ...prev, for_liquidation: updated } : prev);
+                    const isCashAdvance = !!res.data?.data?.is_cash_advance;
+                    setSelectedRow(prev => prev ? { ...prev, for_liquidation: updated, is_cash_advance: isCashAdvance } : prev);
                     addToast('success', updated
                         ? `RS ${row.requisition_no} marked for liquidation.`
                         : `RS ${row.requisition_no} unmarked for liquidation.`);

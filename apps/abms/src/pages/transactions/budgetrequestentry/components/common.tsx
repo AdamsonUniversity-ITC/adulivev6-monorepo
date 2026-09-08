@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, ChevronDown, Eye, Info, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import type { BtnToken, DeptOption, ThemeTokens, ToastItem, Status, ToastKind } from '../types';
 import { organizationalUnitKey } from '../../../../lib/organizationalUnit';
+import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
 const TOAST_CFG: Record<ToastKind, {
     dark: { bg: string; border: string; text: string };
@@ -406,7 +407,7 @@ export function StatusBadge({ status, t }: { status: Status; t: ThemeTokens }) {
             className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide whitespace-nowrap"
             style={{ background: token.bg, border: `1px solid ${token.border}`, color: token.text }}
         >
-            {status}
+            {displayRequisitionStatus(status)}
         </span>
     );
 }

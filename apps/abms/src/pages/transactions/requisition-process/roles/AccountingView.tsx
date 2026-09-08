@@ -10,6 +10,7 @@ import { RSProcessModal, RSProcessRow } from '../shared/components/RSProcessModa
 import { InfiniteScrollSentinel } from '../../../../components/InfiniteScrollSentinel';
 import { UnreadChatBadge } from '../../../../features/requisition-chat/UnreadChatBadge';
 import { useRequisitionUnreadCounts } from '../../../../features/requisition-chat/useRequisitionUnreadCounts';
+import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
 const AccountingQuerySchema = z.object({
     role: z.literal('accounting-access'),
@@ -94,7 +95,7 @@ function StatusBadge({ status, t }: { status: string | null; t: Theme }) {
             textTransform: 'uppercase', whiteSpace: 'nowrap',
             background: `${color}1f`, color, border: `1px solid ${color}66`,
         }}>
-            {status?.toUpperCase() ?? '—'}
+            {displayRequisitionStatus(status).toUpperCase()}
         </span>
     );
 }
