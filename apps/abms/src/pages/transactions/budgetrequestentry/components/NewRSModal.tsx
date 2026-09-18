@@ -18,8 +18,10 @@ export const PAYMENT_FORMS = [
     'Payment for Employee Benefits(Maternal Leave, Magna Carta, etc.)',
     'Request for Cash Advance',
     'PNB Credit Card Payment',
-
 ];
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const ADMIN_PAYROLL_FORMS = ['Gross Income Employees', 'Employer Share', 'Allowance of SA'] as const;
 
 const PAYMENT_FORM_ICONS = [Droplets, Repeat2, UserRound, HeartHandshake, WalletCards, CreditCard];
 
@@ -49,12 +51,12 @@ export const RS_TYPES: RSTypeOption[] = [
 ];
 
 export function NewRSModal({
-    open, onClose, onConfirm, isLoading = false, t, isDark,
+    open, onClose, onConfirm, isLoading = false, t, isDark, isAdmin = false,
 }: {
     open: boolean; onClose: () => void;
     onConfirm: (type: RSType, paymentForm: string, payeeDetails: PayeeDetails | null) => void;
     isLoading?: boolean;
-    t: ThemeTokens; isDark: boolean;
+    t: ThemeTokens; isDark: boolean; isAdmin?: boolean;
 }) {
     const [selected, setSelected] = useState<RSType>('stockroom');
     const [paymentForm, setPaymentForm] = useState('');
@@ -329,12 +331,12 @@ export function NewRSModal({
                                 <div
                                     role="listbox"
                                     aria-label="Payment form"
-                                    className="absolute inset-x-0 top-full z-30 overflow-hidden rounded-b-xl border shadow-xl"
+                                    className="absolute inset-x-0 top-full z-30 max-h-[50dvh] overflow-y-auto rounded-b-xl border shadow-xl"
                                     style={{ background: t.cardBg, borderColor: t.inputBorder }}
                                 >
-                                    {['', ...PAYMENT_FORMS].map((form, index) => {
+                                    {['', ...PAYMENT_FORMS, ...(isAdmin ? ADMIN_PAYROLL_FORMS : [])].map((form, index) => {
                                         const active = paymentForm === form;
-                                        const OptionIcon = index > 0 ? PAYMENT_FORM_ICONS[index - 1] : Banknote;
+                                        const OptionIcon = index > 0 ? (PAYMENT_FORM_ICONS[index - 1] ?? Banknote) : Banknote;
                                         return (
                                             <button
                                                 key={form || 'empty'}
