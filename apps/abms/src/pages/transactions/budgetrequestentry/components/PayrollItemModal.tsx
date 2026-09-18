@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import type { ThemeTokens } from '../types';
-import { SelectAccountModal, type AccountOption } from './SelectAccountModal';
+import { previousPayrollPeriod } from '../payrollPeriod';
 
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+type PayrollAccount = { account_id: number; account_code: string; account_name: string; main_account_code: string; account_parent_id: number; balance: string };
 
 export function PayrollItemModal({ open, paymentForm, departmentId, sectionId, schoolYear, t, isDark, onClose, onCreate }: {
     open: boolean;
@@ -16,21 +17,20 @@ export function PayrollItemModal({ open, paymentForm, departmentId, sectionId, s
     t: ThemeTokens;
     isDark: boolean;
     onClose: () => void;
-    onCreate: (month: number, year: number, amount: string, account: AccountOption) => Promise<void>;
+    onCreate: (month: number, year: number, amount: string) => Promise<void>;
 }) {
-    const [month, setMonth] = useState(() => new Date().getMonth() + 1);
-    const [year, setYear] = useState(() => new Date().getFullYear());
+    const [month, setMonth] = useState(() => previousPayrollPeriod().month);
+    const [year, setYear] = useState(() => previousPayrollPeriod().year);
     const [amount, setAmount] = useState<string | null>(null);
-    const [account, setAccount] = useState<AccountOption | null>(null);
-    const [pickerOpen, setPickerOpen] = useState(false);
+    const [account, setAccount] = useState<PayrollAccount | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (!open) return;
-        const now = new Date();
-        setMonth(now.getMonth() + 1);
-        setYear(now.getFullYear());
+        const period = previousPayrollPeriod();
+        setMonth(period.month);
+        setYear(period.year);
         setAmount(null);
         setAccount(null);
         setError('');
@@ -45,10 +45,11 @@ export function PayrollItemModal({ open, paymentForm, departmentId, sectionId, s
         setAccount(null);
         try {
             const response = await financeSvc.get('/abms/budget-request-entry/payroll-preview', { params: {
-                payment_form: paymentForm, month, year,
+                payment_form: paymentForm, month, year, school_year: schoolYear,
                 ...(departmentId ? { department_id: departmentId } : { section_id: sectionId }),
             } });
             setAmount(String(response.data.amount));
+            setAccount(response.data.account);
         } catch (e) {
             setError((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Unable to load payroll amount. Please retry.');
         } finally {
@@ -61,7 +62,7 @@ export function PayrollItemModal({ open, paymentForm, departmentId, sectionId, s
         setBusy(true);
         setError('');
         try {
-            await onCreate(month, year, amount, account);
+            await onCreate(month, year, amount);
         } catch (e) {
             setError((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Unable to create the payroll item. Please retry.');
         } finally {
@@ -84,13 +85,11 @@ export function PayrollItemModal({ open, paymentForm, departmentId, sectionId, s
                         <label className="text-sm font-bold" style={{ color: t.cellText }}>Year<input type="number" min={1900} max={2100} value={year} onChange={e => { setYear(Number(e.target.value)); setAmount(null); setAccount(null); }} className="mt-2 w-full rounded-xl p-3" style={control} /></label>
                     </div>
                     <button type="button" onClick={() => void preview()} disabled={busy || year < 1900 || year > 2100} className="rounded-xl px-5 py-3 text-sm font-bold text-white" style={{ background: t.cellBlue }}>Get payroll amount</button>
-                    {amount && <div className="rounded-xl border p-5" style={{ borderColor: t.cardBorder, background: t.cardHeaderBg }}><p className="text-sm" style={{ color: t.cellMuted }}>{paymentForm} for {months[month - 1]} {year}</p><p className="mt-1 text-2xl font-extrabold" style={{ color: t.cellText }}>₱ {Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p><p className="mt-2 text-sm" style={{ color: t.cellMuted }}>Proceeding will deduct this amount from the account you select.</p></div>}
-                    {amount && <div><button type="button" onClick={() => setPickerOpen(true)} disabled={busy} className="rounded-xl border px-5 py-3 text-sm font-bold" style={{ borderColor: t.inputBorder, color: t.cellBlue }}>{account ? `${account.account_code} — ${account.account_name}` : 'Select account'}</button></div>}
+                    {amount && account && <div className="rounded-xl border p-5" style={{ borderColor: t.cardBorder, background: t.cardHeaderBg }}><p className="text-sm" style={{ color: t.cellMuted }}>{paymentForm} for {months[month - 1]} {year}</p><p className="mt-1 text-2xl font-extrabold" style={{ color: t.cellText }}>₱ {Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p><p className="mt-2 text-sm" style={{ color: t.cellMuted }}>Configured account: {account.main_account_code} / {account.account_code} — {account.account_name}</p><p className="mt-1 text-sm" style={{ color: t.cellMuted }}>Proceeding will deduct this amount from this account.</p></div>}
                     {error && <p role="alert" className="text-sm" style={{ color: t.cellRed }}>{error}</p>}
                 </div>
                 <div className="flex justify-end gap-3 px-6 py-4" style={{ borderTop: `1px solid ${t.cardBorder}` }}><button type="button" onClick={onClose} disabled={busy} className="rounded-xl border px-5 py-2.5 text-sm" style={{ borderColor: t.cardBorder, color: t.cellText }}>Cancel</button><button type="button" onClick={() => void create()} disabled={busy || !amount || !account} className="rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: t.cellBlue }}>{busy ? 'Working…' : 'Proceed and add item'}</button></div>
             </div>
         </div>, document.body)}
-        <SelectAccountModal open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={selected => { setAccount(selected); setPickerOpen(false); }} t={t} isDark={isDark} departmentId={departmentId} sectionId={sectionId} currentSchoolYear={schoolYear} />
     </>;
 }

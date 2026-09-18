@@ -163,6 +163,11 @@ const COMMON_PAYMENT_FORM_CONFIG = {
     options: PAYMENT_FORM_OPTIONS,
 };
 
+const ADMIN_PAYMENT_FORM_CONFIG = {
+    ...COMMON_PAYMENT_FORM_CONFIG,
+    options: [...PAYMENT_FORM_OPTIONS, "Employee's Payroll", 'Employer Share', 'Allowance of SA'],
+};
+
 export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
     'budget-access': {
         status: { options: BUDGET_STATUS_OPTIONS, defaultLabel: 'For Review' },
@@ -179,7 +184,7 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
-        paymentForm: COMMON_PAYMENT_FORM_CONFIG,
+        paymentForm: ADMIN_PAYMENT_FORM_CONFIG,
         dateRange: COMMON_DATE_RANGE_CONFIG,
         sortColumns: COMMON_SORT_COLUMNS,
         actions: COMMON_ACTIONS,

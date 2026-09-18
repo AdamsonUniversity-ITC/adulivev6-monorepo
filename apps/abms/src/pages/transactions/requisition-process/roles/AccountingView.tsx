@@ -237,6 +237,7 @@ export function AccountingView({ t, isDark, canSwitch, onSwitchRole, departments
                 role={ROLE} t={t} isDark={isDark} canSwitch={canSwitch}
                 onSwitchRole={onSwitchRole} filterState={filterState}
                 onFilterChange={handleFilterChange} filterConfigOverride={wiredFilterCfg}
+                recordCount={rows.length} hasMoreRecords={hasMore}
             >
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                     <thead>

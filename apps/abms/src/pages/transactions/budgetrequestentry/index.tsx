@@ -4,13 +4,13 @@ import { RefreshCw, FilePlus, ClipboardList, Search, Copy, CircleAlert } from 'l
 import { budgetrequestentryRoute } from '../../../router';
 import { useRouteContext } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config/finance-service';
+import { createPayrollIdempotencyKey } from './payrollPeriod';
 import { T } from './theme';
 import type { DeptOption, RSFormItem, RSRecord, RSType, ThemeTokens, ToastItem, ToastKind } from './types';
 import { LIQUIDATION_COLOR, fmt, formatRequisitionNumber, liquidationRowBg, liquidationRowHoverBg, normalizeEntryStatus } from './utils';
 import { Btn, Checkbox, DeptDropdown, StatusBadge, Toasts } from './components/common';
 import { ADMIN_PAYROLL_FORMS, NewRSModal } from './components/NewRSModal';
 import { PayrollItemModal } from './components/PayrollItemModal';
-import type { AccountOption } from './components/SelectAccountModal';
 import { RSFormModal } from './components/RSFormModal';
 import { RSViewModal } from './components/RSViewModal';
 import { organizationalUnitKey } from '../../../lib/organizationalUnit';
@@ -328,7 +328,7 @@ function BudgetRequestEntryInner({
                 t={t}
                 isDark={isDark}
                 onClose={() => setPayrollForm(null)}
-                onCreate={async (month: number, year: number, amount: string, account: AccountOption) => {
+                onCreate={async (month: number, year: number, amount: string) => {
                     const selectedOpt = deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept);
                     if (!selectedOpt || !payrollForm) throw new Error('Select a department or section first.');
                     const header = await financeSvc.post('/abms/budget-request-entry', {
@@ -338,18 +338,19 @@ function BudgetRequestEntryInner({
                         requested_by: user?.username ?? null,
                         school_year: activeSchoolYear,
                         payment_form: payrollForm,
-                    });
+                    }, { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } });
                     const id = Number(header.data.id);
                     let saved;
+                    let account;
                     try {
                         const response = await financeSvc.post('/abms/budget-request-entry/payroll-items', {
                             budget_request_entry_id: id,
-                            account_id: account.account_id,
                             month, year, expected_amount: amount,
-                        });
+                        }, { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } });
                         saved = response.data.item;
+                        account = response.data.account;
                     } catch (error) {
-                        try { await financeSvc.delete(`/abms/budget-request-entry/${id}`); } catch { addToast('error', 'The unsaved RS could not be discarded. Please contact Budget Office.'); }
+                        try { await financeSvc.delete(`/abms/budget-request-entry/${id}`, { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } }); } catch { addToast('error', 'The unsaved RS could not be discarded. Please contact Budget Office.'); }
                         throw error;
                     }
                     setInitialPayrollItem({
@@ -359,7 +360,7 @@ function BudgetRequestEntryInner({
                         mainAccountCode: account.main_account_code,
                         accountName: account.account_name,
                         accountParentId: account.account_parent_id,
-                        availableBalance: Math.max(Number(account.balance) - Number(saved.total_cost), 0),
+                        availableBalance: Number(account.balance),
                         itemDescription: saved.description,
                         unitCost: String(saved.unit_cost),
                         quantity: String(saved.quantity),
@@ -368,7 +369,7 @@ function BudgetRequestEntryInner({
                     });
                     setRSFormType('cashier');
                     setRsHeaderId(id);
-                    setRsHeaderData({ id, requisition_number: String(header.data.requisition_number), department: selectedOpt.name, school_year: header.data.school_year, created_at: header.data.created_at, payee: null, payment_form: payrollForm, payeeFromModal: false });
+                    setRsHeaderData({ id, requisition_number: String(header.data.requisition_number), department: selectedOpt.name, school_year: header.data.school_year, created_at: header.data.created_at, payee: header.data.payee, payment_form: payrollForm, payeeFromModal: true });
                     setPayrollForm(null);
                     setShowRSForm(true);
                 }}
@@ -398,7 +399,7 @@ function BudgetRequestEntryInner({
                 onDiscard={async () => {
                     if (rsHeaderId !== null) {
                         try {
-                            await financeSvc.delete(`/abms/budget-request-entry/${rsHeaderId}`);
+                            await financeSvc.delete(`/abms/budget-request-entry/${rsHeaderId}`, (ADMIN_PAYROLL_FORMS as readonly string[]).includes(rsHeaderData?.payment_form ?? '') ? { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } } : undefined);
                         } catch {
                             addToast('error', 'Failed to discard the Requisition Slip. Please try again.');
                             throw new Error('Failed to discard the Requisition Slip.');

@@ -29,7 +29,7 @@ const mutationPath = (url: string): string => {
     }
 };
 
-const createUuid = (): string => {
+export const createFinancialIdempotencyKey = (): string => {
     const browserCrypto = globalThis.crypto;
     if (typeof browserCrypto?.randomUUID === 'function') {
         return browserCrypto.randomUUID();
@@ -77,7 +77,8 @@ financeSvc.interceptors.request.use((config: IdempotentConfig) => {
     const storageKey = `${storagePrefix}${fingerprint}`;
     const stored = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(storageKey);
     const existing = stored && uuidPattern.test(stored) ? stored : null;
-    const idempotencyKey = existing ?? createUuid();
+    const supplied = String(config.headers.get('Idempotency-Key') ?? '');
+    const idempotencyKey = existing ?? (uuidPattern.test(supplied) ? supplied : createFinancialIdempotencyKey());
     if (!existing && typeof sessionStorage !== 'undefined') sessionStorage.setItem(storageKey, idempotencyKey);
     config.headers.set('Idempotency-Key', idempotencyKey);
     config.__financialFingerprint = fingerprint;
