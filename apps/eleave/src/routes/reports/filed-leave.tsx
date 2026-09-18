@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card"
+import { toast } from "@repo/ui/exports"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FolderOpen, Printer } from "lucide-react"
@@ -24,6 +25,7 @@ import {
   recordFiledLeavePrint,
   type FiledLeavePrintBatch,
 } from "@/lib/filed-leave-report-api"
+import { getValidationErrorMessage } from "@/lib/leave-applications-api"
 import {
   mapLeaveApplicationsToFiledLeaveReportRows,
   sortFiledLeaveReportRowsByEmployeeName,
@@ -34,11 +36,18 @@ import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-shee
 
 import type { EmployeeSearchRecord } from "@/lib/employees-api"
 
+import { ConfirmReportPrintedDialog } from "./-confirm-report-printed-dialog"
 import { FiledLeaveDataTable } from "./-filed-leave-datatable"
 import { formatReportEmployeeLabel } from "./-employee-report-search"
 import { FiledLeavePrint } from "./-filed-leave-print"
 
 type PrintMode = "initial" | "remaining" | "all" | "batch" | "untracked"
+
+type PendingPrintLog = {
+  date_from: string
+  date_to: string
+  leave_application_ids: number[]
+}
 
 function formatBatchPrintedAtLabel(printedAt: string): string {
   const parsed = new Date(printedAt)
@@ -78,6 +87,10 @@ function FiledLeavePage() {
     undefined,
   )
   const [isPrinting, setIsPrinting] = React.useState(false)
+  const [isConfirmPrintedOpen, setIsConfirmPrintedOpen] = React.useState(false)
+  const [isRecordingPrint, setIsRecordingPrint] = React.useState(false)
+  const [pendingPrintLog, setPendingPrintLog] =
+    React.useState<PendingPrintLog | null>(null)
   const [selectedEmployee, setSelectedEmployee] =
     React.useState<EmployeeSearchRecord | null>(null)
 
@@ -297,15 +310,12 @@ function FiledLeavePage() {
         window.print()
 
         if (shouldRecordPrint) {
-          await recordFiledLeavePrint({
+          setPendingPrintLog({
             date_from: dateFrom,
             date_to: dateTo,
             leave_application_ids: rows.map((row) => Number(row.id)),
           })
-
-          await queryClient.invalidateQueries({
-            queryKey: ["filed-leave-print-status"],
-          })
+          setIsConfirmPrintedOpen(true)
         }
       } finally {
         setIsPrinting(false)
@@ -318,9 +328,44 @@ function FiledLeavePage() {
       hasDateRange,
       leaveTypeNames,
       listParams,
-      queryClient,
     ],
   )
+
+  const handleConfirmPrintedOpenChange = React.useCallback(
+    (open: boolean) => {
+      setIsConfirmPrintedOpen(open)
+
+      if (!open) {
+        setPendingPrintLog(null)
+      }
+    },
+    [],
+  )
+
+  const handleConfirmPrinted = React.useCallback(async () => {
+    if (!pendingPrintLog || isRecordingPrint) {
+      return
+    }
+
+    setIsRecordingPrint(true)
+
+    try {
+      await recordFiledLeavePrint(pendingPrintLog)
+      await queryClient.invalidateQueries({
+        queryKey: ["filed-leave-print-status"],
+      })
+      toast.success("Print recorded.")
+      setPendingPrintLog(null)
+      setIsConfirmPrintedOpen(false)
+    } catch (error) {
+      toast.error(
+        getValidationErrorMessage(error) ??
+          "Unable to record this print. Please try again.",
+      )
+    } finally {
+      setIsRecordingPrint(false)
+    }
+  }, [isRecordingPrint, pendingPrintLog, queryClient])
 
   const printBatches = printStatus?.batches ?? []
 
@@ -488,6 +533,15 @@ function FiledLeavePage() {
         leaveTypeNames={leaveTypeNames}
         leaveTypes={leaveTypes}
         readOnly
+      />
+
+      <ConfirmReportPrintedDialog
+        open={isConfirmPrintedOpen}
+        onOpenChange={handleConfirmPrintedOpenChange}
+        isPending={isRecordingPrint}
+        onConfirm={() => {
+          void handleConfirmPrinted()
+        }}
       />
 
       {printedAt ? (

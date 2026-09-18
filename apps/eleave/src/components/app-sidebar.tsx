@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   CreditCard,
   FolderOpen,
+  ListOrdered,
   Settings2,
   UserCheck,
   Wallet,
@@ -61,6 +62,7 @@ const mainNavItems = [
 const adminNavItems = [
   { title: "Beginning Balances", url: "/beginning-balances", icon: Wallet },
   { title: "Employee Leave Credits", url: "/employee-leave-credits", icon: CreditCard },
+  { title: "Leave Types", url: "/settings/leave-types", icon: ListOrdered },
   { title: "FL Cutoff Settings", url: "/settings/fl-cutoff", icon: Settings2 },
 ] as const;
 
@@ -84,7 +86,8 @@ function isNavItemActive(pathname: string, url: string) {
     url === "/hr-approval" ||
     url === "/beginning-balances" ||
     url === "/employee-leave-credits" ||
-    url === "/settings/fl-cutoff"
+    url === "/settings/fl-cutoff" ||
+    url === "/settings/leave-types"
   ) {
     return pathname === url || pathname.startsWith(`${url}/`);
   }

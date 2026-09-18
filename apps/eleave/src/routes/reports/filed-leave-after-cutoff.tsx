@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card"
+import { toast } from "@repo/ui/exports"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FolderOpen, Printer } from "lucide-react"
@@ -23,6 +24,7 @@ import {
   recordAfterCutoffPrint,
   type AfterCutoffPrintBatch,
 } from "@/lib/filed-leave-after-cutoff-report-api"
+import { getValidationErrorMessage } from "@/lib/leave-applications-api"
 import {
   mapLeaveApplicationsToFiledLeaveReportRows,
   sortFiledLeaveReportRowsByEmployeeName,
@@ -33,11 +35,18 @@ import { ViewHrApprovalSheet } from "@/routes/hr-approval/-view-hr-approval-shee
 
 import type { EmployeeSearchRecord } from "@/lib/employees-api"
 
+import { ConfirmReportPrintedDialog } from "./-confirm-report-printed-dialog"
 import { FiledLeaveAfterCutoffDataTable } from "./-filed-leave-after-cutoff-datatable"
 import { formatReportEmployeeLabel } from "./-employee-report-search"
 import { FiledLeaveAfterCutoffPrint } from "./-filed-leave-after-cutoff-print"
 
 type PrintMode = "initial" | "remaining" | "all" | "batch"
+
+type PendingPrintLog = {
+  date_from: string
+  date_to: string
+  leave_application_ids: number[]
+}
 
 function formatBatchPrintedAtLabel(printedAt: string): string {
   const parsed = new Date(printedAt)
@@ -75,6 +84,10 @@ function FiledLeaveAfterCutoffPage() {
     undefined,
   )
   const [isPrinting, setIsPrinting] = React.useState(false)
+  const [isConfirmPrintedOpen, setIsConfirmPrintedOpen] = React.useState(false)
+  const [isRecordingPrint, setIsRecordingPrint] = React.useState(false)
+  const [pendingPrintLog, setPendingPrintLog] =
+    React.useState<PendingPrintLog | null>(null)
   const [selectedEmployee, setSelectedEmployee] =
     React.useState<EmployeeSearchRecord | null>(null)
 
@@ -239,22 +252,63 @@ function FiledLeaveAfterCutoffPage() {
         window.print()
 
         if (shouldRecordPrint) {
-          await recordAfterCutoffPrint({
+          setPendingPrintLog({
             date_from: dateFrom,
             date_to: dateTo,
             leave_application_ids: rows.map((row) => Number(row.id)),
           })
-
-          await queryClient.invalidateQueries({
-            queryKey: ["filed-leave-after-cutoff-print-status"],
-          })
+          setIsConfirmPrintedOpen(true)
         }
       } finally {
         setIsPrinting(false)
       }
     },
-    [dateFrom, dateTo, hasDateRange, leaveTypeNames, queryClient, classificationFilter, employmentTypeFilter, selectedEmployeeNo],
+    [
+      dateFrom,
+      dateTo,
+      hasDateRange,
+      leaveTypeNames,
+      classificationFilter,
+      employmentTypeFilter,
+      selectedEmployeeNo,
+    ],
   )
+
+  const handleConfirmPrintedOpenChange = React.useCallback(
+    (open: boolean) => {
+      setIsConfirmPrintedOpen(open)
+
+      if (!open) {
+        setPendingPrintLog(null)
+      }
+    },
+    [],
+  )
+
+  const handleConfirmPrinted = React.useCallback(async () => {
+    if (!pendingPrintLog || isRecordingPrint) {
+      return
+    }
+
+    setIsRecordingPrint(true)
+
+    try {
+      await recordAfterCutoffPrint(pendingPrintLog)
+      await queryClient.invalidateQueries({
+        queryKey: ["filed-leave-after-cutoff-print-status"],
+      })
+      toast.success("Print recorded.")
+      setPendingPrintLog(null)
+      setIsConfirmPrintedOpen(false)
+    } catch (error) {
+      toast.error(
+        getValidationErrorMessage(error) ??
+          "Unable to record this print. Please try again.",
+      )
+    } finally {
+      setIsRecordingPrint(false)
+    }
+  }, [isRecordingPrint, pendingPrintLog, queryClient])
 
   const printBatches = printStatus?.batches ?? []
 
@@ -422,6 +476,15 @@ function FiledLeaveAfterCutoffPage() {
         leaveTypeNames={leaveTypeNames}
         leaveTypes={leaveTypes}
         readOnly
+      />
+
+      <ConfirmReportPrintedDialog
+        open={isConfirmPrintedOpen}
+        onOpenChange={handleConfirmPrintedOpenChange}
+        isPending={isRecordingPrint}
+        onConfirm={() => {
+          void handleConfirmPrinted()
+        }}
       />
 
       {printedAt ? (

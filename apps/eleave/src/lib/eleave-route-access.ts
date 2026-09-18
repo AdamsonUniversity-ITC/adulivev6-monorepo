@@ -13,6 +13,7 @@ export const ELEAVE_ROUTE_ACCESS = {
   "/beginning-balances": "admin",
   "/employee-leave-credits": "admin",
   "/settings/fl-cutoff": "admin",
+  "/settings/leave-types": "admin",
   "/reports/filed-leave": "admin",
   "/reports/filed-leave-after-cutoff": "admin",
   "/hr-approval": "hrApproval",

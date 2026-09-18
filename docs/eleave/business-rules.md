@@ -40,21 +40,19 @@ Leave-types API must select `hris_id` on the teacher so Emp lookup succeeds.
 
 ## Apply-Time Credit Checks
 
-### Paternity (`pl`)
+Configured per leave type via Settings → Leave Types (`requires_apply_credit_check` + optional `apply_credit_error_message`). Seeded defaults enable the gate for `pl` and `bl` with their historical messages.
 
 `LeaveApplyCreditValidationService`:
 
-- Requested days = sum of day-portion weights (or date range × portion).
-- Available = balance `credits - pending_filed_leave` for `pl`.
-- Insufficient → validation error on `leave_type_id`.
+- When `requires_apply_credit_check` is true on the leave type row:
+  - Requested days = sum of day-portion weights (or date range × portion).
+  - Available = balance `credits - pending_filed_leave` for that leave code.
+  - Insufficient → validation error on `leave_type_id` (configured message, or a generic fallback).
+- When the flag is false (e.g. maternity `ml` by default), apply skips this check.
+- Soft-deleted leave types (`deleted_at`) are excluded from employee picklists; `is_active=false` also hides from filing without soft-deleting.
+- Visibility rules (SIL-only, FL eligibility, PL/ML gender) remain code-driven in `LeaveTypeVisibilityService`.
 
-### Maternity (`ml`)
-
-No apply-time credit insufficiency check (ML remains free of credit validation on apply).
-
-### Other leave types
-
-No general apply-time credit gate. Sufficiency for Approved With Pay is enforced at **HR approval** via `LeaveCreditDeductionService::validateHrApprovalItems`.
+Sufficiency for Approved With Pay is still enforced at **HR approval** via `LeaveCreditDeductionService::validateHrApprovalItems`.
 
 ## Duplicate Dates (portion slots)
 
@@ -80,13 +78,17 @@ Slots: `am`, `pm`, `evening`.
 
 Error field: `date_from` (message names date and overlapping slots).
 
-## Dependent Care (Emergency Leave)
+## Dependent Care (yearly use limit)
+
+Configured per leave type via Settings → Leave Types (`enforces_dependent_care_limit` + `dependent_care_yearly_limit`). Seeded default for Emergency Leave (`el`): enabled with limit **2**.
 
 `LeaveDependentCareLimitService`:
 
-- Applies when leave type is Emergency Leave (`el`) and reason contains “dependent”.
-- Maximum **2** uses per year (new applications + legacy HR leave details).
-- Error on `reason` when exceeded.
+- When the leave type flag is on and reason contains “dependent”:
+  - Count uses this calendar year for that leave type (new apps; plus legacy HR `leave_details` only when `leave_code` is `el`).
+  - Block apply on `reason` when `used >= dependent_care_yearly_limit`.
+- This is a **use counter**, not a leave credit balance. Admin sets the yearly max once; usage resets each calendar year.
+- Reason phrase (`dependent`) remains code-driven.
 
 ## Evening Portions
 

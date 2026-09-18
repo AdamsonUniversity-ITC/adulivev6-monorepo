@@ -43,10 +43,13 @@ describe("paternity-leave-credits", () => {
     ).toBe(0.5)
   })
 
-  it("returns null when leave type does not use credit validation", () => {
+  it("returns null when leave type does not require credit validation", () => {
     expect(
       getLeaveCreditValidationMessage({
-        leaveCode: "ml",
+        leaveType: {
+          leave_code: "ml",
+          requires_apply_credit_check: false,
+        },
         leaveDays: [{ day_portion: "wholeday" }],
         balances: [{ leave_code: "ml", credits: 0, pending_filed_leave: 0 }],
       }),
@@ -63,8 +66,13 @@ describe("paternity-leave-credits", () => {
 
   it("passes when paternity credits are sufficient", () => {
     expect(
-      getPaternityCreditValidationMessage({
-        leaveCode: "pl",
+      getLeaveCreditValidationMessage({
+        leaveType: {
+          leave_code: "pl",
+          requires_apply_credit_check: true,
+          apply_credit_error_message:
+            "Insufficient Paternity Leave credits for the selected dates.",
+        },
         leaveDays: [{ day_portion: "wholeday" }, { day_portion: "am" }],
         balances: [{ leave_code: "pl", credits: 3, pending_filed_leave: 1 }],
       }),
@@ -73,8 +81,13 @@ describe("paternity-leave-credits", () => {
 
   it("fails when paternity credits minus pending are insufficient", () => {
     expect(
-      getPaternityCreditValidationMessage({
-        leaveCode: "pl",
+      getLeaveCreditValidationMessage({
+        leaveType: {
+          leave_code: "pl",
+          requires_apply_credit_check: true,
+          apply_credit_error_message:
+            "Insufficient Paternity Leave credits for the selected dates.",
+        },
         leaveDays: [{ day_portion: "wholeday" }],
         balances: [{ leave_code: "pl", credits: 2, pending_filed_leave: 1.5 }],
       }),
@@ -84,7 +97,10 @@ describe("paternity-leave-credits", () => {
   it("passes when birthday credits exactly match weighted days", () => {
     expect(
       getLeaveCreditValidationMessage({
-        leaveCode: "bl",
+        leaveType: {
+          leave_code: "bl",
+          requires_apply_credit_check: true,
+        },
         leaveDays: [{ day_portion: "am" }],
         balances: [{ leave_code: "bl", credits: 1, pending_filed_leave: 0.5 }],
       }),
@@ -94,7 +110,12 @@ describe("paternity-leave-credits", () => {
   it("fails when birthday credits are insufficient", () => {
     expect(
       getLeaveCreditValidationMessage({
-        leaveCode: "bl",
+        leaveType: {
+          leave_code: "bl",
+          requires_apply_credit_check: true,
+          apply_credit_error_message:
+            "Insufficient Birthday Leave credits for the selected dates.",
+        },
         leaveDays: [{ day_portion: "wholeday" }],
         balances: [{ leave_code: "bl", credits: 1, pending_filed_leave: 0.5 }],
       }),
@@ -104,10 +125,40 @@ describe("paternity-leave-credits", () => {
   it("fails when birthday balance row is missing", () => {
     expect(
       getLeaveCreditValidationMessage({
-        leaveCode: "bl",
+        leaveType: {
+          leave_code: "bl",
+          requires_apply_credit_check: true,
+          apply_credit_error_message:
+            "Insufficient Birthday Leave credits for the selected dates.",
+        },
         leaveDays: [{ day_portion: "wholeday" }],
         balances: [],
       }),
     ).toBe("Insufficient Birthday Leave credits for the selected dates.")
+  })
+
+  it("enforces SIL when requires_apply_credit_check is enabled", () => {
+    expect(
+      getLeaveCreditValidationMessage({
+        leaveType: {
+          leave_code: "sil",
+          requires_apply_credit_check: true,
+          apply_credit_error_message:
+            "Insufficient SIL credits for the selected dates.",
+        },
+        leaveDays: [{ day_portion: "wholeday" }],
+        balances: [{ leave_code: "sil", credits: 0, pending_filed_leave: 0 }],
+      }),
+    ).toBe("Insufficient SIL credits for the selected dates.")
+  })
+
+  it("falls back to pl/bl codes when leaveType flag is omitted", () => {
+    expect(
+      getLeaveCreditValidationMessage({
+        leaveCode: "pl",
+        leaveDays: [{ day_portion: "wholeday" }],
+        balances: [{ leave_code: "pl", credits: 0, pending_filed_leave: 0 }],
+      }),
+    ).toBe("Insufficient Paternity Leave credits for the selected dates.")
   })
 })
