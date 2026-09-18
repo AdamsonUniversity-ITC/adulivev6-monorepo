@@ -5,10 +5,12 @@ import { budgetrequestentryRoute } from '../../../router';
 import { useRouteContext } from '@tanstack/react-router';
 import { financeSvc } from '@repo/axios-config/finance-service';
 import { T } from './theme';
-import type { DeptOption, RSRecord, RSType, ThemeTokens, ToastItem, ToastKind } from './types';
+import type { DeptOption, RSFormItem, RSRecord, RSType, ThemeTokens, ToastItem, ToastKind } from './types';
 import { LIQUIDATION_COLOR, fmt, formatRequisitionNumber, liquidationRowBg, liquidationRowHoverBg, normalizeEntryStatus } from './utils';
 import { Btn, Checkbox, DeptDropdown, StatusBadge, Toasts } from './components/common';
-import { NewRSModal } from './components/NewRSModal';
+import { ADMIN_PAYROLL_FORMS, NewRSModal } from './components/NewRSModal';
+import { PayrollItemModal } from './components/PayrollItemModal';
+import type { AccountOption } from './components/SelectAccountModal';
 import { RSFormModal } from './components/RSFormModal';
 import { RSViewModal } from './components/RSViewModal';
 import { organizationalUnitKey } from '../../../lib/organizationalUnit';
@@ -67,6 +69,9 @@ function BudgetRequestEntryInner({
     const [rsFormType, setRSFormType] = useState<RSType>(null);
     const [rsHeaderId, setRsHeaderId] = useState<number | null>(null);
     const [isCreatingRS, setIsCreatingRS] = useState(false);
+    const [payrollForm, setPayrollForm] = useState<string | null>(null);
+    const [initialPayrollItem, setInitialPayrollItem] = useState<RSFormItem | null>(null);
+    const isAdmin = (user?.permissions ?? []).includes('admin-access') || (user?.abmsPermissions?.general_permissions ?? []).some((permission: { auth_permission?: { name?: string } }) => permission.auth_permission?.name === 'admin-access');
     const currentUserId = user?.username ?? '';
     const { counts: unreadCounts, clearUnread, refreshOne: refreshUnreadCount } =
         useRequisitionUnreadCounts(records.map(record => record.id), currentUserId);
@@ -254,9 +259,15 @@ function BudgetRequestEntryInner({
             {/* New RS Modal */}
             <NewRSModal
                 open={showNewRS}
+                isAdmin={isAdmin}
                 onClose={() => setShowNewRS(false)}
                 onConfirm={async (type, paymentForm, payeeDetails) => {
                     if (!type) return;
+                    if (type === 'cashier' && (ADMIN_PAYROLL_FORMS as readonly string[]).includes(paymentForm)) {
+                        setShowNewRS(false);
+                        setPayrollForm(paymentForm);
+                        return;
+                    }
                     setIsCreatingRS(true);
                     try {
                         const selectedOpt = deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept);
@@ -308,9 +319,65 @@ function BudgetRequestEntryInner({
                 isDark={isDark}
             />
 
+            <PayrollItemModal
+                open={payrollForm !== null}
+                paymentForm={payrollForm ?? ''}
+                departmentId={deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept && d.kind === 'Department')?.id ?? ''}
+                sectionId={deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept && d.kind === 'Section')?.id ?? ''}
+                schoolYear={activeSchoolYear}
+                t={t}
+                isDark={isDark}
+                onClose={() => setPayrollForm(null)}
+                onCreate={async (month: number, year: number, amount: string, account: AccountOption) => {
+                    const selectedOpt = deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept);
+                    if (!selectedOpt || !payrollForm) throw new Error('Select a department or section first.');
+                    const header = await financeSvc.post('/abms/budget-request-entry', {
+                        rstype: 'cashier',
+                        department_id: selectedOpt.kind === 'Department' ? selectedOpt.id : null,
+                        section_id: selectedOpt.kind === 'Section' ? selectedOpt.id : null,
+                        requested_by: user?.username ?? null,
+                        school_year: activeSchoolYear,
+                        payment_form: payrollForm,
+                    });
+                    const id = Number(header.data.id);
+                    let saved;
+                    try {
+                        const response = await financeSvc.post('/abms/budget-request-entry/payroll-items', {
+                            budget_request_entry_id: id,
+                            account_id: account.account_id,
+                            month, year, expected_amount: amount,
+                        });
+                        saved = response.data.item;
+                    } catch (error) {
+                        try { await financeSvc.delete(`/abms/budget-request-entry/${id}`); } catch { addToast('error', 'The unsaved RS could not be discarded. Please contact Budget Office.'); }
+                        throw error;
+                    }
+                    setInitialPayrollItem({
+                        id: saved.id,
+                        account_id: Number(saved.account_id),
+                        accountNo: saved.account_code,
+                        mainAccountCode: account.main_account_code,
+                        accountName: account.account_name,
+                        accountParentId: account.account_parent_id,
+                        availableBalance: Math.max(Number(account.balance) - Number(saved.total_cost), 0),
+                        itemDescription: saved.description,
+                        unitCost: String(saved.unit_cost),
+                        quantity: String(saved.quantity),
+                        unitOfMeasurement: saved.unit_of_measurement,
+                        totalCost: Number(saved.total_cost),
+                    });
+                    setRSFormType('cashier');
+                    setRsHeaderId(id);
+                    setRsHeaderData({ id, requisition_number: String(header.data.requisition_number), department: selectedOpt.name, school_year: header.data.school_year, created_at: header.data.created_at, payee: null, payment_form: payrollForm, payeeFromModal: false });
+                    setPayrollForm(null);
+                    setShowRSForm(true);
+                }}
+            />
+
             {/* RS Form Modal */}
             <RSFormModal
                 open={showRSForm}
+                initialItem={initialPayrollItem}
                 rsType={rsFormType}
                 rsHeaderId={rsHeaderId}
                 rsHeaderData={rsHeaderData}
@@ -319,6 +386,7 @@ function BudgetRequestEntryInner({
                 }
                 onClose={() => setShowRSForm(false)}
                 onSaveSuccess={(rsNumber) => {
+                    setInitialPayrollItem(null);
                     setShowRSForm(false);
                     setRsHeaderId(null);
                     setRsHeaderData(null);
@@ -337,6 +405,7 @@ function BudgetRequestEntryInner({
                         }
                     }
                     setShowRSForm(false);
+                    setInitialPayrollItem(null);
                     setRsHeaderId(null);
                     setRsHeaderData(null);
                     setRSFormType(null);

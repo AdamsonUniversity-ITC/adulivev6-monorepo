@@ -8,6 +8,7 @@ import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
 const CASHIER_MINIMUM_PAYMENT_FORM = 'Reimbursement/Replenishment';
+const PAYROLL_PAYMENT_FORMS = new Set(['Gross Income Employees', 'Employer Share', 'Allowance of SA']);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
@@ -433,7 +434,7 @@ export function AttachmentsModal({
 }
 export function RSFormModal({
     open, rsType, rsHeaderId, rsHeaderData, department, onClose, onDiscard, onSaveSuccess, t, isDark,
-    departmentId, sectionId, currentSchoolYear,
+    departmentId, sectionId, currentSchoolYear, initialItem = null,
 }: {
     open: boolean;
     rsType: RSType;
@@ -457,6 +458,7 @@ export function RSFormModal({
     departmentId: string;
     sectionId: string;
     currentSchoolYear: string;
+    initialItem?: RSFormItem | null;
 }) {
     const [items, setItems] = useState<RSFormItem[]>([]);
     const [note, setNote] = useState('');
@@ -471,7 +473,7 @@ export function RSFormModal({
     const [saveError, setSaveError] = useState<string | null>(null);
     useEffect(() => {
         if (open) {
-            setItems([]);
+            setItems(initialItem ? [initialItem] : []);
             setNote('');
             setShowAddItem(false);
             setEditingItem(null);
@@ -481,7 +483,7 @@ export function RSFormModal({
             setPayeeInput(rsHeaderData?.payee ?? '');
             setSaveError(null);
         }
-    }, [open, rsHeaderData?.payee]);
+    }, [open, rsHeaderData?.payee, initialItem]);
 
     if (!open || !rsType) return null;
 
@@ -534,6 +536,7 @@ export function RSFormModal({
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
     const CASHIER_MINIMUM_AMOUNT = 1000;
     const requiresCashierMinimum = (rsHeaderData?.payment_form ?? '').trim() === CASHIER_MINIMUM_PAYMENT_FORM;
+    const isPayroll = PAYROLL_PAYMENT_FORMS.has(rsHeaderData?.payment_form ?? '');
     const isBelowCashierMinimum = rsType === 'cashier' && requiresCashierMinimum && grandTotal < CASHIER_MINIMUM_AMOUNT;
     const effectivePayee = rsHeaderData?.payeeFromModal ? rsHeaderData.payee?.trim() ?? '' : payeeInput.trim();
     const isCashierPayeeMissing = rsType === 'cashier' && effectivePayee === '';
@@ -781,7 +784,7 @@ export function RSFormModal({
                             }
                             {isSavingRS ? 'Saving…' : isSaved ? 'RS Saved' : 'Create / Save RS'}
                         </button>
-                        {iconBtn(
+                        {!isPayroll && iconBtn(
                             <Plus className="w-3.5 h-3.5" />,
                             'New Item',
                             openNewItem,
@@ -918,15 +921,15 @@ export function RSFormModal({
                                     </td>
                                     {/* Actions */}
                                     <td style={{ padding: '4px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                        <button
+                                        {!isPayroll && <button
                                             onClick={() => openEditItem(item)}
                                             title="Edit item"
                                             style={{ minHeight: 28, padding: '4px 9px', marginRight: 4, borderRadius: 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: t.btnRefresh.bg, border: `1px solid ${t.btnRefresh.border}`, cursor: 'pointer', color: t.btnRefresh.text, fontSize: 10, fontWeight: 700 }}
                                         >
                                             <PencilLine style={{ width: 12, height: 12 }} />
                                             Edit
-                                        </button>
-                                        <button
+                                        </button>}
+                                        {!isPayroll && <button
                                             onClick={() => removeItem(item.id)}
                                             title="Remove item"
                                             style={{ width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: t.cellMuted, transition: 'all .12s ease' }}
@@ -940,7 +943,7 @@ export function RSFormModal({
                                             }}
                                         >
                                             <X style={{ width: 12, height: 12 }} />
-                                        </button>
+                                        </button>}
                                     </td>
                                 </tr>
                             ))}

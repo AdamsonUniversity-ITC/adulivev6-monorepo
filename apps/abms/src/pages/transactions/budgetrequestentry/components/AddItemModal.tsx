@@ -421,9 +421,11 @@ export function AddItemModal({
                                 </p>
                             </div>
                             <button
+                                type="button"
+                                aria-label="Close Add New Item"
                                 onClick={onClose}
                                 disabled={isSaving}
-                                style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${t.cardBorder}`, color: t.cellMuted, cursor: 'pointer', transition: 'all .12s ease', flexShrink: 0 }}
+                                style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.inputBg, border: `1px solid ${t.cardBorder}`, color: t.cellText, cursor: 'pointer', transition: 'all .12s ease', flexShrink: 0 }}
                                 onMouseEnter={e => {
                                     (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.08)';
                                     (e.currentTarget as HTMLElement).style.borderColor = isDark ? 'rgba(248,113,113,0.40)' : 'rgba(220,38,38,0.30)';
@@ -435,7 +437,7 @@ export function AddItemModal({
                                     (e.currentTarget as HTMLElement).style.color = t.cellMuted;
                                 }}
                             >
-                                <X style={{ width: 14, height: 14 }} />
+                                <span aria-hidden="true" style={{ fontSize: 25, lineHeight: 1, fontWeight: 600 }}>×</span>
                             </button>
                         </div>
 

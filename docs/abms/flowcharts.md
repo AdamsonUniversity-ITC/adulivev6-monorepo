@@ -199,6 +199,8 @@ flowchart TD
 
 ## Draft Requisition Item Editing
 
+Administration payroll Cashier drafts first preview the selected month/year and typed unit against db116, then confirm the amount and choose a scoped account. The backend re-queries the procedure, validates the amount, and atomically debits the allocation and creates one item. Saving the RS finalizes through the existing flow; discarding the draft refunds it.
+
 ```mermaid
 flowchart TD
     A[Open persisted number-0 item] --> B[Load accounts from stored school year and typed unit]

@@ -199,6 +199,10 @@ Budget Request Entry uses a summary-first responsive presentation across its ind
 
 The cashier payment-form control is an accessible in-modal listbox presentation of the existing payment-form values. It is enabled only for Cashier requests and continues to drive the same required validation and conditional payee-details workflow.
 
+Three additional Cashier payment forms are shown only for general `admin-access`: Gross Income Employees, Employer Share, and Allowance of SA. `GET /api/abms/budget-request-entry/payroll-preview` accepts form, month, year, and exactly one department/section ID. `POST /api/abms/budget-request-entry/payroll-items` accepts the draft RS ID, scoped account ID, period, and confirmed amount; both endpoints check Administration access. The POST re-queries db116, validates the unchanged amount and exact school-year typed-unit allocation, then debits allocation/proposal balances and creates one item in a finance transaction. The RS form receives that persisted item and keeps its existing save/discard lifecycle.
+
+The db116 payroll procedures may emit SQL Server row-count results without columns before their data result. The payroll reader uses bound parameters, enables `NOCOUNT`, advances across result sets, and reads the first result set containing the form's required `gross` or `ec` column.
+
 Payment-form options use recognizable icons without changing their stored string values. Supplier and Honorarium choices still open the compact Payee Details modal, whose classification, payment-mode, and conditional bank-detail fields preserve the existing mutually exclusive selections and validation contract.
 
 Payee classification is presented as two simple inline checkbox choices beneath the section divider, while mode of payment remains a pair of bordered radio cards. The visual distinction reflects the existing checkbox classification and mutually exclusive payment-mode semantics.
