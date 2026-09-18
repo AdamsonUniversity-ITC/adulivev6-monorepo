@@ -113,7 +113,7 @@ export function getLeaveTypeBusinessError(
   }
 
   const creditMessage = getLeaveCreditValidationMessage({
-    leaveCode: leaveType.leave_code,
+    leaveType,
     leaveDays: values.leave_days,
     balances: rules.leaveBalances,
   })

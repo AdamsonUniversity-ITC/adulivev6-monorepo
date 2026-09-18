@@ -6,15 +6,17 @@ export const PATERNITY_LEAVE_CODE = "pl"
 export const MATERNITY_LEAVE_CODE = "ml"
 export const BIRTHDAY_LEAVE_CODE = "bl"
 
-const CREDIT_ERROR_MESSAGES: Record<string, string> = {
-  [PATERNITY_LEAVE_CODE]:
-    "Insufficient Paternity Leave credits for the selected dates.",
-  [BIRTHDAY_LEAVE_CODE]:
-    "Insufficient Birthday Leave credits for the selected dates.",
-}
+const DEFAULT_CREDIT_ERROR_MESSAGE =
+  "Insufficient leave credits for the selected dates."
 
 export type LeaveDayWeightInput = {
   day_portion: DayPortion | string
+}
+
+export type LeaveCreditCheckLeaveType = {
+  leave_code: string
+  requires_apply_credit_check?: boolean | null
+  apply_credit_error_message?: string | null
 }
 
 export function getRequestedLeaveDaysWeight(
@@ -62,16 +64,30 @@ export function getAvailableBirthdayCredits(
 }
 
 export function getLeaveCreditValidationMessage(params: {
-  leaveCode: string | null | undefined
+  leaveType?: LeaveCreditCheckLeaveType | null
+  /** @deprecated Prefer leaveType.requires_apply_credit_check */
+  leaveCode?: string | null
   leaveDays: LeaveDayWeightInput[]
   balances: Array<
     Pick<LeaveBalanceRecord, "leave_code" | "credits" | "pending_filed_leave">
   >
 }): string | null {
-  const leaveCode = params.leaveCode?.trim().toLowerCase() ?? ""
-  const message = CREDIT_ERROR_MESSAGES[leaveCode]
+  const leaveType = params.leaveType
+  const leaveCode =
+    leaveType?.leave_code?.trim().toLowerCase() ||
+    params.leaveCode?.trim().toLowerCase() ||
+    ""
 
-  if (!message) {
+  if (!leaveCode) {
+    return null
+  }
+
+  const requiresCheck =
+    leaveType != null
+      ? Boolean(leaveType.requires_apply_credit_check)
+      : leaveCode === PATERNITY_LEAVE_CODE || leaveCode === BIRTHDAY_LEAVE_CODE
+
+  if (!requiresCheck) {
     return null
   }
 
@@ -79,7 +95,20 @@ export function getLeaveCreditValidationMessage(params: {
   const available = getAvailableCreditsForLeaveCode(leaveCode, params.balances)
 
   if (requested > available + 0.001) {
-    return message
+    const configured = leaveType?.apply_credit_error_message?.trim()
+    if (configured) {
+      return configured
+    }
+
+    if (leaveCode === PATERNITY_LEAVE_CODE) {
+      return "Insufficient Paternity Leave credits for the selected dates."
+    }
+
+    if (leaveCode === BIRTHDAY_LEAVE_CODE) {
+      return "Insufficient Birthday Leave credits for the selected dates."
+    }
+
+    return DEFAULT_CREDIT_ERROR_MESSAGE
   }
 
   return null
