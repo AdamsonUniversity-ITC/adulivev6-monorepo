@@ -507,6 +507,8 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                 filterState={filterState}
                 onFilterChange={handleFilterChange}
                 filterConfigOverride={wiredFilterCfg}
+                recordCount={rows.length}
+                hasMoreRecords={hasMore}
             >
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                 <thead>

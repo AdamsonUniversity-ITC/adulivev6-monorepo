@@ -15,12 +15,14 @@ interface RolePageProps {
     filterState?: FilterState;
     onFilterChange?: (patch: Partial<FilterState>) => void;
     filterConfigOverride?: FilterPanelConfig;
+    recordCount: number;
+    hasMoreRecords?: boolean;
     children?: ReactNode;
 }
 
 export function RolePage({
     role, t, isDark, canSwitch, onSwitchRole,
-    filterState, onFilterChange, filterConfigOverride,
+    filterState, onFilterChange, filterConfigOverride, recordCount, hasMoreRecords = false,
     children,
 }: RolePageProps) {
     const Icon         = role.icon;
@@ -95,10 +97,10 @@ export function RolePage({
                         <p className="mt-1 text-sm" style={{ color: t.cellMuted }}>{role.label} work queue</p>
                     </div>
                     <span
-                        className="shrink-0 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-[0.1em]"
+                        className="shrink-0 rounded-lg border px-3 py-2 text-xs font-bold"
                         style={{ background: t.dropdownSelected, borderColor: t.cardBorder, color: t.accentColor }}
                     >
-                        {role.label}
+                        {recordCount.toLocaleString()} {recordCount === 1 ? 'record' : 'records'}{hasMoreRecords ? '+' : ''}
                     </span>
                 </header>
                 <div className="overflow-x-auto">

@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Paperclip, PencilLine, Plus, Save, StickyNote, Trash2, X, ClipboardList, User, UploadCloud, FileIcon, RefreshCw } from 'lucide-react';
 import { financeSvc } from '@repo/axios-config/finance-service';
+import { createPayrollIdempotencyKey } from '../payrollPeriod';
 import type { RSFormItem, RSType, ThemeTokens } from '../types';
 import { fmtCurrency, formatCurrentDate, formatRequisitionNumber, getCurrentSchoolYear } from '../utils';
 import { AddItemModal } from './AddItemModal';
 import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
 const CASHIER_MINIMUM_PAYMENT_FORM = 'Reimbursement/Replenishment';
-const PAYROLL_PAYMENT_FORMS = new Set(['Gross Income Employees', 'Employer Share', 'Allowance of SA']);
+const PAYROLL_PAYMENT_FORMS = new Set(["Employee's Payroll", 'Gross Income Employees', 'Employer Share', 'Allowance of SA']);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
@@ -554,7 +555,7 @@ export function RSFormModal({
                 ...(!rsHeaderData?.payeeFromModal && payeeInput.trim()
                     ? { payee: payeeInput.trim() }
                     : {}),
-            });
+            }, isPayroll ? { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } } : undefined);
             setIsSaved(true);
             onSaveSuccess(res.data.requisition_number ?? String(rsHeaderId));
         } catch (error: unknown) {
@@ -1063,7 +1064,7 @@ export function RSFormModal({
                                 <CheckCircle2 style={{ width: 13, height: 13, color: isDark ? '#4ade80' : '#15803d', flexShrink: 0 }} />
                                 <span>{rsHeaderData.payee || <span style={{ color: t.cellMuted, fontStyle: 'italic', fontWeight: 400 }}>—</span>}</span>
                                 <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: isDark ? '#4ade80' : '#15803d', opacity: 0.8 }}>
-                                    from payee details
+                                    {isPayroll ? 'fixed payroll payee' : 'from payee details'}
                                 </span>
                             </div>
                         ) : (

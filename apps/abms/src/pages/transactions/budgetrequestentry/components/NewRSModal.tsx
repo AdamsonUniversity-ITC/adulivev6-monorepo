@@ -21,7 +21,7 @@ export const PAYMENT_FORMS = [
 ];
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const ADMIN_PAYROLL_FORMS = ['Gross Income Employees', 'Employer Share', 'Allowance of SA'] as const;
+export const ADMIN_PAYROLL_FORMS = ["Employee's Payroll", 'Employer Share', 'Allowance of SA'] as const;
 
 const PAYMENT_FORM_ICONS = [Droplets, Repeat2, UserRound, HeartHandshake, WalletCards, CreditCard];
 
