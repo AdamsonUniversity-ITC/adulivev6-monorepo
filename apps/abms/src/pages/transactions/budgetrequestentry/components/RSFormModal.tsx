@@ -10,6 +10,7 @@ import { AttachmentsModal } from './AttachmentsModal';
 import { formatAccountCode } from '../../shared/accountCode';
 const CASHIER_MINIMUM_PAYMENT_FORM = 'Reimbursement/Replenishment';
 const PAYROLL_PAYMENT_FORMS = new Set(["Employee's Payroll", 'Gross Income Employees', 'Employer Share', 'Allowance of SA']);
+const EDITABLE_PAYROLL_FORMS = new Set(["Employee's Payroll", 'Employer Share', 'Allowance of SA']);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const RS_HEADER_MAP: Record<NonNullable<RSType>, { title: string; sub: string }> = {
@@ -472,6 +473,10 @@ export function RSFormModal({
     const [isSaved, setIsSaved] = useState(false);
     const [payeeInput, setPayeeInput] = useState('');
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [payrollEditItem, setPayrollEditItem] = useState<RSFormItem | null>(null);
+    const [payrollEditValue, setPayrollEditValue] = useState('');
+    const [payrollEditError, setPayrollEditError] = useState('');
+    const [isUpdatingPayroll, setIsUpdatingPayroll] = useState(false);
     useEffect(() => {
         if (open) {
             setItems(initialItem ? [initialItem] : []);
@@ -483,6 +488,10 @@ export function RSFormModal({
             setIsSaved(false);
             setPayeeInput(rsHeaderData?.payee ?? '');
             setSaveError(null);
+            setPayrollEditItem(null);
+            setPayrollEditValue('');
+            setPayrollEditError('');
+            setIsUpdatingPayroll(false);
         }
     }, [open, rsHeaderData?.payee, initialItem]);
 
@@ -510,7 +519,7 @@ export function RSFormModal({
     }
 
     async function handleDiscard() {
-        if (isDiscarding || isSavingRS) return;
+        if (isDiscarding || isSavingRS || isUpdatingPayroll) return;
         setIsDiscarding(true);
         setSaveError(null);
         try {
@@ -538,11 +547,39 @@ export function RSFormModal({
     const CASHIER_MINIMUM_AMOUNT = 1000;
     const requiresCashierMinimum = (rsHeaderData?.payment_form ?? '').trim() === CASHIER_MINIMUM_PAYMENT_FORM;
     const isPayroll = PAYROLL_PAYMENT_FORMS.has(rsHeaderData?.payment_form ?? '');
+    const canEditPayroll = EDITABLE_PAYROLL_FORMS.has(rsHeaderData?.payment_form ?? '') && !isSaved;
+    const validPayrollEdit = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(payrollEditValue.trim())
+        && Number(payrollEditValue) > 0 && Number(payrollEditValue) <= 9999999999999.99;
     const isBelowCashierMinimum = rsType === 'cashier' && requiresCashierMinimum && grandTotal < CASHIER_MINIMUM_AMOUNT;
     const effectivePayee = rsHeaderData?.payeeFromModal ? rsHeaderData.payee?.trim() ?? '' : payeeInput.trim();
     const isCashierPayeeMissing = rsType === 'cashier' && effectivePayee === '';
     const hasSavePrerequisiteError = items.length === 0 || isBelowCashierMinimum || isCashierPayeeMissing;
-    const isSaveDisabled = isSavingRS || isSaved || hasSavePrerequisiteError;
+    const isSaveDisabled = isSavingRS || isUpdatingPayroll || isSaved || hasSavePrerequisiteError;
+
+    async function updatePayrollAmount() {
+        if (!rsHeaderId || !payrollEditItem || !validPayrollEdit || isUpdatingPayroll) return;
+        setIsUpdatingPayroll(true);
+        setPayrollEditError('');
+        try {
+            const response = await financeSvc.patch(`/abms/budget-request-entry/${rsHeaderId}/payroll-amount`, {
+                unit_cost: payrollEditValue.trim(),
+            }, { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } });
+            const saved = response.data.item;
+            setItems(previous => previous.map(item => item.id === payrollEditItem.id ? {
+                ...item,
+                unitCost: String(saved.unit_cost),
+                totalCost: Number(saved.total_cost),
+                availableBalance: Number(response.data.account_balance),
+            } : item));
+            setPayrollEditItem(null);
+            setSaveError(null);
+        } catch (error: unknown) {
+            const data = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data;
+            setPayrollEditError(Object.values(data?.errors ?? {}).flat()[0] || data?.message || 'Unable to update the payroll amount.');
+        } finally {
+            setIsUpdatingPayroll(false);
+        }
+    }
 
     async function handleSaveRS() {
         if (!rsHeaderId || isSaveDisabled) return;
@@ -930,6 +967,13 @@ export function RSFormModal({
                                             <PencilLine style={{ width: 12, height: 12 }} />
                                             Edit
                                         </button>}
+                                        {canEditPayroll && <button
+                                            type="button"
+                                            onClick={() => { setPayrollEditItem(item); setPayrollEditValue(item.unitCost); setPayrollEditError(''); }}
+                                            disabled={isUpdatingPayroll || isSavingRS || isDiscarding}
+                                            title="Edit payroll amount"
+                                            style={{ minHeight: 28, padding: '4px 9px', borderRadius: 7, display: 'inline-flex', alignItems: 'center', gap: 4, background: t.btnRefresh.bg, border: `1px solid ${t.btnRefresh.border}`, cursor: 'pointer', color: t.btnRefresh.text, fontSize: 10, fontWeight: 700 }}
+                                        ><PencilLine style={{ width: 12, height: 12 }} /> Edit amount</button>}
                                         {!isPayroll && <button
                                             onClick={() => removeItem(item.id)}
                                             title="Remove item"
@@ -1138,6 +1182,20 @@ export function RSFormModal({
                 rsType={rsType}
                 editingItem={editingItem}
             />
+            {payrollEditItem && <div className="abms-modal-backdrop fixed inset-0 z-[100001] flex items-center justify-center overflow-y-auto p-4" style={{ background: isDark ? 'rgba(0,0,0,.72)' : 'rgba(0,20,60,.48)' }}>
+                <div role="dialog" aria-modal="true" aria-labelledby="payroll-edit-title" className="w-full max-w-md overflow-hidden rounded-2xl" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, boxShadow: t.cardShadow }}>
+                    <div className="flex items-center justify-between px-6 py-5" style={{ background: t.cardHeaderBg, borderBottom: `1px solid ${t.cardHeaderBorder}` }}>
+                        <h2 id="payroll-edit-title" className="text-xl font-extrabold" style={{ color: t.titleColor }}>Edit payroll amount</h2>
+                        <button type="button" aria-label="Close edit payroll amount" disabled={isUpdatingPayroll} onClick={() => setPayrollEditItem(null)} style={{ color: t.cellText }}><X size={20} /></button>
+                    </div>
+                    <div className="space-y-4 px-6 py-5">
+                        <p className="text-sm" style={{ color: t.cellMuted }}>The account balance will be adjusted by the difference before you save the RS.</p>
+                        <label className="block text-sm font-bold" style={{ color: t.cellText }}>Unit cost (PHP)<input type="text" inputMode="decimal" value={payrollEditValue} onChange={event => setPayrollEditValue(event.target.value)} aria-invalid={payrollEditValue !== '' && !validPayrollEdit} className="mt-2 w-full rounded-xl p-3" style={{ background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.inputText }} />{payrollEditValue !== '' && !validPayrollEdit && <span className="mt-1 block text-xs font-medium" style={{ color: t.cellRed }}>Enter a positive amount with up to two decimal places.</span>}</label>
+                        {payrollEditError && <p role="alert" className="text-sm" style={{ color: t.cellRed }}>{payrollEditError}</p>}
+                    </div>
+                    <div className="flex justify-end gap-3 px-6 py-4" style={{ borderTop: `1px solid ${t.cardBorder}` }}><button type="button" disabled={isUpdatingPayroll} onClick={() => setPayrollEditItem(null)} className="rounded-xl border px-5 py-2.5 text-sm" style={{ borderColor: t.cardBorder, color: t.cellText }}>Cancel</button><button type="button" disabled={isUpdatingPayroll || !validPayrollEdit} onClick={() => void updatePayrollAmount()} className="rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: t.cellBlue }}>{isUpdatingPayroll ? 'Saving…' : 'Save amount'}</button></div>
+                </div>
+            </div>}
             <AttachmentsModal
                 open={showAttachments}
                 onClose={() => setShowAttachments(false)}
