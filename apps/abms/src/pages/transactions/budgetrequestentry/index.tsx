@@ -328,7 +328,7 @@ function BudgetRequestEntryInner({
                 t={t}
                 isDark={isDark}
                 onClose={() => setPayrollForm(null)}
-                onCreate={async (month: number, year: number, amount: string, manual: boolean) => {
+                onCreate={async (month: number, year: number, amount: string, manual: boolean, accountId?: number) => {
                     const selectedOpt = deptOptions.find(d => organizationalUnitKey(d.kind, d.id) === selectedDept);
                     if (!selectedOpt || !payrollForm) throw new Error('Select a department or section first.');
                     const header = await financeSvc.post('/abms/budget-request-entry', {
@@ -346,6 +346,7 @@ function BudgetRequestEntryInner({
                         const response = await financeSvc.post('/abms/budget-request-entry/payroll-items', {
                             budget_request_entry_id: id,
                             month, year, expected_amount: amount, manual_amount: manual,
+                            ...(accountId ? { account_id: accountId } : {}),
                         }, { headers: { 'Idempotency-Key': createPayrollIdempotencyKey() } });
                         saved = response.data.item;
                         account = response.data.account;
