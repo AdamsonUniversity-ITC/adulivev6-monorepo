@@ -66,6 +66,7 @@ tasks/
 !/tasks/20260918-abms-requisition-process-record-count.md
 !/tasks/20260918-abms-admin-payroll-process-filter.md
 !/tasks/20260922-abms-manual-payroll-amounts.md
+!/tasks/20260924-abms-payroll-992-account-fallback.md
 !/tasks/20260719-abms-continuity-knowledge.md
 !/tasks/20260719-persist-liquidation-summary.md
 !/tasks/20260719-budget-liquidation-report.md

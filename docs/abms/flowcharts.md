@@ -199,7 +199,7 @@ flowchart TD
 
 ## Draft Requisition Item Editing
 
-Administration payroll Cashier drafts default to the previous calendar month, then preview the selected period and typed unit against db116 and show the unique configured account. The backend re-resolves the account, re-queries the procedure, validates the amount, and atomically debits the allocation and creates one item. The payee is fixed by payment form. Saving the RS finalizes through the existing flow; discarding the draft refunds it.
+Administration payroll Cashier drafts default to the previous calendar month, then preview the selected period and typed unit against db116. Employee's Payroll and Employer Share use `992-5` when funded; a missing or insufficient default exposes active children of parent `992`, with only uniquely allocated and funded accounts selectable. The backend re-resolves the default or selected account by ID, re-queries the procedure for a queried amount, validates it, and atomically debits the exact allocation and creates one item. Allowance of SA retains its fixed account. The payee is fixed by payment form. Saving the RS finalizes through the existing flow; discarding the draft refunds it.
 After requesting the amount, Administration can switch to manual entry whether the db116 result succeeds or fails. An account-only lookup supports a failed procedure. Manual creation skips the procedure comparison but keeps account and balance validation. The unsaved RS can edit only that item's unit cost; the backend applies its balance delta before RS finalization. Draft discard refunds the current edited amount.
 
 ```mermaid
