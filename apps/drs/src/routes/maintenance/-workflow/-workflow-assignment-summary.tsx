@@ -1,9 +1,10 @@
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { JSX, useMemo } from 'react';
 import { fetchTaskKindAccess } from '../-lib/api/access/fetchTaskKindAccess.ts';
 import { fetchWorkflowAssignments } from '../-lib/api/user-management/fetchWorkflowAssignments.ts';
+import type { WorkflowAssignment } from '../-lib/api/user-management/types.ts';
 import type { WorkflowTask } from '../-lib/api/workflow/types.ts';
 import { useMaintenanceNavigation } from '../-maintenance-navigation-context.tsx';
 import {
@@ -11,38 +12,16 @@ import {
   mergeEffectiveAssignmentUsers,
   resolveEffectiveTaskAssignmentSources,
   shouldFetchTaskKindAccess,
+  usersFromAssignmentParams,
   type WorkflowAssignmentFetchParams,
 } from './-assignment-utils.ts';
+import { ASSIGNMENTS_ALL_QUERY_KEY } from './-utils.ts';
 
 type Target =
   | { target_type: 'stage'; stage_id: string | number; label: string }
   | { target_type: 'task'; task_id: string | number; label: string }
   | { target_type: 'task_kind'; kind: string; label: string }
   | { target_type: 'effective_task'; task: WorkflowTask; label: string };
-
-const assignmentKey = (target: Target) =>
-  [
-    'drs',
-    'workflow',
-    'assignments',
-    target.target_type,
-    'stage_id' in target ? target.stage_id : null,
-    'task_id' in target ? target.task_id : null,
-    'kind' in target ? target.kind : null,
-    'task' in target ? target.task.id : null,
-  ] as const;
-
-const assignmentSourceKey = (params: WorkflowAssignmentFetchParams) =>
-  [
-    'drs',
-    'workflow',
-    'assignments',
-    params.target_type,
-    params.stage_id ?? null,
-    params.task_id ?? null,
-    params.kind ?? null,
-    params.target_key ?? null,
-  ] as const;
 
 const taskKindAccessKey = (kind: string) =>
   ['drs', 'workflow', 'task-kind', kind, 'access'] as const;
@@ -79,47 +58,91 @@ function SimpleAssignmentSummary({
   );
 }
 
+function useSharedAssignments() {
+  return useQuery({
+    queryKey: ASSIGNMENTS_ALL_QUERY_KEY,
+    queryFn: () => fetchWorkflowAssignments(),
+    refetchOnWindowFocus: false,
+  });
+}
+
+function usersForTargetParams(
+  assignments: WorkflowAssignment[] | undefined,
+  params: WorkflowAssignmentFetchParams,
+) {
+  return usersFromAssignmentParams(assignments ?? [], params);
+}
+
 function EffectiveTaskAssignmentSummary({
   task,
 }: {
   task: WorkflowTask;
 }): JSX.Element {
   const { openUserManagement } = useMaintenanceNavigation();
+  const assignmentsQuery = useSharedAssignments();
   const sources = useMemo(
     () => resolveEffectiveTaskAssignmentSources(task),
     [task],
   );
   const includeTaskKindAccess = shouldFetchTaskKindAccess(task);
 
-  const assignmentQueries = useQueries({
-    queries: sources.map((params) => ({
-      queryKey: assignmentSourceKey(params),
-      queryFn: () => fetchWorkflowAssignments(params),
-      refetchOnWindowFocus: false,
-    })),
-  });
-
+  // Summaries never fetch access; they only merge cached panel data when present.
   const taskKindAccessQuery = useQuery({
     queryKey: taskKindAccessKey(task.kind),
     queryFn: () => fetchTaskKindAccess(task.kind),
-    enabled: includeTaskKindAccess,
+    enabled: false,
     refetchOnWindowFocus: false,
   });
 
-  const assignmentData = assignmentQueries.map((query) => query.data);
-
   const users = useMemo(() => {
-    const assignmentUsers = assignmentData.flatMap(
-      (data) => data?.flatMap((assignment) => assignment.users) ?? [],
+    const assignmentUsers = sources.flatMap((params) =>
+      usersForTargetParams(assignmentsQuery.data, params),
     );
     const taskKindUsers = includeTaskKindAccess
       ? (taskKindAccessQuery.data?.users ?? [])
       : [];
 
     return mergeEffectiveAssignmentUsers(assignmentUsers, taskKindUsers);
-  }, [assignmentData, includeTaskKindAccess, taskKindAccessQuery.data]);
+  }, [
+    assignmentsQuery.data,
+    includeTaskKindAccess,
+    sources,
+    taskKindAccessQuery.data,
+  ]);
 
   const fallbackCount = countFallbackAssignmentUsers(users);
+
+  return (
+    <SimpleAssignmentSummary
+      users={users}
+      fallbackCount={fallbackCount}
+      onManage={openUserManagement}
+    />
+  );
+}
+
+function DirectAssignmentSummary({
+  params,
+}: {
+  params: WorkflowAssignmentFetchParams;
+}): JSX.Element {
+  const { openUserManagement } = useMaintenanceNavigation();
+  const assignmentsQuery = useSharedAssignments();
+
+  const users = useMemo(
+    () => usersForTargetParams(assignmentsQuery.data, params),
+    [
+      assignmentsQuery.data,
+      params.target_type,
+      params.stage_id,
+      params.task_id,
+      params.kind,
+      params.target_key,
+    ],
+  );
+  const fallbackCount = users.filter(
+    (user) => user.assignment_role === 'fallback',
+  ).length;
 
   return (
     <SimpleAssignmentSummary
@@ -135,37 +158,18 @@ export function WorkflowAssignmentSummary({
 }: {
   target: Target;
 }): JSX.Element {
-  const { openUserManagement } = useMaintenanceNavigation();
-
   if (target.target_type === 'effective_task') {
     return <EffectiveTaskAssignmentSummary task={target.task} />;
   }
 
-  const query = useQuery({
-    queryKey: assignmentKey(target),
-    queryFn: () =>
-      fetchWorkflowAssignments({
+  return (
+    <DirectAssignmentSummary
+      params={{
         target_type: target.target_type,
         stage_id: 'stage_id' in target ? target.stage_id : undefined,
         task_id: 'task_id' in target ? target.task_id : undefined,
         kind: 'kind' in target ? target.kind : undefined,
-      }),
-    refetchOnWindowFocus: false,
-  });
-
-  const users = useMemo(
-    () => (query.data ?? []).flatMap((assignment) => assignment.users),
-    [query.data],
-  );
-  const fallbackCount = users.filter(
-    (user) => user.assignment_role === 'fallback',
-  ).length;
-
-  return (
-    <SimpleAssignmentSummary
-      users={users}
-      fallbackCount={fallbackCount}
-      onManage={openUserManagement}
+      }}
     />
   );
 }

@@ -5,6 +5,8 @@ type SubmittedApplyPayload = {
   email: string;
   contact_number: string;
   receive_mode: string;
+  payment_method_id: number;
+  secure_email_requested?: boolean;
   delivery_address: string | null;
   purpose: string | null;
   lines: Array<{
@@ -119,6 +121,34 @@ async function mockStudentDrsApis(
   });
 
   await page.route(
+    `${registrarApi}/v1/drs/payment-collection-settings**`,
+    async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ headers: corsHeaders, status: 204 });
+        return;
+      }
+
+      await route.fulfill({
+        contentType: 'application/json',
+        headers: corsHeaders,
+        json: {
+          data: {
+            id: 1,
+            payment_methods: [
+              {
+                id: '11',
+                name: 'Cashier payment',
+                description: null,
+              },
+            ],
+            other_fees: [],
+          },
+        },
+      });
+    },
+  );
+
+  await page.route(
     `${registrarApi}/v1/drs/apply/applications`,
     async (route) => {
       if (route.request().method() === 'OPTIONS') {
@@ -163,17 +193,26 @@ test.describe('DRS student request simulation', () => {
     const api = await mockStudentDrsApis(page);
 
     await page.goto('/');
-    await expect(page.getByText('Applications', { exact: true })).toBeVisible();
-
-    await page.getByRole('link', { name: 'Apply for documents' }).click();
     await expect(
-      page.getByRole('heading', { name: 'Build your request' }),
+      page.getByRole('heading', { name: 'My requests' }),
     ).toBeVisible();
 
-    await page.getByLabel('Email').fill('student@example.edu.ph');
+    await page
+      .getByRole('link', { name: 'Request a document' })
+      .first()
+      .click();
+    await expect(
+      page.getByRole('heading', { name: 'Request a document' }),
+    ).toBeVisible();
+
+    await page
+      .getByRole('textbox', { name: 'Email' })
+      .fill('student@example.edu.ph');
     await page.getByLabel('Contact number').fill('09171234567');
     await page.getByRole('combobox', { name: 'Receive documents by' }).click();
     await page.getByRole('option', { name: 'Courier delivery' }).click();
+    await page.getByRole('combobox', { name: 'Mode of payment' }).click();
+    await page.getByRole('option', { name: 'Cashier payment' }).click();
     await page
       .getByLabel('Delivery address')
       .fill('900 San Marcelino Street, Manila');
@@ -190,13 +229,13 @@ test.describe('DRS student request simulation', () => {
       .getByLabel('Increase quantity of Official Transcript of Records')
       .click();
 
-    await expect(page.getByText('$300').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Review & submit' }).click();
+    await expect(page.getByText('PHP 300').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Review and submit' }).click();
 
     await expect(
       page.getByRole('heading', { name: 'Confirm your request' }),
     ).toBeVisible();
-    await expect(page.getByText('Estimated total: $300')).toBeVisible();
+    await expect(page.getByText('Estimated total: PHP 300')).toBeVisible();
 
     await page.getByRole('button', { name: 'Confirm request' }).click();
     await expect(
@@ -207,6 +246,8 @@ test.describe('DRS student request simulation', () => {
       email: 'student@example.edu.ph',
       contact_number: '09171234567',
       receive_mode: 'delivery',
+      payment_method_id: 11,
+      secure_email_requested: false,
       delivery_address: '900 San Marcelino Street, Manila',
       purpose: 'Employment application',
       lines: [
@@ -225,11 +266,13 @@ test.describe('DRS student request simulation', () => {
     await mockStudentDrsApis(page);
 
     await page.goto('/apply');
-    await page.getByLabel('Email').fill('student@example.edu.ph');
+    await page
+      .getByRole('textbox', { name: 'Email' })
+      .fill('student@example.edu.ph');
     await page.getByLabel('Contact number').fill('09171234567');
 
     await expect(
-      page.getByRole('button', { name: 'Review & submit' }),
+      page.getByRole('button', { name: 'Review and submit' }),
     ).toBeDisabled();
   });
 
@@ -242,12 +285,16 @@ test.describe('DRS student request simulation', () => {
     });
 
     await page.goto('/apply');
-    await page.getByLabel('Email').fill('student@example.edu.ph');
+    await page
+      .getByRole('textbox', { name: 'Email' })
+      .fill('student@example.edu.ph');
     await page.getByLabel('Contact number').fill('09171234567');
+    await page.getByRole('combobox', { name: 'Mode of payment' }).click();
+    await page.getByRole('option', { name: 'Cashier payment' }).click();
     await page
       .getByLabel('Include Official Transcript of Records in request')
       .check();
-    await page.getByRole('button', { name: 'Review & submit' }).click();
+    await page.getByRole('button', { name: 'Review and submit' }).click();
 
     await expect(
       page.getByRole('heading', { name: 'Confirm your request' }),

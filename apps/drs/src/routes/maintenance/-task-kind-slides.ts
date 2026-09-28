@@ -2,12 +2,7 @@ import type { WorkflowTaskKind } from './-lib/api/workflow/types.ts';
 
 export type TaskKindSlideKind = Extract<
   WorkflowTaskKind,
-  | 'processing'
-  | 'compliance'
-  | 'release'
-  | 'delivery_dispatch'
-  | 'pickup_handoff'
-  | 'disposal'
+  'processing' | 'release' | 'delivery_dispatch' | 'pickup_handoff'
 >;
 
 export type TaskKindSlideMeta = {
@@ -19,11 +14,9 @@ export type TaskKindSlideMeta = {
 
 export const TASK_KIND_SLIDE_KINDS = [
   'processing',
-  'compliance',
   'release',
   'delivery_dispatch',
   'pickup_handoff',
-  'disposal',
 ] as const satisfies readonly TaskKindSlideKind[];
 
 export const TASK_KIND_SLIDE_META: Record<
@@ -37,14 +30,6 @@ export const TASK_KIND_SLIDE_META: Record<
       'Operators listed here can complete processing tasks in the staff queue. Users may also qualify via attached auth roles.',
     readOnlyDescription:
       'Use the Processing panel to manage processing operators.',
-  },
-  compliance: {
-    label: 'Compliance',
-    description: 'Assign employees and roles who review compliance tasks.',
-    accessDescription:
-      'Operators listed here can complete compliance tasks in the staff queue. Users may also qualify via attached auth roles.',
-    readOnlyDescription:
-      'Use the Compliance panel to manage compliance operators.',
   },
   release: {
     label: 'Release',
@@ -70,13 +55,6 @@ export const TASK_KIND_SLIDE_META: Record<
       'Operators listed here can complete pickup handoff tasks in the staff queue. Users may also qualify via attached auth roles.',
     readOnlyDescription:
       'Use the Pickup handoff panel to manage pickup operators.',
-  },
-  disposal: {
-    label: 'Disposal',
-    description: 'Assign employees and roles who dispose or archive requests.',
-    accessDescription:
-      'Operators listed here can complete disposal tasks in the staff queue. Users may also qualify via attached auth roles.',
-    readOnlyDescription: 'Use the Disposal panel to manage disposal operators.',
   },
 };
 

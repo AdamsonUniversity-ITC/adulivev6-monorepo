@@ -27,6 +27,7 @@ import {
   formatReportCount,
   formatReportCurrency,
   formatReportDays,
+  formatReportLabel,
   formatReportPercent,
 } from './-report-utils.ts';
 
@@ -70,7 +71,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#666666',
     marginBottom: 4,
-    textTransform: 'uppercase',
   },
   kpiValue: {
     fontSize: 14,
@@ -189,24 +189,75 @@ function renderReportBody(
       );
     }
     case 'status-breakdown': {
+      const summary = payload.summary as SummaryReport | undefined;
+      const trends = payload.trends as TrendsReport | undefined;
       const data = payload.statusBreakdown as StatusBreakdownReport | undefined;
+      const release = payload.releaseMode as ReleaseModeReport | undefined;
+      const foreigner = payload.foreignerSplit as
+        | ForeignerSplitReport
+        | undefined;
       return (
         <>
           <KpiSection
             items={[
+              { label: 'Total', value: formatReportCount(summary?.total ?? 0) },
               {
-                label: 'Total applications',
-                value: formatReportCount(data?.total ?? 0),
+                label: 'Active',
+                value: formatReportCount(summary?.active ?? 0),
+              },
+              {
+                label: 'Released',
+                value: formatReportCount(summary?.released ?? 0),
+              },
+              {
+                label: 'Cancelled',
+                value: formatReportCount(summary?.cancelled ?? 0),
+              },
+              {
+                label: 'Disposed',
+                value: formatReportCount(summary?.disposed ?? 0),
               },
             ]}
           />
-          <Text style={styles.sectionTitle}>Status breakdown</Text>
+          {(trends?.rows ?? []).length > 0 ? (
+            <>
+              <Text style={styles.sectionTitle}>Applications over time</Text>
+              <DataTable
+                columns={['School year', 'Semester', 'Period', 'Count']}
+                rows={(trends?.rows ?? []).map((row) => [
+                  row.school_year,
+                  formatReportLabel(row.semester),
+                  row.period,
+                  formatReportCount(row.count),
+                ])}
+              />
+            </>
+          ) : null}
+          <Text style={styles.sectionTitle}>Status</Text>
           <DataTable
-            columns={['Status', 'Count', '%']}
+            columns={['Status', 'Count', 'Share']}
             rows={(data?.rows ?? []).map((row) => [
-              row.status,
+              formatReportLabel(row.status),
               formatReportCount(row.count),
               formatReportPercent(row.percentage),
+            ])}
+          />
+          <Text style={styles.sectionTitle}>Release mode</Text>
+          <DataTable
+            columns={['Release mode', 'Count', 'Share']}
+            rows={(release?.rows ?? []).map((row) => [
+              formatReportLabel(row.receive_mode),
+              formatReportCount(row.count),
+              formatReportPercent(row.percentage),
+            ])}
+          />
+          <Text style={styles.sectionTitle}>Local and foreigner</Text>
+          <DataTable
+            columns={['Segment', 'Count', 'Revenue']}
+            rows={(foreigner?.segments ?? []).map((segment) => [
+              formatReportLabel(segment.segment),
+              formatReportCount(segment.count),
+              formatReportCurrency(segment.revenue),
             ])}
           />
         </>
@@ -226,7 +277,7 @@ function renderReportBody(
           />
           <Text style={styles.sectionTitle}>Document demand</Text>
           <DataTable
-            columns={['Document', 'Applications', 'Quantity', 'Share %']}
+            columns={['Document', 'Applications', 'Quantity', 'Share']}
             rows={(data?.rows ?? []).map((row) => [
               row.name,
               formatReportCount(row.application_count),
@@ -259,7 +310,7 @@ function renderReportBody(
           />
           <Text style={styles.sectionTitle}>Revenue by document</Text>
           <DataTable
-            columns={['Document', 'Qty', 'Amount', 'Share %']}
+            columns={['Document', 'Quantity', 'Amount', 'Share']}
             rows={(data?.rows ?? []).map((row) => [
               row.name,
               formatReportCount(row.total_quantity),
@@ -284,9 +335,9 @@ function renderReportBody(
           />
           <Text style={styles.sectionTitle}>Release mode distribution</Text>
           <DataTable
-            columns={['Mode', 'Count', '%']}
+            columns={['Release mode', 'Count', 'Share']}
             rows={(data?.rows ?? []).map((row) => [
-              row.receive_mode,
+              formatReportLabel(row.receive_mode),
               formatReportCount(row.count),
               formatReportPercent(row.percentage),
             ])}
@@ -296,33 +347,49 @@ function renderReportBody(
     }
     case 'turnaround': {
       const data = payload.turnaround as TurnaroundReport | undefined;
+      const stages = payload.tatByStatus as TatByStatusReport | undefined;
       return (
-        <KpiSection
-          items={[
-            {
-              label: 'Sample size',
-              value: formatReportCount(data?.sample_size ?? 0),
-            },
-            {
-              label: 'Average days',
-              value: formatReportDays(data?.average_days),
-            },
-            {
-              label: 'Median days',
-              value: formatReportDays(data?.median_days),
-            },
-            { label: 'P90 days', value: formatReportDays(data?.p90_days) },
-          ]}
-        />
+        <>
+          <KpiSection
+            items={[
+              {
+                label: 'Sample size',
+                value: formatReportCount(data?.sample_size ?? 0),
+              },
+              {
+                label: 'Average days',
+                value: formatReportDays(data?.average_days),
+              },
+              {
+                label: 'Median days',
+                value: formatReportDays(data?.median_days),
+              },
+              {
+                label: '90th percentile',
+                value: formatReportDays(data?.p90_days),
+              },
+            ]}
+          />
+          <Text style={styles.sectionTitle}>Average days by stage</Text>
+          <DataTable
+            columns={['Status', 'Sample size', 'Average days', 'Median days']}
+            rows={(stages?.rows ?? []).map((row) => [
+              row.status_label,
+              formatReportCount(row.sample_size),
+              formatReportDays(row.average_days),
+              formatReportDays(row.median_days),
+            ])}
+          />
+        </>
       );
     }
     case 'tat-by-status': {
       const data = payload.tatByStatus as TatByStatusReport | undefined;
       return (
         <>
-          <Text style={styles.sectionTitle}>Average TAT by status</Text>
+          <Text style={styles.sectionTitle}>Average days by stage</Text>
           <DataTable
-            columns={['Status', 'Sample', 'Avg days', 'Median days']}
+            columns={['Status', 'Sample size', 'Average days', 'Median days']}
             rows={(data?.rows ?? []).map((row) => [
               row.status_label,
               formatReportCount(row.sample_size),
@@ -334,38 +401,86 @@ function renderReportBody(
       );
     }
     case 'payment-status': {
+      const summary = payload.summary as SummaryReport | undefined;
       const data = payload.paymentStatus as PaymentStatusReport | undefined;
       return (
-        <KpiSection
-          items={[
-            { label: 'Total', value: formatReportCount(data?.total ?? 0) },
-            { label: 'Paid', value: formatReportCount(data?.paid ?? 0) },
-            { label: 'Unpaid', value: formatReportCount(data?.unpaid ?? 0) },
-            {
-              label: 'Conversion %',
-              value: formatReportPercent(data?.conversion_rate ?? 0),
-            },
-          ]}
-        />
+        <>
+          {summary ? (
+            <KpiSection
+              items={[
+                {
+                  label: 'Total',
+                  value: formatReportCount(summary.total ?? 0),
+                },
+                {
+                  label: 'Active',
+                  value: formatReportCount(summary.active ?? 0),
+                },
+                {
+                  label: 'Released',
+                  value: formatReportCount(summary.released ?? 0),
+                },
+                {
+                  label: 'Cancelled',
+                  value: formatReportCount(summary.cancelled ?? 0),
+                },
+                {
+                  label: 'Disposed',
+                  value: formatReportCount(summary.disposed ?? 0),
+                },
+              ]}
+            />
+          ) : null}
+          <KpiSection
+            items={[
+              { label: 'Total', value: formatReportCount(data?.total ?? 0) },
+              { label: 'Paid', value: formatReportCount(data?.paid ?? 0) },
+              { label: 'Unpaid', value: formatReportCount(data?.unpaid ?? 0) },
+              {
+                label: 'Paid share',
+                value: formatReportPercent(data?.conversion_rate ?? 0),
+              },
+            ]}
+          />
+        </>
       );
     }
     case 'clearance-bottlenecks': {
+      const summary = payload.summary as SummaryReport | undefined;
       const data = payload.clearanceBottlenecks as
         | ClearanceBottleneckReport
         | undefined;
       return (
         <>
-          <KpiSection
-            items={[
-              {
-                label: 'Total pending',
-                value: formatReportCount(data?.total_pending ?? 0),
-              },
-            ]}
-          />
-          <Text style={styles.sectionTitle}>Clearance bottlenecks</Text>
+          {summary ? (
+            <KpiSection
+              items={[
+                {
+                  label: 'Total',
+                  value: formatReportCount(summary.total ?? 0),
+                },
+                {
+                  label: 'Active',
+                  value: formatReportCount(summary.active ?? 0),
+                },
+                {
+                  label: 'Released',
+                  value: formatReportCount(summary.released ?? 0),
+                },
+                {
+                  label: 'Cancelled',
+                  value: formatReportCount(summary.cancelled ?? 0),
+                },
+                {
+                  label: 'Disposed',
+                  value: formatReportCount(summary.disposed ?? 0),
+                },
+              ]}
+            />
+          ) : null}
+          <Text style={styles.sectionTitle}>Clearances</Text>
           <DataTable
-            columns={['Department', 'Pending', 'Avg days pending']}
+            columns={['Department', 'Pending', 'Average days pending']}
             rows={(data?.rows ?? []).map((row) => [
               row.clearance_name,
               formatReportCount(row.pending_count),
@@ -389,7 +504,7 @@ function renderReportBody(
           />
           <Text style={styles.sectionTitle}>Applications by course</Text>
           <DataTable
-            columns={['Course', 'Count', '%']}
+            columns={['Course', 'Count', 'Share']}
             rows={(data?.rows ?? []).map((row) => [
               row.course_id,
               formatReportCount(row.count),
@@ -408,7 +523,7 @@ function renderReportBody(
             columns={['School year', 'Semester', 'Period', 'Count']}
             rows={(data?.rows ?? []).map((row) => [
               row.school_year,
-              row.semester,
+              formatReportLabel(row.semester),
               row.period,
               formatReportCount(row.count),
             ])}
@@ -432,7 +547,7 @@ function renderReportBody(
           <DataTable
             columns={['Segment', 'Count', 'Revenue']}
             rows={(data?.segments ?? []).map((segment) => [
-              segment.segment,
+              formatReportLabel(segment.segment),
               formatReportCount(segment.count),
               formatReportCurrency(segment.revenue),
             ])}

@@ -115,15 +115,21 @@ vi.mock("@/lib/aduts-api", async (importOriginal) => {
     fetchTicket: vi.fn(async () => getApiMocks().ticket),
     fetchTatReport: vi.fn(async () => getApiMocks().tatReport),
     searchAduts: vi.fn(async () => ({ tickets: [], people: [] })),
-    fetchSavedViews: vi.fn(async () => []),
     fetchAdminBoards: vi.fn(async () => getApiMocks().boards),
+    fetchCancellationReasons: vi.fn(
+      async () => getApiMocks().board.cancellation_reasons ?? [],
+    ),
     fetchAdminBoardAdmins: vi.fn(async () => []),
     fetchBoardAdmins: vi.fn(async () => []),
     fetchBoardCustomers: vi.fn(async () => []),
     fetchBoardSections: vi.fn(async () => getApiMocks().board.sections ?? []),
     fetchTicketChecklist: vi.fn(async () => []),
-    fetchTicketLinks: vi.fn(async () => []),
     heartbeatTicketPresence: vi.fn(async () => []),
     searchPeople: vi.fn(async () => []),
+    submitTicketForApproval: vi.fn(async () => getApiMocks().ticket),
+    returnTicketFromApproval: vi.fn(async () => getApiMocks().ticket),
+    shareTicket: vi.fn(async () => getApiMocks().ticket),
+    revokeTicketShare: vi.fn(async () => getApiMocks().ticket),
+    signOffTicketShare: vi.fn(async () => getApiMocks().ticket),
   };
 });

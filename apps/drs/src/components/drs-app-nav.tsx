@@ -1,8 +1,8 @@
 import { DrsThemeToggle } from '@/components/drs-theme-toggle.tsx';
 import {
   DRS_STUDENT_APPLY_PERMISSION,
-  getDrMaintenancePermissionForHost,
   getDrSubdomain,
+  hasDrCmsAccessForHost,
 } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { fetchWorkflowStageAccess } from '@/routes/-lib/api/fetchWorkflowStageAccess.ts';
@@ -39,11 +39,8 @@ export function DrsAppNav() {
   });
 
   const permissions = permissionsQuery.data ?? [];
-  const maintenancePermission = getDrMaintenancePermissionForHost();
   const isStudent = checkPermission(permissions, DRS_STUDENT_APPLY_PERMISSION);
-  const isMaintainer =
-    maintenancePermission !== null &&
-    checkPermission(permissions, maintenancePermission);
+  const isCmsUser = hasDrCmsAccessForHost(permissions);
 
   const stageAccessQuery = useQuery({
     queryKey: ['drs-employee-workflow-stage-access'],
@@ -56,7 +53,7 @@ export function DrsAppNav() {
     queryKey: ['drs-maintenance-access'],
     queryFn: loadMaintenanceAccess,
     staleTime: FIVE_MINUTES,
-    enabled: permissionsQuery.isSuccess && isMaintainer,
+    enabled: permissionsQuery.isSuccess && isCmsUser,
   });
 
   const maintenanceAccess = maintenanceAccessQuery.data?.access ?? [];
@@ -73,12 +70,12 @@ export function DrsAppNav() {
     items.push({ label: 'Queue', to: '/staff/queue' });
   }
 
-  if (isMaintainer) {
-    items.push({ label: 'Configuration', to: '/maintenance', exact: true });
+  if (isCmsUser || hasQueue) {
+    items.push({ label: 'Reports', to: '/maintenance/reports' });
+  }
 
-    if (maintenanceAccess.includes('reports')) {
-      items.push({ label: 'Reports', to: '/maintenance/reports' });
-    }
+  if (isCmsUser) {
+    items.push({ label: 'Configuration', to: '/maintenance', exact: true });
 
     if (maintenanceAccess.includes('access-debug')) {
       items.push({ label: 'Access debugger', to: '/maintenance/access-debug' });

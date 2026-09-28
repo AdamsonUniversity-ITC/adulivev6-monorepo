@@ -277,7 +277,7 @@ test('admin can open DRS user management and start an assignment', async ({
   await mockUserManagementApis(page);
   await page.goto('/maintenance');
 
-  await page.getByText('User management').click();
+  await page.getByText('Users and roles').click();
   await expect(page.getByText('Ada Registrar')).toBeVisible();
 
   await page.getByText('Ada Registrar').click();
@@ -285,11 +285,20 @@ test('admin can open DRS user management and start an assignment', async ({
   await expect(page.getByLabel('Can cancel applications')).toBeVisible();
 
   await page.getByRole('button', { name: /assign/i }).click();
-  await expect(page.getByText('Clearance department')).toBeVisible();
-  await expect(page.getByText('Assessment assessor')).toBeVisible();
-  await expect(page.getByText('Payment verification')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Assign workflow responsibility' }),
+  ).toBeVisible();
+
   await page.getByRole('combobox').first().click();
-  await page.getByText('Payment verification').click();
+  await expect(
+    page.getByRole('option', { name: 'Clearance department', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('option', { name: 'Assessment assessor', exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('option', { name: 'Payment verification', exact: true })
+    .click();
   await page.getByRole('button', { name: /save assignment/i }).click();
   await expect(page.getByText('Assignment saved.')).toBeVisible();
 });

@@ -42,7 +42,13 @@ export const ConfirmActionDialog = ({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          {typeof description === 'string' ? (
+            <AlertDialogDescription>{description}</AlertDialogDescription>
+          ) : (
+            <AlertDialogDescription asChild>
+              <div>{description}</div>
+            </AlertDialogDescription>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>

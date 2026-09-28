@@ -30,9 +30,6 @@ const CONFIG_FIELD_LABELS: Record<string, string> = {
   allowed_modes: 'Allowed modes',
   capture_tracking_number: 'Capture tracking number',
   require_signature: 'Require signature',
-  auto_dispose_enabled: 'Auto dispose enabled',
-  trigger_kind: 'Trigger kind',
-  wait_working_days: 'Wait working days',
   instructions: 'Instructions',
 };
 

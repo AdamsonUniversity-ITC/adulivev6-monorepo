@@ -227,21 +227,16 @@ export function buildReportExportUrl(
 }
 
 export const REPORT_TABS: Array<{ id: ReportType; label: string }> = [
-  { id: 'summary', label: 'Volume' },
   { id: 'status-breakdown', label: 'Status' },
-  { id: 'document-demand', label: 'Documents' },
-  { id: 'revenue', label: 'Revenue' },
-  { id: 'release-mode', label: 'Release mode' },
-  { id: 'turnaround', label: 'Turnaround' },
-  { id: 'tat-by-status', label: 'TAT by status' },
-  { id: 'payment-status', label: 'Payment' },
   { id: 'clearance-bottlenecks', label: 'Clearances' },
+  { id: 'payment-status', label: 'Payment' },
+  { id: 'document-demand', label: 'Documents' },
+  { id: 'turnaround', label: 'Turnaround' },
   { id: 'by-course', label: 'By course' },
-  { id: 'trends', label: 'Trends' },
-  { id: 'foreigner-split', label: 'Foreigner split' },
+  { id: 'revenue', label: 'Revenue' },
 ];
 
-export type ReportGroupId = 'volume' | 'operations' | 'finance';
+export type ReportGroupId = 'now' | 'workload' | 'programs';
 
 export const REPORT_GROUPS: Array<{
   id: ReportGroupId;
@@ -249,30 +244,19 @@ export const REPORT_GROUPS: Array<{
   tabs: ReportType[];
 }> = [
   {
-    id: 'volume',
-    label: 'Volume',
-    tabs: [
-      'summary',
-      'status-breakdown',
-      'trends',
-      'by-course',
-      'foreigner-split',
-    ],
+    id: 'now',
+    label: 'Now',
+    tabs: ['status-breakdown', 'clearance-bottlenecks', 'payment-status'],
   },
   {
-    id: 'operations',
-    label: 'Operations',
-    tabs: [
-      'document-demand',
-      'turnaround',
-      'tat-by-status',
-      'clearance-bottlenecks',
-    ],
+    id: 'workload',
+    label: 'Workload',
+    tabs: ['document-demand', 'turnaround'],
   },
   {
-    id: 'finance',
-    label: 'Finance',
-    tabs: ['revenue', 'payment-status', 'release-mode'],
+    id: 'programs',
+    label: 'Programs',
+    tabs: ['by-course', 'revenue'],
   },
 ];
 

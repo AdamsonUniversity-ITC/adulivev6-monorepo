@@ -22,8 +22,10 @@ import { toast } from "@repo/ui/exports";
 
 export function TicketChecklistCard({
   ticketNumber,
+  readOnly = false,
 }: {
   ticketNumber: string;
+  readOnly?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
@@ -65,15 +67,15 @@ export function TicketChecklistCard({
   const doneCount = items.filter((item) => item.is_done).length;
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="border-b pb-3">
+    <Card className="flex h-full min-h-64 flex-col shadow-sm">
+      <CardHeader className="border-b pb-2">
         <CardTitle className="text-lg">Checklist</CardTitle>
         <CardDescription>
           Staff only
           {items.length > 0 ? ` · ${doneCount}/${items.length} done` : ""}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3 p-5">
+      <CardContent className="flex flex-1 flex-col space-y-3 overflow-y-auto p-4">
         {checklistQuery.isLoading ? (
           <p className="text-muted-foreground text-sm">Loading…</p>
         ) : items.length === 0 ? (
@@ -81,7 +83,7 @@ export function TicketChecklistCard({
             No checklist items yet.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="min-h-0 flex-1 space-y-2">
             {items.map((item: ChecklistItem) => (
               <li
                 key={item.id}
@@ -89,7 +91,7 @@ export function TicketChecklistCard({
               >
                 <Checkbox
                   checked={item.is_done}
-                  disabled={toggleMutation.isPending}
+                  disabled={readOnly || toggleMutation.isPending}
                   onCheckedChange={(checked) =>
                     toggleMutation.mutate({
                       id: item.id,
@@ -107,45 +109,49 @@ export function TicketChecklistCard({
                 >
                   {item.body}
                 </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-destructive"
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate(item.id)}
-                  aria-label="Delete checklist item"
-                >
-                  <X className="size-4" />
-                </Button>
+                {readOnly ? null : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => deleteMutation.mutate(item.id)}
+                    aria-label="Delete checklist item"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
 
-        <form
-          className="flex flex-wrap gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!body.trim()) return;
-            createMutation.mutate();
-          }}
-        >
-          <Input
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Add a checklist item…"
-            className="shadow-xs min-w-[12rem] flex-1"
-            maxLength={500}
-          />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={createMutation.isPending || !body.trim()}
+        {readOnly ? null : (
+          <form
+            className="mt-auto flex flex-wrap gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!body.trim()) return;
+              createMutation.mutate();
+            }}
           >
-            Add
-          </Button>
-        </form>
+            <Input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Add a checklist item…"
+              className="shadow-xs min-w-[12rem] flex-1"
+              maxLength={500}
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={createMutation.isPending || !body.trim()}
+            >
+              Add
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );

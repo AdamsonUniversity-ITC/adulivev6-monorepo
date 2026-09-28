@@ -11,7 +11,7 @@ import { PersonIdentity } from "@/components/person-identity";
 import {
   PriorityBadge,
   StatusBadge,
-  UnreadBadge,
+  UnreadIndicators,
 } from "@/components/ticket-badges";
 import {
   bulkAssignTickets,
@@ -21,6 +21,7 @@ import {
   type Ticket,
 } from "@/lib/aduts-api";
 import { isPlatformHost } from "@/lib/adutsHost";
+import { getAxiosMessage } from "@/lib/axios-status";
 import { formatPriority, formatStatus } from "@/lib/format-labels";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -34,7 +35,11 @@ import { DataTable } from "@repo/ui/custom/datatable/datatable";
 import { DataTableColumnHeader } from "@repo/ui/custom/datatable/datatable-column-header";
 import { toast } from "@repo/ui/exports";
 
-import type { TicketsSearch } from "./index";
+import {
+  DEFAULT_STATUS_FILTER,
+  EMPTY_STATUS_FILTER,
+  type TicketsSearch,
+} from "./-tickets-search";
 
 const dateFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
@@ -51,9 +56,11 @@ function formatDateTime(iso?: string | null): string {
 export type TicketsMetrics = {
   open: number;
   in_progress: number;
+  pending_approval: number;
   resolved: number;
   closed: number;
   unread_replies: number;
+  transferred: number;
 };
 
 type TicketsDatatableProps = {
@@ -72,14 +79,20 @@ export function TicketsDatatable({
   const platform = isPlatformHost();
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [bulkStatus, setBulkStatus] = React.useState("");
+  const [bulkCancelReasonId, setBulkCancelReasonId] = React.useState("");
   const [bulkAssignee, setBulkAssignee] = React.useState("");
 
-  const status = search.status ?? "pending";
+  const status = search.status ?? DEFAULT_STATUS_FILTER;
   const keyword = search.keyword ?? "";
   const priority = search.priority ?? "";
   const sectionId = search.section_id ? String(search.section_id) : "";
   const assignedTo = search.assigned_to ? String(search.assigned_to) : "";
   const categoryId = search.category_id ? String(search.category_id) : "";
+  const transferred = search.transferred === true;
+  // No tab lit at all means nothing matches. Transferred is not a status, so if
+  // that tab is still lit it stands on its own across every status instead.
+  const statusParam =
+    status === EMPTY_STATUS_FILTER && transferred ? undefined : status;
   const pagination = React.useMemo<PaginationState>(
     () => ({
       pageIndex: Math.max(0, (search.page ?? 1) - 1),
@@ -96,6 +109,29 @@ export function TicketsDatatable({
 
   const isStaff = boardQuery.data?.access?.is_staff === true;
 
+  // Filter options are limited to the sections the user actually works in.
+  // null/undefined means unrestricted (board or global admin).
+  const scopedSectionIds = boardQuery.data?.access?.scoped_section_ids;
+
+  const scopedSections = React.useMemo(() => {
+    const sections = boardQuery.data?.sections ?? [];
+    if (!scopedSectionIds) return sections;
+    const allowed = new Set(scopedSectionIds);
+    return sections.filter((section) => allowed.has(section.id));
+  }, [boardQuery.data?.sections, scopedSectionIds]);
+
+  const scopedCategories = React.useMemo(() => {
+    const categories = boardQuery.data?.categories ?? [];
+    if (!scopedSectionIds) return categories;
+    const allowed = new Set(scopedSectionIds);
+    return categories.filter(
+      (category) =>
+        category.section_id != null && allowed.has(category.section_id),
+    );
+  }, [boardQuery.data?.categories, scopedSectionIds]);
+
+  const cancellationReasons = boardQuery.data?.cancellation_reasons ?? [];
+
   React.useEffect(() => {
     setRowSelection({});
   }, [
@@ -105,6 +141,7 @@ export function TicketsDatatable({
     sectionId,
     assignedTo,
     categoryId,
+    transferred,
     pagination.pageIndex,
     pagination.pageSize,
   ]);
@@ -119,17 +156,19 @@ export function TicketsDatatable({
       assignedTo,
       categoryId,
       keyword,
+      transferred,
       pagination.pageIndex,
       pagination.pageSize,
     ],
     queryFn: () =>
       fetchTickets({
-        status: status || undefined,
+        status: statusParam || undefined,
         priority: priority || undefined,
         section_id: sectionId || undefined,
         assigned_to: assignedTo || undefined,
         category_id: categoryId || undefined,
         keyword: keyword.trim() || undefined,
+        transferred: transferred ? 1 : undefined,
         page: pagination.pageIndex + 1,
         rows: pagination.pageSize,
       }),
@@ -152,9 +191,8 @@ export function TicketsDatatable({
   }, [rowSelection, rows]);
 
   const sectionMembers = React.useMemo(() => {
-    const sections = boardQuery.data?.sections ?? [];
     const byId = new Map<number, { user_id: number; name?: string | null }>();
-    for (const section of sections) {
+    for (const section of scopedSections) {
       for (const member of section.members ?? []) {
         byId.set(member.user_id, member);
       }
@@ -164,7 +202,7 @@ export function TicketsDatatable({
         b.name ?? `User ${b.user_id}`,
       ),
     );
-  }, [boardQuery.data?.sections]);
+  }, [scopedSections]);
 
   const invalidateTickets = () => {
     void queryClient.invalidateQueries({ queryKey: ["aduts", "tickets"] });
@@ -175,14 +213,21 @@ export function TicketsDatatable({
       bulkChangeTicketStatus(
         selectedTickets.map((t) => t.ticket_number),
         nextStatus,
+        bulkCancelReasonId
+          ? { reasonId: Number(bulkCancelReasonId) }
+          : undefined,
       ),
     onSuccess: () => {
       setRowSelection({});
       setBulkStatus("");
+      setBulkCancelReasonId("");
       invalidateTickets();
       toast.success("Status updated for selected tickets.");
     },
-    onError: () => toast.error("Could not update status for all tickets."),
+    onError: (error) =>
+      toast.error(
+        getAxiosMessage(error, "Could not update status for all tickets."),
+      ),
   });
 
   const bulkAssignMutation = useMutation({
@@ -220,14 +265,17 @@ export function TicketsDatatable({
         meta: { label: "Ticket" },
         cell: ({ row }) => {
           const title = row.original.title;
-          const unread = row.original.unread_count ?? 0;
           return (
             <div className="min-w-0 max-w-[16rem] space-y-0.5">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-medium">
                   {row.original.ticket_number}
                 </span>
-                {unread > 0 ? <UnreadBadge count={unread} /> : null}
+                <UnreadIndicators
+                  conversation={row.original.unread_count}
+                  internal={row.original.unread_internal_count}
+                  mentions={row.original.unread_mentions_count}
+                />
               </div>
               <p className="truncate text-sm">{title}</p>
             </div>
@@ -237,9 +285,9 @@ export function TicketsDatatable({
       {
         id: "requester",
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Requester" />
+          <DataTableColumnHeader column={column} title="Requestor" />
         ),
-        meta: { label: "Requester" },
+        meta: { label: "Requestor" },
         cell: ({ row }) =>
           row.original.requester ? (
             <PersonIdentity
@@ -310,7 +358,10 @@ export function TicketsDatatable({
           <div className="flex items-center gap-2">
             <Select
               value={bulkStatus || undefined}
-              onValueChange={setBulkStatus}
+              onValueChange={(next) => {
+                setBulkStatus(next);
+                if (next !== "closed") setBulkCancelReasonId("");
+              }}
             >
               <SelectTrigger
                 size="sm"
@@ -327,10 +378,36 @@ export function TicketsDatatable({
                 ))}
               </SelectContent>
             </Select>
+            {/* Closing live work is a cancellation, so the server demands a reason. */}
+            {bulkStatus === "closed" ? (
+              <Select
+                value={bulkCancelReasonId || undefined}
+                onValueChange={setBulkCancelReasonId}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="w-[13rem]"
+                  aria-label="Cancellation reason"
+                >
+                  <SelectValue placeholder="Reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cancellationReasons.map((reason) => (
+                    <SelectItem key={reason.id} value={String(reason.id)}>
+                      {reason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <Button
               type="button"
               size="sm"
-              disabled={!bulkStatus || bulkStatusMutation.isPending}
+              disabled={
+                !bulkStatus ||
+                (bulkStatus === "closed" && !bulkCancelReasonId) ||
+                bulkStatusMutation.isPending
+              }
               onClick={() => bulkStatusMutation.mutate(bulkStatus)}
             >
               Apply
@@ -419,7 +496,7 @@ export function TicketsDatatable({
           },
         }}
         toolbar={{
-          searchPlaceholder: "Search ticket # or title…",
+          searchPlaceholder: "Search ticket #, title, or requestor…",
           slot: (
             <div className="flex flex-wrap items-center gap-3">
               {isStaff || platform ? (
@@ -468,7 +545,7 @@ export function TicketsDatatable({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All sections</SelectItem>
-                      {(boardQuery.data?.sections ?? []).map((s) => (
+                      {scopedSections.map((s) => (
                         <SelectItem key={s.id} value={String(s.id)}>
                           {s.section_name}
                         </SelectItem>
@@ -505,7 +582,7 @@ export function TicketsDatatable({
                     </SelectContent>
                   </Select>
 
-                  {(boardQuery.data?.categories?.length ?? 0) > 0 ? (
+                  {scopedCategories.length > 0 ? (
                     <Select
                       value={categoryId || "all"}
                       onValueChange={(value) =>
@@ -524,7 +601,7 @@ export function TicketsDatatable({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All categories</SelectItem>
-                        {(boardQuery.data?.categories ?? []).map((c) => (
+                        {scopedCategories.map((c) => (
                           <SelectItem key={c.id} value={String(c.id)}>
                             {c.name}
                           </SelectItem>

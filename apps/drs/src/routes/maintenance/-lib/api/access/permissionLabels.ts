@@ -7,7 +7,11 @@ export const DRS_USER_MANAGEMENT_MANAGE_PERMISSION =
 const permissionLabels: Record<string, string> = {
   [DRS_FOREIGNER_ONLY_PERMISSION]: 'Only view foreigner students',
   [DRS_CANCEL_APPLICATIONS_PERMISSION]: 'Cancel DRS applications',
-  [DRS_ADMIN_ACCESS_PERMISSION]: 'DRS admin access',
+  [DRS_ADMIN_ACCESS_PERMISSION]: 'DRS Super Admin (all sites + business config)',
+  drs_college_maintenance_access:
+    'DRS Administrator — College (business config)',
+  drs_shs_maintenance_access: 'DRS Administrator — SHS (business config)',
+  drs_bed_maintenance_access: 'DRS Administrator — BED (business config)',
   drs_regular_user_access: 'DRS staff queue access',
   drs_user_management_view: 'View DRS user management',
   drs_user_management_manage: 'Manage DRS users',

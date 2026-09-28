@@ -7,9 +7,6 @@ function titleCaseWords(value: string): string {
 }
 
 export function formatStatus(value: string): string {
-  if (value === "closed") {
-    return "Cancelled";
-  }
   return titleCaseWords(value.replace(/_/g, " "));
 }
 

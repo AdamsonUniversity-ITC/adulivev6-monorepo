@@ -6,7 +6,7 @@ import {
 } from '@/components/drs-ui.tsx';
 import {
   DRS_STUDENT_APPLY_PERMISSION,
-  getDrMaintenancePermissionForHost,
+  hasDrCmsAccessForHost,
 } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { checkPermission, usePermission } from '@repo/hooks';
@@ -22,11 +22,9 @@ export const Route = createFileRoute('/')({
   beforeLoad: async () => {
     const { data } = await fetchAuthUser();
     const permissions = normalizePermissions(data);
-    const maintPerm = getDrMaintenancePermissionForHost();
-    const hasMaint =
-      maintPerm !== null && checkPermission(permissions, maintPerm);
+    const hasCms = hasDrCmsAccessForHost(permissions);
 
-    if (hasMaint) {
+    if (hasCms) {
       return;
     }
 
@@ -42,12 +40,10 @@ export const Route = createFileRoute('/')({
       permissions,
       DRS_STUDENT_APPLY_PERMISSION,
     );
-    const maintPerm = getDrMaintenancePermissionForHost();
-    const hasMaint =
-      maintPerm !== null && checkPermission(permissions, maintPerm);
+    const hasCms = hasDrCmsAccessForHost(permissions);
 
     let access: MaintenanceLoaderAccess = [];
-    if (!hasCollege && hasMaint) {
+    if (!hasCollege && hasCms) {
       const m = await loadMaintenanceAccess();
       access = m.access;
     }
@@ -62,8 +58,7 @@ function Index() {
   const { permissions, access } = Route.useLoaderData();
   const { checkPermission: cp } = usePermission(permissions);
   const hasCollege = cp(DRS_STUDENT_APPLY_PERMISSION);
-  const maintPerm = getDrMaintenancePermissionForHost();
-  const hasMaint = maintPerm !== null && cp(maintPerm);
+  const hasCms = hasDrCmsAccessForHost(permissions);
 
   if (hasCollege) {
     return (
@@ -83,7 +78,7 @@ function Index() {
     );
   }
 
-  if (hasMaint) {
+  if (hasCms) {
     return <MaintenanceHome access={access} />;
   }
 

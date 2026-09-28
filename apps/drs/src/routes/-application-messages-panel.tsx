@@ -20,9 +20,8 @@ import {
 import * as React from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 
+import { PrivateFileLink } from '@/components/private-file-link.tsx';
 import { getAvatarUrlByType } from '@/lib/avatar.ts';
-import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
-import { formatExpiryTime } from '@/lib/formatExpiryTime.ts';
 import {
   deleteTempUpload,
   formatFileSize,
@@ -568,45 +567,15 @@ function MessageBubble({ message, viewerRole }: MessageBubbleProps) {
           {attachments.length > 0 ? (
             <div className={hasBody ? 'mt-2 space-y-1' : 'space-y-1'}>
               {attachments.map((attachment) => (
-                <a
+                <PrivateFileLink
                   key={attachment.id}
-                  href={attachment.url}
-                  rel="noreferrer"
+                  file={attachment}
                   className={
                     isMine
-                      ? 'border-primary-foreground/30 bg-primary-foreground/10 hover:bg-primary-foreground/15 text-primary-foreground flex max-w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border px-2 py-1.5 text-xs transition-colors'
-                      : 'border-border bg-background/70 text-foreground hover:bg-background flex max-w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border px-2 py-1.5 text-xs transition-colors'
+                      ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground max-w-full min-w-0 overflow-hidden rounded-md border px-2 py-1.5 text-xs'
+                      : 'border-border bg-background/70 text-foreground max-w-full min-w-0 overflow-hidden rounded-md border px-2 py-1.5 text-xs'
                   }
-                  onClick={(event) =>
-                    handlePrivateFileDownloadClick(
-                      event,
-                      attachment.url,
-                      attachment.file_name,
-                      attachment.expires_at,
-                      () => {
-                        toast.error(
-                          'Failed to download attachment. Please refresh and try again.',
-                        );
-                      },
-                    )
-                  }
-                >
-                  <FileUp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block wrap-anywhere">
-                      {attachment.file_name}
-                    </span>
-                    <span className="block truncate opacity-75">
-                      Private download
-                      {attachment.expires_at
-                        ? ` - expires ${formatExpiryTime(attachment.expires_at)}`
-                        : ''}
-                    </span>
-                  </span>
-                  <span className="shrink-0 opacity-75">
-                    {formatFileSize(attachment.size)}
-                  </span>
-                </a>
+                />
               ))}
             </div>
           ) : null}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { AccessDeniedState } from "@/components/access-denied-state";
 import { LoadingState } from "@/components/loading-state";
@@ -81,10 +81,18 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
               {staff.name?.trim() || "Unknown"}
             </CardTitle>
             <CardDescription>
-              Assigned tickets in this filter:{" "}
+              Solely assigned tickets in this filter:{" "}
               <span className="text-foreground font-medium tabular-nums">
                 {staff.ticket_count}
               </span>
+              {staff.shared && staff.shared.shared_count > 0 ? (
+                <>
+                  {" · shared: "}
+                  <span className="text-foreground font-medium tabular-nums">
+                    {staff.shared.shared_count}
+                  </span>
+                </>
+              ) : null}
             </CardDescription>
           </div>
         </div>
@@ -170,6 +178,23 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             {formatHours(staff.per_status.closed?.avg)}
           </p>
         </div>
+        {staff.shared && staff.shared.shared_count > 0 ? (
+          <div className="space-y-1 sm:col-span-2 xl:col-span-4">
+            <p className="text-muted-foreground text-xs font-medium uppercase">
+              Shared work · own handling time
+            </p>
+            <p className="text-lg font-semibold tabular-nums">
+              {formatHours(staff.shared.handling_time.avg)}
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Median {formatHours(staff.shared.handling_time.median)} · n=
+              {staff.shared.handling_time.count}
+              {staff.shared.pending_count > 0
+                ? ` · ${staff.shared.pending_count} awaiting sign-off`
+                : null}
+            </p>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -426,7 +451,9 @@ function ReportsPage() {
               </h2>
               <p className="text-muted-foreground mb-3 text-sm">
                 Same TAT metrics for each section member, based on tickets
-                currently assigned to them.
+                currently assigned to them. Shared tickets are counted
+                separately, measured from when each person was brought in to
+                when they signed off.
               </p>
               {(report.per_staff ?? []).length > 0 ? (
                 <div className="space-y-4">
@@ -468,7 +495,8 @@ function ReportsPage() {
                     </thead>
                     <tbody className="divide-y">
                       {report.per_application.data.map((row) => (
-                        <tr key={row.id} className="hover:bg-muted/30">
+                        <Fragment key={row.id}>
+                        <tr className="hover:bg-muted/30">
                           <td className="px-4 py-3">
                             <Link
                               to="/tickets/$ticketNumber"
@@ -506,6 +534,31 @@ function ReportsPage() {
                             {formatHours(row.assignment_hours)}
                           </td>
                         </tr>
+                        {(row.shares ?? []).map((share) => (
+                          <tr
+                            key={`${row.id}-${share.section_id}`}
+                            className="bg-muted/20 text-xs"
+                          >
+                            <td className="text-muted-foreground py-2 pr-4 pl-10">
+                              {share.name?.trim() ||
+                                share.section_name ||
+                                "Unassigned"}
+                              {share.is_owner ? " · owner" : ""}
+                            </td>
+                            <td
+                              className="text-muted-foreground py-2"
+                              colSpan={7}
+                            >
+                              {share.resolved_at
+                                ? `Signed off in ${formatHours(share.handling_hours)}`
+                                : "Awaiting sign-off"}
+                            </td>
+                            <td className="px-4 py-2 tabular-nums">
+                              {formatHours(share.handling_hours)}
+                            </td>
+                          </tr>
+                        ))}
+                        </Fragment>
                       ))}
                       {report.per_application.data.length === 0 ? (
                         <tr>

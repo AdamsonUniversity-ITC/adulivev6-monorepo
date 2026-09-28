@@ -16,16 +16,21 @@ function toRegistrarRelativePath(url: string): string {
   return parsed.pathname.replace(/^\//, '') + parsed.search;
 }
 
-export async function downloadPrivateFile(
-  url: string,
-  fileName: string,
-): Promise<void> {
+export async function fetchPrivateFileBlob(url: string): Promise<Blob> {
   const response = await registrarSvc.get(toRegistrarRelativePath(url), {
     responseType: 'blob',
   });
 
-  const blob =
-    response.data instanceof Blob ? response.data : new Blob([response.data]);
+  return response.data instanceof Blob
+    ? response.data
+    : new Blob([response.data]);
+}
+
+export async function downloadPrivateFile(
+  url: string,
+  fileName: string,
+): Promise<void> {
+  const blob = await fetchPrivateFileBlob(url);
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
@@ -52,4 +57,9 @@ export function handlePrivateFileDownloadClick(
   void downloadPrivateFile(url, fileName).catch(() => {
     onError?.();
   });
+}
+
+export function canPreviewPrivateFile(mimeType: string | null | undefined): boolean {
+  if (!mimeType) return false;
+  return mimeType.startsWith('image/') || mimeType === 'application/pdf';
 }

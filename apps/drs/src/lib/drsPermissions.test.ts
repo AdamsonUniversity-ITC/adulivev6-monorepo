@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   DRS_STUDENT_APPLY_PERMISSION,
+  DRS_SUPER_ADMIN_PERMISSION,
   getDrAdminPermissionForHost,
   getDrMaintenancePermissionForHost,
   getDrSubdomain,
+  hasDrAdminAccessForHost,
+  hasDrCmsAccessForHost,
+  hasDrMaintenanceAccessForHost,
   hasDrsStaffQueuePermission,
+  hasDrsSuperAdminAccess,
   isStudentOnlyDrsPortalUser,
 } from './drsPermissions.ts';
 
@@ -41,15 +46,41 @@ describe('getDrMaintenancePermissionForHost', () => {
 });
 
 describe('getDrAdminPermissionForHost', () => {
-  it('matches maintenance tenant mapping', () => {
+  it('always returns global Super Admin permission', () => {
     expect(getDrAdminPermissionForHost('bed-drs.localhost.test')).toBe(
-      'drs_bed_maintenance_access',
+      DRS_SUPER_ADMIN_PERMISSION,
+    );
+    expect(getDrAdminPermissionForHost('college-drs.localhost.test')).toBe(
+      'drs_admin_access',
     );
   });
 });
 
+describe('hasDrsSuperAdminAccess / hasDrCmsAccessForHost', () => {
+  const collegeHost = 'college-drs.localhost.test';
+  const shsHost = 'shs-drs.localhost.test';
+
+  it('Super alone has CMS on any host and Super flags', () => {
+    const perms = [DRS_SUPER_ADMIN_PERMISSION];
+    expect(hasDrsSuperAdminAccess(perms)).toBe(true);
+    expect(hasDrAdminAccessForHost(perms, collegeHost)).toBe(true);
+    expect(hasDrCmsAccessForHost(perms, collegeHost)).toBe(true);
+    expect(hasDrCmsAccessForHost(perms, shsHost)).toBe(true);
+    expect(hasDrMaintenanceAccessForHost(perms, collegeHost)).toBe(false);
+  });
+
+  it('subdomain Administrator has CMS only on own host, not Super', () => {
+    const perms = ['drs_college_maintenance_access'];
+    expect(hasDrsSuperAdminAccess(perms)).toBe(false);
+    expect(hasDrAdminAccessForHost(perms, collegeHost)).toBe(false);
+    expect(hasDrCmsAccessForHost(perms, collegeHost)).toBe(true);
+    expect(hasDrCmsAccessForHost(perms, shsHost)).toBe(false);
+    expect(hasDrMaintenanceAccessForHost(perms, collegeHost)).toBe(true);
+  });
+});
+
 describe('isStudentOnlyDrsPortalUser', () => {
-  it('is true when student has college access but not maintenance', () => {
+  it('is true when student has college access but not CMS', () => {
     expect(
       isStudentOnlyDrsPortalUser(
         [DRS_STUDENT_APPLY_PERMISSION],
@@ -62,6 +93,15 @@ describe('isStudentOnlyDrsPortalUser', () => {
     expect(
       isStudentOnlyDrsPortalUser(
         [DRS_STUDENT_APPLY_PERMISSION, 'drs_college_maintenance_access'],
+        'college-drs.localhost.test',
+      ),
+    ).toBe(false);
+  });
+
+  it('is false when user is Super Admin', () => {
+    expect(
+      isStudentOnlyDrsPortalUser(
+        [DRS_STUDENT_APPLY_PERMISSION, DRS_SUPER_ADMIN_PERMISSION],
         'college-drs.localhost.test',
       ),
     ).toBe(false);

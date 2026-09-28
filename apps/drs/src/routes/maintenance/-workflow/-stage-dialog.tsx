@@ -43,7 +43,8 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
     setRestrictAssignedUsersToCoursePrograms,
   ] = useState(false);
   const [allowsOwnerCancellation, setAllowsOwnerCancellation] = useState(false);
-  const [notifyStudentOnEnter, setNotifyStudentOnEnter] = useState(false);
+  const [allowsStaffReceiveModeChange, setAllowsStaffReceiveModeChange] =
+    useState(false);
   const [transitionRule, setTransitionRule] =
     useState<TransitionRule>('all_required_done');
 
@@ -57,7 +58,9 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
       Boolean(stage?.restrict_assigned_users_to_course_programs),
     );
     setAllowsOwnerCancellation(Boolean(stage?.allows_owner_cancellation));
-    setNotifyStudentOnEnter(Boolean(stage?.notify_student_on_enter));
+    setAllowsStaffReceiveModeChange(
+      Boolean(stage?.allows_staff_receive_mode_change),
+    );
     setTransitionRule(stage?.transition_rule ?? 'all_required_done');
   }, [open, stage]);
 
@@ -93,7 +96,7 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
       restrict_assigned_users_to_course_programs:
         restrictAssignedUsersToCoursePrograms,
       allows_owner_cancellation: allowsOwnerCancellation,
-      notify_student_on_enter: notifyStudentOnEnter,
+      allows_staff_receive_mode_change: allowsStaffReceiveModeChange,
     };
 
     if (stage) {
@@ -120,68 +123,63 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{stage ? 'Edit stage' : 'New stage'}</DialogTitle>
+          <DialogTitle>{stage ? 'Edit stage' : 'Add stage'}</DialogTitle>
           <DialogDescription>
-            Stages run in order. Mark exactly one stage as initial and at most
-            one as terminal.
+            Configure stage name, position in the flow, and advancement rules.
           </DialogDescription>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
             <Label htmlFor="stage-name">Name</Label>
             <Input
               id="stage-name"
-              className="mt-1"
-              placeholder="e.g. For Assessment"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="For Assessment"
+              autoFocus
             />
           </div>
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="stage-slug">Slug (optional)</Label>
             <Input
               id="stage-slug"
-              className="mt-1"
-              placeholder="auto from name"
               value={slug}
-              onChange={(event) => setSlug(event.target.value)}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="for_assessment"
             />
           </div>
-          <div>
-            <Label htmlFor="stage-rule">Transition rule</Label>
+          <div className="space-y-2">
+            <Label>Transition rule</Label>
             <Select
               value={transitionRule}
               onValueChange={(value) =>
                 setTransitionRule(value as TransitionRule)
               }
             >
-              <SelectTrigger id="stage-rule" className="mt-1">
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all_required_done">
-                  All required tasks must complete
+                  All required tasks done
                 </SelectItem>
-                <SelectItem value="any_done">Any task completes</SelectItem>
+                <SelectItem value="any_done">Any task done</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex gap-3">
             <Checkbox
               id="stage-initial"
               checked={isInitial}
               onCheckedChange={(value) => setIsInitial(value === true)}
             />
-            <Label
-              htmlFor="stage-initial"
-              className="cursor-pointer font-normal"
-            >
+            <Label htmlFor="stage-initial" className="cursor-pointer font-normal">
               Initial stage
             </Label>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex gap-3">
             <Checkbox
               id="stage-terminal"
               checked={isTerminal}
@@ -191,12 +189,12 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
               htmlFor="stage-terminal"
               className="cursor-pointer font-normal"
             >
-              Terminal stage (application is finalised here)
+              Terminal stage
             </Label>
           </div>
           <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
-              id="stage-course-program-scope"
+              id="stage-course-restrict"
               checked={restrictAssignedUsersToCoursePrograms}
               onCheckedChange={(value) =>
                 setRestrictAssignedUsersToCoursePrograms(value === true)
@@ -204,15 +202,14 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
             />
             <div className="space-y-1">
               <Label
-                htmlFor="stage-course-program-scope"
+                htmlFor="stage-course-restrict"
                 className="cursor-pointer font-normal"
               >
-                Restrict assigned staff to their course programs
+                Restrict assigned users to course programs
               </Label>
               <p className="text-muted-foreground text-xs">
-                Users assigned to this workflow step can only view or act on
-                applications whose course is included in their assigned Fenroll
-                course programs.
+                When enabled, staff assigned via workflow assignments only see
+                applications matching their course programs at this stage.
               </p>
             </div>
           </div>
@@ -240,22 +237,22 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
           </div>
           <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
             <Checkbox
-              id="stage-notify-student"
-              checked={notifyStudentOnEnter}
+              id="stage-staff-receive-mode"
+              checked={allowsStaffReceiveModeChange}
               onCheckedChange={(value) =>
-                setNotifyStudentOnEnter(value === true)
+                setAllowsStaffReceiveModeChange(value === true)
               }
             />
             <div className="space-y-1">
               <Label
-                htmlFor="stage-notify-student"
+                htmlFor="stage-staff-receive-mode"
                 className="cursor-pointer font-normal"
               >
-                Email student when application reaches this stage
+                Staff can change delivery mode at this stage
               </Label>
               <p className="text-muted-foreground text-xs">
-                Sends a status update to the contact email on the application
-                when the request enters this stage.
+                Staff may switch pickup and courier delivery (and delivery
+                address) while the application is in this stage.
               </p>
             </div>
           </div>
@@ -264,11 +261,12 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isSaving}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={isSaving}>
-              {stage ? 'Save changes' : 'Create stage'}
+              {isSaving ? 'Saving…' : stage ? 'Save changes' : 'Create stage'}
             </Button>
           </DialogFooter>
         </form>

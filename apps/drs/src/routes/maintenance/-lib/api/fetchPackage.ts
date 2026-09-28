@@ -12,14 +12,15 @@ export type PackageDetail = {
   group_id?: string | number | null;
   package_name: string;
   price: number;
-  account_code?: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
   rules?: PackageRule[];
   included_items?: Array<{
     id: number | string;
+    document_id?: number | null;
     label: string;
+    account_code?: string | null;
     sort_order?: number;
   }>;
 };

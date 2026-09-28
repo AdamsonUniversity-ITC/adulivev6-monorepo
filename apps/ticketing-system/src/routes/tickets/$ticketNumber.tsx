@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  addWatcher,
   assignTicket,
   changeTicketCategory,
   changeTicketPriority,
@@ -13,13 +12,18 @@ import {
   fetchTicket,
   heartbeatTicketPresence,
   type PresencePeer,
-  removeWatcher,
+  type PersonProfile,
+  returnTicketFromApproval,
+  revokeTicketShare,
   sendTicketMessage,
+  shareTicket,
+  signOffTicketShare,
   submitCsat,
+  submitTicketForApproval,
   type TicketAttachment,
   type TicketMessage,
+  type TicketShare,
   transferTicketSection,
-  type BoardTemplate,
 } from "@/lib/aduts-api";
 import {
   type Dispatch,
@@ -31,12 +35,17 @@ import {
   useRef,
   useState,
 } from "react";
-import { Download, Eye, Paperclip, Send, X } from "lucide-react";
-import { toast } from "@repo/ui/exports";
 import {
-  RichTextEditor,
-  sanitizeRichTextHtml,
-} from "@repo/ui/components/rich-text-editor";
+  ChevronDown,
+  Download,
+  EllipsisVertical,
+  Eye,
+  Paperclip,
+  Send,
+  X,
+} from "lucide-react";
+import { toast } from "@repo/ui/exports";
+import { sanitizeRichTextHtml } from "@repo/ui/components/rich-text-editor";
 import {
   deleteTempUpload,
   fetchTempUploadObjectUrl,
@@ -58,10 +67,9 @@ import {
   TICKET_ATTACHMENT_MAX_FILES,
   TICKET_ATTACHMENT_MAX_SIZE,
 } from "@/components/ticket-attachment-dropzone";
-import { StatusBadge } from "@/components/ticket-badges";
+import { PriorityBadge, StatusBadge } from "@/components/ticket-badges";
 import { TicketChecklistCard } from "@/components/ticket-checklist-card";
-import { TicketLinksCard } from "@/components/ticket-links-card";
-import { getAxiosStatus } from "@/lib/axios-status";
+import { getAxiosMessage, getAxiosStatus } from "@/lib/axios-status";
 import { authUserQueryOptions } from "@/lib/auth-queries";
 import { formatPriority, formatStatus } from "@/lib/format-labels";
 import {
@@ -87,19 +95,34 @@ import {
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@repo/ui/components/button-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
+import { Label } from "@repo/ui/components/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
-import { Label } from "@repo/ui/components/label";
 import {
   Select,
   SelectContent,
@@ -114,11 +137,6 @@ import {
   TabsTrigger,
 } from "@repo/ui/components/tabs";
 import { Textarea } from "@repo/ui/components/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo/ui/components/tooltip";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -170,11 +188,16 @@ function TicketDetailPage() {
   );
   const [csatScore, setCsatScore] = useState("5");
   const [csatComment, setCsatComment] = useState("");
-  const [watcherUserId, setWatcherUserId] = useState("");
   const [presencePeers, setPresencePeers] = useState<PresencePeer[]>([]);
   const [confirmStatusAction, setConfirmStatusAction] = useState<
-    null | "cancel" | "resolve"
+    null | "cancel" | "resolve" | "return_approval" | "sign_off"
   >(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareSectionId, setShareSectionId] = useState("");
+  const [shareUserId, setShareUserId] = useState("");
+  const [signOffNote, setSignOffNote] = useState("");
+  const [cancelReasonId, setCancelReasonId] = useState("");
+  const [cancelRemarks, setCancelRemarks] = useState("");
 
   useEffect(() => {
     function onChannel(event: Event) {
@@ -236,12 +259,19 @@ function TicketDetailPage() {
   };
 
   const statusMutation = useMutation({
-    mutationFn: (status: string) => changeTicketStatus(ticketNumber, status),
+    mutationFn: ({
+      status,
+      cancellation,
+    }: {
+      status: string;
+      cancellation?: { reasonId: number; remarks?: string | null };
+    }) => changeTicketStatus(ticketNumber, status, undefined, cancellation),
     onSuccess: () => {
       invalidate();
       toast.success("Status updated");
     },
-    onError: () => toast.error("Could not update status"),
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not update status")),
   });
 
   const priorityMutation = useMutation({
@@ -261,7 +291,8 @@ function TicketDetailPage() {
       invalidate();
       toast.success("Category updated");
     },
-    onError: () => toast.error("Could not update category."),
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not update category.")),
   });
 
   const assignMutation = useMutation({
@@ -284,8 +315,8 @@ function TicketDetailPage() {
           : "Ticket transferred",
       );
     },
-    onError: () => {
-      toast.error("Could not transfer this ticket.");
+    onError: (error) => {
+      toast.error(getAxiosMessage(error, "Could not transfer this ticket."));
     },
   });
 
@@ -309,25 +340,6 @@ function TicketDetailPage() {
       toast.success("Feedback submitted");
     },
     onError: () => toast.error("Could not submit feedback"),
-  });
-
-  const addWatcherMutation = useMutation({
-    mutationFn: (userId: number) => addWatcher(ticketNumber, userId),
-    onSuccess: () => {
-      setWatcherUserId("");
-      invalidate();
-      toast.success("Watcher added.");
-    },
-    onError: () => toast.error("Could not add watcher."),
-  });
-
-  const removeWatcherMutation = useMutation({
-    mutationFn: (userId: number) => removeWatcher(ticketNumber, userId),
-    onSuccess: () => {
-      invalidate();
-      toast.success("Watcher removed.");
-    },
-    onError: () => toast.error("Could not remove watcher."),
   });
 
   const ticket = ticketQuery.data;
@@ -397,37 +409,113 @@ function TicketDetailPage() {
     onError: () => toast.error("Could not send note"),
   });
 
+  // Approver sections are reachable only through the approval action, so the
+  // regular transfer menu must not list them.
   const transferSections = useMemo(() => {
     if (!ticket?.section_id) return [];
     return (boardQuery.data?.sections ?? []).filter(
-      (s) => s.id !== ticket.section_id,
+      (s) => s.id !== ticket.section_id && s.is_approver !== true,
     );
   }, [boardQuery.data?.sections, ticket?.section_id]);
 
-  const publicTemplates = useMemo(
-    () =>
-      (boardQuery.data?.templates ?? []).filter(
-        (tpl) => tpl.type !== "internal",
-      ),
-    [boardQuery.data?.templates],
-  );
+  const cancellationReasons = boardQuery.data?.cancellation_reasons ?? [];
 
-  const internalTemplates = useMemo(
-    () =>
-      (boardQuery.data?.templates ?? []).filter(
-        (tpl) => tpl.type === "internal",
-      ),
-    [boardQuery.data?.templates],
-  );
-
-  const watcherCandidates = useMemo(() => {
-    const watchers = new Set(
-      (ticket?.watchers ?? []).map((w) => Number(w.user_id)),
+  const approverSections = useMemo(() => {
+    if (!ticket?.section_id) return [];
+    return (boardQuery.data?.sections ?? []).filter(
+      (s) => s.id !== ticket.section_id && s.is_approver === true,
     );
-    return sectionMembers.filter((m) => !watchers.has(m.user_id));
-  }, [sectionMembers, ticket?.watchers]);
+  }, [boardQuery.data?.sections, ticket?.section_id]);
 
-  const canManageWatchers = !!ticket?.access?.is_staff;
+  const submitApprovalMutation = useMutation({
+    mutationFn: (sectionId: number) =>
+      submitTicketForApproval(ticketNumber, sectionId),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Sent for approval");
+    },
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not send for approval")),
+  });
+
+  const returnApprovalMutation = useMutation({
+    mutationFn: () => returnTicketFromApproval(ticketNumber),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Ticket sent back");
+    },
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not send the ticket back")),
+  });
+
+  const shares = useMemo<TicketShare[]>(
+    () => ticket?.shares ?? [],
+    [ticket?.shares],
+  );
+
+  // A section can only hold one sign-off row, and approver sections are reached
+  // through the approval action instead.
+  const shareableSections = useMemo(() => {
+    if (!ticket?.section_id) return [];
+    const taken = new Set(shares.map((s) => s.section_id));
+    return (boardQuery.data?.sections ?? []).filter(
+      (s) =>
+        s.id !== ticket.section_id &&
+        s.is_approver !== true &&
+        !taken.has(s.id),
+    );
+  }, [boardQuery.data?.sections, shares, ticket?.section_id]);
+
+  const shareSectionMembers = useMemo(() => {
+    if (!shareSectionId) return [];
+    return (
+      (boardQuery.data?.sections ?? []).find(
+        (s) => s.id === Number(shareSectionId),
+      )?.members ?? []
+    );
+  }, [boardQuery.data?.sections, shareSectionId]);
+
+  const mySignOff = shares.find((s) => s.can_sign_off) ?? null;
+
+  const shareMutation = useMutation({
+    mutationFn: () =>
+      shareTicket(
+        ticketNumber,
+        Number(shareSectionId),
+        shareUserId ? Number(shareUserId) : null,
+      ),
+    onSuccess: () => {
+      invalidate();
+      setShareDialogOpen(false);
+      setShareSectionId("");
+      setShareUserId("");
+      toast.success("Ticket shared");
+    },
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not share the ticket")),
+  });
+
+  const revokeShareMutation = useMutation({
+    mutationFn: (shareId: number) => revokeTicketShare(ticketNumber, shareId),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Sharing removed");
+    },
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not remove sharing")),
+  });
+
+  const signOffMutation = useMutation({
+    mutationFn: (shareId: number) =>
+      signOffTicketShare(ticketNumber, shareId, signOffNote || undefined),
+    onSuccess: () => {
+      invalidate();
+      setSignOffNote("");
+      toast.success("Sign-off recorded");
+    },
+    onError: (error) =>
+      toast.error(getAxiosMessage(error, "Could not record the sign-off")),
+  });
 
   /* ---------- Loading / error states ---------- */
 
@@ -453,146 +541,386 @@ function TicketDetailPage() {
   const canUseInternalChat =
     !!ticket.access?.is_staff || !!ticket.access?.can_internal;
 
+  // Resolved and closed tickets are read-only: only acknowledge and reopen remain.
+  const isLocked = !!ticket.access?.is_locked;
+  const conversationReadOnlyNotice = `This ticket is ${formatStatus(ticket.status).toLowerCase()}, so the conversation with the requestor is closed.`;
+
   /* ---------- Handlers ---------- */
 
   function onSend(event: FormEvent) {
     event.preventDefault();
-    if ((!hasHtmlContent(message) && tempUploadIds.length === 0) || uploading)
-      return;
+    if ((!message.trim() && tempUploadIds.length === 0) || uploading) return;
     messageMutation.mutate();
   }
 
   function onSendInternal(event: FormEvent) {
     event.preventDefault();
     if (
-      (!hasHtmlContent(internalMessage) &&
-        internalTempUploadIds.length === 0) ||
+      (!internalMessage.trim() && internalTempUploadIds.length === 0) ||
       internalUploading
     )
       return;
     internalMessageMutation.mutate();
   }
 
-  const statusActions: Array<{ status: string; label: string; show: boolean }> =
-    [
-      {
-        status: "in_progress",
-        label: "Start work",
-        show: !!ticket.access?.can_start,
-      },
-      {
-        status: "resolved",
-        label: "Mark resolved",
-        show: !!ticket.access?.can_resolve && ticket.status === "in_progress",
-      },
-      {
-        status: "closed",
-        label: "Cancel",
-        show: !!ticket.access?.can_cancel,
-      },
-      {
-        status: "closed",
-        label: "Acknowledge",
-        show: !!ticket.access?.can_close,
-      },
-      {
-        status: "open",
-        label: "Reopen",
-        show:
-          !!ticket.access?.can_change_status &&
-          ["resolved", "closed"].includes(ticket.status),
-      },
-    ];
-
-  function onStatusActionClick(action: { status: string; label: string }) {
-    if (action.label === "Cancel" && action.status === "closed") {
-      setConfirmStatusAction("cancel");
-      return;
-    }
-    if (action.label === "Mark resolved" && action.status === "resolved") {
-      setConfirmStatusAction("resolve");
-      return;
-    }
-    statusMutation.mutate(action.status);
-  }
-
   function confirmPendingStatusAction() {
     if (confirmStatusAction === "cancel") {
-      statusMutation.mutate("closed");
+      if (!cancelReasonId) return;
+      statusMutation.mutate({
+        status: "closed",
+        cancellation: {
+          reasonId: Number(cancelReasonId),
+          remarks: cancelRemarks.trim() || null,
+        },
+      });
     } else if (confirmStatusAction === "resolve") {
-      statusMutation.mutate("resolved");
+      statusMutation.mutate({ status: "resolved" });
+    } else if (confirmStatusAction === "return_approval") {
+      returnApprovalMutation.mutate();
+    } else if (confirmStatusAction === "sign_off" && mySignOff) {
+      signOffMutation.mutate(mySignOff.id);
     }
-    setConfirmStatusAction(null);
+    closeStatusConfirm();
   }
+
+  function closeStatusConfirm() {
+    setConfirmStatusAction(null);
+    setCancelReasonId("");
+    setCancelRemarks("");
+  }
+
+  const canSubmitForApproval =
+    !!ticket.access?.can_submit_for_approval && approverSections.length > 0;
+  const canReturnFromApproval = !!ticket.access?.can_return_from_approval;
+  const returnTargetLabel =
+    ticket.approval?.origin_section_name?.trim() || "the requesting section";
+  const canShare = !!ticket.access?.can_share && shareableSections.length > 0;
+  const remainingSignOffs = shares.filter((s) => !s.resolved_at).length;
+
+  type TicketAction = {
+    key: string;
+    label: string;
+    variant: "default" | "outline";
+    disabled: boolean;
+    onSelect: () => void;
+    /** Multiple approver sections need a nested picker rather than a plain item. */
+    submenu?: Array<{ id: number; label: string; onSelect: () => void }>;
+  };
+
+  // Order decides the primary slot, so the visible label follows ticket state.
+  const candidateActions: Array<TicketAction | false | null | undefined> = [
+    ticket.access?.can_start && {
+      key: "start",
+      label: "Start work",
+      variant: "default",
+      disabled: statusMutation.isPending,
+      onSelect: () => statusMutation.mutate({ status: "in_progress" }),
+    },
+    canReturnFromApproval && {
+      key: "return_approval",
+      label: `Send back to ${returnTargetLabel}`,
+      variant: "default",
+      disabled: returnApprovalMutation.isPending,
+      onSelect: () => setConfirmStatusAction("return_approval"),
+    },
+    mySignOff && {
+      key: "sign_off",
+      label: "Mark my part resolved",
+      variant: "default",
+      disabled: signOffMutation.isPending,
+      onSelect: () => setConfirmStatusAction("sign_off"),
+    },
+    ticket.access?.can_resolve &&
+      ticket.status === "in_progress" && {
+        key: "resolve",
+        label: "Mark resolved",
+        variant: "default",
+        disabled: statusMutation.isPending,
+        onSelect: () => setConfirmStatusAction("resolve"),
+      },
+    ticket.access?.can_close && {
+      key: "close",
+      label: "Acknowledge",
+      variant: "outline",
+      disabled: statusMutation.isPending,
+      onSelect: () => statusMutation.mutate({ status: "closed" }),
+    },
+    ticket.access?.can_reopen && {
+      key: "reopen",
+      label: "Reopen",
+      variant: "outline",
+      disabled: statusMutation.isPending,
+      onSelect: () => statusMutation.mutate({ status: "open" }),
+    },
+    canSubmitForApproval && {
+      key: "submit_approval",
+      label: "Send for approval",
+      variant: "outline",
+      disabled: submitApprovalMutation.isPending,
+      onSelect: () => submitApprovalMutation.mutate(approverSections[0]!.id),
+      ...(approverSections.length > 1
+        ? {
+            submenu: approverSections.map((s) => ({
+              id: s.id,
+              label: s.section_name,
+              onSelect: () => submitApprovalMutation.mutate(s.id),
+            })),
+          }
+        : {}),
+    },
+    canShare && {
+      key: "share",
+      label: "Share",
+      variant: "outline",
+      disabled: false,
+      onSelect: () => setShareDialogOpen(true),
+    },
+    ticket.access?.can_cancel && {
+      key: "cancel",
+      label: "Cancel",
+      variant: "outline",
+      disabled: statusMutation.isPending,
+      onSelect: () => setConfirmStatusAction("cancel"),
+    },
+  ];
+
+  const ticketActions = candidateActions.filter((a): a is TicketAction => !!a);
+
+  // Cancel stays a standalone button; the rest collapse into the split button.
+  const cancelAction = ticketActions.find((a) => a.key === "cancel") ?? null;
+  const [primaryAction, ...menuActions] = ticketActions.filter(
+    (a) => a.key !== "cancel",
+  );
+
+  // Both the staff and shared-participant bars render this same row.
+  const actionButtons = (
+    <div className="flex flex-wrap items-center gap-2">
+      {primaryAction ? (
+        <ButtonGroup>
+          {primaryAction.submenu ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant={primaryAction.variant}
+                  size="sm"
+                  disabled={primaryAction.disabled}
+                >
+                  {primaryAction.label}
+                  <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-w-72">
+                {primaryAction.submenu.map((entry) => (
+                  <DropdownMenuItem key={entry.id} onSelect={entry.onSelect}>
+                    <span className="truncate">{entry.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              type="button"
+              variant={primaryAction.variant}
+              size="sm"
+              disabled={primaryAction.disabled}
+              onClick={primaryAction.onSelect}
+            >
+              {primaryAction.label}
+            </Button>
+          )}
+
+          {menuActions.length > 0 ? (
+            <>
+              <ButtonGroupSeparator />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={primaryAction.variant}
+                    size="icon-sm"
+                    aria-label="More actions"
+                  >
+                    <EllipsisVertical />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-w-72">
+                  {menuActions.map((action) =>
+                    action.submenu ? (
+                      <DropdownMenuSub key={action.key}>
+                        <DropdownMenuSubTrigger disabled={action.disabled}>
+                          {action.label}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="max-w-72">
+                          {action.submenu.map((entry) => (
+                            <DropdownMenuItem
+                              key={entry.id}
+                              onSelect={entry.onSelect}
+                            >
+                              <span className="truncate">{entry.label}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ) : (
+                      <DropdownMenuItem
+                        key={action.key}
+                        disabled={action.disabled}
+                        onSelect={action.onSelect}
+                      >
+                        <span className="truncate">{action.label}</span>
+                      </DropdownMenuItem>
+                    ),
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : null}
+        </ButtonGroup>
+      ) : null}
+
+      {cancelAction ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shadow-xs"
+          disabled={cancelAction.disabled}
+          onClick={cancelAction.onSelect}
+        >
+          {cancelAction.label}
+        </Button>
+      ) : null}
+    </div>
+  );
 
   /* ================================================================ */
   /*  RENDER                                                          */
   /* ================================================================ */
 
   return (
-    <section className="mx-auto w-full max-w-6xl space-y-6">
+    <section className="-mx-1 -my-2 w-full max-w-none space-y-4 sm:-mx-2 sm:-my-3">
       {/* ======================================================== */}
       {/* 1. Ticket Details                                        */}
       {/* ======================================================== */}
       <Card className="overflow-hidden shadow-sm">
-        <CardHeader className="bg-muted/10 border-b pb-6">
-          <p className="text-muted-foreground text-[10px] font-semibold tracking-wide">
-            {ticket.ticket_number}
-          </p>
-          <CardTitle className="mt-1 flex flex-wrap items-center gap-3 text-2xl tracking-tight">
-            <span className="min-w-0">{ticket.title}</span>
-            {presencePeers.length > 0 ? (
-              <span className="flex items-center -space-x-2">
-                {presencePeers.slice(0, 5).map((peer) => (
-                  <span
-                    key={peer.user_id}
-                    title={peer.name ?? `User #${peer.user_id}`}
-                  >
-                    <Avatar size="sm" className="ring-background ring-2">
-                      <AvatarFallback className="text-[10px]">
-                        {(peer.name ?? `U${peer.user_id}`)
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </span>
-                ))}
-                <span className="text-muted-foreground ml-3 text-xs font-normal">
-                  Viewing now
+        <CardHeader className="bg-muted/10 border-b pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="flex min-w-0 flex-1 flex-wrap items-center gap-3 text-2xl tracking-tight">
+              <span className="min-w-0">
+                <span className="text-muted-foreground mr-2 text-sm font-medium">
+                  Ticket Title:
                 </span>
+                {ticket.title}
               </span>
-            ) : null}
-          </CardTitle>
+              {presencePeers.length > 0 ? (
+                <span className="flex items-center -space-x-2">
+                  {presencePeers.slice(0, 5).map((peer) => (
+                    <span
+                      key={peer.user_id}
+                      title={peer.name ?? `User #${peer.user_id}`}
+                    >
+                      <Avatar size="sm" className="ring-background ring-2">
+                        <AvatarFallback className="text-[10px]">
+                          {(peer.name ?? `U${peer.user_id}`)
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </span>
+                  ))}
+                  <span className="text-muted-foreground ml-3 text-xs font-normal">
+                    Viewing now
+                  </span>
+                </span>
+              ) : null}
+            </CardTitle>
+            <p className="text-muted-foreground shrink-0 text-[10px] font-semibold tracking-wide tabular-nums">
+              Control No.: {ticket.ticket_number}
+            </p>
+          </div>
 
-          {/* Meta row: status, section, category badges (read-only) */}
-          <div className="flex flex-wrap items-center gap-2 pt-3">
-            <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
-              {formatStatus(ticket.status)}
-            </Badge>
-            {ticket.section_name ? (
-              <Badge
-                variant="outline"
-                className="text-muted-foreground px-2 py-0.5 text-[10px]"
-              >
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <StatusBadge status={ticket.status} size="md" />
+
+            {ticket.access?.can_change_priority ? (
+              <BadgeMenu
+                ariaLabel="Change priority"
+                badge={(chevron) => (
+                  <PriorityBadge
+                    priority={ticket.priority}
+                    size="md"
+                    trailing={chevron}
+                  />
+                )}
+                items={["low", "medium", "high", "urgent"].map((p) => ({
+                  value: p,
+                  label: formatPriority(p),
+                }))}
+                onSelect={(value) => priorityMutation.mutate(value)}
+                disabled={priorityMutation.isPending}
+              />
+            ) : (
+              <PriorityBadge priority={ticket.priority} size="md" />
+            )}
+
+            {transferSections.length > 0 && ticket.access?.can_change_section ? (
+              <BadgeMenu
+                ariaLabel="Transfer section"
+                badge={(chevron) => (
+                  <Badge className="inline-flex items-center gap-0.5 border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-700 dark:text-slate-300">
+                    {ticket.section_name ?? "Section"}
+                    {chevron}
+                  </Badge>
+                )}
+                items={transferSections.map((s) => ({
+                  value: String(s.id),
+                  label: s.section_name,
+                }))}
+                onSelect={(value) => transferMutation.mutate(Number(value))}
+                disabled={transferMutation.isPending}
+              />
+            ) : ticket.section_name ? (
+              <Badge className="border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-700 dark:text-slate-300">
                 {ticket.section_name}
               </Badge>
             ) : null}
-            {ticket.category?.name ? (
-              <Badge
-                variant="outline"
-                className="text-muted-foreground px-2 py-0.5 text-[10px]"
-              >
+
+            {ticket.transfer?.from_section_name ? (
+              <span className="text-muted-foreground text-[10px]">
+                from {ticket.transfer.from_section_name}
+              </span>
+            ) : null}
+
+            {ticket.access?.can_change_category &&
+            sectionCategories.length > 0 ? (
+              <BadgeMenu
+                ariaLabel="Change category"
+                badge={(chevron) => (
+                  <Badge className="inline-flex items-center gap-0.5 border-teal-500/30 bg-teal-500/10 px-2 py-0.5 text-[10px] text-teal-800 dark:text-teal-300">
+                    {ticket.category?.name ?? "Category"}
+                    {chevron}
+                  </Badge>
+                )}
+                items={sectionCategories.map((category) => ({
+                  value: String(category.id),
+                  label: category.name,
+                }))}
+                onSelect={(value) => categoryMutation.mutate(Number(value))}
+                disabled={categoryMutation.isPending}
+              />
+            ) : ticket.category?.name ? (
+              <Badge className="border-teal-500/30 bg-teal-500/10 px-2 py-0.5 text-[10px] text-teal-800 dark:text-teal-300">
                 {ticket.category.name}
               </Badge>
             ) : null}
           </div>
 
-          {/* Requester + created date */}
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             {ticket.requester ? (
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground text-xs font-medium">
-                  Requester
+                  Requestor
                 </span>
                 <PersonIdentity person={ticket.requester} size="sm" />
               </div>
@@ -604,49 +932,97 @@ function TicketDetailPage() {
           </div>
         </CardHeader>
 
-        {/* Description */}
-        <CardContent className="pt-6">
+        <CardContent className="pt-2">
+          <p className="mb-1 text-sm font-semibold">Description</p>
           <CardDescription className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
             {ticket.description}
           </CardDescription>
         </CardContent>
 
-        {/* Bottom actions footer — priority, assign, transfer, category, status */}
-        {ticket.access?.is_staff ? (
-          <div className="bg-muted/10 flex flex-wrap items-center gap-3 border-t p-4">
-            {/* Priority */}
-            {ticket.access?.can_change_priority ? (
-              <div className="flex items-center gap-2">
-                <Label className="text-muted-foreground text-xs">
-                  Priority
-                </Label>
-                <Select
-                  value={ticket.priority}
-                  onValueChange={(value) => priorityMutation.mutate(value)}
-                  disabled={priorityMutation.isPending}
-                >
-                  <SelectTrigger className="h-8 w-32 shadow-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["low", "medium", "high", "urgent"].map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {formatPriority(p)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <Badge
-                variant="outline"
-                className="text-muted-foreground px-2 py-0.5 text-[10px]"
-              >
-                {formatPriority(ticket.priority)}
-              </Badge>
-            )}
+        {ticket.cancel_reason ? (
+          <div className="border-t px-4 py-3">
+            <p className="text-sm">
+              <span className="text-muted-foreground text-xs font-medium">
+                Closed because
+              </span>{" "}
+              <span className="font-medium">{ticket.cancel_reason.label}</span>
+            </p>
+            {ticket.cancel_remarks ? (
+              <p className="text-muted-foreground mt-1 whitespace-pre-wrap text-sm">
+                {ticket.cancel_remarks}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
-            {/* Assign */}
+        {shares.length > 0 ? (
+          <div className="border-t px-4 py-3">
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <p className="text-sm font-semibold">Sign-offs</p>
+              <p className="text-muted-foreground text-xs tabular-nums">
+                {shares.length - remainingSignOffs} of {shares.length} complete
+              </p>
+            </div>
+            <ul className="divide-y">
+              {shares.map((share) => (
+                <li
+                  key={share.id}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <span className="font-medium">
+                      {share.user_name?.trim() ||
+                        share.section_name ||
+                        `Section #${share.section_id}`}
+                    </span>
+                    {share.user_name?.trim() && share.section_name ? (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {share.section_name}
+                      </span>
+                    ) : null}
+                    {share.is_owner ? (
+                      <span className="text-muted-foreground"> · owner</span>
+                    ) : null}
+                    {share.resolution_note ? (
+                      <p className="text-muted-foreground truncate text-xs">
+                        {share.resolution_note}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {share.resolved_at ? (
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        Resolved {formatDateTime(share.resolved_at)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">
+                        Pending
+                      </span>
+                    )}
+                    {!share.resolved_at &&
+                    !share.is_owner &&
+                    ticket.access?.can_share ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground h-7 px-2 text-xs"
+                        disabled={revokeShareMutation.isPending}
+                        onClick={() => revokeShareMutation.mutate(share.id)}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {ticket.access?.is_staff ? (
+          <div className="bg-muted/10 flex flex-wrap items-center gap-3 border-t px-4 py-2.5">
             {ticket.access?.can_assign && sectionMembers.length > 0 ? (
               <div className="flex items-center gap-2">
                 <Label className="text-muted-foreground text-xs">Assign</Label>
@@ -673,111 +1049,13 @@ function TicketDetailPage() {
               </div>
             ) : null}
 
-            {/* Transfer */}
-            {transferSections.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <Label className="text-muted-foreground text-xs">
-                  Transfer
-                </Label>
-                <Select
-                  value=""
-                  onValueChange={(value) =>
-                    transferMutation.mutate(Number(value))
-                  }
-                  disabled={transferMutation.isPending}
-                >
-                  <SelectTrigger className="h-8 min-w-36 shadow-xs">
-                    <SelectValue placeholder="Move to section…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {transferSections.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.section_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-
-            {/* Category */}
-            {ticket.access?.can_change_category &&
-            sectionCategories.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <Label className="text-muted-foreground text-xs">
-                  Category
-                </Label>
-                <Select
-                  value={
-                    ticket.category_id != null
-                      ? String(ticket.category_id)
-                      : undefined
-                  }
-                  onValueChange={(value) =>
-                    categoryMutation.mutate(Number(value))
-                  }
-                  disabled={categoryMutation.isPending}
-                >
-                  <SelectTrigger className="h-8 min-w-36 shadow-xs">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectionCategories.map((category) => (
-                      <SelectItem key={category.id} value={String(category.id)}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-
-            {/* Spacer then status buttons */}
-            <div className="flex-1" />
-
-            {statusActions
-              .filter((a) => a.show)
-              .map((action) => (
-                <Button
-                  key={`${action.status}-${action.label}`}
-                  type="button"
-                  variant={
-                    action.status === "in_progress" ||
-                    action.status === "resolved"
-                      ? "default"
-                      : "outline"
-                  }
-                  size="sm"
-                  disabled={statusMutation.isPending}
-                  onClick={() => onStatusActionClick(action)}
-                  className="shadow-xs"
-                >
-                  {action.label}
-                </Button>
-              ))}
+            {actionButtons}
           </div>
-        ) : statusActions.filter((a) => a.show).length > 0 ? (
-          <div className="bg-muted/10 flex flex-wrap gap-2 border-t p-4">
-            {statusActions
-              .filter((a) => a.show)
-              .map((action) => (
-                <Button
-                  key={`${action.status}-${action.label}`}
-                  type="button"
-                  variant={
-                    action.status === "in_progress" ||
-                    action.status === "resolved"
-                      ? "default"
-                      : "outline"
-                  }
-                  size="sm"
-                  disabled={statusMutation.isPending}
-                  onClick={() => onStatusActionClick(action)}
-                  className="shadow-xs"
-                >
-                  {action.label}
-                </Button>
-              ))}
+        ) : primaryAction || cancelAction ? (
+          // A participant shared in from another section is not section staff
+          // here, so their sign-off action has to live on this branch too.
+          <div className="bg-muted/10 border-t px-4 py-2.5">
+            {actionButtons}
           </div>
         ) : null}
       </Card>
@@ -837,93 +1115,69 @@ function TicketDetailPage() {
       {/* 3. Conversation / Internal chat                          */}
       {/* ======================================================== */}
       {canUseInternalChat ? (
-        <div className="space-y-3">
-          <div
-            role="tablist"
-            aria-label="Chat channel"
-            className="bg-muted/40 border-border/60 flex flex-wrap gap-2 rounded-xl border p-1.5"
-          >
-            <Button
-              type="button"
-              role="tab"
-              aria-selected={chatChannel === "conversation"}
-              size="sm"
-              variant={chatChannel === "conversation" ? "default" : "ghost"}
-              className="flex-1 shadow-xs sm:flex-none"
-              onClick={() => setChatChannel("conversation")}
-            >
-              Conversation
-            </Button>
-            <Button
-              type="button"
-              role="tab"
-              aria-selected={chatChannel === "internal"}
-              size="sm"
-              variant={chatChannel === "internal" ? "default" : "ghost"}
-              className={[
-                "flex-1 shadow-xs sm:flex-none",
-                chatChannel === "internal"
-                  ? "bg-amber-600 text-white hover:bg-amber-600/90 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-500/90"
-                  : "text-amber-800 hover:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/10",
-              ].join(" ")}
-              onClick={() => setChatChannel("internal")}
-            >
-              Internal
-              <span className="ml-1.5 text-[10px] font-normal opacity-80">
-                Staff only
-              </span>
-            </Button>
-          </div>
-
-          {chatChannel === "conversation" ? (
-            <TicketChatCard
-              key="conversation"
-              title="Conversation"
-              ticketNumber={ticket.ticket_number}
-              messages={ticket.messages ?? []}
-              attachments={ticket.attachments ?? []}
-              currentUserId={Number(authUserQuery.data?.id) || 0}
-              message={message}
-              onMessageChange={setMessage}
-              tempUploadIds={tempUploadIds}
-              onTempUploadIdsChange={setTempUploadIds}
-              uploading={uploading}
-              onUploadingChange={setUploading}
-              onSubmit={onSend}
-              pending={messageMutation.isPending}
-              replyPlaceholder="Write a reply…"
-              emptyMessagesLabel="No messages yet."
-              emptyMediaLabel="No files uploaded on this ticket yet."
-              submitLabel="Send reply"
-              templates={publicTemplates}
-            />
-          ) : (
-            <TicketChatCard
-              key="internal"
-              title="Internal chat"
-              subtitle="Staff only — not visible to the requester"
-              ticketNumber={ticket.ticket_number}
-              messages={ticket.internal_remarks ?? []}
-              attachments={ticket.internal_attachments ?? []}
-              currentUserId={Number(authUserQuery.data?.id) || 0}
-              message={internalMessage}
-              onMessageChange={setInternalMessage}
-              tempUploadIds={internalTempUploadIds}
-              onTempUploadIdsChange={setInternalTempUploadIds}
-              uploading={internalUploading}
-              onUploadingChange={setInternalUploading}
-              onSubmit={onSendInternal}
-              pending={internalMessageMutation.isPending}
-              replyPlaceholder="Write an internal note… Use @ to mention staff"
-              emptyMessagesLabel="No internal notes yet."
-              emptyMediaLabel="No internal files yet."
-              submitLabel="Send internal note"
-              templates={internalTemplates}
-              mentionCandidates={mentionableStaff}
-              accent
-            />
-          )}
-        </div>
+        chatChannel === "conversation" ? (
+          <TicketChatCard
+            key="conversation"
+            title="Conversation"
+            channelSwitcher={
+              <ChatChannelSwitcher
+                chatChannel={chatChannel}
+                onChange={setChatChannel}
+              />
+            }
+            ticketNumber={ticket.ticket_number}
+            messages={ticket.messages ?? []}
+            attachments={ticket.attachments ?? []}
+            currentUserId={Number(authUserQuery.data?.id) || 0}
+            message={message}
+            onMessageChange={setMessage}
+            tempUploadIds={tempUploadIds}
+            onTempUploadIdsChange={setTempUploadIds}
+            uploading={uploading}
+            onUploadingChange={setUploading}
+            onSubmit={onSend}
+            pending={messageMutation.isPending}
+            replyPlaceholder="Write a reply…"
+            emptyMessagesLabel="No messages yet."
+            emptyMediaLabel="No files uploaded on this ticket yet."
+            submitLabel="Send reply"
+            readOnly={isLocked}
+            readOnlyLabel={conversationReadOnlyNotice}
+          />
+        ) : (
+          <TicketChatCard
+            key="internal"
+            title="Internal chat"
+            subtitle="Staff only — not visible to the requestor"
+            channelSwitcher={
+              <ChatChannelSwitcher
+                chatChannel={chatChannel}
+                onChange={setChatChannel}
+              />
+            }
+            ticketNumber={ticket.ticket_number}
+            messages={ticket.internal_remarks ?? []}
+            attachments={ticket.internal_attachments ?? []}
+            currentUserId={Number(authUserQuery.data?.id) || 0}
+            message={internalMessage}
+            onMessageChange={setInternalMessage}
+            tempUploadIds={internalTempUploadIds}
+            onTempUploadIdsChange={setInternalTempUploadIds}
+            uploading={internalUploading}
+            onUploadingChange={setInternalUploading}
+            onSubmit={onSendInternal}
+            pending={internalMessageMutation.isPending}
+            replyPlaceholder="Write an internal note… Use @ to mention staff"
+            emptyMessagesLabel="No internal notes yet."
+            emptyMediaLabel="No internal files yet."
+            submitLabel="Send internal note"
+            mentionCandidates={mentionableStaff}
+            accent
+            // Staff keep coordinating here after the ticket is resolved or
+            // closed, so this channel outlives the lock.
+            readOnly={false}
+          />
+        )
       ) : (
         <TicketChatCard
           title="Conversation"
@@ -943,182 +1197,205 @@ function TicketDetailPage() {
           emptyMessagesLabel="No messages yet."
           emptyMediaLabel="No files uploaded on this ticket yet."
           submitLabel="Send reply"
+          readOnly={isLocked}
+          readOnlyLabel={conversationReadOnlyNotice}
         />
       )}
 
       {/* ======================================================== */}
-      {/* 4. Checklist (staff)                                     */}
+      {/* 4–5. Checklist + Timeline                                */}
       {/* ======================================================== */}
-      {ticket.access?.is_staff ? (
-        <TicketChecklistCard ticketNumber={ticket.ticket_number} />
-      ) : null}
-
-      {/* ======================================================== */}
-      {/* 5–6. Linked tickets + Watchers (staff)                   */}
-      {/* ======================================================== */}
-      {ticket.access?.is_staff ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          <TicketLinksCard
-            ticketNumber={ticket.ticket_number}
-            canManage={!!ticket.access?.is_staff}
-          />
-          {canManageWatchers ? (
-            <Card className="shadow-sm">
-              <CardHeader className="border-b pb-3">
-                <CardTitle className="text-lg">Watchers</CardTitle>
-                <CardDescription>Notified on updates.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 p-5">
-                {(ticket.watchers?.length ?? 0) === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No watchers yet.
-                  </p>
-                ) : (
-                  <ul className="flex flex-wrap gap-2">
-                    {ticket.watchers?.map((watcher) => {
-                      const person = watcher.user ?? { name: null };
-                      const displayName =
-                        getPersonDisplayName(person) ||
-                        `User #${watcher.user_id}`;
-                      const hrSection = person.hr_section_name?.trim() || null;
-                      const avatarUrl = getPersonAvatarUrl(person);
-                      return (
-                        <li key={watcher.user_id} className="relative">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex">
-                                <Avatar
-                                  size="sm"
-                                  className="ring-background ring-2"
-                                  aria-label={displayName}
-                                >
-                                  {avatarUrl ? (
-                                    <AvatarImage
-                                      src={avatarUrl}
-                                      alt={displayName}
-                                    />
-                                  ) : null}
-                                  <AvatarFallback className="text-[10px]">
-                                    {getPersonInitials(person)}
-                                  </AvatarFallback>
-                                </Avatar>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-56">
-                              <p className="font-medium">{displayName}</p>
-                              {hrSection ? (
-                                <p className="text-background/80 mt-0.5">
-                                  {hrSection}
-                                </p>
-                              ) : null}
-                            </TooltipContent>
-                          </Tooltip>
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="secondary"
-                            className="border-background absolute -top-1.5 -right-1.5 size-5 rounded-full border shadow-xs"
-                            disabled={removeWatcherMutation.isPending}
-                            onClick={() =>
-                              removeWatcherMutation.mutate(watcher.user_id)
-                            }
-                            aria-label={`Remove ${displayName}`}
-                          >
-                            <X className="size-3" />
-                          </Button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                {watcherCandidates.length > 0 ? (
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <Label className="text-xs">Add</Label>
-                      <Select
-                        value={watcherUserId || undefined}
-                        onValueChange={setWatcherUserId}
-                      >
-                        <SelectTrigger className="h-8 shadow-xs">
-                          <SelectValue placeholder="Staff…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {watcherCandidates.map((member) => (
-                            <SelectItem
-                              key={member.user_id}
-                              value={String(member.user_id)}
+      {(() => {
+        const showChecklist = !!ticket.access?.is_staff;
+        const showTimeline = (ticket.timeline?.length ?? 0) > 0;
+        if (!showChecklist && !showTimeline) return null;
+        const alone = (showChecklist ? 1 : 0) + (showTimeline ? 1 : 0) === 1;
+        const involvedFallback: PersonProfile[] = [];
+        if (ticket.requester) involvedFallback.push(ticket.requester);
+        if (
+          ticket.assignee &&
+          ticket.assignee.user_id !== ticket.requester?.user_id
+        ) {
+          involvedFallback.push(ticket.assignee);
+        }
+        const involved =
+          ticket.involved && ticket.involved.length > 0
+            ? ticket.involved
+            : involvedFallback;
+        const visibleInvolved = involved.slice(0, 5);
+        const involvedOverflow = Math.max(
+          0,
+          involved.length - visibleInvolved.length,
+        );
+        return (
+          <div className="grid items-stretch gap-4 md:grid-cols-2">
+            {showChecklist ? (
+              <div
+                className={`h-full min-h-64 ${alone ? "md:col-span-2" : ""}`}
+              >
+                <TicketChecklistCard
+                  ticketNumber={ticket.ticket_number}
+                  readOnly={isLocked}
+                />
+              </div>
+            ) : null}
+            {showTimeline ? (
+              <Card
+                className={`flex h-full min-h-64 flex-col shadow-sm ${alone ? "md:col-span-2" : ""}`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between gap-3 border-b pb-2">
+                  <CardTitle className="text-lg">Timeline</CardTitle>
+                  {involved.length > 0 ? (
+                    <span className="flex items-center space-x-2">
+                      {visibleInvolved.map((person) => {
+                        const name = getPersonDisplayName(person);
+                        const avatarUrl = getPersonAvatarUrl(person);
+                        return (
+                          <span key={person.user_id} title={name}>
+                            <Avatar
+                              size="sm"
+                              className="ring-background ring-2"
                             >
-                              {member.name?.trim() || `User #${member.user_id}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!watcherUserId || addWatcherMutation.isPending}
-                      onClick={() =>
-                        addWatcherMutation.mutate(Number(watcherUserId))
-                      }
-                    >
-                      Add
-                    </Button>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* ======================================================== */}
-      {/* 7. Timeline                                              */}
-      {/* ======================================================== */}
-      {(ticket.timeline?.length ?? 0) > 0 && (
-        <Card className="shadow-sm">
-          <CardHeader className="border-b pb-3">
-            <CardTitle className="text-lg">Timeline</CardTitle>
-          </CardHeader>
-          <CardContent className="p-5">
-            <div className="space-y-0 text-sm">
-              {ticket.timeline?.map((item, idx) => (
-                <div
-                  key={`${item.action}-${idx}`}
-                  className="relative pb-4 pl-6 last:pb-0"
-                >
-                  <div
-                    className="bg-border absolute top-1.5 left-[3px] h-full w-[2px] last:hidden"
-                    aria-hidden="true"
-                  />
-                  <div
-                    className="border-primary bg-background absolute top-1.5 left-0 h-2 w-2 rounded-full border-2"
-                    aria-hidden="true"
-                  />
-                  <span className="text-foreground inline-flex flex-wrap items-center gap-1.5 font-medium">
-                    <TimelineRichText text={item.action} />
-                  </span>
-                  {item.detail ? (
-                    <span className="text-muted-foreground ml-2 inline-flex flex-wrap items-center gap-1.5">
-                      — <TimelineRichText text={item.detail} />
+                              {avatarUrl ? (
+                                <AvatarImage src={avatarUrl} alt={name} />
+                              ) : null}
+                              <AvatarFallback className="text-[10px]">
+                                {getPersonInitials(person)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </span>
+                        );
+                      })}
+                      {involvedOverflow > 0 ? (
+                        <span
+                          title={`${involvedOverflow} more`}
+                          className="bg-muted text-muted-foreground ring-background inline-flex size-6 items-center justify-center rounded-full text-[10px] font-medium ring-2"
+                        >
+                          +{involvedOverflow}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : (
-                    ""
-                  )}
-                  <span className="text-muted-foreground ml-3 text-xs tabular-nums">
-                    {formatDateTime(item.created_at)}
-                  </span>
-                </div>
-              ))}
+                  ) : null}
+                </CardHeader>
+                <CardContent className="flex-1 overflow-y-auto p-4">
+                  <div className="space-y-0 text-sm">
+                    {ticket.timeline?.map((item, idx) => (
+                      <div
+                        key={`${item.action}-${idx}`}
+                        className="relative pb-3 pl-6 last:pb-0"
+                      >
+                        <div
+                          className="bg-border absolute top-1.5 left-[3px] h-full w-[2px] last:hidden"
+                          aria-hidden="true"
+                        />
+                        <div
+                          className="border-primary bg-background absolute top-1.5 left-0 h-2 w-2 rounded-full border-2"
+                          aria-hidden="true"
+                        />
+                        <span className="text-foreground inline-flex flex-wrap items-center gap-1.5 font-medium">
+                          <TimelineRichText text={item.action} />
+                        </span>
+                        {item.detail ? (
+                          <span className="text-muted-foreground ml-2 inline-flex flex-wrap items-center gap-1.5">
+                            — <TimelineRichText text={item.detail} />
+                          </span>
+                        ) : (
+                          ""
+                        )}
+                        <span className="text-muted-foreground ml-3 text-xs tabular-nums">
+                          {formatDateTime(item.created_at)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
+        );
+      })()}
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share this ticket</DialogTitle>
+            <DialogDescription>
+              The section you pick works the ticket alongside yours. Everyone
+              shared in, plus this section, has to mark their part resolved
+              before the ticket closes out.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Section</Label>
+              <Select
+                value={shareSectionId}
+                onValueChange={(value) => {
+                  setShareSectionId(value);
+                  setShareUserId("");
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a section" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shareableSections.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.section_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            {shareSectionMembers.length > 0 ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Person{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <Select value={shareUserId} onValueChange={setShareUserId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Let the section head decide" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shareSectionMembers.map((m) => (
+                      <SelectItem key={m.user_id} value={String(m.user_id)}>
+                        {m.name?.trim() || `User #${m.user_id}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShareDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!shareSectionId || shareMutation.isPending}
+              onClick={() => shareMutation.mutate()}
+            >
+              Share ticket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={confirmStatusAction != null}
         onOpenChange={(open) => {
-          if (!open) setConfirmStatusAction(null);
+          if (!open) closeStatusConfirm();
         }}
       >
         <AlertDialogContent size="sm">
@@ -1126,25 +1403,103 @@ function TicketDetailPage() {
             <AlertDialogTitle>
               {confirmStatusAction === "cancel"
                 ? "Cancel this ticket?"
-                : "Mark as resolved?"}
+                : confirmStatusAction === "return_approval"
+                  ? `Send back to ${returnTargetLabel}?`
+                  : confirmStatusAction === "sign_off"
+                    ? "Mark your part resolved?"
+                    : "Mark as resolved?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmStatusAction === "cancel"
-                ? "This marks the ticket as cancelled. You can reopen it later if needed."
-                : "This marks the ticket as resolved and waits for the requester to acknowledge."}
+                ? "This closes the ticket without resolving it. You can reopen it later if needed."
+                : confirmStatusAction === "return_approval"
+                  ? "This returns the ticket to its original section and section head, with the status it had before review."
+                  : confirmStatusAction === "sign_off"
+                    ? remainingSignOffs > 1
+                      ? `This records your sign-off. ${remainingSignOffs - 1} other ${remainingSignOffs === 2 ? "participant" : "participants"} still have to mark their part resolved.`
+                      : "You are the last participant, so this resolves the ticket."
+                    : "This marks the ticket as resolved and waits for the requestor to acknowledge."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirmStatusAction === "sign_off" ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                What you did{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
+              </Label>
+              <Textarea
+                value={signOffNote}
+                onChange={(event) => setSignOffNote(event.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Notes for the other participants"
+              />
+            </div>
+          ) : null}
+          {confirmStatusAction === "cancel" ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs" htmlFor="cancel-reason">
+                  Reason
+                </Label>
+                <Select
+                  value={cancelReasonId || undefined}
+                  onValueChange={setCancelReasonId}
+                >
+                  <SelectTrigger id="cancel-reason" className="w-full">
+                    <SelectValue placeholder="Select a reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cancellationReasons.map((reason) => (
+                      <SelectItem key={reason.id} value={String(reason.id)}>
+                        {reason.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {cancellationReasons.length === 0 ? (
+                  <p className="text-muted-foreground text-xs">
+                    No cancellation reasons are configured yet. Ask an
+                    administrator to add one.
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" htmlFor="cancel-remarks">
+                  Remarks{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <Textarea
+                  id="cancel-remarks"
+                  value={cancelRemarks}
+                  onChange={(event) => setCancelRemarks(event.target.value)}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Anything the requestor should know"
+                />
+              </div>
+            </div>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
             <AlertDialogAction
               variant={
                 confirmStatusAction === "cancel" ? "destructive" : "default"
               }
+              disabled={confirmStatusAction === "cancel" && !cancelReasonId}
               onClick={confirmPendingStatusAction}
             >
               {confirmStatusAction === "cancel"
                 ? "Cancel ticket"
-                : "Mark resolved"}
+                : confirmStatusAction === "return_approval"
+                  ? "Send back"
+                  : confirmStatusAction === "sign_off"
+                    ? "Sign off"
+                    : "Mark resolved"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1157,7 +1512,8 @@ function TicketDetailPage() {
 /*  Timeline helpers                                                  */
 /* ================================================================== */
 
-const TIMELINE_STATUS_PATTERN = /\b(open|in_progress|resolved|closed)\b/g;
+const TIMELINE_STATUS_PATTERN =
+  /\b(open|in_progress|pending_approval|resolved|closed)\b/g;
 
 function TimelineRichText({ text }: { text: string }) {
   const parts = text.split(TIMELINE_STATUS_PATTERN);
@@ -1168,6 +1524,7 @@ function TimelineRichText({ text }: { text: string }) {
         if (
           part === "open" ||
           part === "in_progress" ||
+          part === "pending_approval" ||
           part === "resolved" ||
           part === "closed"
         ) {
@@ -1574,12 +1931,110 @@ function PendingUploadThumbnail({
 }
 
 /* ================================================================== */
-/*  TicketChatCard (TipTap composer)                                  */
+/*  Badge menu (immediate options on click)                           */
+/* ================================================================== */
+
+function BadgeMenu({
+  ariaLabel,
+  badge,
+  items,
+  onSelect,
+  disabled = false,
+}: {
+  ariaLabel: string;
+  badge: (chevron: ReactNode) => ReactNode;
+  items: Array<{ value: string; label: string }>;
+  onSelect: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const chevron = (
+    <ChevronDown className="size-3 opacity-70" aria-hidden="true" />
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          className="inline-flex cursor-pointer rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {badge(chevron)}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-w-72">
+        {items.map((item) => (
+          <DropdownMenuItem
+            key={item.value}
+            onSelect={() => onSelect(item.value)}
+          >
+            <span className="truncate">{item.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/* ================================================================== */
+/*  Chat channel switcher (embedded in TicketChatCard header)         */
+/* ================================================================== */
+
+function ChatChannelSwitcher({
+  chatChannel,
+  onChange,
+}: {
+  chatChannel: "conversation" | "internal";
+  onChange: (channel: "conversation" | "internal") => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Chat channel"
+      className="bg-muted/40 border-border/60 flex flex-wrap gap-1 rounded-lg border p-1"
+    >
+      <Button
+        type="button"
+        role="tab"
+        aria-selected={chatChannel === "conversation"}
+        size="sm"
+        variant={chatChannel === "conversation" ? "default" : "ghost"}
+        className="flex-1 shadow-xs sm:flex-none"
+        onClick={() => onChange("conversation")}
+      >
+        Conversation
+      </Button>
+      <Button
+        type="button"
+        role="tab"
+        aria-selected={chatChannel === "internal"}
+        size="sm"
+        variant={chatChannel === "internal" ? "default" : "ghost"}
+        className={[
+          "flex-1 shadow-xs sm:flex-none",
+          chatChannel === "internal"
+            ? "bg-amber-600 text-white hover:bg-amber-600/90 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-500/90"
+            : "text-amber-800 hover:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/10",
+        ].join(" ")}
+        onClick={() => onChange("internal")}
+      >
+        Internal
+        <span className="ml-1.5 text-[10px] font-normal opacity-80">
+          Staff only
+        </span>
+      </Button>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  TicketChatCard                                                    */
 /* ================================================================== */
 
 function TicketChatCard({
   title,
   subtitle,
+  channelSwitcher,
   ticketNumber,
   messages,
   attachments,
@@ -1596,12 +2051,14 @@ function TicketChatCard({
   emptyMessagesLabel,
   emptyMediaLabel,
   submitLabel,
-  templates = [],
   mentionCandidates,
   accent = false,
+  readOnly = false,
+  readOnlyLabel,
 }: {
   title: string;
   subtitle?: string;
+  channelSwitcher?: ReactNode;
   ticketNumber: string;
   messages: TicketMessage[];
   attachments: TicketAttachment[];
@@ -1618,12 +2075,12 @@ function TicketChatCard({
   emptyMessagesLabel: string;
   emptyMediaLabel: string;
   submitLabel: string;
-  templates?: BoardTemplate[];
   mentionCandidates?: Array<{ user_id: number; name: string }>;
   accent?: boolean;
+  readOnly?: boolean;
+  readOnlyLabel?: string;
 }) {
   const replyId = accent ? "internal-reply" : "reply";
-  const editorRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1639,7 +2096,6 @@ function TicketChatCard({
   const [previewAttachment, setPreviewAttachment] =
     useState<PreviewableAttachment | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const pasteBlobUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     setPendingFiles((prev) =>
@@ -1648,14 +2104,6 @@ function TicketChatCard({
       ),
     );
   }, [tempUploadIds]);
-
-  useEffect(() => {
-    return () => {
-      for (const url of pasteBlobUrlsRef.current) {
-        URL.revokeObjectURL(url);
-      }
-    };
-  }, []);
 
   const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
@@ -1668,8 +2116,7 @@ function TicketChatCard({
   }, [messages.length, lastMessageId]);
 
   useEffect(() => {
-    if (wasPendingRef.current && !pending && !hasHtmlContent(message)) {
-      editorRef.current?.commands.setContent("", { emitUpdate: false });
+    if (wasPendingRef.current && !pending && !message.trim()) {
       onMessageChange("");
       setPendingFiles([]);
     }
@@ -1684,12 +2131,6 @@ function TicketChatCard({
     }
     return map;
   }, [mentionCandidates]);
-
-  function insertTemplate(body: string) {
-    onMessageChange(
-      message && hasHtmlContent(message) ? `${message}<br/><br/>${body}` : body,
-    );
-  }
 
   function openPendingPreview(file: {
     id: string | number;
@@ -1707,28 +2148,6 @@ function TicketChatCard({
     };
     setPreviewAttachment(remote);
     setPreviewOpen(true);
-  }
-
-  async function handleUploadImage(file: File): Promise<string> {
-    try {
-      const upload = await uploadTempFile(file);
-      onTempUploadIdsChange((prev) => [...prev, upload.id]);
-      setPendingFiles((prev) => [
-        ...prev,
-        {
-          id: upload.id,
-          name: upload.original_name || file.name,
-          mime_type: upload.mime_type ?? file.type ?? null,
-          size: upload.size ?? file.size,
-        },
-      ]);
-      const blobUrl = await fetchTempUploadObjectUrl(upload.id);
-      pasteBlobUrlsRef.current.push(blobUrl);
-      return blobUrl;
-    } catch (error) {
-      toast.error(`Could not upload ${file.name}`);
-      throw error;
-    }
   }
 
   function handleFooterAttachClick() {
@@ -1810,9 +2229,10 @@ function TicketChatCard({
   }
 
   const canSend =
-    (hasHtmlContent(message) || tempUploadIds.length > 0) &&
+    (message.trim().length > 0 || tempUploadIds.length > 0) &&
     !uploading &&
-    !pending;
+    !pending &&
+    !readOnly;
 
   return (
     <Card
@@ -1823,11 +2243,20 @@ function TicketChatCard({
       }
     >
       <Tabs defaultValue="conversation">
-        <CardHeader className="border-b pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-lg">{title}</CardTitle>
-              {subtitle ? (
+        <CardHeader className="border-b pb-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1 space-y-2">
+              {channelSwitcher ? (
+                channelSwitcher
+              ) : (
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">{title}</CardTitle>
+                  {subtitle ? (
+                    <p className="text-muted-foreground text-xs">{subtitle}</p>
+                  ) : null}
+                </div>
+              )}
+              {channelSwitcher && subtitle ? (
                 <p className="text-muted-foreground text-xs">{subtitle}</p>
               ) : null}
             </div>
@@ -1841,64 +2270,49 @@ function TicketChatCard({
           </div>
         </CardHeader>
         <TabsContent value="conversation" className="mt-0">
-          <CardContent className="p-0">
-            {attachments.length > 0 ? (
-              <div className="border-b p-4 sm:p-5">
-                <p className="mb-2 text-sm font-medium">Files</p>
-                <AttachmentList
-                  ticketNumber={ticketNumber}
-                  attachments={attachments}
-                  compact
-                />
-              </div>
-            ) : null}
-            <div className="flex min-h-80 max-h-[min(32rem,70vh)] flex-col">
+          <CardContent className="p-3 sm:p-4">
+            <div className="grid min-h-52 gap-3 md:grid-cols-3 md:gap-4">
               <div
-                ref={messagesScrollRef}
-                className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain p-4 sm:p-5"
+                className={`order-1 flex min-h-52 max-h-52 flex-col rounded-md border ${readOnly ? "md:col-span-3" : "md:col-span-2"}`}
               >
-                {messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    isOwn={currentUserId > 0 && msg.user_id === currentUserId}
-                    mentionLabels={mentionLabels}
-                    ticketNumber={ticketNumber}
-                    attachments={attachments}
-                  />
-                ))}
-                {messages.length === 0 && (
-                  <div className="text-muted-foreground py-6 text-center text-sm">
-                    {emptyMessagesLabel}
-                  </div>
-                )}
-                <div ref={messagesEndRef} aria-hidden="true" />
+                <div
+                  ref={messagesScrollRef}
+                  className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain p-3 sm:p-4"
+                >
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      isOwn={currentUserId > 0 && msg.user_id === currentUserId}
+                      mentionLabels={mentionLabels}
+                      ticketNumber={ticketNumber}
+                      attachments={attachments}
+                    />
+                  ))}
+                  {messages.length === 0 && (
+                    <div className="text-muted-foreground py-6 text-center text-sm">
+                      {emptyMessagesLabel}
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} aria-hidden="true" />
+                </div>
               </div>
 
-              {/* Composer */}
-              <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 border-t p-4 sm:p-5">
-                <form onSubmit={onSubmit} className="space-y-3">
+              {readOnly ? null : (
+                <form
+                  onSubmit={onSubmit}
+                  className="bg-muted/10 order-2 flex flex-col gap-3 rounded-md border p-3 md:col-span-1"
+                >
                   <Label htmlFor={replyId} className="sr-only">
                     {title}
                   </Label>
-                  <RichTextEditor
+                  <Textarea
+                    id={replyId}
                     value={message}
-                    onChange={onMessageChange}
+                    onChange={(e) => onMessageChange(e.target.value)}
                     placeholder={replyPlaceholder}
                     disabled={pending}
-                    onUploadingChange={onUploadingChange}
-                    onUploadImage={handleUploadImage}
-                    showImageButton={false}
-                    minHeight="100px"
-                    mentions={
-                      mentionCandidates?.map((candidate) => ({
-                        id: candidate.user_id,
-                        label: candidate.name,
-                      }))
-                    }
-                    onEditorReady={(editor) => {
-                      editorRef.current = editor;
-                    }}
+                    className="min-h-40 flex-1 resize-y shadow-xs"
                   />
                   {pendingFiles.length > 0 ? (
                     <ul className="flex flex-wrap gap-2">
@@ -1956,67 +2370,44 @@ function TicketChatCard({
                     className="hidden"
                     onChange={handleFileInputChange}
                   />
-                  <div className="flex items-center justify-between gap-2">
-                    {templates.length > 0 ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="shadow-xs"
-                          >
-                            Insert template
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="max-w-72">
-                          {templates.map((tpl) => (
-                            <DropdownMenuItem
-                              key={tpl.id}
-                              onSelect={() => insertTemplate(tpl.body)}
-                            >
-                              <span className="truncate">{tpl.name}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <span />
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleFooterAttachClick}
-                        disabled={
-                          pending ||
-                          uploading ||
-                          tempUploadIds.length >= TICKET_ATTACHMENT_MAX_FILES
-                        }
-                        aria-label="Attach files"
-                      >
-                        <Paperclip className="size-4" />
-                      </Button>
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={!canSend}
-                        className="shadow-xs"
-                        aria-label={submitLabel}
-                      >
-                        <Send className="mr-1.5 size-4" />
-                        {uploading ? "Uploading…" : submitLabel}
-                      </Button>
-                    </div>
+                  <div className="mt-auto flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleFooterAttachClick}
+                      disabled={
+                        pending ||
+                        uploading ||
+                        tempUploadIds.length >= TICKET_ATTACHMENT_MAX_FILES
+                      }
+                      aria-label="Attach files"
+                    >
+                      <Paperclip className="size-4" />
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!canSend}
+                      className="shadow-xs"
+                      aria-label={submitLabel}
+                    >
+                      <Send className="mr-1.5 size-4" />
+                      {uploading ? "Uploading…" : submitLabel}
+                    </Button>
                   </div>
                 </form>
-              </div>
+              )}
             </div>
+            {readOnly && readOnlyLabel ? (
+              <p className="text-muted-foreground mt-3 text-xs">
+                {readOnlyLabel}
+              </p>
+            ) : null}
           </CardContent>
         </TabsContent>
         <TabsContent value="media" className="mt-0">
-          <CardContent className="p-5">
+          <CardContent className="p-4">
             {attachments.length > 0 ? (
               <AttachmentList
                 ticketNumber={ticketNumber}

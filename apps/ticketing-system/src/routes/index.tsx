@@ -2,10 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { PageShell } from "@/components/page-shell";
-import { fetchBoards, fetchCurrentBoard, fetchTickets } from "@/lib/aduts-api";
+import { fetchBoards, fetchCurrentBoard } from "@/lib/aduts-api";
 import { isPlatformHost } from "@/lib/adutsHost";
-import { formatPriority, formatStatus } from "@/lib/format-labels";
-import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -15,7 +13,15 @@ import {
   CardTitle,
 } from "@repo/ui/components/card";
 
+import { TicketsListView } from "./tickets/-tickets-list-view";
+import {
+  parseTicketsSearch,
+  type TicketsSearch,
+} from "./tickets/-tickets-search";
+
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): TicketsSearch =>
+    parseTicketsSearch(search),
   component: HomePage,
 });
 
@@ -84,18 +90,15 @@ function PlatformHome() {
 }
 
 function BoardHome() {
+  const search = Route.useSearch();
   const boardQuery = useQuery({
     queryKey: ["aduts", "board"],
     queryFn: fetchCurrentBoard,
   });
-  const ticketsQuery = useQuery({
-    queryKey: ["aduts", "tickets", "open"],
-    queryFn: () => fetchTickets({ status: "open" }),
-  });
 
   return (
     <PageShell
-      title={boardQuery.data?.board_name ?? "Board"}
+      title={boardQuery.data?.board_name ?? "Home"}
       description={
         boardQuery.data?.description ??
         "File and track support tickets for this board."
@@ -105,69 +108,12 @@ function BoardHome() {
           <Link to="/tickets/new">New Ticket</Link>
         </Button>
       }
+      width="full"
+      bordered={false}
+      dense
+      className="-mx-1 -my-2 sm:-mx-2 sm:-my-3 md:-my-4"
     >
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold tracking-tight">Open Tickets</h3>
-          <Button
-            variant="link"
-            size="sm"
-            asChild
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Link to="/tickets">View all</Link>
-          </Button>
-        </div>
-
-        {ticketsQuery.isLoading && (
-          <p className="text-muted-foreground text-sm">Loading tickets…</p>
-        )}
-
-        <Card className="overflow-hidden shadow-sm">
-          <CardContent className="divide-border divide-y p-0">
-            {(ticketsQuery.data?.data ?? []).map((ticket) => (
-              <div
-                key={ticket.id}
-                className="group flex flex-col justify-between gap-3 px-4 py-4 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:px-5"
-              >
-                <div>
-                  <Link
-                    to="/tickets/$ticketNumber"
-                    params={{ ticketNumber: ticket.ticket_number }}
-                    className="text-foreground hover:text-primary font-medium transition-colors focus:outline-none focus-visible:underline"
-                  >
-                    <span className="text-muted-foreground mr-2 text-sm font-normal">
-                      {ticket.ticket_number}
-                    </span>
-                    {ticket.title}
-                  </Link>
-                  <div className="text-muted-foreground mt-1.5 flex items-center gap-2 text-xs font-medium">
-                    <span>{formatPriority(ticket.priority)}</span>
-                    {ticket.section_name ? (
-                      <>
-                        <span className="bg-border h-1 w-1 rounded-full" />
-                        <span>{ticket.section_name}</span>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-                <Badge
-                  variant="secondary"
-                  className="self-start px-2 py-0.5 text-[10px] whitespace-nowrap sm:self-auto"
-                >
-                  {formatStatus(ticket.status)}
-                </Badge>
-              </div>
-            ))}
-            {(ticketsQuery.data?.data?.length ?? 0) === 0 &&
-              !ticketsQuery.isLoading && (
-                <div className="text-muted-foreground p-8 text-center text-sm">
-                  No open tickets on this board.
-                </div>
-              )}
-          </CardContent>
-        </Card>
-      </div>
+      <TicketsListView search={search} from="/" />
     </PageShell>
   );
 }

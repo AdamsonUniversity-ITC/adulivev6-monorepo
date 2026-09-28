@@ -95,6 +95,9 @@ export const StageCard = ({
             {stage.allows_owner_cancellation ? (
               <DrsStatusBadge tone="danger">Owner cancel</DrsStatusBadge>
             ) : null}
+            {stage.allows_staff_receive_mode_change ? (
+              <DrsStatusBadge tone="info">Staff delivery mode</DrsStatusBadge>
+            ) : null}
           </CardTitle>
           <CardDescription className="mt-1 text-xs">
             slug <code>{stage.slug}</code> · transition{' '}

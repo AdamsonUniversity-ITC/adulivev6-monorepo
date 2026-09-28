@@ -9,11 +9,18 @@ export type BoardCategory = {
   sort_order?: number;
 };
 
-export type BoardTemplate = {
+/**
+ * Platform-wide, not board scoped: one list is shared by every board and is
+ * maintained by super admins under /admin.
+ */
+export type CancellationReason = {
   id: number;
-  name: string;
-  type: string;
-  body: string;
+  label: string;
+  slug?: string;
+  sort_order?: number;
+  is_active?: boolean;
+  /** Referenced by at least one cancelled ticket, so it cannot be deleted. */
+  in_use?: boolean;
 };
 
 export type Board = {
@@ -32,6 +39,7 @@ export type Board = {
     id: number;
     section_name: string;
     is_hidden?: boolean;
+    is_approver?: boolean;
     members?: Array<{
       id: number;
       user_id: number;
@@ -43,13 +51,15 @@ export type Board = {
     }>;
   }>;
   categories?: BoardCategory[];
-  templates?: BoardTemplate[];
+  cancellation_reasons?: CancellationReason[];
   access?: {
     can_view_reports?: boolean;
     is_staff?: boolean;
     is_board_admin?: boolean;
     is_section_head?: boolean;
     headed_section_ids?: number[];
+    /** null or absent means unrestricted (board or global admin). */
+    scoped_section_ids?: number[] | null;
   };
 };
 
@@ -131,6 +141,7 @@ export type Ticket = {
   user_id: number;
   requester?: PersonProfile | null;
   assignee?: PersonProfile | null;
+  involved?: PersonProfile[];
   category_id?: number | null;
   category_name?: string | null;
   category?: BoardCategory | null;
@@ -143,21 +154,40 @@ export type Ticket = {
   first_response_at?: string | null;
   resolved_at?: string | null;
   closed_at?: string | null;
+  cancel_reason?: { id: number; label: string } | null;
+  cancel_remarks?: string | null;
   csat_score?: number | null;
   unread_count?: number;
   unread_internal_count?: number;
   unread_mentions_count?: number;
   created_at?: string;
-  watchers?: Array<{ user_id: number; user?: PersonProfile | null }>;
   attachments?: TicketAttachment[];
   internal_attachments?: TicketAttachment[];
   messages?: TicketMessage[];
   internal_remarks?: TicketMessage[];
   timeline?: Array<{ action: string; detail?: string; created_at?: string }>;
+  approval?: {
+    origin_section_id?: number | null;
+    origin_section_name?: string | null;
+  } | null;
+  transfer?: {
+    from_section_id?: number | null;
+    from_section_name?: string | null;
+    transferred_at?: string | null;
+  } | null;
+  sharing?: {
+    total: number;
+    resolved: number;
+    pending: number;
+  } | null;
+  shares?: TicketShare[];
   access?: {
+    is_locked?: boolean;
+    can_reply?: boolean;
     can_assign: boolean;
     can_change_priority?: boolean;
     can_change_category?: boolean;
+    can_change_section?: boolean;
     can_change_status: boolean;
     is_staff: boolean;
     is_requester?: boolean;
@@ -165,9 +195,28 @@ export type Ticket = {
     can_cancel?: boolean;
     can_start?: boolean;
     can_resolve?: boolean;
+    can_reopen?: boolean;
     can_internal?: boolean;
+    can_submit_for_approval?: boolean;
+    can_return_from_approval?: boolean;
+    can_share?: boolean;
   };
   mentionable_staff?: Array<{ user_id: number; name: string | null }>;
+};
+
+/** One participant's sign-off row on a shared ticket. */
+export type TicketShare = {
+  id: number;
+  section_id: number;
+  section_name?: string | null;
+  user_id?: number | null;
+  user_name?: string | null;
+  is_owner: boolean;
+  shared_at?: string | null;
+  resolved_at?: string | null;
+  resolved_by_name?: string | null;
+  resolution_note?: string | null;
+  can_sign_off: boolean;
 };
 
 export type TicketListResponse = {
@@ -181,9 +230,11 @@ export type TicketListResponse = {
   metrics: {
     open: number;
     in_progress: number;
+    pending_approval: number;
     resolved: number;
     closed: number;
     unread_replies: number;
+    transferred: number;
     unread_internal?: number;
     unread_mentions?: number;
     overdue?: number;
@@ -241,7 +292,6 @@ export async function createTicket(payload: {
   title: string;
   description: string;
   category_id?: number;
-  watcher_ids?: number[];
   temp_upload_ids?: Array<string | number>;
 }) {
   const { data } = await hrmdoSvc.post<{ data: Ticket }>("v1/aduts/tickets", {
@@ -249,7 +299,6 @@ export async function createTicket(payload: {
     title: payload.title,
     description: payload.description,
     category_id: payload.category_id,
-    watcher_ids: payload.watcher_ids,
     temp_upload_ids: (payload.temp_upload_ids ?? []).map(Number),
   });
   return data.data;
@@ -262,14 +311,25 @@ export async function fetchTicket(ticketNumber: string) {
   return data.data;
 }
 
+/**
+ * `cancellation` is required by the server when moving an open or in-progress
+ * ticket to closed. The requestor acknowledging a resolved ticket also lands on
+ * closed but is not a cancellation and needs no reason.
+ */
 export async function changeTicketStatus(
   ticketNumber: string,
   status: string,
   comment?: string,
+  cancellation?: { reasonId: number; remarks?: string | null },
 ) {
   const { data } = await hrmdoSvc.post<{ data: Ticket }>(
     `v1/aduts/tickets/${ticketNumber}/status`,
-    { status, comment },
+    {
+      status,
+      comment,
+      cancel_reason_id: cancellation?.reasonId,
+      cancel_remarks: cancellation?.remarks || undefined,
+    },
   );
   return data.data;
 }
@@ -299,10 +359,16 @@ export async function changeTicketCategory(
 export async function bulkChangeTicketStatus(
   ticketNumbers: string[],
   status: string,
+  cancellation?: { reasonId: number; remarks?: string | null },
 ) {
   const { data } = await hrmdoSvc.post<{ data: Ticket[] }>(
     "v1/aduts/tickets/bulk-status",
-    { ticket_numbers: ticketNumbers, status },
+    {
+      ticket_numbers: ticketNumbers,
+      status,
+      cancel_reason_id: cancellation?.reasonId,
+      cancel_remarks: cancellation?.remarks || undefined,
+    },
   );
   return data.data;
 }
@@ -333,6 +399,59 @@ export async function transferTicketSection(
   const { data } = await hrmdoSvc.post<{ data: Ticket }>(
     `v1/aduts/tickets/${ticketNumber}/section`,
     { section_id: sectionId },
+  );
+  return data.data;
+}
+
+export async function submitTicketForApproval(
+  ticketNumber: string,
+  sectionId: number,
+) {
+  const { data } = await hrmdoSvc.post<{ data: Ticket }>(
+    `v1/aduts/tickets/${ticketNumber}/approval`,
+    { section_id: sectionId },
+  );
+  return data.data;
+}
+
+export async function returnTicketFromApproval(
+  ticketNumber: string,
+  comment?: string,
+) {
+  const { data } = await hrmdoSvc.post<{ data: Ticket }>(
+    `v1/aduts/tickets/${ticketNumber}/approval/return`,
+    comment ? { comment } : {},
+  );
+  return data.data;
+}
+
+export async function shareTicket(
+  ticketNumber: string,
+  sectionId: number,
+  userId?: number | null,
+) {
+  const { data } = await hrmdoSvc.post<{ data: Ticket }>(
+    `v1/aduts/tickets/${ticketNumber}/shares`,
+    { section_id: sectionId, ...(userId ? { user_id: userId } : {}) },
+  );
+  return data.data;
+}
+
+export async function revokeTicketShare(ticketNumber: string, shareId: number) {
+  const { data } = await hrmdoSvc.delete<{ data: Ticket }>(
+    `v1/aduts/tickets/${ticketNumber}/shares/${shareId}`,
+  );
+  return data.data;
+}
+
+export async function signOffTicketShare(
+  ticketNumber: string,
+  shareId: number,
+  note?: string,
+) {
+  const { data } = await hrmdoSvc.post<{ data: Ticket }>(
+    `v1/aduts/tickets/${ticketNumber}/shares/sign-off`,
+    { share_id: shareId, ...(note ? { note } : {}) },
   );
   return data.data;
 }
@@ -442,6 +561,12 @@ export type TatStaffReport = {
   };
   assignment_time: TatSummary;
   per_status: Record<string, TatSummary>;
+  /** Work this person did on tickets shared across sections. */
+  shared?: {
+    shared_count: number;
+    pending_count: number;
+    handling_time: TatSummary;
+  };
 };
 
 export type TatReport = {
@@ -458,6 +583,12 @@ export type TatReport = {
     ticket_count: number;
   };
   assignment_time: TatSummary;
+  sharing?: {
+    shared_ticket_count: number;
+    sign_off_count: number;
+    pending_sign_off_count: number;
+    handling_time: TatSummary;
+  };
   per_staff?: TatStaffReport[];
   per_application: {
     data: Array<{
@@ -472,6 +603,16 @@ export type TatReport = {
       close_hours: number | null;
       first_response_hours: number | null;
       assignment_hours: number | null;
+      shares?: Array<{
+        section_id: number;
+        section_name?: string | null;
+        user_id?: number | null;
+        name?: string | null;
+        is_owner: boolean;
+        shared_at?: string | null;
+        resolved_at?: string | null;
+        handling_hours: number | null;
+      }>;
     }>;
     meta: {
       current_page: number;
@@ -502,70 +643,6 @@ export async function submitCsat(
     { score, comment },
   );
   return data.data;
-}
-
-export async function addWatcher(ticketNumber: string, userId: number) {
-  const { data } = await hrmdoSvc.post(
-    `v1/aduts/tickets/${ticketNumber}/watchers`,
-    {
-      user_id: userId,
-    },
-  );
-  return data.data;
-}
-
-export async function removeWatcher(ticketNumber: string, userId: number) {
-  await hrmdoSvc.delete(`v1/aduts/tickets/${ticketNumber}/watchers/${userId}`);
-}
-
-export type SavedView = {
-  id: number;
-  name: string;
-  filters: Record<string, string | number | boolean>;
-  sort?: string | null;
-  is_default: boolean;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export async function fetchSavedViews() {
-  const { data } = await hrmdoSvc.get<{ data: SavedView[] }>(
-    "v1/aduts/board/saved-views",
-  );
-  return data.data;
-}
-
-export async function createSavedView(payload: {
-  name: string;
-  filters: Record<string, string | number | boolean>;
-  sort?: string | null;
-  is_default?: boolean;
-}) {
-  const { data } = await hrmdoSvc.post<{ data: SavedView }>(
-    "v1/aduts/board/saved-views",
-    payload,
-  );
-  return data.data;
-}
-
-export async function updateSavedView(
-  viewId: number,
-  payload: Partial<{
-    name: string;
-    filters: Record<string, string | number | boolean>;
-    sort: string | null;
-    is_default: boolean;
-  }>,
-) {
-  const { data } = await hrmdoSvc.patch<{ data: SavedView }>(
-    `v1/aduts/board/saved-views/${viewId}`,
-    payload,
-  );
-  return data.data;
-}
-
-export async function deleteSavedView(viewId: number) {
-  await hrmdoSvc.delete(`v1/aduts/board/saved-views/${viewId}`);
 }
 
 export type ChecklistItem = {
@@ -611,45 +688,6 @@ export async function deleteChecklistItem(
   itemId: number,
 ) {
   await hrmdoSvc.delete(`v1/aduts/tickets/${ticketNumber}/checklist/${itemId}`);
-}
-
-export type TicketLink = {
-  id: number;
-  link_type: "related" | "duplicate" | "parent" | string;
-  role: string;
-  ticket: {
-    id: number;
-    ticket_number: string;
-    title: string;
-    status: string;
-  };
-  created_by_id: number;
-  created_at?: string;
-};
-
-export async function fetchTicketLinks(ticketNumber: string) {
-  const { data } = await hrmdoSvc.get<{ data: TicketLink[] }>(
-    `v1/aduts/tickets/${ticketNumber}/links`,
-  );
-  return data.data;
-}
-
-export async function createTicketLink(
-  ticketNumber: string,
-  payload: {
-    target_ticket_number: string;
-    link_type: "related" | "duplicate" | "parent";
-  },
-) {
-  const { data } = await hrmdoSvc.post<{ data: TicketLink }>(
-    `v1/aduts/tickets/${ticketNumber}/links`,
-    payload,
-  );
-  return data.data;
-}
-
-export async function deleteTicketLink(ticketNumber: string, linkId: number) {
-  await hrmdoSvc.delete(`v1/aduts/tickets/${ticketNumber}/links/${linkId}`);
 }
 
 export type PresencePeer = {
@@ -700,38 +738,41 @@ export async function deleteBoardCategory(categoryId: number) {
   await hrmdoSvc.delete(`v1/aduts/board/categories/${categoryId}`);
 }
 
-export async function createBoardTemplate(payload: {
-  name: string;
-  body: string;
-  type?: "msg" | "internal";
-}) {
-  const { data } = await hrmdoSvc.post<{ data: BoardTemplate }>(
-    "v1/aduts/board/templates",
-    payload,
-  );
-  return data.data;
-}
-
-export async function updateBoardTemplate(
-  templateId: number,
-  payload: Partial<{
-    name: string;
-    body: string;
-    type: "msg" | "internal";
-  }>,
-) {
-  const { data } = await hrmdoSvc.patch<{ data: BoardTemplate }>(
-    `v1/aduts/board/templates/${templateId}`,
-    payload,
-  );
-  return data.data;
-}
-
-export async function deleteBoardTemplate(templateId: number) {
-  await hrmdoSvc.delete(`v1/aduts/board/templates/${templateId}`);
-}
-
 /** Super-admin: all boards */
+export async function fetchCancellationReasons() {
+  const { data } = await hrmdoSvc.get<{ data: CancellationReason[] }>(
+    "v1/aduts/admin/cancellation-reasons",
+  );
+  return data.data;
+}
+
+export async function createCancellationReason(payload: {
+  label: string;
+  sort_order?: number;
+  is_active?: boolean;
+}) {
+  const { data } = await hrmdoSvc.post<{ data: CancellationReason }>(
+    "v1/aduts/admin/cancellation-reasons",
+    payload,
+  );
+  return data.data;
+}
+
+export async function updateCancellationReason(
+  reasonId: number,
+  payload: Partial<{ label: string; sort_order: number; is_active: boolean }>,
+) {
+  const { data } = await hrmdoSvc.patch<{ data: CancellationReason }>(
+    `v1/aduts/admin/cancellation-reasons/${reasonId}`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function deleteCancellationReason(reasonId: number) {
+  await hrmdoSvc.delete(`v1/aduts/admin/cancellation-reasons/${reasonId}`);
+}
+
 export async function fetchAdminBoards(withTrashed = false) {
   const { data } = await hrmdoSvc.get<{ data: Board[] }>(
     "v1/aduts/admin/boards",
@@ -836,6 +877,7 @@ export type SectionRow = {
   hr_section_id?: number | null;
   hr_section_name?: string | null;
   is_hidden: boolean;
+  is_approver?: boolean;
   members?: Array<
     BoardPersonRow & {
       is_section_head: boolean;
@@ -855,6 +897,7 @@ export async function createBoardSection(payload: {
   section_name: string;
   hr_section_id?: number | null;
   is_hidden?: boolean;
+  is_approver?: boolean;
 }) {
   const { data } = await hrmdoSvc.post<{ data: SectionRow }>(
     "v1/aduts/board/sections",
@@ -869,6 +912,7 @@ export async function updateBoardSection(
     section_name?: string;
     hr_section_id?: number | null;
     is_hidden?: boolean;
+    is_approver?: boolean;
   },
 ) {
   const { data } = await hrmdoSvc.patch<{ data: SectionRow }>(

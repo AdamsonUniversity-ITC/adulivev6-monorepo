@@ -139,7 +139,8 @@
       0 0 0 4px var(--ring);
   }
 
-  .drs-print-receipt {
+  .drs-print-receipt,
+  .drs-print-details {
     display: none;
   }
 }
@@ -171,7 +172,8 @@
     display: none !important;
   }
 
-  .drs-print-receipt {
+  .drs-print-receipt,
+  .drs-print-details {
     display: block !important;
     color: #111827;
     font-family: ui-sans-serif, system-ui, sans-serif;

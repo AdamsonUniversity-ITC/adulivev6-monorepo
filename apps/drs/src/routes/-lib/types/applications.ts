@@ -12,6 +12,14 @@ export type DRSApplicationLineRow = {
   quantity: number;
   assessed_unit_price?: number | null;
   is_cancelled?: boolean;
+  option_answers?: Array<{
+    id: string;
+    option_id: string | null;
+    option_label: string;
+    option_type: string;
+    value: string;
+    choice_label?: string | null;
+  }>;
   supporting_document_requirements?: DRSApplicationSupportingRequirement[];
 };
 
@@ -133,6 +141,8 @@ export type DRSActiveStageTask = {
   }>;
 };
 
+import type { DRSFlagDetail } from './flag-definitions.ts';
+
 export type DRSApplicationRow = {
   id: string;
   drs_no: string | null;
@@ -164,6 +174,20 @@ export type DRSApplicationRow = {
   date_released: string | null;
   cleared: DRSApplicationClearedRef;
   status: string;
+  /** Personal flags for the current staff user (e.g. "checked"). */
+  flags?: string[];
+  /** Resolved label/icon for each applied flag key. */
+  flag_details?: DRSFlagDetail[];
+  /** Stored auto-fetch tags from the nightly evaluator (no live fetch). */
+  auto_fetch_tags?: Array<{
+    config_id: string;
+    source: string | null;
+    action: string | null;
+    tone: 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+    label: string | null;
+    icon?: string | null;
+    evaluated_at: string | null;
+  }>;
   lines?: DRSApplicationLineRow[];
   clearances?: DRSApplicationClearanceRow[];
   current_stage?: DRSApplicationStagePayload | null;
@@ -180,6 +204,7 @@ export type DRSApplicationDetail = DRSApplicationRow & {
   editable?: boolean;
   may_cancel?: boolean;
   may_cancel_as_staff?: boolean;
+  may_change_receive_mode_as_staff?: boolean;
   payment_submission?: DRSPaymentSubmission | null;
   payment_verification?: DRSPaymentVerification | null;
   payment_total?: number | null;

@@ -96,7 +96,7 @@ test('student cancel button is visible only when may_cancel is true', async ({
   await page.goto('/applications/app-1');
 
   await expect(
-    page.getByRole('button', { name: 'Cancel application' }),
+    page.getByRole('button', { name: 'Cancel request' }),
   ).toBeVisible();
 });
 
@@ -107,6 +107,6 @@ test('student cancel button is hidden when may_cancel is false', async ({
   await page.goto('/applications/app-1');
 
   await expect(
-    page.getByRole('button', { name: 'Cancel application' }),
+    page.getByRole('button', { name: 'Cancel request' }),
   ).toHaveCount(0);
 });

@@ -6,6 +6,7 @@ export type ApplyRequestLine = {
   requestable_type: 'document' | 'package';
   requestable_id: number;
   quantity: number;
+  option_answers?: Array<{ option_id: number; value: string }>;
 };
 
 export type ApplySupportingUpload = {
@@ -110,6 +111,25 @@ export function validateApplyLineQuantities(
   }
 
   return { ok: true, lines };
+}
+
+export function attachOptionAnswersToLines(
+  lines: ApplyRequestLine[],
+  answersByDocumentId: Record<
+    number,
+    Array<{ option_id: number; value: string }>
+  >,
+): ApplyRequestLine[] {
+  return lines.map((line) => {
+    if (line.requestable_type !== 'document') {
+      return line;
+    }
+    const answers = answersByDocumentId[line.requestable_id];
+    if (!answers || answers.length === 0) {
+      return line;
+    }
+    return { ...line, option_answers: answers };
+  });
 }
 
 export function buildApplyRequestPayload(

@@ -102,7 +102,11 @@ function ManageStaffPage() {
       payload,
     }: {
       sectionId: number;
-      payload: { section_name?: string; hr_section_id?: number | null };
+      payload: {
+        section_name?: string;
+        hr_section_id?: number | null;
+        is_approver?: boolean;
+      };
     }) => updateBoardSection(sectionId, payload),
     onSuccess: () => {
       invalidate();
@@ -341,7 +345,12 @@ function ManageStaffPage() {
                   className="flex flex-col gap-4 p-4 md:flex-row md:items-start"
                 >
                   <div className="shrink-0 space-y-2 md:w-[15rem]">
-                    <p className="font-semibold">{section.section_name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{section.section_name}</p>
+                      {section.is_approver ? (
+                        <Badge variant="outline">Approver</Badge>
+                      ) : null}
+                    </div>
                     {section.hr_section_name ? (
                       <p className="text-muted-foreground text-xs">
                         HR: {section.hr_section_name}
@@ -391,6 +400,19 @@ function ManageStaffPage() {
                         />
                       </Button>
                     </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={section.is_approver === true}
+                        disabled={updateSectionMutation.isPending}
+                        onCheckedChange={(v) =>
+                          updateSectionMutation.mutate({
+                            sectionId: section.id,
+                            payload: { is_approver: v === true },
+                          })
+                        }
+                      />
+                      Approver section
+                    </label>
                   </div>
 
                   <div className="bg-card/80 overflow-hidden rounded-lg border md:flex-1">
