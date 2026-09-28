@@ -34,7 +34,7 @@ describe("ticketing page smokes", () => {
     });
   });
 
-  it("renders board home", async () => {
+  it("renders board home with tickets list", async () => {
     await renderApp({
       initialPath: "/",
       authUser: authBoardAdmin,
@@ -45,12 +45,38 @@ describe("ticketing page smokes", () => {
         screen.getByRole("heading", { name: fixtureBoard.board_name }),
       ).toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Open/i })).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: /In Progress/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "New Ticket" }),
+    ).toBeInTheDocument();
   });
 
-  it("renders tickets list", async () => {
+  it("redirects board tickets list to home", async () => {
     await renderApp({
       initialPath: "/tickets/",
       authUser: authBoardAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: fixtureBoard.board_name }),
+      ).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Open/i })).toBeInTheDocument();
+    });
+  });
+
+  it("renders platform tickets list", async () => {
+    await renderApp({
+      initialPath: "/tickets/",
+      hostname: PLATFORM_HOST,
+      authUser: authSuperAdmin,
     });
 
     await waitFor(() => {
@@ -107,6 +133,20 @@ describe("ticketing page smokes", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("heading", { name: "Board Tenants" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders admin cancellation reasons", async () => {
+    await renderApp({
+      initialPath: "/admin/cancellation-reasons",
+      hostname: PLATFORM_HOST,
+      authUser: authSuperAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Cancellation Reasons" }),
       ).toBeInTheDocument();
     });
   });
@@ -200,19 +240,6 @@ describe("ticketing page smokes", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("heading", { name: "Categories" }),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("renders manage templates", async () => {
-    await renderApp({
-      initialPath: "/manage/templates",
-      authUser: authBoardAdmin,
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Templates" }),
       ).toBeInTheDocument();
     });
   });

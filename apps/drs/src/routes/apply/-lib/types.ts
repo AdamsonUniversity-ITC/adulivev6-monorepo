@@ -21,6 +21,26 @@ export type SupportingDocumentRequirement = {
   max_files?: number | null;
 };
 
+export type CatalogDocumentOption = {
+  id: number;
+  label: string;
+  field_type: 'select' | 'textbox';
+  choices?: string[] | null;
+  is_required: boolean;
+  is_active: boolean;
+  sort_order?: number;
+};
+
+export type CatalogDownloadableForm = {
+  id: string | number;
+  name?: string;
+  file_name: string;
+  mime_type?: string | null;
+  size: number;
+  download_url: string;
+  expires_at?: string | null;
+};
+
 export type CatalogDocument = {
   id: number;
   document_name: string;
@@ -31,6 +51,8 @@ export type CatalogDocument = {
   already_requested?: boolean;
   rules?: DocumentRuleRow[] | null;
   supporting_document_requirements?: SupportingDocumentRequirement[] | null;
+  options?: CatalogDocumentOption[] | null;
+  downloadable_forms?: CatalogDownloadableForm[] | null;
   required_companion_ids?: number[] | null;
   required_companions?: Array<{
     id?: number | string;

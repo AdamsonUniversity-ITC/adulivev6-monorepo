@@ -16,6 +16,19 @@ export function formatReportPercent(value: number): string {
   return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
 }
 
+/** Stored slug to a sentence-case label (`for_payment` → `For payment`). */
+export function formatReportLabel(value?: string | null): string {
+  const normalized = String(value ?? '')
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+  if (!normalized) return '—';
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 export function formatReportDays(value: number | null | undefined): string {
   if (value == null) return '—';
   return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} days`;
@@ -51,7 +64,9 @@ export function describeAppliedFilters(filters: ReportFilters): string[] {
   if (filters.is_foreigner_student === true) chips.push('Foreigner students');
   if (filters.is_foreigner_student === false) chips.push('Local students');
   if (filters.status?.length) {
-    chips.push(`Status: ${filters.status.join(', ')}`);
+    chips.push(
+      `Status: ${filters.status.map((status) => formatReportLabel(status)).join(', ')}`,
+    );
   }
 
   return chips;

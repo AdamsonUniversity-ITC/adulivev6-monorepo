@@ -57,6 +57,7 @@ export const fixtureBoard: Board = {
     {
       id: 11,
       section_name: "Helpdesk",
+      is_approver: false,
       members: [
         {
           id: 1,
@@ -67,15 +68,25 @@ export const fixtureBoard: Board = {
         },
       ],
     },
+    {
+      id: 12,
+      section_name: "Director's Office",
+      is_approver: true,
+      members: [
+        {
+          id: 2,
+          user_id: 40,
+          name: "Director Person",
+          is_section_head: true,
+          has_assign_access: true,
+        },
+      ],
+    },
   ],
   categories: [{ id: 1, name: "General", slug: "general", is_active: true }],
-  templates: [
-    {
-      id: 1,
-      name: "Ack",
-      type: "reply",
-      body: "<p>We received your request.</p>",
-    },
+  cancellation_reasons: [
+    { id: 1, label: "Duplicate request", is_active: true },
+    { id: 2, label: "No longer needed", is_active: true },
   ],
   access: {
     can_view_reports: true,
@@ -129,11 +140,13 @@ export const fixtureTicket: Ticket = {
   attachments: [],
   internal_attachments: [],
   timeline: [],
-  watchers: [],
+  sharing: null,
+  shares: [],
   access: {
     can_assign: true,
     can_change_priority: true,
     can_change_category: true,
+    can_change_section: true,
     can_change_status: true,
     is_staff: true,
     is_requester: false,
@@ -142,6 +155,9 @@ export const fixtureTicket: Ticket = {
     can_start: true,
     can_resolve: false,
     can_internal: true,
+    can_submit_for_approval: true,
+    can_return_from_approval: false,
+    can_share: true,
   },
 };
 
@@ -156,9 +172,11 @@ export const fixtureTicketList: TicketListResponse = {
   metrics: {
     open: 1,
     in_progress: 0,
+    pending_approval: 0,
     resolved: 0,
     closed: 0,
     unread_replies: 0,
+    transferred: 0,
   },
 };
 
@@ -176,6 +194,12 @@ export const fixtureTatReport: TatReport = {
     ticket_count: 0,
   },
   assignment_time: emptyTatSummary,
+  sharing: {
+    shared_ticket_count: 0,
+    sign_off_count: 0,
+    pending_sign_off_count: 0,
+    handling_time: emptyTatSummary,
+  },
   per_staff: [],
   per_application: {
     data: [],

@@ -5,7 +5,6 @@ import type { UserManagementProfile } from './types.ts';
 export type PatchUserManagementPermissionsPayload = {
   permissions: {
     drs_cancel_applications?: boolean;
-    drs_admin_access?: boolean;
   };
 };
 

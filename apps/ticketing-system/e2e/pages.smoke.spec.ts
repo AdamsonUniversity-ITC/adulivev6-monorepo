@@ -18,16 +18,24 @@ test.describe("ticketing page smokes (board host)", () => {
     });
   });
 
-  test("board home", async ({ page }) => {
+  test("board home shows tickets list", async ({ page }) => {
     await page.goto("/");
     await expect(
       page.getByRole("heading", { name: fixtureBoard.board_name }),
     ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Open/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /In Progress/i }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "New Ticket" })).toBeVisible();
   });
 
-  test("tickets list", async ({ page }) => {
+  test("tickets list redirects to home", async ({ page }) => {
     await page.goto("/tickets/");
-    await expect(page.getByRole("heading", { name: "Tickets" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: fixtureBoard.board_name }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Open/i })).toBeVisible();
   });
 
   test("new ticket", async ({ page }) => {
@@ -77,13 +85,6 @@ test.describe("ticketing page smokes (board host)", () => {
     await page.goto("/manage/categories");
     await expect(
       page.getByRole("heading", { name: "Categories" }),
-    ).toBeVisible();
-  });
-
-  test("manage templates", async ({ page }) => {
-    await page.goto("/manage/templates");
-    await expect(
-      page.getByRole("heading", { name: "Templates" }),
     ).toBeVisible();
   });
 });

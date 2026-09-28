@@ -7,6 +7,21 @@ import type {
 export const STAGES_QUERY_KEY = ['workflow_stages'];
 export const KINDS_QUERY_KEY = ['workflow_task_kinds'];
 export const CLEARANCES_QUERY_KEY = ['clearance_departments'];
+export const EMAIL_NOTIFICATIONS_QUERY_KEY = [
+  'workflow_email_notifications',
+] as const;
+export const AUTO_DISPOSAL_CONFIGS_QUERY_KEY = [
+  'workflow_auto_disposal_configs',
+] as const;
+export const AUTO_FETCH_CONFIGS_QUERY_KEY = [
+  'workflow_auto_fetch_configs',
+] as const;
+export const ASSIGNMENTS_ALL_QUERY_KEY = [
+  'drs',
+  'workflow',
+  'assignments',
+  'all',
+] as const;
 
 export const sortedTasks = (
   tasks: WorkflowTask[] | undefined,

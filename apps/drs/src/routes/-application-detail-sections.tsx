@@ -20,7 +20,7 @@ import {
 import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileUp, Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
 import {
@@ -32,10 +32,9 @@ import {
   DrsStatusBadge,
   formatStatusLabel,
 } from '@/components/drs-ui.tsx';
+import { PrivateFileLink } from '@/components/private-file-link.tsx';
 import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
-import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
-import { formatExpiryTime } from '@/lib/formatExpiryTime.ts';
-import { formatFileSize, type TempUpload } from '@/lib/tempUploads.ts';
+import { type TempUpload } from '@/lib/tempUploads.ts';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
 import { postApplicationSupportingRequirementUploads } from './-lib/api/postApplicationSupportingRequirementUploads.ts';
 import {
@@ -276,6 +275,19 @@ function formatPickupDate(value: string): string {
   });
 }
 
+function formatEtaDate(value: string): string {
+  const date = value.includes('T')
+    ? new Date(value)
+    : new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 /**
  * Sticky rail on the detail pages. Answers "where is this request and what
  * happens next" without the reader scanning the whole record.
@@ -340,7 +352,14 @@ export function RequestSummaryPanel({
   );
 }
 
-export function RequestDetailsSection({ app }: { app: DRSApplicationDetail }) {
+export function RequestDetailsSection({
+  app,
+  readOnly = false,
+}: {
+  app: DRSApplicationDetail;
+  /** When true, supporting documents are view-only (no student upload UI). */
+  readOnly?: boolean;
+}) {
   return (
     <DrsSection
       title="Request details"
@@ -353,12 +372,18 @@ export function RequestDetailsSection({ app }: { app: DRSApplicationDetail }) {
       contentClassName="space-y-6"
     >
       <DrsDataList columns={3}>
+        <DrsDataItem label="Student name">{app.student_name}</DrsDataItem>
         <DrsDataItem label="Student number">{app.student_no}</DrsDataItem>
+        <DrsDataItem label="Course">
+          {app.course_name ?? app.course_id}
+        </DrsDataItem>
         <DrsDataItem label="School year and term">
           {app.school_year || app.semester
             ? `${app.school_year || '—'} · ${app.semester || '—'}`
             : ''}
         </DrsDataItem>
+        <DrsDataItem label="Email">{app.email}</DrsDataItem>
+        <DrsDataItem label="Contact number">{app.contact_no}</DrsDataItem>
         <DrsDataItem
           label="Receive by"
           hint={
@@ -369,6 +394,11 @@ export function RequestDetailsSection({ app }: { app: DRSApplicationDetail }) {
         >
           {formatStatusLabel(app.receive_mode)}
         </DrsDataItem>
+        {app.receive_mode === 'delivery' ? (
+          <DrsDataItem label="Delivery address">
+            {app.delivery_address}
+          </DrsDataItem>
+        ) : null}
         <DrsDataItem
           label="Mode of payment"
           hint={app.payment_method?.description}
@@ -385,10 +415,34 @@ export function RequestDetailsSection({ app }: { app: DRSApplicationDetail }) {
             {formatPickupDate(app.pickup_date)}
           </DrsDataItem>
         ) : null}
+        {app.release_date ? (
+          <DrsDataItem label="ETA">
+            {formatEtaDate(app.release_date)}
+          </DrsDataItem>
+        ) : null}
       </DrsDataList>
 
+      {app.purpose || app.remarks ? (
+        <div className="space-y-3">
+          {app.purpose ? (
+            <div>
+              <DrsOverline>Purpose</DrsOverline>
+              <p className="mt-1 text-sm whitespace-pre-wrap">{app.purpose}</p>
+            </div>
+          ) : null}
+          {app.remarks ? (
+            <div>
+              <DrsOverline>Remarks</DrsOverline>
+              <p className="text-muted-foreground mt-1 text-sm whitespace-pre-wrap">
+                {app.remarks}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <RequestedLinesList app={app} />
-      <SupportingDocumentsSection app={app} />
+      <SupportingDocumentsSection app={app} readOnly={readOnly} />
     </DrsSection>
   );
 }
@@ -423,7 +477,19 @@ function RequestedLinesList({ app }: { app: DRSApplicationDetail }) {
                   line.is_cancelled ? 'text-muted-foreground line-through' : ''
                 }`}
               >
-                {line.request_name}
+                <div>{line.request_name}</div>
+                {line.option_answers && line.option_answers.length > 0 ? (
+                  <ul className="text-muted-foreground mt-1 space-y-0.5 text-xs">
+                    {line.option_answers.map((answer) => (
+                      <li key={answer.id}>
+                        {answer.option_label}:{' '}
+                        <span className="text-foreground">
+                          {answer.choice_label || answer.value}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </td>
               <td
                 className={`text-muted-foreground w-16 py-2 text-right tabular-nums ${
@@ -440,7 +506,13 @@ function RequestedLinesList({ app }: { app: DRSApplicationDetail }) {
   );
 }
 
-function SupportingDocumentsSection({ app }: { app: DRSApplicationDetail }) {
+function SupportingDocumentsSection({
+  app,
+  readOnly = false,
+}: {
+  app: DRSApplicationDetail;
+  readOnly?: boolean;
+}) {
   const requirements =
     app.lines?.flatMap((line) =>
       (line.supporting_document_requirements ?? []).map((requirement) => ({
@@ -463,6 +535,7 @@ function SupportingDocumentsSection({ app }: { app: DRSApplicationDetail }) {
             app={app}
             lineName={line.request_name}
             requirement={requirement}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -474,6 +547,7 @@ function SupportingRequirementRow({
   app,
   lineName,
   requirement,
+  readOnly = false,
 }: {
   app: DRSApplicationDetail;
   lineName: string;
@@ -482,10 +556,11 @@ function SupportingRequirementRow({
       DRSApplicationDetail['lines']
     >[number]['supporting_document_requirements']
   >[number];
+  readOnly?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [uploads, setUploads] = React.useState<TempUpload[]>([]);
-  const canUpload = requirement.status !== 'submitted';
+  const canUpload = !readOnly && requirement.status !== 'submitted';
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -525,42 +600,8 @@ function SupportingRequirementRow({
       {requirement.files.length > 0 ? (
         <ul className="space-y-1">
           {requirement.files.map((file) => (
-            <li key={file.id} className="text-sm">
-              <a
-                href={file.url}
-                target={file.expires_at ? undefined : '_blank'}
-                rel="noreferrer"
-                className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
-                onClick={(event) =>
-                  handlePrivateFileDownloadClick(
-                    event,
-                    file.url,
-                    file.file_name,
-                    file.expires_at,
-                    () => {
-                      toast.error(
-                        'Failed to download file. Please refresh and try again.',
-                      );
-                    },
-                  )
-                }
-              >
-                {file.expires_at ? (
-                  <FileUp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                ) : null}
-                <span className="min-w-0">
-                  <span className="block wrap-anywhere">{file.file_name}</span>
-                  {file.expires_at ? (
-                    <span className="text-muted-foreground block text-xs">
-                      Private download - expires{' '}
-                      {formatExpiryTime(file.expires_at)}
-                    </span>
-                  ) : null}
-                </span>
-              </a>{' '}
-              <span className="text-muted-foreground text-xs">
-                {formatFileSize(file.size)}
-              </span>
+            <li key={file.id}>
+              <PrivateFileLink file={file} />
             </li>
           ))}
         </ul>
@@ -783,34 +824,8 @@ export function PaymentReferencesSection({
           {receipts.length > 0 ? (
             <ul className="space-y-1">
               {receipts.map((file) => (
-                <li
-                  key={file.id}
-                  className="flex flex-wrap items-baseline gap-2"
-                >
-                  <a
-                    href={file.url}
-                    className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
-                    onClick={(event) =>
-                      handlePrivateFileDownloadClick(
-                        event,
-                        file.url,
-                        file.file_name,
-                        file.expires_at,
-                        () => {
-                          toast.error(
-                            'Failed to download receipt. Please refresh and try again.',
-                          );
-                        },
-                      )
-                    }
-                  >
-                    <span className="min-w-0 wrap-anywhere">
-                      {file.file_name}
-                    </span>
-                  </a>
-                  <span className="text-muted-foreground text-xs">
-                    {formatFileSize(file.size)}
-                  </span>
+                <li key={file.id}>
+                  <PrivateFileLink file={file} />
                 </li>
               ))}
             </ul>

@@ -54,7 +54,7 @@ export const TaskKindAccessPanel = ({
   const accessQuery = useQuery<TaskKindAccessPayload>({
     queryKey,
     queryFn: () => fetchTaskKindAccess(kind),
-    enabled: expanded || defaultExpanded || readOnly,
+    enabled: expanded || defaultExpanded,
     refetchOnWindowFocus: false,
   });
 
@@ -172,19 +172,38 @@ export const TaskKindAccessPanel = ({
   );
 
   if (readOnly) {
+    const isOpen = expanded;
+
     return (
-      <div className="border-muted/60 bg-muted/20 space-y-3 rounded-md border px-3 py-2 text-xs">
-        <p className="text-muted-foreground">
+      <div className="border-muted/60 bg-muted/20 space-y-2 rounded-md border px-3 py-2 text-xs">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground h-auto gap-2 px-0 py-0 hover:bg-transparent"
+          onClick={() => setExpanded((value) => !value)}
+        >
           <span className="text-foreground font-medium">{title}</span>
-          {readOnlyDescription ? ` — ${readOnlyDescription}` : null}
-        </p>
-        {accessQuery.isLoading ? (
-          <DrsInlineLoading size="sm" label="Loading roster…" />
-        ) : accessQuery.isError ? (
-          <p className="text-destructive">Could not load roster.</p>
-        ) : (
-          usersTab
-        )}
+          {readOnlyDescription && !isOpen ? (
+            <span className="text-muted-foreground font-normal">
+              — {readOnlyDescription}
+            </span>
+          ) : null}
+          {isOpen ? (
+            <ChevronUp className="ml-1 h-3 w-3 shrink-0" />
+          ) : (
+            <ChevronDown className="ml-1 h-3 w-3 shrink-0" />
+          )}
+        </Button>
+        {isOpen ? (
+          accessQuery.isLoading ? (
+            <DrsInlineLoading size="sm" label="Loading roster…" />
+          ) : accessQuery.isError ? (
+            <p className="text-destructive">Could not load roster.</p>
+          ) : (
+            usersTab
+          )
+        ) : null}
       </div>
     );
   }

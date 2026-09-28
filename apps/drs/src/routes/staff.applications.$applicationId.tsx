@@ -1,3 +1,4 @@
+import { DatePicker } from '@/components/date-picker.tsx';
 import {
   DrsEmptyState,
   DrsErrorState,
@@ -16,6 +17,7 @@ import { hasDrAdminAccessForHost } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { isNotFoundError } from '@/lib/isNotFoundError.ts';
 import { Button } from '@repo/ui/components/button';
+import { Checkbox } from '@repo/ui/components/checkbox';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
 import {
@@ -34,14 +36,20 @@ import {
   Outlet,
   useRouterState,
 } from '@tanstack/react-router';
-import { History, Plus, Trash2 } from 'lucide-react';
+import { History, Plus, Printer, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
-import { handlePrivateFileDownloadClick } from '@/lib/downloadPrivateFile.ts';
-import { formatFileSize } from '@/lib/tempUploads.ts';
-import { RequestSummaryPanel } from './-application-detail-sections.tsx';
+import { PrivateFileLink } from '@/components/private-file-link.tsx';
+import {
+  ClearancesSection,
+  RequestDetailsSection,
+  RequestSummaryPanel,
+} from './-application-detail-sections.tsx';
+import { ApplicationDetailsPrint } from './-application-details-print.tsx';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
+import { ApplicationFlagsControl } from './-components/application-flags-control.tsx';
 import { fetchEmployeeApplication } from './-lib/api/fetchEmployeeApplication.ts';
+import { patchEmployeeReceiveMode } from './-lib/api/patchEmployeeReceiveMode.ts';
 import {
   type CompleteApplicationTaskPayload,
   postCompleteApplicationTask,
@@ -56,6 +64,17 @@ import {
   displayApplicationRef,
 } from './-lib/types/applications.ts';
 import { ConfirmActionDialog } from './maintenance/-clearance/-confirm-action-dialog.tsx';
+
+type PendingCompleteAction = {
+  taskId: string;
+  payload: CompleteApplicationTaskPayload;
+  confirmLabel: string;
+};
+
+type CompleteMutationApi = {
+  isPending: boolean;
+  mutate: (vars: PendingCompleteAction) => void;
+};
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat(undefined, {
@@ -102,32 +121,8 @@ function PaymentReceiptLinks({
   return (
     <ul className="space-y-1">
       {receipts.map((file) => (
-        <li key={file.id} className="flex flex-wrap items-baseline gap-2">
-          <a
-            href={file.url}
-            className="text-primary inline-flex max-w-full min-w-0 items-center gap-2 underline-offset-2 hover:underline"
-            onClick={(event) =>
-              handlePrivateFileDownloadClick(
-                event,
-                file.url,
-                file.file_name,
-                file.expires_at,
-                () => {
-                  toast.error(
-                    'Failed to download receipt. Please refresh and try again.',
-                  );
-                },
-              )
-            }
-          >
-            <span className="min-w-0 wrap-anywhere">{file.file_name}</span>
-          </a>
-          <span className="text-muted-foreground text-xs">
-            {formatFileSize(file.size)}
-            {file.created_at
-              ? ` · ${new Date(file.created_at).toLocaleString()}`
-              : ''}
-          </span>
+        <li key={file.id}>
+          <PrivateFileLink file={file} />
         </li>
       ))}
     </ul>
@@ -154,6 +149,99 @@ function createOtherFeeDraft(): OtherFeeDraft {
     fee_name: '',
     amount: '',
   };
+}
+
+function ProgressionConfirmSummary({
+  app,
+  task,
+  confirmLabel,
+  nextStepLabel,
+  remarks,
+}: {
+  app: DRSApplicationDetail;
+  task: DRSActiveStageTask | undefined;
+  confirmLabel: string;
+  nextStepLabel: string | null;
+  remarks: string | null;
+}) {
+  const activeLines = app.lines?.filter((line) => !line.is_cancelled) ?? [];
+  const studentLabel = [app.student_name, app.student_no]
+    .filter(Boolean)
+    .join(' · ');
+  const termLabel = [app.school_year, app.semester].filter(Boolean).join(' / ');
+  const receiveLabel = formatStatusLabel(app.receive_mode);
+
+  const rows: Array<{ label: string; value: React.ReactNode }> = [
+    { label: 'Reference', value: displayApplicationRef(app) },
+    { label: 'Student', value: studentLabel || '—' },
+  ];
+
+  if (app.course_name) {
+    rows.push({ label: 'Course', value: app.course_name });
+  }
+  if (termLabel) {
+    rows.push({ label: 'School year / term', value: termLabel });
+  }
+  rows.push({
+    label: 'Receive mode',
+    value: app.delivery_address
+      ? `${receiveLabel} — ${app.delivery_address}`
+      : receiveLabel,
+  });
+  rows.push({
+    label: 'Requested items',
+    value:
+      activeLines.length > 0 ? (
+        <ul className="space-y-0.5 text-right">
+          {activeLines.map((line) => (
+            <li key={line.id}>
+              {line.request_name}
+              {line.quantity > 1 ? ` × ${line.quantity}` : ''}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        'None'
+      ),
+  });
+  rows.push({
+    label: 'Current stage',
+    value: app.current_stage?.name ?? formatStatusLabel(app.status),
+  });
+  rows.push({
+    label: 'Action',
+    value: task?.name ? `${task.name} — ${confirmLabel}` : confirmLabel,
+  });
+  if (nextStepLabel) {
+    rows.push({ label: 'Next step', value: nextStepLabel });
+  }
+  if (remarks) {
+    rows.push({ label: 'Remarks', value: remarks });
+  }
+
+  return (
+    <div className="space-y-3 text-left">
+      <p className="text-muted-foreground text-sm">
+        Review this request before continuing. This will complete the selected
+        workflow task.
+      </p>
+      <dl className="divide-border/70 divide-y border-y text-sm">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-baseline justify-between gap-4 py-2"
+          >
+            <dt className="text-muted-foreground shrink-0 text-xs">
+              {row.label}
+            </dt>
+            <dd className="text-foreground min-w-0 text-right font-medium">
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
 }
 
 function BranchTransitionSelect({
@@ -211,13 +299,7 @@ function PaymentVerificationTaskPanel({
       kind?: string | null;
     }) => void;
   };
-  completeMutation: {
-    isPending: boolean;
-    mutate: (vars: {
-      taskId: string;
-      payload: CompleteApplicationTaskPayload;
-    }) => void;
-  };
+  completeMutation: CompleteMutationApi;
 }) {
   const submission = app.payment_submission;
   const verification = app.payment_verification;
@@ -357,6 +439,7 @@ function PaymentVerificationTaskPanel({
           onClick={() => {
             completeMutation.mutate({
               taskId: task.id,
+              confirmLabel: 'Verify payment',
               payload: {
                 remarks: remarkByTask[task.id]?.trim() || null,
               },
@@ -396,13 +479,7 @@ function PaymentCollectionTaskPanel({
       kind?: string | null;
     }) => void;
   };
-  completeMutation: {
-    isPending: boolean;
-    mutate: (vars: {
-      taskId: string;
-      payload: CompleteApplicationTaskPayload;
-    }) => void;
-  };
+  completeMutation: CompleteMutationApi;
 }) {
   const total =
     typeof app.payment_total === 'number' ? app.payment_total : null;
@@ -486,6 +563,7 @@ function PaymentCollectionTaskPanel({
 
             completeMutation.mutate({
               taskId: task.id,
+              confirmLabel: 'Complete payment',
               payload: {
                 reference_number: reference,
                 remarks: remarkByTask[task.id]?.trim() || null,
@@ -544,13 +622,7 @@ function AssessmentTaskPanel({
       kind?: string | null;
     }) => void;
   };
-  completeMutation: {
-    isPending: boolean;
-    mutate: (vars: {
-      taskId: string;
-      payload: CompleteApplicationTaskPayload;
-    }) => void;
-  };
+  completeMutation: CompleteMutationApi;
 }) {
   const linePrices = linePriceByTask[task.id] ?? {};
   const lineQuantities = lineQuantityByTask[task.id] ?? {};
@@ -626,6 +698,7 @@ function AssessmentTaskPanel({
 
     completeMutation.mutate({
       taskId: task.id,
+      confirmLabel: 'Complete assessment',
       payload: {
         remarks: remarkByTask[task.id]?.trim() || null,
         line_updates,
@@ -929,6 +1002,10 @@ function StaffApplicationWorkPage() {
   const [pickupDateByTask, setPickupDateByTask] = React.useState<
     Record<string, string>
   >({});
+  const [etaByTask, setEtaByTask] = React.useState<Record<string, string>>({});
+  const [notifyStudentByTask, setNotifyStudentByTask] = React.useState<
+    Record<string, boolean>
+  >({});
   const [linePriceByTask, setLinePriceByTask] = React.useState<
     Record<string, Record<string, string>>
   >({});
@@ -945,6 +1022,11 @@ function StaffApplicationWorkPage() {
     Record<string, string>
   >({});
   const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
+  const [detailsPrintedAt, setDetailsPrintedAt] = React.useState<Date | null>(
+    null,
+  );
+  const [pendingComplete, setPendingComplete] =
+    React.useState<PendingCompleteAction | null>(null);
 
   React.useEffect(() => {
     if (!query.data?.active_stage_tasks) return;
@@ -970,6 +1052,13 @@ function StaffApplicationWorkPage() {
       return next;
     });
     setPickupDateByTask((prev) => {
+      const next = { ...prev };
+      for (const t of query.data.active_stage_tasks ?? []) {
+        if (next[t.id] === undefined) next[t.id] = '';
+      }
+      return next;
+    });
+    setEtaByTask((prev) => {
       const next = { ...prev };
       for (const t of query.data.active_stage_tasks ?? []) {
         if (next[t.id] === undefined) next[t.id] = '';
@@ -1045,33 +1134,65 @@ function StaffApplicationWorkPage() {
     });
   }, [query.data]);
 
+  const resolveCompleteGuards = (taskId: string) => {
+    const task = query.data?.active_stage_tasks?.find(
+      (item) => item.id === taskId,
+    );
+    const branchOptions = task?.branch_options ?? [];
+    const selectedTransitionId = transitionByTask[taskId];
+    if (branchOptions.length > 0 && !selectedTransitionId) {
+      throw new Error('Select the next workflow step.');
+    }
+    const selectedTransition = branchOptions.find(
+      (option) => option.id === selectedTransitionId,
+    );
+    const trackingNumber = trackingNumberByTask[taskId]?.trim() ?? '';
+    if (
+      selectedTransition?.outcome_key === 'delivery_dispatch' &&
+      !trackingNumber
+    ) {
+      throw new Error('Enter a delivery number before dispatching.');
+    }
+    const pickupDate = pickupDateByTask[taskId]?.trim() ?? '';
+    if (selectedTransition?.outcome_key === 'pickup_handoff' && !pickupDate) {
+      throw new Error('Enter a pickup date before releasing for pickup.');
+    }
+    const eta = etaByTask[taskId]?.trim() ?? '';
+    if (task?.kind === 'processing' && !eta) {
+      throw new Error('Enter an ETA before completing processing.');
+    }
+
+    return {
+      task,
+      selectedTransitionId,
+      selectedTransition,
+      trackingNumber,
+      pickupDate,
+      eta,
+    };
+  };
+
+  const requestComplete = (vars: PendingCompleteAction) => {
+    try {
+      resolveCompleteGuards(vars.taskId);
+      setPendingComplete(vars);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not complete task.',
+      );
+    }
+  };
+
   const completeMutation = useMutation({
-    mutationFn: async (vars: {
-      taskId: string;
-      payload: CompleteApplicationTaskPayload;
-    }) => {
-      const task = query.data?.active_stage_tasks?.find(
-        (item) => item.id === vars.taskId,
-      );
-      const branchOptions = task?.branch_options ?? [];
-      const selectedTransitionId = transitionByTask[vars.taskId];
-      if (branchOptions.length > 0 && !selectedTransitionId) {
-        throw new Error('Select the next workflow step.');
-      }
-      const selectedTransition = branchOptions.find(
-        (option) => option.id === selectedTransitionId,
-      );
-      const trackingNumber = trackingNumberByTask[vars.taskId]?.trim() ?? '';
-      if (
-        selectedTransition?.outcome_key === 'delivery_dispatch' &&
-        !trackingNumber
-      ) {
-        throw new Error('Enter a delivery number before dispatching.');
-      }
-      const pickupDate = pickupDateByTask[vars.taskId]?.trim() ?? '';
-      if (selectedTransition?.outcome_key === 'pickup_handoff' && !pickupDate) {
-        throw new Error('Enter a pickup date before releasing for pickup.');
-      }
+    mutationFn: async (vars: PendingCompleteAction) => {
+      const {
+        task,
+        selectedTransitionId,
+        selectedTransition,
+        trackingNumber,
+        pickupDate,
+        eta,
+      } = resolveCompleteGuards(vars.taskId);
 
       return postCompleteApplicationTask(applicationId, vars.taskId, {
         ...vars.payload,
@@ -1084,9 +1205,11 @@ function StaffApplicationWorkPage() {
           selectedTransition?.outcome_key === 'pickup_handoff'
             ? pickupDate
             : vars.payload.pickup_date,
+        ...(task?.kind === 'processing' ? { eta } : {}),
       });
     },
     onSuccess: (updated) => {
+      setPendingComplete(null);
       queryClient.setQueryData(
         ['drs-employee-application', applicationId],
         updated,
@@ -1101,6 +1224,10 @@ function StaffApplicationWorkPage() {
     },
   });
 
+  const completeMutationApi: CompleteMutationApi = {
+    isPending: completeMutation.isPending,
+    mutate: requestComplete,
+  };
   const saveRemarksMutation = useMutation({
     mutationFn: async (vars: {
       taskId: string;
@@ -1139,6 +1266,37 @@ function StaffApplicationWorkPage() {
     },
     onError: () => {
       toast.error('Failed to cancel application.');
+    },
+  });
+
+  const [staffReceiveMode, setStaffReceiveMode] = React.useState<
+    'delivery' | 'pickup'
+  >('pickup');
+  const [staffDeliveryAddress, setStaffDeliveryAddress] = React.useState('');
+
+  React.useEffect(() => {
+    if (!query.data) return;
+    setStaffReceiveMode(query.data.receive_mode);
+    setStaffDeliveryAddress(query.data.delivery_address ?? '');
+  }, [query.data?.id, query.data?.receive_mode, query.data?.delivery_address]);
+
+  const receiveModeMutation = useMutation({
+    mutationFn: () =>
+      patchEmployeeReceiveMode(applicationId, {
+        receive_mode: staffReceiveMode,
+        delivery_address:
+          staffReceiveMode === 'delivery' ? staffDeliveryAddress.trim() : null,
+      }),
+    onSuccess: (updated: DRSApplicationDetail) => {
+      queryClient.setQueryData(
+        ['drs-employee-application', applicationId],
+        updated,
+      );
+      void queryClient.invalidateQueries({ queryKey: ['drs-employee-queue'] });
+      toast.success('Delivery mode updated.');
+    },
+    onError: () => {
+      toast.error('Could not update delivery mode.');
     },
   });
 
@@ -1199,489 +1357,594 @@ function StaffApplicationWorkPage() {
     );
   }
 
+  const handlePrintDetails = () => {
+    setDetailsPrintedAt(new Date());
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  };
+
   return (
     <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
-      <DrsPageHeader
-        backTo="/staff/queue"
-        backLabel="Queue"
-        title={`Request #${displayApplicationRef(app)}`}
-        description={
-          app.student_no
-            ? `${app.student_name?.trim() || 'Student'} · ${app.student_no}`
-            : app.student_name?.trim() || undefined
-        }
-        badges={
-          <>
-            <DrsStatusBadge tone={toneForStatus(app.status)}>
-              {app.current_stage?.name ?? formatStatusLabel(app.status)}
-            </DrsStatusBadge>
-            {app.is_foreigner_student ? (
-              <DrsStatusBadge tone="neutral">Foreigner student</DrsStatusBadge>
-            ) : null}
-            {app.is_cancelled ? (
-              <DrsStatusBadge tone="danger">Cancelled</DrsStatusBadge>
-            ) : null}
-          </>
-        }
-        actions={
-          <>
-            {app.may_cancel_as_staff && !app.is_cancelled ? (
+      <div className="drs-screen-content space-y-5">
+        <DrsPageHeader
+          backTo="/staff/queue"
+          backLabel="Queue"
+          title={`Request #${displayApplicationRef(app)}`}
+          description={
+            app.student_no
+              ? `${app.student_name?.trim() || 'Student'} · ${app.student_no}`
+              : app.student_name?.trim() || undefined
+          }
+          badges={
+            <>
+              <DrsStatusBadge tone={toneForStatus(app.status)}>
+                {app.current_stage?.name ?? formatStatusLabel(app.status)}
+              </DrsStatusBadge>
+              {app.is_foreigner_student ? (
+                <DrsStatusBadge tone="neutral">
+                  Foreigner student
+                </DrsStatusBadge>
+              ) : null}
+              {app.is_cancelled ? (
+                <DrsStatusBadge tone="danger">Cancelled</DrsStatusBadge>
+              ) : null}
+            </>
+          }
+          actions={
+            <>
+              {app.may_cancel_as_staff && !app.is_cancelled ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setCancelDialogOpen(true)}
+                >
+                  Cancel request
+                </Button>
+              ) : null}
+              {canRestore ? (
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link
+                    to="/staff/applications/$applicationId/history"
+                    params={{ applicationId }}
+                  >
+                    <History className="size-4" aria-hidden="true" />
+                    History
+                  </Link>
+                </Button>
+              ) : null}
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setCancelDialogOpen(true)}
+                onClick={handlePrintDetails}
               >
-                Cancel request
+                <Printer className="size-4" aria-hidden="true" />
+                Print
               </Button>
-            ) : null}
-            {canRestore ? (
-              <Button type="button" variant="outline" size="sm" asChild>
-                <Link
-                  to="/staff/applications/$applicationId/history"
-                  params={{ applicationId }}
-                >
-                  <History className="size-4" aria-hidden="true" />
-                  History
-                </Link>
-              </Button>
-            ) : null}
-          </>
-        }
-      />
+            </>
+          }
+        />
 
-      <div className="grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0 space-y-8">
-          {/* The reason staff opened this page goes first. */}
-          <DrsPanel
-            title={clearanceOnlyMode ? 'Clearance sign-off' : 'Your tasks'}
-            description={
-              clearanceOnlyMode
-                ? 'Confirm each clearance your department is responsible for.'
-                : 'Tasks on this request that are assigned to your account.'
-            }
-            contentClassName="space-y-6"
-          >
-            {pendingActionable.length === 0 ? (
-              <DrsEmptyState
-                title="Nothing to do here"
-                description="This request has no tasks waiting on your account. It may be with another department, or already past your stage."
-                className="border-0 py-6"
-              />
-            ) : (
-              pendingActionable.map((task, index) => (
-                <div
-                  key={task.id}
-                  className={
-                    index > 0 ? 'space-y-3 border-t pt-6' : 'space-y-3'
-                  }
-                >
-                  <p className="text-sm font-semibold">{task.name ?? 'Task'}</p>
-                  <BranchTransitionSelect
-                    task={task}
-                    value={transitionByTask[task.id] ?? ''}
-                    onChange={(value) =>
-                      setTransitionByTask((prev) => ({
-                        ...prev,
-                        [task.id]: value,
-                      }))
+        <ApplicationFlagsControl
+          applicationId={app.id}
+          flags={app.flags}
+          flagDetails={app.flag_details}
+        />
+
+        <div className="grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="min-w-0 space-y-8">
+            {/* The reason staff opened this page goes first. */}
+            <DrsPanel
+              title={clearanceOnlyMode ? 'Clearance sign-off' : 'Your tasks'}
+              description={
+                clearanceOnlyMode
+                  ? 'Confirm each clearance your department is responsible for.'
+                  : 'Tasks on this request that are assigned to your account.'
+              }
+              contentClassName="space-y-6"
+            >
+              {pendingActionable.length === 0 ? (
+                <DrsEmptyState
+                  title="Nothing to do here"
+                  description="This request has no tasks waiting on your account. It may be with another department, or already past your stage."
+                  className="border-0 py-6"
+                />
+              ) : (
+                pendingActionable.map((task, index) => (
+                  <div
+                    key={task.id}
+                    className={
+                      index > 0 ? 'space-y-3 border-t pt-6' : 'space-y-3'
                     }
-                  />
-                  {task.branch_options?.find(
-                    (option) => option.id === transitionByTask[task.id],
-                  )?.outcome_key === 'delivery_dispatch' ? (
-                    <div className="max-w-sm space-y-1.5">
-                      <Label htmlFor={`tracking-${task.id}`}>
-                        Delivery number
-                      </Label>
-                      <Input
-                        id={`tracking-${task.id}`}
-                        value={trackingNumberByTask[task.id] ?? ''}
-                        onChange={(event) =>
-                          setTrackingNumberByTask((prev) => ({
-                            ...prev,
-                            [task.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="Courier or delivery tracking number"
-                        autoComplete="off"
+                  >
+                    <p className="text-sm font-semibold">
+                      {task.name ?? 'Task'}
+                    </p>
+                    <BranchTransitionSelect
+                      task={task}
+                      value={transitionByTask[task.id] ?? ''}
+                      onChange={(value) =>
+                        setTransitionByTask((prev) => ({
+                          ...prev,
+                          [task.id]: value,
+                        }))
+                      }
+                    />
+                    {task.branch_options?.find(
+                      (option) => option.id === transitionByTask[task.id],
+                    )?.outcome_key === 'delivery_dispatch' ? (
+                      <div className="max-w-sm space-y-1.5">
+                        <Label htmlFor={`tracking-${task.id}`}>
+                          Delivery number
+                        </Label>
+                        <Input
+                          id={`tracking-${task.id}`}
+                          value={trackingNumberByTask[task.id] ?? ''}
+                          onChange={(event) =>
+                            setTrackingNumberByTask((prev) => ({
+                              ...prev,
+                              [task.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Courier or delivery tracking number"
+                          autoComplete="off"
+                        />
+                        <p className="text-muted-foreground text-xs">
+                          Required when dispatching the request for delivery.
+                        </p>
+                      </div>
+                    ) : null}
+                    {task.branch_options?.find(
+                      (option) => option.id === transitionByTask[task.id],
+                    )?.outcome_key === 'pickup_handoff' ? (
+                      <div className="max-w-sm space-y-1.5">
+                        <Label htmlFor={`pickup-date-${task.id}`}>
+                          Pickup date
+                        </Label>
+                        <DatePicker
+                          id={`pickup-date-${task.id}`}
+                          value={pickupDateByTask[task.id] ?? ''}
+                          onChange={(next) =>
+                            setPickupDateByTask((prev) => ({
+                              ...prev,
+                              [task.id]: next,
+                            }))
+                          }
+                          placeholder="Pick pickup date"
+                        />
+                        <p className="text-muted-foreground text-xs">
+                          The student sees this date. Required when releasing
+                          for pickup.
+                        </p>
+                      </div>
+                    ) : null}
+                    {task.kind === 'payment_verification' ? (
+                      <PaymentVerificationTaskPanel
+                        task={task}
+                        app={app}
+                        remarkByTask={remarkByTask}
+                        setRemarkByTask={setRemarkByTask}
+                        saveRemarksMutation={saveRemarksMutation}
+                        completeMutation={completeMutationApi}
                       />
-                      <p className="text-muted-foreground text-xs">
-                        Required when dispatching the request for delivery.
-                      </p>
-                    </div>
-                  ) : null}
-                  {task.branch_options?.find(
-                    (option) => option.id === transitionByTask[task.id],
-                  )?.outcome_key === 'pickup_handoff' ? (
-                    <div className="max-w-sm space-y-1.5">
-                      <Label htmlFor={`pickup-date-${task.id}`}>
-                        Pickup date
-                      </Label>
-                      <Input
-                        id={`pickup-date-${task.id}`}
-                        type="date"
-                        value={pickupDateByTask[task.id] ?? ''}
-                        onChange={(event) =>
-                          setPickupDateByTask((prev) => ({
-                            ...prev,
-                            [task.id]: event.target.value,
-                          }))
-                        }
+                    ) : task.kind === 'payment_collection' ? (
+                      <PaymentCollectionTaskPanel
+                        task={task}
+                        app={app}
+                        remarkByTask={remarkByTask}
+                        setRemarkByTask={setRemarkByTask}
+                        referenceByTask={referenceByTask}
+                        setReferenceByTask={setReferenceByTask}
+                        saveRemarksMutation={saveRemarksMutation}
+                        completeMutation={completeMutationApi}
                       />
-                      <p className="text-muted-foreground text-xs">
-                        The student sees this date. Required when releasing for
-                        pickup.
-                      </p>
-                    </div>
-                  ) : null}
-                  {task.kind === 'payment_verification' ? (
-                    <PaymentVerificationTaskPanel
-                      task={task}
-                      app={app}
-                      remarkByTask={remarkByTask}
-                      setRemarkByTask={setRemarkByTask}
-                      saveRemarksMutation={saveRemarksMutation}
-                      completeMutation={completeMutation}
-                    />
-                  ) : task.kind === 'payment_collection' ? (
-                    <PaymentCollectionTaskPanel
-                      task={task}
-                      app={app}
-                      remarkByTask={remarkByTask}
-                      setRemarkByTask={setRemarkByTask}
-                      referenceByTask={referenceByTask}
-                      setReferenceByTask={setReferenceByTask}
-                      saveRemarksMutation={saveRemarksMutation}
-                      completeMutation={completeMutation}
-                    />
-                  ) : task.kind === 'assessment' ? (
-                    <AssessmentTaskPanel
-                      task={task}
-                      app={app}
-                      remarkByTask={remarkByTask}
-                      setRemarkByTask={setRemarkByTask}
-                      linePriceByTask={linePriceByTask}
-                      setLinePriceByTask={setLinePriceByTask}
-                      lineQuantityByTask={lineQuantityByTask}
-                      setLineQuantityByTask={setLineQuantityByTask}
-                      lineCancelledByTask={lineCancelledByTask}
-                      setLineCancelledByTask={setLineCancelledByTask}
-                      otherFeesByTask={otherFeesByTask}
-                      setOtherFeesByTask={setOtherFeesByTask}
-                      saveRemarksMutation={saveRemarksMutation}
-                      completeMutation={completeMutation}
-                    />
-                  ) : task.kind === 'clearance_signoff' ? (
-                    <div className="space-y-4">
-                      {Array.isArray(task.modules) &&
-                      task.modules.length > 0 ? (
-                        <div>
-                          <DrsOverline>Clearance checks</DrsOverline>
-                          <ul className="divide-border/70 mt-2 divide-y border-y">
-                            {task.modules.map((mod) => (
-                              <li key={mod.key} className="py-2 text-sm">
-                                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                  <span className="text-muted-foreground">
-                                    {mod.label}
-                                  </span>
-                                  <span className="font-medium tabular-nums">
-                                    {mod.value}
-                                    {typeof mod.count === 'number' &&
-                                    mod.count > 0
-                                      ? ` (${mod.count})`
-                                      : ''}
-                                  </span>
-                                </div>
-                                {Array.isArray(mod.items) &&
-                                mod.items.length > 0 ? (
-                                  <ul className="text-muted-foreground mt-1 list-inside list-disc text-xs">
-                                    {mod.items.map((item, idx) => (
-                                      <li key={`${mod.key}-${idx}`}>{item}</li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
+                    ) : task.kind === 'assessment' ? (
+                      <AssessmentTaskPanel
+                        task={task}
+                        app={app}
+                        remarkByTask={remarkByTask}
+                        setRemarkByTask={setRemarkByTask}
+                        linePriceByTask={linePriceByTask}
+                        setLinePriceByTask={setLinePriceByTask}
+                        lineQuantityByTask={lineQuantityByTask}
+                        setLineQuantityByTask={setLineQuantityByTask}
+                        lineCancelledByTask={lineCancelledByTask}
+                        setLineCancelledByTask={setLineCancelledByTask}
+                        otherFeesByTask={otherFeesByTask}
+                        setOtherFeesByTask={setOtherFeesByTask}
+                        saveRemarksMutation={saveRemarksMutation}
+                        completeMutation={completeMutationApi}
+                      />
+                    ) : task.kind === 'clearance_signoff' ? (
+                      <div className="space-y-4">
+                        {Array.isArray(task.modules) &&
+                        task.modules.length > 0 ? (
+                          <div>
+                            <DrsOverline>Clearance checks</DrsOverline>
+                            <ul className="divide-border/70 mt-2 divide-y border-y">
+                              {task.modules.map((mod) => (
+                                <li key={mod.key} className="py-2 text-sm">
+                                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <span className="text-muted-foreground">
+                                      {mod.label}
+                                    </span>
+                                    <span className="font-medium tabular-nums">
+                                      {mod.value}
+                                      {typeof mod.count === 'number' &&
+                                      mod.count > 0
+                                        ? ` (${mod.count})`
+                                        : ''}
+                                    </span>
+                                  </div>
+                                  {Array.isArray(mod.items) &&
+                                  mod.items.length > 0 ? (
+                                    <ul className="text-muted-foreground mt-1 list-inside list-disc text-xs">
+                                      {mod.items.map((item, idx) => (
+                                        <li key={`${mod.key}-${idx}`}>
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        <div className="max-w-xl space-y-1.5">
+                          <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
+                          <Textarea
+                            id={`remarks-${task.id}`}
+                            value={remarkByTask[task.id] ?? ''}
+                            onChange={(e) =>
+                              setRemarkByTask((prev) => ({
+                                ...prev,
+                                [task.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Optional remarks visible to the student"
+                            className="min-h-[72px]"
+                          />
                         </div>
-                      ) : null}
-                      <div className="max-w-xl space-y-1.5">
-                        <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
-                        <Textarea
-                          id={`remarks-${task.id}`}
-                          value={remarkByTask[task.id] ?? ''}
-                          onChange={(e) =>
-                            setRemarkByTask((prev) => ({
-                              ...prev,
-                              [task.id]: e.target.value,
-                            }))
-                          }
-                          placeholder="Optional remarks visible to the student"
-                          className="min-h-[72px]"
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          disabled={completeMutation.isPending}
-                          onClick={() =>
-                            completeMutation.mutate({
-                              taskId: task.id,
-                              payload: {
+                        <label className="flex items-start gap-3">
+                          <Checkbox
+                            checked={notifyStudentByTask[task.id] === true}
+                            onCheckedChange={(value) =>
+                              setNotifyStudentByTask((prev) => ({
+                                ...prev,
+                                [task.id]: value === true,
+                              }))
+                            }
+                          />
+                          <span className="text-sm leading-snug">
+                            Notify student by email
+                          </span>
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            disabled={completeMutation.isPending}
+                            onClick={() =>
+                              completeMutationApi.mutate({
+                                taskId: task.id,
+                                confirmLabel: 'Clear',
+                                payload: {
+                                  remarks:
+                                    remarkByTask[task.id]?.trim() || null,
+                                  notify_student:
+                                    notifyStudentByTask[task.id] === true,
+                                },
+                              })
+                            }
+                          >
+                            Clear
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={saveRemarksMutation.isPending}
+                            onClick={() =>
+                              saveRemarksMutation.mutate({
+                                taskId: task.id,
+                                kind: task.kind,
                                 remarks: remarkByTask[task.id]?.trim() || null,
-                              },
-                            })
-                          }
-                        >
-                          Clear this department
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={saveRemarksMutation.isPending}
-                          onClick={() =>
-                            saveRemarksMutation.mutate({
-                              taskId: task.id,
-                              kind: task.kind,
-                              remarks: remarkByTask[task.id]?.trim() || null,
-                            })
-                          }
-                        >
-                          Save remarks
-                        </Button>
+                              })
+                            }
+                          >
+                            Save remarks
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="max-w-xl space-y-1.5">
-                        <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
-                        <Textarea
-                          id={`remarks-${task.id}`}
-                          value={remarkByTask[task.id] ?? ''}
-                          onChange={(e) =>
-                            setRemarkByTask((prev) => ({
-                              ...prev,
-                              [task.id]: e.target.value,
-                            }))
-                          }
-                          placeholder="Optional remarks"
-                          className="min-h-[72px]"
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          disabled={completeMutation.isPending}
-                          onClick={() =>
-                            completeMutation.mutate({
-                              taskId: task.id,
-                              payload: {
+                    ) : (
+                      <div className="space-y-4">
+                        {task.kind === 'processing' ? (
+                          <div className="max-w-sm space-y-1.5">
+                            <Label htmlFor={`eta-${task.id}`}>ETA</Label>
+                            <DatePicker
+                              id={`eta-${task.id}`}
+                              value={etaByTask[task.id] ?? ''}
+                              onChange={(next) =>
+                                setEtaByTask((prev) => ({
+                                  ...prev,
+                                  [task.id]: next,
+                                }))
+                              }
+                              placeholder="Pick ETA"
+                            />
+                            <p className="text-muted-foreground text-xs">
+                              Expected ready date for this request.
+                            </p>
+                          </div>
+                        ) : null}
+                        <div className="max-w-xl space-y-1.5">
+                          <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
+                          <Textarea
+                            id={`remarks-${task.id}`}
+                            value={remarkByTask[task.id] ?? ''}
+                            onChange={(e) =>
+                              setRemarkByTask((prev) => ({
+                                ...prev,
+                                [task.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Optional remarks"
+                            className="min-h-[72px]"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            disabled={
+                              completeMutation.isPending ||
+                              (task.kind === 'processing' &&
+                                !(etaByTask[task.id]?.trim() ?? ''))
+                            }
+                            onClick={() =>
+                              completeMutationApi.mutate({
+                                taskId: task.id,
+                                confirmLabel: 'Complete task',
+                                payload: {
+                                  remarks:
+                                    remarkByTask[task.id]?.trim() || null,
+                                  eta:
+                                    task.kind === 'processing'
+                                      ? etaByTask[task.id]?.trim() || null
+                                      : null,
+                                },
+                              })
+                            }
+                          >
+                            Complete task
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={saveRemarksMutation.isPending}
+                            onClick={() =>
+                              saveRemarksMutation.mutate({
+                                taskId: task.id,
+                                kind: task.kind,
                                 remarks: remarkByTask[task.id]?.trim() || null,
-                              },
-                            })
-                          }
-                        >
-                          Complete task
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={saveRemarksMutation.isPending}
-                          onClick={() =>
-                            saveRemarksMutation.mutate({
-                              taskId: task.id,
-                              kind: task.kind,
-                              remarks: remarkByTask[task.id]?.trim() || null,
-                            })
-                          }
-                        >
-                          Save remarks
-                        </Button>
+                              })
+                            }
+                          >
+                            Save remarks
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </DrsPanel>
+                    )}
+                  </div>
+                ))
+              )}
+            </DrsPanel>
 
-          <DrsSection title="Requested documents" divided>
-            {app.lines?.length ? (
-              <table className="w-full text-sm">
-                <thead className="sr-only">
-                  <tr>
-                    <th>Document</th>
-                    <th>Quantity</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-border/70 divide-y border-y">
-                  {app.lines.map((l) => (
-                    <tr key={l.id}>
-                      <td
-                        className={`py-2 pr-4 ${
-                          l.is_cancelled
-                            ? 'text-muted-foreground line-through'
-                            : ''
-                        }`}
-                      >
-                        {l.request_name}
-                      </td>
-                      <td className="text-muted-foreground w-24 py-2 text-right tabular-nums">
-                        {l.is_cancelled ? 'Cancelled' : `\u00d7${l.quantity}`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                This request has no line items.
-              </p>
-            )}
-          </DrsSection>
+            <RequestDetailsSection app={app} readOnly />
+            <ClearancesSection clearances={app.clearances} />
 
-          {app.payment_submission || app.payment_verification ? (
-            <DrsSection
-              title="Payment proof"
-              description="What the student submitted, and what the cashier recorded."
-              divided
-              contentClassName="space-y-5 text-sm"
-            >
-              {app.payment_submission ? (
-                <div className="space-y-2">
-                  <DrsOverline>Student submission</DrsOverline>
-                  {app.payment_submission.submitted_at ? (
-                    <p className="text-muted-foreground text-xs">
-                      Uploaded{' '}
-                      {new Date(
-                        app.payment_submission.submitted_at,
-                      ).toLocaleString()}
-                    </p>
-                  ) : null}
-                  <PaymentReceiptLinks
-                    receipts={app.payment_submission.receipts ?? []}
-                  />
-                  {app.payment_method ? (
-                    <p className="text-xs">
-                      Mode of payment:{' '}
-                      <span className="font-medium">
-                        {app.payment_method.name}
-                      </span>
-                      {app.payment_method.description
-                        ? ` — ${app.payment_method.description}`
-                        : ''}
-                    </p>
-                  ) : null}
-                  {app.payment_submission.reference_number ? (
-                    <p className="text-xs">
-                      Legacy reference:{' '}
-                      <span className="font-medium">
-                        {app.payment_submission.reference_number}
-                      </span>
-                    </p>
-                  ) : null}
-                  {app.payment_submission.remarks ? (
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {app.payment_submission.remarks}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {app.payment_verification ? (
-                <div className="space-y-2">
-                  <DrsOverline>Verification</DrsOverline>
-                  {app.payment_verification.verified_at ? (
-                    <p className="text-muted-foreground text-xs">
-                      Verified{' '}
-                      {new Date(
-                        app.payment_verification.verified_at,
-                      ).toLocaleString()}
-                    </p>
-                  ) : null}
-                  {app.payment_verification.reference_number ? (
-                    <p className="text-xs">
-                      Notes ref:{' '}
-                      <span className="font-medium">
-                        {app.payment_verification.reference_number}
-                      </span>
-                    </p>
-                  ) : null}
-                  {app.payment_verification.remarks ? (
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {app.payment_verification.remarks}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </DrsSection>
-          ) : null}
-
-          {(app.stage_runs?.length ?? 0) > 0 ? (
-            <DrsSection
-              title="Stage timeline"
-              description="Turnaround time for each stage this request passed through."
-              divided
-            >
-              <ul className="divide-border/70 divide-y">
-                {[...(app.stage_runs ?? [])]
-                  .sort((a, b) => {
-                    const aMs = a.started_at
-                      ? new Date(a.started_at).getTime()
-                      : 0;
-                    const bMs = b.started_at
-                      ? new Date(b.started_at).getTime()
-                      : 0;
-                    return aMs - bMs;
-                  })
-                  .map((run) => (
-                    <li key={run.id} className="py-2.5 text-sm">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="font-medium">
-                          {run.stage_name ?? run.stage_slug ?? 'Stage'}
-                        </p>
-                        <p className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                          {formatStageTat(run.started_at, run.completed_at)}
-                          {!run.completed_at ? ' · ongoing' : ''}
-                        </p>
-                      </div>
+            {app.payment_submission || app.payment_verification ? (
+              <DrsSection
+                title="Payment proof"
+                description="What the student submitted, and what the cashier recorded."
+                divided
+                contentClassName="space-y-5 text-sm"
+              >
+                {app.payment_submission ? (
+                  <div className="space-y-2">
+                    <DrsOverline>Student submission</DrsOverline>
+                    {app.payment_submission.submitted_at ? (
                       <p className="text-muted-foreground text-xs">
-                        Started{' '}
-                        {run.started_at
-                          ? new Date(run.started_at).toLocaleString()
-                          : '—'}
-                        {run.completed_at
-                          ? ` · Completed ${new Date(run.completed_at).toLocaleString()}`
+                        Uploaded{' '}
+                        {new Date(
+                          app.payment_submission.submitted_at,
+                        ).toLocaleString()}
+                      </p>
+                    ) : null}
+                    <PaymentReceiptLinks
+                      receipts={app.payment_submission.receipts ?? []}
+                    />
+                    {app.payment_method ? (
+                      <p className="text-xs">
+                        Mode of payment:{' '}
+                        <span className="font-medium">
+                          {app.payment_method.name}
+                        </span>
+                        {app.payment_method.description
+                          ? ` — ${app.payment_method.description}`
                           : ''}
                       </p>
-                    </li>
-                  ))}
-              </ul>
-            </DrsSection>
-          ) : null}
-        </div>
+                    ) : null}
+                    {app.payment_submission.reference_number ? (
+                      <p className="text-xs">
+                        Legacy reference:{' '}
+                        <span className="font-medium">
+                          {app.payment_submission.reference_number}
+                        </span>
+                      </p>
+                    ) : null}
+                    {app.payment_submission.remarks ? (
+                      <p className="text-muted-foreground whitespace-pre-wrap">
+                        {app.payment_submission.remarks}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {app.payment_verification ? (
+                  <div className="space-y-2">
+                    <DrsOverline>Verification</DrsOverline>
+                    {app.payment_verification.verified_at ? (
+                      <p className="text-muted-foreground text-xs">
+                        Verified{' '}
+                        {new Date(
+                          app.payment_verification.verified_at,
+                        ).toLocaleString()}
+                      </p>
+                    ) : null}
+                    {app.payment_verification.reference_number ? (
+                      <p className="text-xs">
+                        Notes ref:{' '}
+                        <span className="font-medium">
+                          {app.payment_verification.reference_number}
+                        </span>
+                      </p>
+                    ) : null}
+                    {app.payment_verification.remarks ? (
+                      <p className="text-muted-foreground whitespace-pre-wrap">
+                        {app.payment_verification.remarks}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </DrsSection>
+            ) : null}
 
-        <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">
-          <RequestSummaryPanel
-            app={app}
-            footnote={
-              pendingActionable.length > 0
-                ? `${pendingActionable.length} task${pendingActionable.length === 1 ? '' : 's'} waiting on you.`
-                : 'No tasks are waiting on your account for this request.'
-            }
-          />
-          <DrsPanel
-            title="Messages"
-            description="Visible to the student and other staff on this request."
-            contentClassName="p-0"
-          >
-            <ApplicationMessagesPanel
-              applicationId={applicationId}
-              viewerRole="staff"
+            {(app.stage_runs?.length ?? 0) > 0 ? (
+              <DrsSection
+                title="Stage timeline"
+                description="Turnaround time for each stage this request passed through."
+                divided
+              >
+                <ul className="divide-border/70 divide-y">
+                  {[...(app.stage_runs ?? [])]
+                    .sort((a, b) => {
+                      const aMs = a.started_at
+                        ? new Date(a.started_at).getTime()
+                        : 0;
+                      const bMs = b.started_at
+                        ? new Date(b.started_at).getTime()
+                        : 0;
+                      return aMs - bMs;
+                    })
+                    .map((run) => (
+                      <li key={run.id} className="py-2.5 text-sm">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="font-medium">
+                            {run.stage_name ?? run.stage_slug ?? 'Stage'}
+                          </p>
+                          <p className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                            {formatStageTat(run.started_at, run.completed_at)}
+                            {!run.completed_at ? ' · ongoing' : ''}
+                          </p>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          Started{' '}
+                          {run.started_at
+                            ? new Date(run.started_at).toLocaleString()
+                            : '—'}
+                          {run.completed_at
+                            ? ` · Completed ${new Date(run.completed_at).toLocaleString()}`
+                            : ''}
+                        </p>
+                      </li>
+                    ))}
+                </ul>
+              </DrsSection>
+            ) : null}
+          </div>
+
+          <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">
+            {app.may_change_receive_mode_as_staff ? (
+              <DrsPanel
+                title="Delivery mode"
+                description="This stage allows staff to change how the student receives documents."
+                contentClassName="space-y-4"
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-receive-mode">Receive by</Label>
+                  <Select
+                    value={staffReceiveMode}
+                    onValueChange={(value) =>
+                      setStaffReceiveMode(value as 'delivery' | 'pickup')
+                    }
+                  >
+                    <SelectTrigger id="staff-receive-mode" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pickup">
+                        Pickup at registrar
+                      </SelectItem>
+                      <SelectItem value="delivery">Courier delivery</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {staffReceiveMode === 'delivery' ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="staff-delivery-address">
+                      Delivery address
+                    </Label>
+                    <Textarea
+                      id="staff-delivery-address"
+                      rows={3}
+                      value={staffDeliveryAddress}
+                      onChange={(event) =>
+                        setStaffDeliveryAddress(event.target.value)
+                      }
+                    />
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={
+                    receiveModeMutation.isPending ||
+                    (staffReceiveMode === 'delivery' &&
+                      staffDeliveryAddress.trim() === '') ||
+                    (staffReceiveMode === app.receive_mode &&
+                      (staffReceiveMode !== 'delivery' ||
+                        staffDeliveryAddress.trim() ===
+                          (app.delivery_address ?? '').trim()))
+                  }
+                  onClick={() => receiveModeMutation.mutate()}
+                >
+                  {receiveModeMutation.isPending
+                    ? 'Saving…'
+                    : 'Save delivery mode'}
+                </Button>
+              </DrsPanel>
+            ) : null}
+            <RequestSummaryPanel
+              app={app}
+              footnote={
+                pendingActionable.length > 0
+                  ? `${pendingActionable.length} task${pendingActionable.length === 1 ? '' : 's'} waiting on you.`
+                  : 'No tasks are waiting on your account for this request.'
+              }
             />
-          </DrsPanel>
-        </aside>
+            <DrsPanel
+              title="Messages"
+              description="Visible to the student and other staff on this request."
+              contentClassName="p-0"
+            >
+              <ApplicationMessagesPanel
+                applicationId={applicationId}
+                viewerRole="staff"
+              />
+            </DrsPanel>
+          </aside>
+        </div>
       </div>
       <ConfirmActionDialog
         open={cancelDialogOpen}
@@ -1692,6 +1955,54 @@ function StaffApplicationWorkPage() {
         pending={cancelMutation.isPending}
         onConfirm={() => cancelMutation.mutate()}
       />
+      <ConfirmActionDialog
+        open={pendingComplete !== null}
+        onOpenChange={(open) => {
+          if (!open && !completeMutation.isPending) {
+            setPendingComplete(null);
+          }
+        }}
+        title={`${pendingComplete?.confirmLabel ?? 'Complete task'}?`}
+        description={
+          pendingComplete ? (
+            <ProgressionConfirmSummary
+              app={app}
+              task={app.active_stage_tasks?.find(
+                (item) => item.id === pendingComplete.taskId,
+              )}
+              confirmLabel={pendingComplete.confirmLabel}
+              nextStepLabel={(() => {
+                const task = app.active_stage_tasks?.find(
+                  (item) => item.id === pendingComplete.taskId,
+                );
+                const selectedId = transitionByTask[pendingComplete.taskId];
+                const option = task?.branch_options?.find(
+                  (branch) => branch.id === selectedId,
+                );
+                if (!option) return null;
+                const target = option.target_stage?.name;
+                return target ? `${option.label} → ${target}` : option.label;
+              })()}
+              remarks={
+                typeof pendingComplete.payload.remarks === 'string'
+                  ? pendingComplete.payload.remarks.trim() || null
+                  : null
+              }
+            />
+          ) : (
+            ''
+          )
+        }
+        confirmLabel={pendingComplete?.confirmLabel ?? 'Confirm'}
+        cancelLabel="Go back"
+        variant="default"
+        pending={completeMutation.isPending}
+        onConfirm={() => {
+          if (!pendingComplete) return;
+          completeMutation.mutate(pendingComplete);
+        }}
+      />
+      <ApplicationDetailsPrint app={app} printedAt={detailsPrintedAt} />
     </DrsPageShell>
   );
 }

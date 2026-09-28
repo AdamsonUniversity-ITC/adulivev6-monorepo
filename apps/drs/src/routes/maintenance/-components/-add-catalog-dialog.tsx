@@ -15,7 +15,7 @@ import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { createDocument } from '../-lib/api/createDocument.ts';
@@ -30,37 +30,51 @@ import {
 } from './-supporting-requirements-fields.tsx';
 import type { CatalogKind } from './-types.ts';
 
-const catalogFormSchema = z.object({
-  name: z.string().min(1, { message: 'Name is required.' }).max(255),
-  price: z.coerce.number().min(0).max(999999999),
-  account_code: z
-    .string()
-    .min(1, { message: 'Account code is required.' })
-    .max(50),
-  is_active: z.boolean(),
-  allow_multiple_per_request: z.boolean(),
-  once_per_student: z.boolean(),
-  supporting_document_requirements: z.array(
-    z.object({
-      name: z.string().min(1, { message: 'Name is required.' }).max(255),
-      instructions: z.string().nullable().optional(),
-      is_required: z.boolean(),
-      is_active: z.boolean(),
-      sort_order: z.number().nullable().optional(),
-      allowed_mime_types: z.array(z.string()).optional(),
-      max_file_size_kb: z.number().nullable().optional(),
-      max_files: z.number().min(1).max(20).nullable().optional(),
-    }),
-  ),
-  included_items: z.array(
-    z.object({
-      label: z.string().min(1, { message: 'Label is required.' }).max(255),
-      sort_order: z.number().nullable().optional(),
-    }),
-  ),
-});
+const includedItemSchema = z
+  .object({
+    document_id: z.number().int().positive().nullable().optional(),
+    label: z.string().min(1, { message: 'Name is required.' }).max(255),
+    account_code: z.string().max(50).nullable().optional(),
+    sort_order: z.number().nullable().optional(),
+  })
+  .superRefine((item, ctx) => {
+    const hasDocument = item.document_id != null && item.document_id > 0;
+    if (!hasDocument && !(item.account_code ?? '').trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Account code is required for custom items.',
+        path: ['account_code'],
+      });
+    }
+  });
 
-type FormValues = z.infer<typeof catalogFormSchema>;
+const makeCatalogFormSchema = (kind: CatalogKind) =>
+  z.object({
+    name: z.string().min(1, { message: 'Name is required.' }).max(255),
+    price: z.coerce.number().min(0).max(999999999),
+    account_code:
+      kind === 'document'
+        ? z.string().min(1, { message: 'Account code is required.' }).max(50)
+        : z.string().max(50).optional(),
+    is_active: z.boolean(),
+    allow_multiple_per_request: z.boolean(),
+    once_per_student: z.boolean(),
+    supporting_document_requirements: z.array(
+      z.object({
+        name: z.string().min(1, { message: 'Name is required.' }).max(255),
+        instructions: z.string().nullable().optional(),
+        is_required: z.boolean(),
+        is_active: z.boolean(),
+        sort_order: z.number().nullable().optional(),
+        allowed_mime_types: z.array(z.string()).optional(),
+        max_file_size_kb: z.number().nullable().optional(),
+        max_files: z.number().min(1).max(20).nullable().optional(),
+      }),
+    ),
+    included_items: z.array(includedItemSchema),
+  });
+
+type FormValues = z.infer<ReturnType<typeof makeCatalogFormSchema>>;
 
 type Props = {
   kind: CatalogKind;
@@ -75,13 +89,32 @@ const KIND_COPY: Record<CatalogKind, { label: string; placeholder: string }> = {
   },
 };
 
+const mapIncludedItemsPayload = (
+  items: FormValues['included_items'],
+): PackageIncludedItemFormValue[] =>
+  items.map((item, index) => {
+    const documentId =
+      item.document_id != null && item.document_id > 0
+        ? item.document_id
+        : null;
+    return {
+      document_id: documentId,
+      label: item.label,
+      account_code: documentId
+        ? null
+        : (item.account_code ?? '').trim() || null,
+      sort_order: index,
+    };
+  });
+
 export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const copy = KIND_COPY[kind];
+  const schema = useMemo(() => makeCatalogFormSchema(kind), [kind]);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(catalogFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       price: 0,
@@ -111,7 +144,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
           {
             document_name: values.name,
             price: values.price,
-            account_code: values.account_code,
+            account_code: values.account_code ?? '',
             is_active: values.is_active,
             allow_multiple_per_request: values.once_per_student
               ? false
@@ -131,16 +164,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
         {
           package_name: values.name,
           price: values.price,
-          account_code: values.account_code,
           is_active: values.is_active,
           allow_multiple_per_request: values.once_per_student
             ? false
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
-          included_items: values.included_items.map((item, index) => ({
-            ...item,
-            sort_order: index,
-          })) as PackageIncludedItemFormValue[],
+          included_items: mapIncludedItemsPayload(values.included_items),
         },
         selectedGroup,
       );
@@ -190,12 +219,14 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             placeholder={copy.placeholder}
           />
           <FormInput form={form} name="price" type="number" label="Price" />
-          <FormInput
-            form={form}
-            name="account_code"
-            label="Account code"
-            placeholder="e.g. REG-DOC-01"
-          />
+          {kind === 'document' ? (
+            <FormInput
+              form={form}
+              name="account_code"
+              label="Account code"
+              placeholder="e.g. REG-DOC-01"
+            />
+          ) : null}
           <FormSwitch
             form={form}
             name="is_active"

@@ -142,11 +142,13 @@ function NewTicketPage() {
                   <SelectValue placeholder="Select section" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(boardQuery.data?.sections ?? []).map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.section_name}
-                    </SelectItem>
-                  ))}
+                  {(boardQuery.data?.sections ?? [])
+                    .filter((s) => s.is_approver !== true)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.section_name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

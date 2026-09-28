@@ -23,7 +23,7 @@ import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { editDocument } from '../-lib/api/editDocument.ts';
@@ -42,52 +42,124 @@ import {
 } from './-package-included-items-fields.tsx';
 import { RequiredCompanionsFields } from './-required-companions-fields.tsx';
 import {
+  type DocumentOptionFormValue,
+  DocumentOptionsFields,
+} from './-document-options-fields.tsx';
+import { DownloadableFormsFields } from './-downloadable-forms-fields.tsx';
+import {
   type SupportingRequirementFormValue,
   SupportingRequirementsFields,
 } from './-supporting-requirements-fields.tsx';
 import { type CatalogKind, EMPTY_CATALOG_RULES } from './-types.ts';
 
-const detailFormSchema = z.object({
-  name: z.string().min(1, { message: 'This field is required.' }).max(255),
-  price: z.coerce.number().min(0).max(999999999),
-  account_code: z
-    .string()
-    .min(1, { message: 'Account code is required.' })
-    .max(50),
-  group_id: z.string().min(1, { message: 'Group is required.' }),
-  is_active: z.boolean(),
-  allow_multiple_per_request: z.boolean(),
-  once_per_student: z.boolean(),
-  rules: z.object({
-    graduate: z.boolean(),
-    undergraduate: z.boolean(),
-    enrolled: z.boolean(),
-    unenrolled: z.boolean(),
-  }),
-  supporting_document_requirements: z.array(
-    z.object({
-      id: z.union([z.string(), z.number()]).nullable().optional(),
-      name: z.string().min(1, { message: 'This field is required.' }).max(255),
-      instructions: z.string().nullable().optional(),
-      is_required: z.boolean(),
-      is_active: z.boolean(),
-      sort_order: z.number().nullable().optional(),
-      allowed_mime_types: z.array(z.string()).optional(),
-      max_file_size_kb: z.number().nullable().optional(),
-      max_files: z.number().min(1).max(20).nullable().optional(),
-    }),
-  ),
-  required_companion_ids: z.array(z.number().int().positive()),
-  included_items: z.array(
-    z.object({
-      id: z.union([z.string(), z.number()]).nullable().optional(),
-      label: z.string().min(1, { message: 'This field is required.' }).max(255),
-      sort_order: z.number().nullable().optional(),
-    }),
-  ),
-});
+const includedItemSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).nullable().optional(),
+    document_id: z.number().int().positive().nullable().optional(),
+    label: z.string().min(1, { message: 'This field is required.' }).max(255),
+    account_code: z.string().max(50).nullable().optional(),
+    sort_order: z.number().nullable().optional(),
+  })
+  .superRefine((item, ctx) => {
+    const hasDocument = item.document_id != null && item.document_id > 0;
+    if (!hasDocument && !(item.account_code ?? '').trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Account code is required for custom items.',
+        path: ['account_code'],
+      });
+    }
+  });
 
-type DetailFormValues = z.infer<typeof detailFormSchema>;
+const makeDetailFormSchema = (kind: CatalogKind) =>
+  z.object({
+    name: z.string().min(1, { message: 'This field is required.' }).max(255),
+    price: z.coerce.number().min(0).max(999999999),
+    account_code:
+      kind === 'document'
+        ? z
+            .string()
+            .min(1, { message: 'Account code is required.' })
+            .max(50)
+        : z.string().max(50).optional(),
+    group_id: z.string().min(1, { message: 'Group is required.' }),
+    is_active: z.boolean(),
+    allow_multiple_per_request: z.boolean(),
+    once_per_student: z.boolean(),
+    rules: z.object({
+      graduate: z.boolean(),
+      undergraduate: z.boolean(),
+      enrolled: z.boolean(),
+      unenrolled: z.boolean(),
+    }),
+    supporting_document_requirements: z.array(
+      z.object({
+        id: z.union([z.string(), z.number()]).nullable().optional(),
+        name: z
+          .string()
+          .min(1, { message: 'This field is required.' })
+          .max(255),
+        instructions: z.string().nullable().optional(),
+        is_required: z.boolean(),
+        is_active: z.boolean(),
+        sort_order: z.number().nullable().optional(),
+        allowed_mime_types: z.array(z.string()).optional(),
+        max_file_size_kb: z.number().nullable().optional(),
+        max_files: z.number().min(1).max(20).nullable().optional(),
+      }),
+    ),
+    options: z.array(
+      z
+        .object({
+          id: z.union([z.string(), z.number()]).nullable().optional(),
+          label: z
+            .string()
+            .min(1, { message: 'This field is required.' })
+            .max(255),
+          field_type: z.enum(['select', 'textbox']),
+          choices: z.array(z.string()).optional(),
+          is_required: z.boolean(),
+          is_active: z.boolean(),
+          sort_order: z.number().nullable().optional(),
+        })
+        .superRefine((option, ctx) => {
+          if (option.field_type !== 'select') return;
+          const choices = (option.choices ?? [])
+            .map((c) => c.trim())
+            .filter(Boolean);
+          if (choices.length === 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'Add at least one choice.',
+              path: ['choices'],
+            });
+          }
+        }),
+    ),
+    required_companion_ids: z.array(z.number().int().positive()),
+    included_items: z.array(includedItemSchema),
+  });
+
+type DetailFormValues = z.infer<ReturnType<typeof makeDetailFormSchema>>;
+
+const mapIncludedItemsPayload = (
+  items: DetailFormValues['included_items'],
+): PackageIncludedItemFormValue[] =>
+  items.map((item, index) => {
+    const documentId =
+      item.document_id != null && item.document_id > 0
+        ? item.document_id
+        : null;
+    return {
+      id: item.id,
+      document_id: documentId,
+      label: item.label,
+      account_code: documentId
+        ? null
+        : (item.account_code ?? '').trim() || null,
+      sort_order: index,
+    };
+  });
 
 type Props = {
   kind: CatalogKind;
@@ -116,7 +188,10 @@ const detailToForm = (
   return {
     name,
     price: Number(detail.price ?? 0),
-    account_code: String(detail.account_code ?? ''),
+    account_code:
+      kind === 'document'
+        ? String((detail as DocumentDetail).account_code ?? '')
+        : '',
     group_id:
       detail.group_id != null ? String(detail.group_id) : fallbackGroupId,
     is_active: Boolean(detail.is_active),
@@ -139,6 +214,18 @@ const detailToForm = (
             max_files: requirement.max_files ?? 1,
           }))
         : [],
+    options:
+      kind === 'document'
+        ? ((detail as DocumentDetail).options ?? []).map((option, index) => ({
+            id: option.id,
+            label: option.label,
+            field_type: option.field_type,
+            choices: option.choices ?? [],
+            is_required: Boolean(option.is_required),
+            is_active: option.is_active !== false,
+            sort_order: option.sort_order ?? index,
+          }))
+        : [],
     required_companion_ids:
       kind === 'document'
         ? ((detail as DocumentDetail).required_companion_ids ?? []).map(Number)
@@ -148,7 +235,12 @@ const detailToForm = (
         ? ((detail as PackageDetail).included_items ?? []).map(
             (item, index) => ({
               id: item.id,
+              document_id:
+                item.document_id != null && Number(item.document_id) > 0
+                  ? Number(item.document_id)
+                  : null,
               label: item.label,
+              account_code: item.account_code ?? '',
               sort_order: item.sort_order ?? index,
             }),
           )
@@ -170,6 +262,7 @@ export const CatalogDetail = ({
     );
   }
   const { setSelectedGroup } = ctx;
+  const schema = useMemo(() => makeDetailFormSchema(kind), [kind]);
 
   const detailQuery = useQuery({
     queryKey: [`${kind}_detail`, itemId],
@@ -186,7 +279,7 @@ export const CatalogDetail = ({
   });
 
   const form = useForm<DetailFormValues>({
-    resolver: zodResolver(detailFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       price: 0,
@@ -197,6 +290,7 @@ export const CatalogDetail = ({
       once_per_student: false,
       rules: { ...EMPTY_CATALOG_RULES },
       supporting_document_requirements: [],
+      options: [],
       required_companion_ids: [],
       included_items: [],
     },
@@ -238,6 +332,16 @@ export const CatalogDetail = ({
               ...item,
               sort_order: index,
             })) as SupportingRequirementFormValue[],
+          options: values.options.map((item, index) => ({
+            ...item,
+            choices:
+              item.field_type === 'select'
+                ? (item.choices ?? [])
+                    .map((choice) => choice.trim())
+                    .filter(Boolean)
+                : [],
+            sort_order: index,
+          })) as DocumentOptionFormValue[],
           required_companion_ids: values.required_companion_ids,
         });
       }
@@ -245,7 +349,6 @@ export const CatalogDetail = ({
       return editPackage(itemId, {
         package_name: values.name,
         price: values.price,
-        account_code: values.account_code,
         is_active: values.is_active,
         allow_multiple_per_request: values.once_per_student
           ? false
@@ -253,10 +356,7 @@ export const CatalogDetail = ({
         once_per_student: values.once_per_student,
         group_id: groupId,
         package_rules: values.rules,
-        included_items: values.included_items.map((item, index) => ({
-          ...item,
-          sort_order: index,
-        })) as PackageIncludedItemFormValue[],
+        included_items: mapIncludedItemsPayload(values.included_items),
       });
     },
     onSuccess: (_data, values) => {
@@ -324,12 +424,14 @@ export const CatalogDetail = ({
               type="number"
               label="Price (per copy)"
             />
-            <FormInput
-              form={form}
-              name="account_code"
-              label="Account code"
-              placeholder="e.g. REG-DOC-01"
-            />
+            {kind === 'document' ? (
+              <FormInput
+                form={form}
+                name="account_code"
+                label="Account code"
+                placeholder="e.g. REG-DOC-01"
+              />
+            ) : null}
             <Controller
               control={form.control}
               name="group_id"
@@ -420,6 +522,22 @@ export const CatalogDetail = ({
               <Separator />
               <SupportingRequirementsFields
                 form={form}
+                disabled={mutation.isPending}
+              />
+              <Separator />
+              <DocumentOptionsFields
+                form={form}
+                disabled={mutation.isPending}
+              />
+              <Separator />
+              <DownloadableFormsFields
+                documentId={itemId}
+                forms={
+                  detailQuery.data && kind === 'document'
+                    ? ((detailQuery.data as DocumentDetail)
+                        .downloadable_forms ?? [])
+                    : []
+                }
                 disabled={mutation.isPending}
               />
               <Separator />

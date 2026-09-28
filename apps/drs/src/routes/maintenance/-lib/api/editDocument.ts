@@ -25,6 +25,15 @@ export type EditDocumentPayload = {
     max_file_size_kb?: number | null;
     max_files?: number | null;
   }>;
+  options?: Array<{
+    id?: string | number | null;
+    label: string;
+    field_type: 'select' | 'textbox';
+    choices?: string[];
+    is_required: boolean;
+    is_active?: boolean;
+    sort_order?: number | null;
+  }>;
   required_companion_ids?: number[];
 };
 

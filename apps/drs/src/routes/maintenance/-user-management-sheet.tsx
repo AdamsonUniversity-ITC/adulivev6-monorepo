@@ -44,7 +44,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
 import { type JSX, useMemo, useState } from 'react';
 import {
-  DRS_ADMIN_ACCESS_PERMISSION,
   DRS_CANCEL_APPLICATIONS_PERMISSION,
   DRS_USER_MANAGEMENT_MANAGE_PERMISSION,
   formatRolePermissionName,
@@ -300,9 +299,7 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
 
   const permissionMutation = useMutation({
     mutationFn: (vars: {
-      permission:
-        | typeof DRS_CANCEL_APPLICATIONS_PERMISSION
-        | typeof DRS_ADMIN_ACCESS_PERMISSION;
+      permission: typeof DRS_CANCEL_APPLICATIONS_PERMISSION;
       enabled: boolean;
     }) =>
       patchUserManagementPermissions(empNo, {
@@ -334,13 +331,7 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   const canCancelApplications = profile.permissions.includes(
     DRS_CANCEL_APPLICATIONS_PERMISSION,
   );
-  const hasAdminAccess = profile.permissions.includes(
-    DRS_ADMIN_ACCESS_PERMISSION,
-  );
-  const managedPermissionNames = [
-    DRS_CANCEL_APPLICATIONS_PERMISSION,
-    DRS_ADMIN_ACCESS_PERMISSION,
-  ];
+  const managedPermissionNames = [DRS_CANCEL_APPLICATIONS_PERMISSION];
   const otherPermissions = profile.permissions.filter(
     (permission) => !managedPermissionNames.includes(permission),
   );
@@ -392,28 +383,6 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
                     })
                   }
                   aria-label="Can cancel applications"
-                />
-              </div>
-              <div className="bg-muted/20 flex items-center justify-between gap-3 rounded-md border p-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {formatRolePermissionName(DRS_ADMIN_ACCESS_PERMISSION)}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    Bypass staff queue, course, foreigner, and roster
-                    restrictions for monitoring and support.
-                  </p>
-                </div>
-                <Switch
-                  checked={hasAdminAccess}
-                  disabled={permissionMutation.isPending}
-                  onCheckedChange={(checked) =>
-                    permissionMutation.mutate({
-                      permission: DRS_ADMIN_ACCESS_PERMISSION,
-                      enabled: checked === true,
-                    })
-                  }
-                  aria-label="DRS admin access"
                 />
               </div>
             </div>

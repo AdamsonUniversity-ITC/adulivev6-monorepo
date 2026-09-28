@@ -8,14 +8,14 @@ export const DRS_TEACHER_ACCESS_PERMISSION = 'teacher-access' as const;
 export const DRS_REGULAR_USER_ACCESS_PERMISSION =
   'drs_regular_user_access' as const;
 
-const SUBDOMAIN_TO_TENANT_ADMIN_ACCESS: Record<string, string> = {
+/** Super Admin of all DRS (Users Center `drs_admin_access`). */
+export const DRS_SUPER_ADMIN_PERMISSION = 'drs_admin_access' as const;
+
+const SUBDOMAIN_TO_MAINTENANCE: Record<string, string> = {
   'college-drs': 'drs_college_maintenance_access',
   'shs-drs': 'drs_shs_maintenance_access',
   'bed-drs': 'drs_bed_maintenance_access',
 };
-
-const SUBDOMAIN_TO_MAINTENANCE = SUBDOMAIN_TO_TENANT_ADMIN_ACCESS;
-const SUBDOMAIN_TO_ADMIN = SUBDOMAIN_TO_TENANT_ADMIN_ACCESS;
 
 /** Bare dev hosts map to college tenant so `pnpm dev` on 127.0.0.1 still resolves permissions. */
 const DEV_LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost']);
@@ -34,7 +34,7 @@ export function getDrSubdomain(hostname: string): string {
 }
 
 /**
- * Spatie permission required for DRS maintenance APIs for this host, or null if unknown tenant.
+ * Spatie permission required for DRS subdomain business Administrator for this host.
  */
 export function getDrMaintenancePermissionForHost(
   hostname: string = typeof window !== 'undefined'
@@ -45,31 +45,60 @@ export function getDrMaintenancePermissionForHost(
   return SUBDOMAIN_TO_MAINTENANCE[sub] ?? null;
 }
 
-/**
- * Spatie permission required for DRS rollback/admin APIs for this host.
- */
+/** @deprecated Use {@link DRS_SUPER_ADMIN_PERMISSION} / {@link hasDrsSuperAdminAccess}. */
 export function getDrAdminPermissionForHost(
-  hostname: string = typeof window !== 'undefined'
+  _hostname: string = typeof window !== 'undefined'
     ? window.location.hostname
     : '',
-): string | null {
-  const sub = getDrSubdomain(hostname);
-  return SUBDOMAIN_TO_ADMIN[sub] ?? null;
+): string {
+  return DRS_SUPER_ADMIN_PERMISSION;
 }
 
-export function hasDrAdminAccessForHost(
+export function hasDrsSuperAdminAccess(permissions: string[]): boolean {
+  return checkPermission(permissions, DRS_SUPER_ADMIN_PERMISSION);
+}
+
+export function hasDrMaintenanceAccessForHost(
   permissions: string[],
   hostname: string = typeof window !== 'undefined'
     ? window.location.hostname
     : '',
 ): boolean {
-  const admin = getDrAdminPermissionForHost(hostname);
-  return admin !== null && checkPermission(permissions, admin);
+  const maint = getDrMaintenancePermissionForHost(hostname);
+  return maint !== null && checkPermission(permissions, maint);
+}
+
+/**
+ * Business CMS entry: subdomain Administrator or Super Admin.
+ */
+export function hasDrCmsAccessForHost(
+  permissions: string[],
+  hostname: string = typeof window !== 'undefined'
+    ? window.location.hostname
+    : '',
+): boolean {
+  return (
+    hasDrsSuperAdminAccess(permissions) ||
+    hasDrMaintenanceAccessForHost(permissions, hostname)
+  );
+}
+
+/**
+ * Super Admin (`drs_admin_access`) — restore / platform tools.
+ * Prefer {@link hasDrsSuperAdminAccess} for new code.
+ */
+export function hasDrAdminAccessForHost(
+  permissions: string[],
+  _hostname: string = typeof window !== 'undefined'
+    ? window.location.hostname
+    : '',
+): boolean {
+  return hasDrsSuperAdminAccess(permissions);
 }
 
 /**
  * True when the user only has the student DRS portal permission for this host
- * (college-access) and not registrar maintenance. Staff queue is not part of
+ * (college-access) and not registrar CMS. Staff queue is not part of
  * student access and should be hidden / blocked for this case.
  */
 export function isStudentOnlyDrsPortalUser(
@@ -79,11 +108,7 @@ export function isStudentOnlyDrsPortalUser(
     : '',
 ): boolean {
   const hasCollege = checkPermission(permissions, DRS_STUDENT_APPLY_PERMISSION);
-  const maintPerm = getDrMaintenancePermissionForHost(hostname);
-  const hasMaint =
-    maintPerm !== null && checkPermission(permissions, maintPerm);
-
-  return hasCollege && !hasMaint;
+  return hasCollege && !hasDrCmsAccessForHost(permissions, hostname);
 }
 
 export function hasDrsStaffQueuePermission(permissions: string[]): boolean {

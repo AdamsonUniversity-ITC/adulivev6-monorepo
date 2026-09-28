@@ -9,6 +9,7 @@ export type CompleteApplicationTaskPayload = {
   outcome_key?: string | null;
   tracking_number?: string | null;
   pickup_date?: string | null;
+  eta?: string | null;
   amount?: number | null;
   extra?: Record<string, unknown> | null;
   line_prices?: Array<{
@@ -21,6 +22,7 @@ export type CompleteApplicationTaskPayload = {
     amount: number;
     is_cancelled?: boolean;
   }> | null;
+  notify_student?: boolean;
 };
 
 export async function postCompleteApplicationTask(

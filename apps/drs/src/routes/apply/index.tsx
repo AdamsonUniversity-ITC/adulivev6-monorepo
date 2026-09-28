@@ -34,6 +34,7 @@ import {
 } from '@repo/ui/components/dialog';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
+import { sanitizeRichTextHtml } from '@repo/ui/components/rich-text-editor';
 import {
   Select,
   SelectContent,
@@ -50,6 +51,7 @@ import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { fetchPaymentCollectionSettings } from '../maintenance/-lib/api/paymentCollectionSettings.ts';
 import {
+  attachOptionAnswersToLines,
   buildApplyRequestPayload,
   submitApplyRequest,
   validateApplyLineQuantities,
@@ -65,8 +67,14 @@ import {
   itemVisibleForRules,
 } from './-lib/evaluateDocumentRules.ts';
 import { fetchDocumentCatalog } from './-lib/fetchDocumentCatalog.ts';
+import {
+  formatStudentBalanceAmount,
+  studentBalanceKindLabel,
+} from './-lib/studentBalanceLabel.ts';
 import type {
   CatalogDocument,
+  CatalogDocumentOption,
+  CatalogDownloadableForm,
   CatalogGroup,
   CatalogPackage,
 } from './-lib/types.ts';
@@ -202,6 +210,9 @@ function ApplyDocumentsPage() {
   const [supportingUploads, setSupportingUploads] = React.useState<
     Record<string, TempUpload[]>
   >({});
+  const [optionAnswers, setOptionAnswers] = React.useState<
+    Record<string, string>
+  >({});
 
   const form = useForm<ApplyRequestFormValues>({
     resolver: zodResolver(applyRequestFormSchema),
@@ -233,6 +244,19 @@ function ApplyDocumentsPage() {
 
   const groups = catalog?.groups ?? [];
   const ctx = eligibilityFromApiMeta(catalog?.eligibility);
+  const studentBalance = catalog?.studentBalance ?? null;
+  const balanceAmountLabel = formatStudentBalanceAmount(studentBalance);
+  const balanceKindLabel = studentBalance
+    ? studentBalanceKindLabel(studentBalance.display_kind)
+    : null;
+  const balanceRemark = studentBalance?.remark?.trim() || null;
+  const applyDisclaimerHtml = React.useMemo(() => {
+    const raw = catalog?.applyDisclaimerHtml ?? '';
+    const sanitized = sanitizeRichTextHtml(raw);
+    return sanitized.replace(/<[^>]*>/g, '').trim().length > 0
+      ? sanitized
+      : '';
+  }, [catalog?.applyDisclaimerHtml]);
 
   const paymentSettingsQuery = useQuery({
     queryKey: ['payment_collection_settings'],
@@ -541,6 +565,7 @@ function ApplyDocumentsPage() {
   const clearSelection = () => {
     setQuantities({});
     setSupportingUploads({});
+    setOptionAnswers({});
   };
 
   const openReviewDialog = handleSubmit(() => {
@@ -581,6 +606,43 @@ function ApplyDocumentsPage() {
         return;
       }
 
+      for (const line of validated.lines) {
+        if (line.requestable_type !== 'document') continue;
+        const doc = groups
+          .flatMap((g) => g.documents ?? [])
+          .find((d) => d.id === line.requestable_id);
+        for (const option of doc?.options ?? []) {
+          if (!option.is_required) continue;
+          const key = `${line.requestable_id}:${option.id}`;
+          if (!(optionAnswers[key] ?? '').trim()) {
+            toast.error(
+              `Answer “${option.label}” for ${doc?.document_name ?? 'document'}.`,
+            );
+            return;
+          }
+        }
+      }
+
+      const answersByDocumentId: Record<
+        number,
+        Array<{ option_id: number; value: string }>
+      > = {};
+      for (const line of validated.lines) {
+        if (line.requestable_type !== 'document') continue;
+        const doc = groups
+          .flatMap((g) => g.documents ?? [])
+          .find((d) => d.id === line.requestable_id);
+        const answers = (doc?.options ?? [])
+          .map((option) => ({
+            option_id: option.id,
+            value: (optionAnswers[`${line.requestable_id}:${option.id}`] ?? '').trim(),
+          }))
+          .filter((row) => row.value !== '');
+        if (answers.length > 0) {
+          answersByDocumentId[line.requestable_id] = answers;
+        }
+      }
+
       const uploadRows: ApplySupportingUpload[] = selectedSupportingRequirements
         .map(({ documentId, requirement }) => {
           const tempUploadIds = (
@@ -600,7 +662,7 @@ function ApplyDocumentsPage() {
 
       const payload = buildApplyRequestPayload(
         values,
-        validated.lines,
+        attachOptionAnswersToLines(validated.lines, answersByDocumentId),
         uploadRows,
       );
       const { id } = await submitApplyRequest(payload);
@@ -742,6 +804,21 @@ function ApplyDocumentsPage() {
                                       title={doc.document_name}
                                       unitPrice={doc.price}
                                       rules={doc.rules}
+                                      options={doc.options ?? []}
+                                      downloadableForms={
+                                        doc.downloadable_forms ?? []
+                                      }
+                                      optionAnswers={optionAnswers}
+                                      onOptionAnswerChange={(
+                                        optionId,
+                                        value,
+                                      ) =>
+                                        setOptionAnswers((prev) => ({
+                                          ...prev,
+                                          [`${doc.id}:${optionId}`]: value,
+                                        }))
+                                      }
+                                      documentId={doc.id}
                                     />
                                   </li>
                                 );
@@ -985,73 +1062,112 @@ function ApplyDocumentsPage() {
               </div>
             </form>
           </DrsSection>
+
+          {applyDisclaimerHtml ? (
+            <div
+              className="prose prose-sm dark:prose-invert text-muted-foreground max-w-none text-xs leading-relaxed xl:hidden"
+              dangerouslySetInnerHTML={{ __html: applyDisclaimerHtml }}
+            />
+          ) : null}
         </div>
 
         <aside className="hidden xl:sticky xl:top-28 xl:block xl:self-start">
-          <DrsPanel title="Your request" contentClassName="space-y-4">
-            {lineCount === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Nothing selected yet. Choose a document to see your estimated
-                total here.
-              </p>
-            ) : (
-              <ul className="divide-border/70 divide-y border-b text-sm">
-                {summaryLines.map((line) => (
-                  <li
-                    key={line.key}
-                    className="flex items-baseline justify-between gap-3 py-2"
-                  >
-                    <span className="min-w-0">
-                      <span className="block">{line.title}</span>
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        &times;{line.qty}
-                      </span>
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      PHP {formatPrice(line.line)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground text-xs">
-                Estimated total
-              </span>
-              <span className="text-xl font-semibold tabular-nums">
-                PHP {formatPrice(totalSelected)}
-              </span>
-            </div>
-
-            <Button
-              type="submit"
-              form="apply-request-form"
-              className="w-full"
-              disabled={isLoading || unitCount === 0}
-            >
-              Review and submit
-            </Button>
-
-            {unitCount > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground w-full"
-                onClick={clearSelection}
-              >
-                Clear selection
-              </Button>
+          <div className="space-y-3">
+            {balanceAmountLabel && balanceKindLabel ? (
+              <div className="space-y-1 px-0.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-muted-foreground text-xs">
+                    {balanceKindLabel}
+                  </span>
+                  <span className="text-sm font-medium tabular-nums">
+                    {balanceAmountLabel}
+                  </span>
+                </div>
+                {balanceRemark ? (
+                  <p className="text-muted-foreground text-xs leading-snug">
+                    {balanceRemark}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
-          </DrsPanel>
+
+            <DrsPanel title="Your request" contentClassName="space-y-4">
+              {lineCount === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Nothing selected yet. Choose a document to see your estimated
+                  total here.
+                </p>
+              ) : (
+                <ul className="divide-border/70 divide-y border-b text-sm">
+                  {summaryLines.map((line) => (
+                    <li
+                      key={line.key}
+                      className="flex items-baseline justify-between gap-3 py-2"
+                    >
+                      <span className="min-w-0">
+                        <span className="block">{line.title}</span>
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          &times;{line.qty}
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums">
+                        PHP {formatPrice(line.line)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground text-xs">
+                  Estimated total
+                </span>
+                <span className="text-xl font-semibold tabular-nums">
+                  PHP {formatPrice(totalSelected)}
+                </span>
+              </div>
+
+              <Button
+                type="submit"
+                form="apply-request-form"
+                className="w-full"
+                disabled={isLoading || unitCount === 0}
+              >
+                Review and submit
+              </Button>
+
+              {unitCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground w-full"
+                  onClick={clearSelection}
+                >
+                  Clear selection
+                </Button>
+              ) : null}
+            </DrsPanel>
+
+            {applyDisclaimerHtml ? (
+              <div
+                className="prose prose-sm dark:prose-invert text-muted-foreground max-w-none px-0.5 text-xs leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: applyDisclaimerHtml }}
+              />
+            ) : null}
+          </div>
         </aside>
       </div>
 
       {/* Mobile equivalent of the summary rail. */}
       <div className="bg-background/95 supports-backdrop-filter:bg-background/85 fixed inset-x-0 bottom-0 z-30 border-t px-4 py-3 backdrop-blur xl:hidden">
         <div className="mx-auto flex max-w-[90rem] items-center justify-between gap-4">
-          <div className="min-w-0">
+          <div className="min-w-0 space-y-0.5">
+            {balanceAmountLabel && balanceKindLabel ? (
+              <p className="text-muted-foreground text-xs tabular-nums">
+                {balanceKindLabel}: {balanceAmountLabel}
+              </p>
+            ) : null}
             <p className="text-muted-foreground text-xs">
               {unitCount} cop{unitCount === 1 ? 'y' : 'ies'} · estimated
             </p>
@@ -1293,6 +1409,11 @@ function CatalogLineRow({
   includedItems,
   locked = false,
   lockedByNames = [],
+  options = [],
+  downloadableForms = [],
+  optionAnswers = {},
+  onOptionAnswerChange,
+  documentId,
 }: {
   quantity: number;
   maxQuantity: number;
@@ -1305,6 +1426,11 @@ function CatalogLineRow({
   includedItems?: Array<{ id: number; label: string }>;
   locked?: boolean;
   lockedByNames?: string[];
+  options?: CatalogDocumentOption[];
+  downloadableForms?: CatalogDownloadableForm[];
+  optionAnswers?: Record<string, string>;
+  onOptionAnswerChange?: (optionId: number, value: string) => void;
+  documentId?: number;
 }) {
   const unit = parsePriceNumber(unitPrice);
   const lineTotal = unit * quantity;
@@ -1391,6 +1517,72 @@ function CatalogLineRow({
             ) : null}
           </div>
           <RuleChips rules={rules} />
+          {downloadableForms.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs">
+              {downloadableForms.map((form) => (
+                <li key={form.id}>
+                  <a
+                    href={form.download_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline-offset-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Download {form.file_name || form.name || 'form'}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {inCart && options.length > 0 && documentId != null ? (
+            <div
+              className="mt-3 space-y-3"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {options.map((option) => {
+                const answerKey = `${documentId}:${option.id}`;
+                const value = optionAnswers[answerKey] ?? '';
+                return (
+                  <div key={option.id} className="space-y-1.5">
+                    <Label htmlFor={`option-${answerKey}`}>
+                      {option.label}
+                      {option.is_required ? ' *' : ''}
+                    </Label>
+                    {option.field_type === 'select' ? (
+                      <Select
+                        value={value || undefined}
+                        onValueChange={(next) =>
+                          onOptionAnswerChange?.(option.id, next)
+                        }
+                      >
+                        <SelectTrigger id={`option-${answerKey}`}>
+                          <SelectValue placeholder="Select…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(option.choices ?? []).map((choice) => (
+                            <SelectItem key={choice} value={choice}>
+                              {choice}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        id={`option-${answerKey}`}
+                        value={value}
+                        maxLength={500}
+                        onChange={(event) =>
+                          onOptionAnswerChange?.(option.id, event.target.value)
+                        }
+                        placeholder="Enter your answer"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
           {locked ? (
             <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
               Required with {lockedByNames.join(', ')}. Locked while that

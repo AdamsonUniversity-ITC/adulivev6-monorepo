@@ -15,8 +15,12 @@ import { Link } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
+import { ApplyDisclaimerSheet } from './-apply-disclaimer-sheet.tsx';
 import { AssessmentSheet } from './-assessment-sheet.tsx';
+import { AutoDisposalSheet } from './-auto-disposal-sheet.tsx';
+import { AutoFetchSheet } from './-auto-fetch-sheet.tsx';
 import { ClearanceSheet } from './-clearance-sheet.tsx';
+import { EmailNotificationsSheet } from './-email-notifications-sheet.tsx';
 import {
   MaintenanceLoaderDataProvider,
   type MaintenanceLoaderAccess,
@@ -60,11 +64,43 @@ const steps: Step[] = [
     component: <ApplicationSheet />,
   },
   {
+    label: 'Apply disclaimer',
+    description:
+      'Notice shown below Your request on the student apply page.',
+    accessCode: 'application',
+    group: 'Catalog',
+    component: <ApplyDisclaimerSheet />,
+  },
+  {
     label: 'Stages and tasks',
     description: 'The route a request takes, and who works each stage.',
     accessCode: 'workflow',
     group: 'Workflow',
     component: <WorkflowSheet />,
+  },
+  {
+    label: 'Email notifications',
+    description:
+      'Emails sent when a request enters or leaves a stage or task kind.',
+    accessCode: 'workflow',
+    group: 'Workflow',
+    component: <EmailNotificationsSheet />,
+  },
+  {
+    label: 'Auto disposal',
+    description:
+      'Dispose unclaimed requests after working days, with an optional student warning email.',
+    accessCode: 'workflow',
+    group: 'Workflow',
+    component: <AutoDisposalSheet />,
+  },
+  {
+    label: 'Auto fetch',
+    description:
+      'Daily scheduled data fetch (e.g. student balance) that tags staff queue rows for a stage or task kind.',
+    accessCode: 'workflow',
+    group: 'Workflow',
+    component: <AutoFetchSheet />,
   },
   {
     label: 'Assessment',

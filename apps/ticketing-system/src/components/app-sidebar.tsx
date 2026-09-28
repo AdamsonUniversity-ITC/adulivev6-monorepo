@@ -4,11 +4,10 @@ import {
   BarChart3,
   ChevronRight,
   Contact,
-  FileText,
   Home,
   LayoutGrid,
-  Plus,
   Settings2,
+  SlashSquare,
   Tags,
   Ticket,
   Users,
@@ -94,9 +93,6 @@ export function AppSidebar() {
   const mainNavItems: NavItem[] = [
     { title: "Home", url: "/", icon: Home },
     { title: "Tickets", url: "/tickets", icon: Ticket },
-    ...(!platform
-      ? [{ title: "New ticket", url: "/tickets/new", icon: Plus } as NavItem]
-      : []),
     ...(showReports
       ? [{ title: "Reports", url: "/reports", icon: BarChart3 } as NavItem]
       : []),
@@ -104,7 +100,14 @@ export function AppSidebar() {
 
   const maintenanceNavItems: NavItem[] = [
     ...(showAdmin
-      ? [{ title: "Boards", url: "/admin", icon: LayoutGrid } as NavItem]
+      ? [
+          { title: "Boards", url: "/admin", icon: LayoutGrid } as NavItem,
+          {
+            title: "Cancellation Reasons",
+            url: "/admin/cancellation-reasons",
+            icon: SlashSquare,
+          } as NavItem,
+        ]
       : []),
     ...(showManage
       ? [
@@ -115,10 +118,7 @@ export function AppSidebar() {
         ]
       : []),
     ...(showManage || showSectionResources
-      ? [
-          { title: "Categories", url: "/manage/categories", icon: Tags },
-          { title: "Templates", url: "/manage/templates", icon: FileText },
-        ]
+      ? [{ title: "Categories", url: "/manage/categories", icon: Tags }]
       : []),
   ];
 

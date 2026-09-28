@@ -3,7 +3,6 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 export type EditPackagePayload = {
   package_name: string;
   price: number;
-  account_code: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
@@ -16,7 +15,9 @@ export type EditPackagePayload = {
   };
   included_items?: Array<{
     id?: number | string | null;
+    document_id?: number | null;
     label: string;
+    account_code?: string | null;
     sort_order?: number | null;
   }>;
 };

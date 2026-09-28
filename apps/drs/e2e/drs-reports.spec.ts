@@ -91,7 +91,7 @@ test.describe('DRS reports page', () => {
     await page.goto('/maintenance/reports');
 
     await expect(
-      page.getByRole('heading', { name: 'Statistical reports' }),
+      page.getByRole('heading', { name: 'Reports' }),
     ).toBeVisible();
     await expect(page.getByText('Total')).toBeVisible();
     await expect(page.getByText('12')).toBeVisible();

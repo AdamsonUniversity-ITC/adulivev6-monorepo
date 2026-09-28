@@ -543,6 +543,38 @@ export function toneForStatus(status?: string | null): DrsStatusTone {
   return 'neutral';
 }
 
+const autoFetchRowToneClass: Record<DrsStatusTone, string> = {
+  neutral: '',
+  info: 'bg-status-info-surface/60',
+  success: 'bg-status-success-surface/60',
+  warning: 'bg-status-warning-surface/60',
+  danger: 'bg-status-danger-surface/60',
+};
+
+export function primaryAutoFetchTone(
+  tags?: Array<{ tone?: string | null }> | null,
+): DrsStatusTone | null {
+  if (!tags?.length) return null;
+  const tone = String(tags[0]?.tone ?? '').toLowerCase();
+  if (
+    tone === 'info' ||
+    tone === 'success' ||
+    tone === 'warning' ||
+    tone === 'danger' ||
+    tone === 'neutral'
+  ) {
+    return tone;
+  }
+  return null;
+}
+
+export function autoFetchRowClassName(
+  tags?: Array<{ tone?: string | null }> | null,
+): string {
+  const tone = primaryAutoFetchTone(tags);
+  return tone ? autoFetchRowToneClass[tone] : '';
+}
+
 export function formatStatusLabel(value?: string | null): string {
   const normalized = String(value ?? '')
     .trim()

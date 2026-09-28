@@ -19,6 +19,27 @@ export type SupportingDocumentRequirement = {
   max_files?: number | null;
 };
 
+export type DocumentOption = {
+  id: string | number;
+  label: string;
+  field_type: 'select' | 'textbox';
+  choices?: string[] | null;
+  is_required: boolean;
+  is_active: boolean;
+  sort_order?: number;
+};
+
+export type DownloadableForm = {
+  id: string | number;
+  name?: string;
+  file_name: string;
+  mime_type?: string | null;
+  size: number;
+  download_url: string;
+  expires_at?: string | null;
+  created_at?: string | null;
+};
+
 export type DocumentDetail = {
   id: string | number;
   group_id?: string | number | null;
@@ -30,6 +51,8 @@ export type DocumentDetail = {
   once_per_student?: boolean;
   rules?: DocumentRule[];
   supporting_document_requirements?: SupportingDocumentRequirement[];
+  options?: DocumentOption[];
+  downloadable_forms?: DownloadableForm[];
   required_companion_ids?: number[];
   required_companions?: Array<{
     id: string | number;
@@ -49,7 +72,7 @@ export const fetchDocument = async (
     `v1/drs/documents/${documentId}`,
     {
       params: {
-        with: 'rules.rule,supportingDocumentRequirements,requiredCompanions.requiredDocument',
+        with: 'rules.rule,supportingDocumentRequirements,options,media,requiredCompanions.requiredDocument',
       },
     },
   );

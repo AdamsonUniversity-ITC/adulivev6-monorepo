@@ -16,11 +16,11 @@ import { Route as ManageIndexRouteImport } from './routes/manage/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as TicketsNewRouteImport } from './routes/tickets/new'
 import { Route as TicketsTicketNumberRouteImport } from './routes/tickets/$ticketNumber'
-import { Route as ManageTemplatesRouteImport } from './routes/manage/templates'
 import { Route as ManageStaffRouteImport } from './routes/manage/staff'
 import { Route as ManageCustomersRouteImport } from './routes/manage/customers'
 import { Route as ManageCategoriesRouteImport } from './routes/manage/categories'
 import { Route as ManageAdminsRouteImport } from './routes/manage/admins'
+import { Route as AdminCancellationReasonsRouteImport } from './routes/admin/cancellation-reasons'
 import { Route as AdminBoardsNewRouteImport } from './routes/admin/boards/new'
 import { Route as AdminBoardsBoardIdRouteImport } from './routes/admin/boards/$boardId'
 
@@ -59,11 +59,6 @@ const TicketsTicketNumberRoute = TicketsTicketNumberRouteImport.update({
   path: '/tickets/$ticketNumber',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ManageTemplatesRoute = ManageTemplatesRouteImport.update({
-  id: '/manage/templates',
-  path: '/manage/templates',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ManageStaffRoute = ManageStaffRouteImport.update({
   id: '/manage/staff',
   path: '/manage/staff',
@@ -84,6 +79,12 @@ const ManageAdminsRoute = ManageAdminsRouteImport.update({
   path: '/manage/admins',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCancellationReasonsRoute =
+  AdminCancellationReasonsRouteImport.update({
+    id: '/admin/cancellation-reasons',
+    path: '/admin/cancellation-reasons',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminBoardsNewRoute = AdminBoardsNewRouteImport.update({
   id: '/admin/boards/new',
   path: '/admin/boards/new',
@@ -98,11 +99,11 @@ const AdminBoardsBoardIdRoute = AdminBoardsBoardIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/reports': typeof ReportsRoute
+  '/admin/cancellation-reasons': typeof AdminCancellationReasonsRoute
   '/manage/admins': typeof ManageAdminsRoute
   '/manage/categories': typeof ManageCategoriesRoute
   '/manage/customers': typeof ManageCustomersRoute
   '/manage/staff': typeof ManageStaffRoute
-  '/manage/templates': typeof ManageTemplatesRoute
   '/tickets/$ticketNumber': typeof TicketsTicketNumberRoute
   '/tickets/new': typeof TicketsNewRoute
   '/admin/': typeof AdminIndexRoute
@@ -114,11 +115,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/reports': typeof ReportsRoute
+  '/admin/cancellation-reasons': typeof AdminCancellationReasonsRoute
   '/manage/admins': typeof ManageAdminsRoute
   '/manage/categories': typeof ManageCategoriesRoute
   '/manage/customers': typeof ManageCustomersRoute
   '/manage/staff': typeof ManageStaffRoute
-  '/manage/templates': typeof ManageTemplatesRoute
   '/tickets/$ticketNumber': typeof TicketsTicketNumberRoute
   '/tickets/new': typeof TicketsNewRoute
   '/admin': typeof AdminIndexRoute
@@ -131,11 +132,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/reports': typeof ReportsRoute
+  '/admin/cancellation-reasons': typeof AdminCancellationReasonsRoute
   '/manage/admins': typeof ManageAdminsRoute
   '/manage/categories': typeof ManageCategoriesRoute
   '/manage/customers': typeof ManageCustomersRoute
   '/manage/staff': typeof ManageStaffRoute
-  '/manage/templates': typeof ManageTemplatesRoute
   '/tickets/$ticketNumber': typeof TicketsTicketNumberRoute
   '/tickets/new': typeof TicketsNewRoute
   '/admin/': typeof AdminIndexRoute
@@ -149,11 +150,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/reports'
+    | '/admin/cancellation-reasons'
     | '/manage/admins'
     | '/manage/categories'
     | '/manage/customers'
     | '/manage/staff'
-    | '/manage/templates'
     | '/tickets/$ticketNumber'
     | '/tickets/new'
     | '/admin/'
@@ -165,11 +166,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/reports'
+    | '/admin/cancellation-reasons'
     | '/manage/admins'
     | '/manage/categories'
     | '/manage/customers'
     | '/manage/staff'
-    | '/manage/templates'
     | '/tickets/$ticketNumber'
     | '/tickets/new'
     | '/admin'
@@ -181,11 +182,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/reports'
+    | '/admin/cancellation-reasons'
     | '/manage/admins'
     | '/manage/categories'
     | '/manage/customers'
     | '/manage/staff'
-    | '/manage/templates'
     | '/tickets/$ticketNumber'
     | '/tickets/new'
     | '/admin/'
@@ -198,11 +199,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ReportsRoute: typeof ReportsRoute
+  AdminCancellationReasonsRoute: typeof AdminCancellationReasonsRoute
   ManageAdminsRoute: typeof ManageAdminsRoute
   ManageCategoriesRoute: typeof ManageCategoriesRoute
   ManageCustomersRoute: typeof ManageCustomersRoute
   ManageStaffRoute: typeof ManageStaffRoute
-  ManageTemplatesRoute: typeof ManageTemplatesRoute
   TicketsTicketNumberRoute: typeof TicketsTicketNumberRoute
   TicketsNewRoute: typeof TicketsNewRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -263,13 +264,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TicketsTicketNumberRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/manage/templates': {
-      id: '/manage/templates'
-      path: '/manage/templates'
-      fullPath: '/manage/templates'
-      preLoaderRoute: typeof ManageTemplatesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/manage/staff': {
       id: '/manage/staff'
       path: '/manage/staff'
@@ -298,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManageAdminsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/cancellation-reasons': {
+      id: '/admin/cancellation-reasons'
+      path: '/admin/cancellation-reasons'
+      fullPath: '/admin/cancellation-reasons'
+      preLoaderRoute: typeof AdminCancellationReasonsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/boards/new': {
       id: '/admin/boards/new'
       path: '/admin/boards/new'
@@ -318,11 +319,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ReportsRoute: ReportsRoute,
+  AdminCancellationReasonsRoute: AdminCancellationReasonsRoute,
   ManageAdminsRoute: ManageAdminsRoute,
   ManageCategoriesRoute: ManageCategoriesRoute,
   ManageCustomersRoute: ManageCustomersRoute,
   ManageStaffRoute: ManageStaffRoute,
-  ManageTemplatesRoute: ManageTemplatesRoute,
   TicketsTicketNumberRoute: TicketsTicketNumberRoute,
   TicketsNewRoute: TicketsNewRoute,
   AdminIndexRoute: AdminIndexRoute,

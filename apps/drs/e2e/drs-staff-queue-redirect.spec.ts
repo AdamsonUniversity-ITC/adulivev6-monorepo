@@ -108,7 +108,7 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByText('No DRS access', { exact: true }),
+      page.getByText('You do not have access to this DRS site', { exact: true }),
     ).toBeVisible();
   });
 
@@ -127,7 +127,7 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByRole('heading', { name: 'Maintenance command center' }),
+      page.getByRole('heading', { name: 'Configuration' }),
     ).toBeVisible();
   });
 
@@ -143,7 +143,7 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByText('No DRS access', { exact: true }),
+      page.getByText('You do not have access to this DRS site', { exact: true }),
     ).toBeVisible();
   });
 
@@ -159,7 +159,9 @@ test.describe('DRS home staff queue redirect', () => {
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByText('Your registrar requests, clearly organized.'),
+      page.getByText(
+        'Track the documents you have requested from the registrar.',
+      ),
     ).toBeVisible();
   });
 
@@ -174,7 +176,7 @@ test.describe('DRS home staff queue redirect', () => {
     const applicationId = '00000000-0000-4000-8000-000000000099';
 
     await page.route(
-      `${registrarApi}/v1/drs/employee/applications/${applicationId}`,
+      `**/v1/drs/employee/applications/${applicationId}**`,
       async (route) => {
         if (route.request().method() === 'OPTIONS')
           return fulfillOptions(route);
@@ -194,8 +196,8 @@ test.describe('DRS home staff queue redirect', () => {
       new RegExp(`/staff/applications/${applicationId}$`),
     );
     await expect(
-      page.getByText('Could not load this application', { exact: true }),
-    ).toBeVisible();
+      page.getByText('Could not load this request', { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Request #')).not.toBeVisible();
   });
 });

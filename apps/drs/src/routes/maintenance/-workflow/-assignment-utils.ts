@@ -1,5 +1,8 @@
 import type { TaskKindUserAccess } from '../-lib/api/access/types.ts';
-import type { AssignmentUser } from '../-lib/api/user-management/types.ts';
+import type {
+  AssignmentUser,
+  WorkflowAssignment,
+} from '../-lib/api/user-management/types.ts';
 import type { WorkflowTask } from '../-lib/api/workflow/types.ts';
 
 export type WorkflowAssignmentFetchParams = {
@@ -15,6 +18,47 @@ export type EffectiveAssignmentUser = {
   assignment_role: string;
   status?: string;
 };
+
+const sameId = (
+  left: string | number | null | undefined,
+  right: string | number | null | undefined,
+): boolean => {
+  if (left == null || right == null) return false;
+  return String(left) === String(right);
+};
+
+export const filterWorkflowAssignments = (
+  assignments: WorkflowAssignment[],
+  params: WorkflowAssignmentFetchParams,
+): WorkflowAssignment[] =>
+  assignments.filter((assignment) => {
+    if (assignment.target_type !== params.target_type) return false;
+
+    if (params.target_type === 'stage') {
+      return sameId(assignment.drs_workflow_stage_id, params.stage_id);
+    }
+    if (params.target_type === 'task') {
+      return sameId(assignment.drs_workflow_task_id, params.task_id);
+    }
+    if (params.target_type === 'task_kind') {
+      return assignment.kind === params.kind;
+    }
+    if (params.target_type === 'clearance_department') {
+      return sameId(assignment.target_key, params.target_key);
+    }
+    if (params.target_type === 'assessment') {
+      return true;
+    }
+    return false;
+  });
+
+export const usersFromAssignmentParams = (
+  assignments: WorkflowAssignment[],
+  params: WorkflowAssignmentFetchParams,
+): AssignmentUser[] =>
+  filterWorkflowAssignments(assignments, params).flatMap(
+    (assignment) => assignment.users,
+  );
 
 export const isActiveAssignmentUser = (
   user: EffectiveAssignmentUser,

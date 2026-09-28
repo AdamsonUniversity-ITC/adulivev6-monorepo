@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react';
 import { JSX, useMemo, useState } from 'react';
 import { ConfirmActionDialog } from './-clearance/-confirm-action-dialog.tsx';
 import { fetchClearanceDepartments } from './-lib/api/fetchClearanceDepartments.ts';
+import { fetchWorkflowAssignments } from './-lib/api/user-management/fetchWorkflowAssignments.ts';
 import { deleteWorkflowStage } from './-lib/api/workflow/deleteStage.ts';
 import { deleteWorkflowTask } from './-lib/api/workflow/deleteTask.ts';
 import { deleteWorkflowTransition } from './-lib/api/workflow/deleteTransition.ts';
@@ -31,6 +32,7 @@ import { TaskDialog } from './-workflow/-task-dialog.tsx';
 import { TaskKindAccessPanel } from './-workflow/-task-kind-access-panel.tsx';
 import { TransitionDialog } from './-workflow/-transition-dialog.tsx';
 import {
+  ASSIGNMENTS_ALL_QUERY_KEY,
   CLEARANCES_QUERY_KEY,
   type ClearanceOption,
   KINDS_QUERY_KEY,
@@ -81,9 +83,32 @@ const StagesAndTasks = (): JSX.Element => {
     refetchOnWindowFocus: false,
   });
 
+  const [stageDialog, setStageDialog] = useState<StageDialogState>({
+    open: false,
+    stage: null,
+  });
+  const [taskDialog, setTaskDialog] = useState<TaskDialogState>({
+    open: false,
+    stage: null,
+    task: null,
+  });
+  const [transitionDialog, setTransitionDialog] =
+    useState<TransitionDialogState>({
+      open: false,
+      stage: null,
+      transition: null,
+    });
+
+  useQuery({
+    queryKey: ASSIGNMENTS_ALL_QUERY_KEY,
+    queryFn: () => fetchWorkflowAssignments(),
+    refetchOnWindowFocus: false,
+  });
+
   const clearancesQuery = useQuery({
     queryKey: CLEARANCES_QUERY_KEY,
     queryFn: fetchClearanceDepartments,
+    enabled: taskDialog.open,
     refetchOnWindowFocus: false,
   });
 
@@ -133,21 +158,6 @@ const StagesAndTasks = (): JSX.Element => {
       deleteWorkflowTransition(transitionId),
   });
 
-  const [stageDialog, setStageDialog] = useState<StageDialogState>({
-    open: false,
-    stage: null,
-  });
-  const [taskDialog, setTaskDialog] = useState<TaskDialogState>({
-    open: false,
-    stage: null,
-    task: null,
-  });
-  const [transitionDialog, setTransitionDialog] =
-    useState<TransitionDialogState>({
-      open: false,
-      stage: null,
-      transition: null,
-    });
   const [pendingDeleteStage, setPendingDeleteStage] =
     useState<WorkflowStage | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] =
@@ -344,9 +354,8 @@ const StagesAndTasks = (): JSX.Element => {
                     Assign employees (by HR employee number) and auth roles for
                     each task kind. Clearance sign-off uses per-clearance users;
                     assessment, payment collection, and payment verification use
-                    their own maintenance panels. Processing, compliance,
-                    release, dispatch, handoff, and disposal also have dedicated
-                    panels.
+                    their own maintenance panels. Processing, release, dispatch,
+                    and handoff also have dedicated panels.
                   </p>
                 </div>
                 <div className="space-y-2">

@@ -14,6 +14,7 @@ export async function fetchEmployeeApplications(params: {
   perPage: number;
   search?: string;
   status?: string;
+  flag?: string;
 }): Promise<{ rows: DRSApplicationRow[]; meta: EmployeeApplicationsMeta }> {
   const { data: body } = await registrarSvc.get<unknown>(
     'v1/drs/employee/applications',
@@ -23,6 +24,7 @@ export async function fetchEmployeeApplications(params: {
         per_page: params.perPage,
         ...(params.search?.trim() ? { search: params.search.trim() } : {}),
         ...(params.status?.trim() ? { status: params.status.trim() } : {}),
+        ...(params.flag?.trim() ? { flag: params.flag.trim() } : {}),
       },
     },
   );
@@ -54,4 +56,17 @@ export async function fetchEmployeeApplications(params: {
   };
 
   return { rows, meta };
+}
+
+export async function fetchIncomingApplicationCount(
+  since: string,
+): Promise<number> {
+  const { data: body } = await registrarSvc.get<unknown>(
+    'v1/drs/employee/applications/incoming-count',
+    { params: { since } },
+  );
+
+  if (!body || typeof body !== 'object') return 0;
+  const count = (body as { count?: unknown }).count;
+  return typeof count === 'number' && Number.isFinite(count) ? count : 0;
 }

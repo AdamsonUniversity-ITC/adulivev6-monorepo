@@ -55,7 +55,6 @@ export const fixtureBoard = {
     },
   ],
   categories: [{ id: 1, name: "General", slug: "general", is_active: true }],
-  templates: [],
   access: {
     can_view_reports: true,
     is_staff: true,
@@ -95,7 +94,6 @@ export const fixtureTicket = {
   attachments: [],
   internal_attachments: [],
   timeline: [],
-  watchers: [],
   access: {
     can_assign: true,
     can_change_priority: true,
@@ -193,10 +191,6 @@ export async function mockAdutsApis(page: Page, options: MockOptions = {}) {
       return json({ data: [] });
     }
 
-    if (url.includes("/v1/aduts/tickets/") && url.includes("/links")) {
-      return json({ data: [] });
-    }
-
     if (url.includes("/v1/aduts/tickets/") && !url.includes("?")) {
       const match = url.match(/\/tickets\/([^/?]+)/);
       const number = match?.[1];
@@ -258,10 +252,6 @@ export async function mockAdutsApis(page: Page, options: MockOptions = {}) {
           },
         },
       });
-    }
-
-    if (url.includes("/v1/aduts/saved-views")) {
-      return json({ data: [] });
     }
 
     if (url.includes("/v1/aduts/search")) {

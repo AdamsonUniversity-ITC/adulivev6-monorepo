@@ -69,7 +69,7 @@ export type WorkflowStage = {
   transition_rule: 'all_required_done' | 'any_done';
   restrict_assigned_users_to_course_programs: boolean;
   allows_owner_cancellation: boolean;
-  notify_student_on_enter: boolean;
+  allows_staff_receive_mode_change: boolean;
   tasks: WorkflowTask[];
   transitions?: WorkflowTransition[];
   created_at?: string;
@@ -91,4 +91,90 @@ export type WorkflowKind = {
       options?: string[];
     }
   >;
+};
+
+export type EmailNotificationTargetType = 'stage' | 'task_kind';
+export type EmailNotificationCondition = 'into' | 'out_of';
+
+export type EmailNotificationConfig = {
+  id: string;
+  system_id: string;
+  name: string;
+  target_type: EmailNotificationTargetType;
+  drs_workflow_stage_id: string | null;
+  stage_name?: string | null;
+  task_kind: WorkflowTaskKind | null;
+  condition: EmailNotificationCondition;
+  notify_student: boolean;
+  notify_staff: boolean;
+  subject: string;
+  body_html: string;
+  is_enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AutoDisposalTargetType = 'stage' | 'task_kind';
+
+export type AutoDisposalConfig = {
+  id: string;
+  system_id: string;
+  name: string;
+  target_type: AutoDisposalTargetType;
+  drs_workflow_stage_id: string | null;
+  stage_name?: string | null;
+  task_kind: WorkflowTaskKind | null;
+  dispose_after_working_days: number;
+  notify_before_working_days: number;
+  subject: string;
+  body_html: string;
+  is_enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AutoFetchTargetType = 'stage' | 'task_kind';
+export type AutoFetchSource =
+  | 'student_balance'
+  | 'unreturned_books'
+  | 'osl_violations'
+  | 'tbi_holds'
+  | 'probationary';
+export type AutoFetchAction = 'row_color' | 'row_flag';
+export type AutoFetchTone =
+  | 'neutral'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'danger';
+export type AutoFetchRowColorOp = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'neq';
+
+export type AutoFetchThresholdRule = {
+  op: AutoFetchRowColorOp;
+  amount: number;
+  tone?: AutoFetchTone;
+  label?: string | null;
+  icon?: string | null;
+};
+
+export type AutoFetchActionConfig = {
+  rules: AutoFetchThresholdRule[];
+  fallback_tone?: AutoFetchTone;
+};
+
+export type AutoFetchConfig = {
+  id: string;
+  system_id: string;
+  name: string;
+  target_type: AutoFetchTargetType;
+  drs_workflow_stage_id: string | null;
+  stage_name?: string | null;
+  task_kind: WorkflowTaskKind | null;
+  source: AutoFetchSource;
+  action: AutoFetchAction;
+  action_config_json: AutoFetchActionConfig;
+  run_at_time: string;
+  is_enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
