@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ArrowRight, BadgeCheck, Check, ChevronDown, Landmark, User, X } from 'lucide-react';
 import type { PayeeDetails, ThemeTokens } from '../types';
 import { Btn } from './common';
+import { characterCount, REQUISITION_TEXT_LIMIT, validUnsignedBigint } from '../../shared/requisitionValidation';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const PAYEE_REQUIRED_FORMS = ['Payment for Supplier/Water', 'Payment for Honorarium'] as const;
@@ -122,11 +123,21 @@ export function PayeeDetailsModal({
     const hasSupplierClassification = form.vatRegistered !== form.nonVatRegistered;
     const hasHonorariumClassification = form.aduEmployee !== form.nonAduEmployee;
     const isValid = form.payee.trim() !== ''
-        && (!(isSupplierPayment || isHonorariumPayment) || /^\d{1,20}$/.test(form.tinNo))
+        && characterCount(form.payee.trim()) <= REQUISITION_TEXT_LIMIT
+        && characterCount(form.accountName.trim()) <= REQUISITION_TEXT_LIMIT
+        && characterCount(form.bankAddress.trim()) <= REQUISITION_TEXT_LIMIT
+        && (!(isSupplierPayment || isHonorariumPayment) || validUnsignedBigint(form.tinNo))
         && (!isSupplierPayment || hasSupplierClassification)
         && (!isHonorariumPayment || hasHonorariumClassification)
         && (form.mopCheque || form.mopBankTransfer) &&
-        (!form.mopBankTransfer || (form.bankName !== '' && form.accountName.trim() !== '' && form.accountNumber.trim() !== ''));
+        (!form.mopBankTransfer || (form.bankName !== '' && form.accountName.trim() !== '' && validUnsignedBigint(form.accountNumber.trim())));
+
+    const limitError = characterCount(form.payee.trim()) > REQUISITION_TEXT_LIMIT ? 'Payee must not exceed 255 characters.'
+        : characterCount(form.accountName.trim()) > REQUISITION_TEXT_LIMIT ? 'Account name must not exceed 255 characters.'
+        : characterCount(form.bankAddress.trim()) > REQUISITION_TEXT_LIMIT ? 'Bank address must not exceed 255 characters.'
+        : form.tinNo && !validUnsignedBigint(form.tinNo) ? 'TIN exceeds the supported number range.'
+        : form.accountNumber && !validUnsignedBigint(form.accountNumber) ? 'Account number exceeds the supported number range.'
+        : null;
 
     const labelStyle: React.CSSProperties = {
         fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
@@ -196,6 +207,7 @@ export function PayeeDetailsModal({
                         <input
                             style={inputStyle}
                             value={form.payee}
+                            aria-invalid={characterCount(form.payee.trim()) > REQUISITION_TEXT_LIMIT}
                             onChange={e => set('payee', e.target.value)}
                             placeholder="Enter payee name"
                         />
@@ -350,6 +362,7 @@ export function PayeeDetailsModal({
                                 <input
                                     style={inputStyle}
                                     value={form.accountName}
+                            aria-invalid={characterCount(form.accountName.trim()) > REQUISITION_TEXT_LIMIT}
                                     onChange={e => set('accountName', e.target.value)}
                                     placeholder="Enter account name"
                                 />
@@ -373,6 +386,7 @@ export function PayeeDetailsModal({
                                 <input
                                     style={inputStyle}
                                     value={form.bankAddress}
+                            aria-invalid={characterCount(form.bankAddress.trim()) > REQUISITION_TEXT_LIMIT}
                                     onChange={e => set('bankAddress', e.target.value)}
                                     placeholder="Enter bank address"
                                 />
@@ -380,6 +394,8 @@ export function PayeeDetailsModal({
                         </div>
                     )}
                 </div>
+
+                {limitError && <p role="alert" className="px-5 pb-2 text-xs" style={{ color: t.cellRed }}>{limitError}</p>}
 
                 {/* Footer */}
                 <div className="grid shrink-0 grid-cols-1 gap-2 p-3 min-[420px]:grid-cols-2 sm:flex sm:justify-end sm:px-5" style={{

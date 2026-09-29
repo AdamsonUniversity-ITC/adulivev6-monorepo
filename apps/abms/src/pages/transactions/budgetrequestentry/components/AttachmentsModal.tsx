@@ -22,10 +22,9 @@ export function AttachmentsModal({
     const [isUploading, setIsUploading] = useState(false);
     const [fileError, setFileError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.csv';
+    const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xlsx,.csv,.bmp,.svg';
     const ALLOWED_MIME_TYPES = new Set([
         'application/pdf',
-        'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'text/csv',
         'image/jpeg',
@@ -45,7 +44,7 @@ export function AttachmentsModal({
         const accepted: File[] = [];
 
         Array.from(files).forEach(file => {
-            if (!ALLOWED_MIME_TYPES.has(file.type)) {
+            if (!ALLOWED_MIME_TYPES.has(file.type) && !(file.type === 'application/vnd.ms-excel' && /\.csv$/i.test(file.name))) {
                 rejected.push(`"${file.name}" is not an accepted file type.`);
                 return;
             }

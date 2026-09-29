@@ -9,6 +9,7 @@ import type { RSType, SupplyItem, AccountOption } from '../types';
 import { financeSvc } from '@repo/axios-config';
 import { fmtCurrency } from '../utils';
 import { formatAccountCode } from '../../shared/accountCode';
+import { characterCount, ITEM_QUANTITY_MAX, MONEY_MAX, normalizeItemDescription, REQUISITION_TEXT_LIMIT, validMoney } from '../../shared/requisitionValidation';
 
 export interface AddItemFormState {
     accountId: number | null;
@@ -48,15 +49,15 @@ export const addItemSchema = z.object({
     accountName: z.string(),
     accountParentId: z.string().min(1, 'Please select an account first.'),
     balance: z.string(),
-    itemDescription: z.string().min(1, 'Item description is required.'),
+    itemDescription: z.string().transform(normalizeItemDescription).pipe(z.string().min(1, 'Item description is required.').refine(value => characterCount(value) <= REQUISITION_TEXT_LIMIT, 'Item description must not exceed 255 characters.')),
     unitCost: z.coerce
         .number({ invalid_type_error: 'Unit cost must be a number.' })
-        .positive('Enter a valid unit cost greater than 0.'),
+        .positive('Enter a valid unit cost greater than 0.').max(MONEY_MAX, 'Unit cost exceeds the supported amount.'),
     quantity: z.coerce
         .number({ invalid_type_error: 'Quantity must be a number.' })
         .positive('Enter a valid quantity greater than 0.')
-        .int('Quantity must be a whole number.'),
-    unitOfMeasurement: z.string().min(1, 'Unit of measurement is required.'),
+        .int('Quantity must be a whole number.').max(ITEM_QUANTITY_MAX, 'Quantity exceeds the supported range.'),
+    unitOfMeasurement: z.string().min(1, 'Unit of measurement is required.').max(50, 'Unit of measurement must not exceed 50 characters.'),
 });
 
 export type AddItemSchemaErrors = Partial<Record<keyof AddItemFormState | 'balance_cap', string>>;
@@ -193,6 +194,16 @@ export function AddItemModal({
             return;
         }
 
+        if (!validMoney(form.unitCost)) {
+            setErrors({ unitCost: 'Enter a positive unit cost with up to two decimal places.' });
+            return;
+        }
+
+        if (totalAmount > MONEY_MAX) {
+            setErrors({ unitCost: 'Item total exceeds the supported amount.' });
+            return;
+        }
+
         // Balance cap — contextual check not expressible as a pure field rule
         const balance = parseFloat(form.balance) || 0;
         if (!isEditing && totalAmount > balance) {
@@ -209,7 +220,7 @@ export function AddItemModal({
                     items: [{
                         id: editingItem.id,
                         account_id: form.accountId,
-                        description: form.itemDescription,
+                        description: result.data.itemDescription,
                         unit_cost: parseFloat(form.unitCost),
                         quantity: parseInt(form.quantity, 10),
                         unit_of_measurement: form.unitOfMeasurement,
@@ -220,11 +231,11 @@ export function AddItemModal({
                     account_id: form.accountId,
                     account_code: form.accountNo,
                     account_parent_id: parseInt(form.accountParentId, 10),
-                    description: form.itemDescription,
+                    description: result.data.itemDescription,
                     unit_cost: parseFloat(form.unitCost),
                     quantity: parseInt(form.quantity, 10),
                     unit_of_measurement: form.unitOfMeasurement,
-                    total_cost: totalAmount,
+                    total_cost: Number(totalAmount.toFixed(2)),
                     office_supply_id: rsType === 'stockroom' ? form.officeSupplyId : null,
                 });
 
@@ -252,9 +263,24 @@ export function AddItemModal({
             onSave(newItem);
             onClose();
         } catch (err: unknown) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setErrors({
-                balance_cap: axiosErr?.response?.data?.message ?? 'Failed to save item. Please try again.',
+            const axiosErr = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+            const serverErrors = axiosErr.response?.data?.errors ?? {};
+            const fieldMap: Record<string, keyof AddItemFormState> = {
+                description: 'itemDescription',
+                'items.0.description': 'itemDescription',
+                unit_cost: 'unitCost',
+                'items.0.unit_cost': 'unitCost',
+                quantity: 'quantity',
+                'items.0.quantity': 'quantity',
+                unit_of_measurement: 'unitOfMeasurement',
+                'items.0.unit_of_measurement': 'unitOfMeasurement',
+            };
+            const nextErrors: AddItemSchemaErrors = {};
+            for (const [field, messages] of Object.entries(serverErrors)) {
+                if (fieldMap[field]) nextErrors[fieldMap[field]] = messages[0];
+            }
+            setErrors(Object.keys(nextErrors).length ? nextErrors : {
+                balance_cap: Object.values(serverErrors).flat()[0] ?? axiosErr.response?.data?.message ?? 'Failed to save item. Please try again.',
             });
         } finally {
             setIsSaving(false);
@@ -517,6 +543,9 @@ export function AddItemModal({
                                         disabled: !accountSelected,
                                         error: errors.itemDescription,
                                     })}
+                                    <div style={{ fontSize: 10, color: characterCount(normalizeItemDescription(form.itemDescription)) > REQUISITION_TEXT_LIMIT ? t.cellRed : t.cellMuted, marginTop: 4 }}>
+                                        {characterCount(normalizeItemDescription(form.itemDescription))} / {REQUISITION_TEXT_LIMIT} characters after spacing cleanup
+                                    </div>
                                 </div>
                                 {rsType === 'stockroom' && !isEditing && (
                                     <button
