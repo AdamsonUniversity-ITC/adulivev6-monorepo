@@ -1,6 +1,7 @@
 import {
   fetchByCourseReport,
   fetchClearanceBottleneckReport,
+  fetchDayToDayReport,
   fetchDocumentDemandReport,
   fetchForeignerSplitReport,
   fetchPaymentStatusReport,
@@ -23,6 +24,7 @@ import {
   DrsPageHeader,
   DrsPageShell,
 } from '@/components/drs-ui.tsx';
+import { Button } from '@repo/ui/components/button';
 import { Label } from '@repo/ui/components/label';
 import { ScrollArea, ScrollBar } from '@repo/ui/components/scroll-area';
 import {
@@ -39,7 +41,14 @@ import {
   TabsTrigger,
 } from '@repo/ui/components/tabs';
 import { useQuery } from '@tanstack/react-query';
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ReportAppliedFilters } from './-report-applied-filters.tsx';
 import { ReportExportActions } from './-report-export-actions.tsx';
 import { ReportFiltersBar } from './-report-filters.tsx';
@@ -91,6 +100,7 @@ export function ReportsPage() {
   const [activeGroup, setActiveGroup] = useState<ReportGroupId>(() =>
     reportGroupForType('status-breakdown'),
   );
+  const [dayToDayPage, setDayToDayPage] = useState(1);
 
   const groupTabs = useMemo(() => {
     const group = REPORT_GROUPS.find((entry) => entry.id === activeGroup);
@@ -118,6 +128,10 @@ export function ReportsPage() {
   const onNow = activeGroup === 'now';
   const onStatus = activeTab === 'status-breakdown';
   const onTurnaround = activeTab === 'turnaround';
+
+  useEffect(() => {
+    setDayToDayPage(1);
+  }, [appliedFilters]);
 
   const summaryQuery = useQuery({
     queryKey: ['drs-report', 'summary', appliedFilters],
@@ -178,6 +192,11 @@ export function ReportsPage() {
     queryFn: () => fetchForeignerSplitReport(appliedFilters),
     enabled: onStatus,
   });
+  const dayToDayQuery = useQuery({
+    queryKey: ['drs-report', 'day-to-day', appliedFilters, dayToDayPage],
+    queryFn: () => fetchDayToDayReport(appliedFilters, dayToDayPage),
+    enabled: activeTab === 'day-to-day',
+  });
 
   const activeLabel =
     REPORT_TABS.find((tab) => tab.id === activeTab)?.label ?? 'Report';
@@ -213,6 +232,8 @@ export function ReportsPage() {
         };
       case 'by-course':
         return { byCourse: courseQuery.data ?? {} };
+      case 'day-to-day':
+        return { dayToDay: dayToDayQuery.data ?? {} };
       default:
         return {};
     }
@@ -228,6 +249,7 @@ export function ReportsPage() {
     paymentQuery.data,
     clearanceQuery.data,
     courseQuery.data,
+    dayToDayQuery.data,
     trendsQuery.data,
     foreignerQuery.data,
   ]);
@@ -249,13 +271,14 @@ export function ReportsPage() {
     (onTurnaround &&
       (turnaroundQuery.isLoading || tatByStatusQuery.isLoading)) ||
     (activeTab === 'by-course' && courseQuery.isLoading) ||
-    (activeTab === 'revenue' && revenueQuery.isLoading);
+    (activeTab === 'revenue' && revenueQuery.isLoading) ||
+    (activeTab === 'day-to-day' && dayToDayQuery.isLoading);
 
   return (
     <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
       <DrsPageHeader
         title="Reports"
-        description="What is waiting, how long it takes, and how requests break down by program. Set the filters, then pick a report. The report on screen can be exported to Excel or PDF."
+        description="What is waiting, how long it takes, and how requests break down by program. Set the filters, then pick a report. Excel is emailed to your Adamson mail. PDF downloads on this page."
         backTo="/maintenance/"
         backLabel="Configuration"
         actions={
@@ -711,6 +734,76 @@ export function ReportsPage() {
                   formatReportPercent(row.percentage),
                 ])}
               />
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="day-to-day" className="space-y-4">
+            <ReportTabPanel
+              isLoading={dayToDayQuery.isLoading}
+              isError={dayToDayQuery.isError}
+              loadingLabel="Loading transactions…"
+              onRetry={() => void dayToDayQuery.refetch()}
+            >
+              <SimpleReportTable
+                columns={[
+                  'Date',
+                  'Student no.',
+                  'Name',
+                  'Course',
+                  'Documents requested',
+                  'Assessment amount',
+                  'DRS no.',
+                  'Purpose',
+                  'Date of graduation',
+                  'ETA',
+                  'Delivered or picked up',
+                  'Contact no.',
+                  'Release mode',
+                ]}
+                rows={(dayToDayQuery.data?.rows ?? []).map((row) => [
+                  row.date,
+                  row.student_no,
+                  row.name,
+                  row.course,
+                  row.documents_requested,
+                  formatReportCurrency(row.assessment_amount),
+                  row.drs_no,
+                  row.purpose,
+                  row.graduation_date,
+                  row.eta,
+                  row.delivered_or_picked_up,
+                  row.contact_no,
+                  row.receive_mode,
+                ])}
+              />
+              {(dayToDayQuery.data?.meta.last_page ?? 1) > 1 ? (
+                <div className="flex items-center gap-3 text-sm">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={dayToDayPage <= 1}
+                    onClick={() => setDayToDayPage((page) => page - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-muted-foreground tabular-nums">
+                    Page {dayToDayQuery.data?.meta.current_page ?? dayToDayPage}{' '}
+                    of {dayToDayQuery.data?.meta.last_page ?? 1}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      dayToDayPage >= (dayToDayQuery.data?.meta.last_page ?? 1)
+                    }
+                    onClick={() => setDayToDayPage((page) => page + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              ) : null}
             </ReportTabPanel>
           </TabsContent>
         </Tabs>

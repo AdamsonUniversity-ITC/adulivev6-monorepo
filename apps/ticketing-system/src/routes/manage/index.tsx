@@ -4,14 +4,14 @@ import { type FormEvent, useEffect, useState } from "react";
 import { AccessDeniedState } from "@/components/access-denied-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageShell } from "@/components/page-shell";
+import { ThemeGallery } from "@/components/theme-gallery";
 import { requireBoardAdminCapability } from "@/lib/admin-guards";
 import { fetchCurrentBoard, updateCurrentBoard } from "@/lib/aduts-api";
 import { getAxiosStatus } from "@/lib/axios-status";
 import {
-  BOARD_THEME_PRESETS,
   DEFAULT_THEME_PRESET,
-  normalizeAccentColor,
   normalizeThemePreset,
+  type AppearanceThemeId,
   type BoardThemePresetId,
 } from "@/lib/board-theme";
 import { Button } from "@repo/ui/components/button";
@@ -44,7 +44,6 @@ function ManageBoardPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [kbUrl, setKbUrl] = useState("");
-  const [accentColor, setAccentColor] = useState("#38bdf8");
   const [themePreset, setThemePreset] =
     useState<BoardThemePresetId>(DEFAULT_THEME_PRESET);
 
@@ -53,9 +52,6 @@ function ManageBoardPage() {
     setName(boardQuery.data.board_name);
     setDescription(boardQuery.data.description ?? "");
     setKbUrl(boardQuery.data.kb_url ?? "");
-    setAccentColor(
-      normalizeAccentColor(boardQuery.data.accent_color) ?? "#38bdf8",
-    );
     setThemePreset(normalizeThemePreset(boardQuery.data.theme_preset));
   }, [boardQuery.data]);
 
@@ -78,10 +74,8 @@ function ManageBoardPage() {
   });
 
   const appearanceMutation = useMutation({
-    mutationFn: (payload: {
-      accent_color?: string | null;
-      theme_preset?: BoardThemePresetId;
-    }) => updateCurrentBoard(payload),
+    mutationFn: (theme: AppearanceThemeId) =>
+      updateCurrentBoard({ theme_preset: theme }),
     onSuccess: () => {
       invalidateBoard();
       toast.success("Appearance updated.");
@@ -112,18 +106,9 @@ function ManageBoardPage() {
     mutation.mutate();
   }
 
-  function onSaveAccent() {
-    const normalized = normalizeAccentColor(accentColor);
-    if (!normalized) {
-      toast.error("Enter a valid hex color like #38bdf8.");
-      return;
-    }
-    appearanceMutation.mutate({ accent_color: normalized });
-  }
-
-  function onSelectPreset(preset: BoardThemePresetId) {
+  function onSelectPreset(preset: AppearanceThemeId) {
     setThemePreset(preset);
-    appearanceMutation.mutate({ theme_preset: preset });
+    appearanceMutation.mutate(preset);
   }
 
   return (
@@ -182,74 +167,18 @@ function ManageBoardPage() {
 
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Appearance</CardTitle>
+            <CardTitle>Theme</CardTitle>
             <CardDescription>
-              Accent color and abstract background themes apply across this
-              board.
+              Choose the look of this office. Each theme has its own light and
+              dark colors.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
-            <div className="max-w-xl space-y-3">
-              <Label className="text-sm font-medium">Accent color</Label>
-              <div className="flex flex-wrap items-center gap-3">
-                <Input
-                  type="color"
-                  value={normalizeAccentColor(accentColor) ?? "#38bdf8"}
-                  onChange={(e) => setAccentColor(e.target.value)}
-                  className="h-10 w-14 cursor-pointer p-1 shadow-xs"
-                  aria-label="Accent color picker"
-                />
-                <Input
-                  value={accentColor}
-                  onChange={(e) => setAccentColor(e.target.value)}
-                  placeholder="#38bdf8"
-                  className="max-w-[10rem] font-mono text-sm shadow-xs"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={appearanceMutation.isPending}
-                  onClick={onSaveAccent}
-                  className="shadow-xs"
-                >
-                  Save accent
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Background theme</Label>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {BOARD_THEME_PRESETS.map((preset) => {
-                  const selected = themePreset === preset.id;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      disabled={appearanceMutation.isPending}
-                      onClick={() => onSelectPreset(preset.id)}
-                      className={[
-                        "overflow-hidden rounded-xl border text-left transition-colors",
-                        selected
-                          ? "border-primary ring-primary/40 ring-2"
-                          : "border-border hover:border-primary/40",
-                      ].join(" ")}
-                    >
-                      <div
-                        className={`aduts-theme-swatch aduts-theme-swatch--${preset.id} h-20 w-full`}
-                        aria-hidden="true"
-                      />
-                      <div className="space-y-0.5 p-3">
-                        <p className="text-sm font-medium">{preset.label}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {preset.description}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          <CardContent>
+            <ThemeGallery
+              value={themePreset}
+              disabled={appearanceMutation.isPending}
+              onSelect={onSelectPreset}
+            />
           </CardContent>
         </Card>
       </div>

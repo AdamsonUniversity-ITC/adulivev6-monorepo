@@ -189,6 +189,9 @@ describe("ticketing page smokes", () => {
       expect(
         screen.getByRole("heading", { name: "Board Settings" }),
       ).toBeInTheDocument();
+      expect(
+        screen.getByRole("radio", { name: /Graphite/ }),
+      ).toBeInTheDocument();
     });
   });
 

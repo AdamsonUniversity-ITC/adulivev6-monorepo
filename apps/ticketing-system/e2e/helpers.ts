@@ -67,7 +67,8 @@ export const fixtureTicket = {
   id: 101,
   ticket_number: "250719-001",
   title: "Cannot print",
-  description: "<p>Printer offline</p>",
+  description:
+    "The printer on the second floor does not turn on. The screen stays blank.",
   status: "open",
   priority: "medium",
   assigned_to: 10,
@@ -89,7 +90,20 @@ export const fixtureTicket = {
     name: "Staff User",
     email: "staff@example.com",
   },
-  messages: [],
+  messages: [
+    {
+      id: 1,
+      body: "We will check the printer this morning.",
+      user_id: 10,
+      type: "msg",
+      created_at: "2026-07-19T09:15:00Z",
+      user: {
+        user_id: 10,
+        name: "Staff User",
+        email: "staff@example.com",
+      },
+    },
+  ],
   internal_remarks: [],
   attachments: [],
   internal_attachments: [],
@@ -179,7 +193,7 @@ export async function mockAdutsApis(page: Page, options: MockOptions = {}) {
       return json({ data: boards });
     }
 
-    if (url.includes("/v1/aduts/board") && !url.includes("boards")) {
+    if (/\/v1\/aduts\/board(?:\?|$)/.test(url)) {
       return json({ data: fixtureBoard });
     }
 
@@ -258,16 +272,42 @@ export async function mockAdutsApis(page: Page, options: MockOptions = {}) {
       return json({ data: { tickets: [], people: [] } });
     }
 
-    if (url.includes("/v1/aduts/sections")) {
+    if (
+      url.includes("/v1/aduts/board/sections") ||
+      url.includes("/v1/aduts/sections")
+    ) {
       return json({ data: fixtureBoard.sections });
     }
 
-    if (url.includes("/v1/aduts/customers")) {
-      return json({ data: [] });
+    if (
+      url.includes("/v1/aduts/board/customers") ||
+      url.includes("/v1/aduts/customers")
+    ) {
+      return json({
+        data: [
+          {
+            user_id: 99,
+            name: "Requester Person",
+            email: "req@example.com",
+          },
+        ],
+      });
     }
 
-    if (url.includes("/v1/aduts/admins")) {
-      return json({ data: [] });
+    if (
+      url.includes("/v1/aduts/board/admins") ||
+      url.includes("/v1/aduts/admins")
+    ) {
+      return json({
+        data: [
+          {
+            id: 1,
+            user_id: 20,
+            name: "Board Admin",
+            email: "board.admin@example.com",
+          },
+        ],
+      });
     }
 
     return json({ data: [] });

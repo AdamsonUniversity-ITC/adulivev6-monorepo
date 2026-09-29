@@ -10,7 +10,7 @@ export function TicketingThemeProvider({ children }: Props) {
     <NextThemesProvider
       attribute="class"
       defaultTheme="dark"
-      enableSystem={false}
+      enableSystem
       storageKey="aduts-theme"
       disableTransitionOnChange
     >

@@ -1,5 +1,14 @@
-import type { ReportFilters } from '@/api/reports.ts';
+import type { ReportCourseOption, ReportFilters } from '@/api/reports.ts';
+import { fetchReportCourses } from '@/api/reports.ts';
 import { Button } from '@repo/ui/components/button';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@repo/ui/components/combobox';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
 import {
@@ -10,6 +19,7 @@ import {
   SelectValue,
 } from '@repo/ui/components/select';
 import { Switch } from '@repo/ui/components/switch';
+import { useQuery } from '@tanstack/react-query';
 import {
   ReportDatePicker,
   parseReportDate,
@@ -33,6 +43,14 @@ export function ReportFiltersBar({
   canReset = false,
   isApplying = false,
 }: ReportFiltersBarProps) {
+  const coursesQuery = useQuery({
+    queryKey: ['drs-report-courses'],
+    queryFn: fetchReportCourses,
+  });
+  const courses = coursesQuery.data ?? [];
+  const selectedCourse =
+    courses.find((course) => course.id === filters.course_id) ?? null;
+
   return (
     <div className="bg-muted/30 grid gap-4 rounded-md border p-4 md:grid-cols-2 xl:grid-cols-4">
       <div className="space-y-1.5">
@@ -107,14 +125,38 @@ export function ReportFiltersBar({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="course_id">Course</Label>
-        <Input
-          id="course_id"
-          placeholder="BSCS"
-          value={filters.course_id ?? ''}
-          onChange={(event) =>
-            onChange({ ...filters, course_id: event.target.value || undefined })
+        <Combobox
+          items={courses}
+          value={selectedCourse}
+          itemToStringLabel={(course: ReportCourseOption) => course.label}
+          onValueChange={(course: ReportCourseOption | null) =>
+            onChange({
+              ...filters,
+              course_id: course?.id || undefined,
+            })
           }
-        />
+        >
+          <ComboboxInput
+            id="course_id"
+            placeholder="All courses"
+            showClear
+            disabled={coursesQuery.isLoading}
+          />
+          <ComboboxContent>
+            <ComboboxEmpty>
+              {coursesQuery.isError
+                ? 'Courses could not be loaded.'
+                : 'No courses found.'}
+            </ComboboxEmpty>
+            <ComboboxList>
+              {courses.map((course) => (
+                <ComboboxItem key={course.id} value={course}>
+                  {course.label}
+                </ComboboxItem>
+              ))}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="receive_mode">Release mode</Label>

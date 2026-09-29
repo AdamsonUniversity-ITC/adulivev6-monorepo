@@ -60,6 +60,12 @@ test.describe("ticketing page smokes (board host)", () => {
     await expect(
       page.getByRole("heading", { name: "Board Settings" }),
     ).toBeVisible();
+    await expect(page.getByRole("radio", { name: /Graphite/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /Aurora/ })).toBeVisible();
+    await page.getByRole("button", { name: "Appearance" }).click();
+    await expect(page.getByRole("radio", { name: "Light" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Dark" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "System" })).toBeVisible();
   });
 
   test("manage admins", async ({ page }) => {

@@ -1,6 +1,7 @@
 import type {
   ByCourseReport,
   ClearanceBottleneckReport,
+  DayToDayReport,
   DocumentDemandReport,
   ForeignerSplitReport,
   PaymentStatusReport,
@@ -555,6 +556,46 @@ function renderReportBody(
         </>
       );
     }
+    case 'day-to-day': {
+      const data = payload.dayToDay as DayToDayReport | undefined;
+      return (
+        <>
+          <Text style={styles.sectionTitle}>Day to day transactions</Text>
+          <DataTable
+            columns={[
+              'Date',
+              'Student no.',
+              'Name',
+              'Course',
+              'Documents requested',
+              'Assessment amount',
+              'DRS no.',
+              'Purpose',
+              'Date of graduation',
+              'ETA',
+              'Delivered or picked up',
+              'Contact no.',
+              'Release mode',
+            ]}
+            rows={(data?.rows ?? []).map((row) => [
+              row.date,
+              row.student_no,
+              row.name,
+              row.course,
+              row.documents_requested,
+              formatReportCurrency(row.assessment_amount),
+              row.drs_no,
+              row.purpose,
+              row.graduation_date,
+              row.eta,
+              row.delivered_or_picked_up,
+              row.contact_no,
+              row.receive_mode,
+            ])}
+          />
+        </>
+      );
+    }
     default:
       return null;
   }
@@ -568,7 +609,11 @@ function ReportPdfDocument({
 }: PdfDownloadInput) {
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page
+        size="A4"
+        orientation={reportType === 'day-to-day' ? 'landscape' : 'portrait'}
+        style={styles.page}
+      >
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{formatFiltersSummary(filters)}</Text>
         {renderReportBody(reportType, payload)}
