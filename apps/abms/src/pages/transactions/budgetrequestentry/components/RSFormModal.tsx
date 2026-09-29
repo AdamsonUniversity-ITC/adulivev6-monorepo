@@ -1,3 +1,4 @@
+import { characterCount, MONEY_MAX, REQUISITION_TEXT_LIMIT } from '../../shared/requisitionValidation';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Paperclip, PencilLine, Plus, Save, StickyNote, Trash2, X, ClipboardList, User, UploadCloud, FileIcon, RefreshCw } from 'lucide-react';
@@ -80,10 +81,9 @@ export function AttachmentsModal({
     const [fileError, setFileError] = useState<string | null>(null);
     const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.csv';
+    const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.xlsx,.csv,.bmp,.svg';
     const ALLOWED_MIME_TYPES = new Set([
         'application/pdf',
-        'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'text/csv',
         'image/jpeg',
@@ -131,7 +131,7 @@ export function AttachmentsModal({
         const accepted: File[] = [];
 
         Array.from(files).forEach(file => {
-            if (!ALLOWED_MIME_TYPES.has(file.type)) {
+            if (!ALLOWED_MIME_TYPES.has(file.type) && !(file.type === 'application/vnd.ms-excel' && /\.csv$/i.test(file.name))) {
                 rejected.push(`"${file.name}" is not an accepted file type.`);
                 return;
             }
@@ -583,6 +583,18 @@ export function RSFormModal({
 
     async function handleSaveRS() {
         if (!rsHeaderId || isSaveDisabled) return;
+        if (grandTotal > MONEY_MAX) {
+            setSaveError('Requisition total exceeds the supported amount.');
+            return;
+        }
+        if (characterCount(note.trim()) > REQUISITION_TEXT_LIMIT) {
+            setSaveError('Note must not exceed 255 characters.');
+            return;
+        }
+        if (characterCount(payeeInput.trim()) > REQUISITION_TEXT_LIMIT) {
+            setSaveError('Payee must not exceed 255 characters.');
+            return;
+        }
         setIsSavingRS(true);
         setSaveError(null);
         try {
@@ -1112,6 +1124,7 @@ export function RSFormModal({
                                 </span>
                             </div>
                         ) : (
+                            <>
                             <input
                                 value={payeeInput}
                                 onChange={e => { setPayeeInput(e.target.value); setSaveError(null); }}
@@ -1133,6 +1146,8 @@ export function RSFormModal({
                                 onFocus={e => { (e.target as HTMLElement).style.borderColor = isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)'; }}
                                 onBlur={e => { (e.target as HTMLElement).style.borderColor = t.inputBorder; }}
                             />
+                            {characterCount(payeeInput.trim()) > REQUISITION_TEXT_LIMIT && <small style={{ color: t.cellRed }}>Payee must not exceed 255 characters.</small>}
+                            </>
                         )}
                     </div>}
 
@@ -1153,6 +1168,7 @@ export function RSFormModal({
                             onChange={e => setNote(e.target.value)}
                             rows={2}
                             placeholder="Add any remarks or special instructions for this requisition slip…"
+                            aria-invalid={characterCount(note.trim()) > REQUISITION_TEXT_LIMIT}
                             style={{
                                 width: '100%', resize: 'vertical',
                                 background: t.inputBg,
@@ -1165,6 +1181,9 @@ export function RSFormModal({
                             onFocus={e => { (e.target as HTMLElement).style.borderColor = isDark ? 'rgba(99,155,255,0.70)' : 'rgba(37,99,235,0.60)'; }}
                             onBlur={e => { (e.target as HTMLElement).style.borderColor = t.inputBorder; }}
                         />
+                        <small style={{ color: characterCount(note.trim()) > REQUISITION_TEXT_LIMIT ? t.cellRed : t.cellMuted }}>
+                            {characterCount(note.trim())} / {REQUISITION_TEXT_LIMIT} characters
+                        </small>
                     </div>
                 </div>
             </div>

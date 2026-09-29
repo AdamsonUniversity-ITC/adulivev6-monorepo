@@ -17,6 +17,7 @@ import { subscribeToRequisitionChat } from '../../../../../features/requisition-
 import { RSPrintPreview } from './RSPrintPreview';
 import { formatAccountCode } from '../../../shared/accountCode';
 import { displayRequisitionStatus } from '../../../shared/requisitionStatus';
+import { characterCount, ITEM_QUANTITY_MAX, MONEY_MAX, normalizeItemDescription, REQUISITION_TEXT_LIMIT } from '../../../shared/requisitionValidation';
 import {
     canPrintStockroomRequisition,
     STOCKROOM_PRINT_RESTRICTION_MESSAGE,
@@ -1438,6 +1439,10 @@ export function RSProcessModal({
 
     async function handleSaveNote() {
         if (isSavingNote) return;
+        if (characterCount(noteDraft) > REQUISITION_TEXT_LIMIT) {
+            setNoteError('Note must not exceed 255 characters.');
+            return;
+        }
         setIsSavingNote(true);
         setNoteError(null);
         try {
@@ -1450,7 +1455,7 @@ export function RSProcessModal({
             setIsEditingNote(false);
             onAction?.('Save Note', { ...row, note: savedNote });
         } catch (err: any) {
-            setNoteError(err?.response?.data?.message ?? 'Failed to save note.');
+            setNoteError(err?.response?.data?.errors?.note?.[0] ?? err?.response?.data?.message ?? 'Failed to save note.');
         } finally {
             setIsSavingNote(false);
         }
@@ -1515,7 +1520,7 @@ export function RSProcessModal({
                 ? {
                     items: Object.entries(itemDrafts).map(([id, draft]) => ({
                         id: Number(id),
-                        description: draft.description,
+                        description: normalizeItemDescription(draft.description),
                     })),
                 }
                 : canStockroomEditQuantities
@@ -1529,7 +1534,7 @@ export function RSProcessModal({
                     items: Object.entries(itemDrafts).map(([id, draft]) => ({
                         id: Number(id),
                         account_id: draft.account_id,
-                        description: draft.description,
+                        description: normalizeItemDescription(draft.description),
                         quantity: draft.quantity,
                         unit_cost: draft.unit_cost,
                         unit_of_measurement: draft.unit_of_measurement,
@@ -1558,7 +1563,7 @@ export function RSProcessModal({
                 is_controlled: Number(res.data?.data?.is_controlled ?? row.is_controlled ?? 0),
             });
         } catch (err: any) {
-            setItemsError(err?.response?.data?.message ?? 'Failed to save item changes. No changes were applied.');
+            setItemsError(Object.values(err?.response?.data?.errors ?? {}).flat()[0] as string ?? err?.response?.data?.message ?? 'Failed to save item changes. No changes were applied.');
         } finally {
             setIsSavingItems(false);
         }
@@ -1862,24 +1867,28 @@ export function RSProcessModal({
     // and is the actual source of truth; this never substitutes for it.
     const draftsValid = !isEditingItems || Object.values(itemDrafts).every(d => {
         if (canLogisticsEditDescriptions) {
-            return d.description.trim().length > 0 && d.description.length <= 500;
+            return characterCount(normalizeItemDescription(d.description)) > 0 && characterCount(normalizeItemDescription(d.description)) <= REQUISITION_TEXT_LIMIT;
         }
 
         if (canStockroomEditQuantities) {
-            return Number.isInteger(d.quantity) && d.quantity >= 0;
+            return Number.isInteger(d.quantity) && d.quantity >= 0 && d.quantity <= ITEM_QUANTITY_MAX;
         }
 
         return Number.isInteger(d.account_id) && d.account_id > 0
-            && Number.isInteger(d.quantity) && d.quantity >= 1
+            && Number.isInteger(d.quantity) && d.quantity >= 1 && d.quantity <= ITEM_QUANTITY_MAX
             && (
                 isStockroomRequest
                 || (
-                    d.description.trim().length > 0
+                    characterCount(normalizeItemDescription(d.description)) > 0
+                    && characterCount(normalizeItemDescription(d.description)) <= REQUISITION_TEXT_LIMIT
                     && typeof d.unit_cost === 'number'
                     && Number.isFinite(d.unit_cost)
                     && d.unit_cost > 0
+                    && d.unit_cost <= MONEY_MAX
+                    && Math.abs((d.unit_cost * 100) - Math.round(d.unit_cost * 100)) < 0.000001
                     && Math.abs((d.unit_cost * 100) - Math.round(d.unit_cost * 100)) < 0.000001
                     && d.unit_of_measurement.trim().length > 0
+                    && characterCount(d.unit_of_measurement) <= 50
                 )
             );
     });
@@ -1897,6 +1906,8 @@ export function RSProcessModal({
             value !== null
             && Number.isFinite(value)
             && value > 0
+            && value <= MONEY_MAX
+            && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001
         ))
     );
 
@@ -2753,9 +2764,10 @@ export function RSProcessModal({
                                                             </td>
                                                             <td style={itemTdStyle(t, totalCols, 1, 'left', false, false)}>
                                                                 {rowEditing && (canLogisticsEditDescriptions || !isStockroomRequest) ? (
+                                                                    <div>
                                                                     <textarea
                                                                         rows={2}
-                                                                        maxLength={500}
+                                                                        aria-invalid={characterCount(normalizeItemDescription(draft.description)) > REQUISITION_TEXT_LIMIT}
                                                                         value={draft.description}
                                                                         disabled={isSavingItems}
                                                                         onChange={e => updateItemDraft(item.id, { description: e.target.value })}
@@ -2768,6 +2780,10 @@ export function RSProcessModal({
                                                                             lineHeight: 1.35,
                                                                         }}
                                                                     />
+                                                                    <small style={{ display: 'block', color: characterCount(normalizeItemDescription(draft.description)) > REQUISITION_TEXT_LIMIT ? t.cellAmber : t.cellMuted }}>
+                                                                        {characterCount(normalizeItemDescription(draft.description))} / {REQUISITION_TEXT_LIMIT} characters after spacing cleanup
+                                                                    </small>
+                                                                    </div>
                                                                 ) : (
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                                                                         <span>{item.description}</span>
@@ -2997,7 +3013,7 @@ export function RSProcessModal({
                                             if (e.key === 'Escape') { e.preventDefault(); handleCancelEditNote(); }
                                         }}
                                         placeholder="Add a note…"
-                                        maxLength={2000}
+                                        aria-invalid={characterCount(noteDraft) > REQUISITION_TEXT_LIMIT}
                                         style={{
                                             minHeight: 56, maxHeight: 90, overflowY: 'auto',
                                             padding: '10px 12px', borderRadius: 10,
@@ -3007,6 +3023,7 @@ export function RSProcessModal({
                                             resize: 'vertical', outline: 'none',
                                         }}
                                     />
+                                    <small style={{ color: characterCount(noteDraft) > REQUISITION_TEXT_LIMIT ? t.cellAmber : t.cellMuted }}>{characterCount(noteDraft)} / {REQUISITION_TEXT_LIMIT} characters</small>
                                     {noteError && (
                                         <span style={{ fontSize: 10.5, color: t.cellAmber }}>{noteError}</span>
                                     )}

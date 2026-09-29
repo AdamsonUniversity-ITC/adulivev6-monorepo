@@ -1,3 +1,4 @@
+import { characterCount, MONEY_MAX, REQUISITION_TEXT_LIMIT } from '../../shared/requisitionValidation';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -258,7 +259,7 @@ export function RSViewModal({
     const grandTotal = items.reduce((s, item) => s + item.totalCost, 0);
     const isEditableCashier = canEdit && header?.rstype.trim().toLowerCase() === 'cashier';
     const isCashierPayeeMissing = isEditableCashier && payeeInput.trim() === '';
-    const isResaveDisabled = isResaving || (!dirty && !isUnsavedRS) || items.length === 0 || isCashierPayeeMissing;
+    const isResaveDisabled = isResaving || (!dirty && !isUnsavedRS) || items.length === 0 || isCashierPayeeMissing || (isEditableCashier && characterCount(payeeInput.trim()) > REQUISITION_TEXT_LIMIT);
     const printRow: RSProcessRow | null = header ? {
         id: header.id,
         date: header.created_at,
@@ -447,6 +448,10 @@ export function RSViewModal({
 
     async function handleResave(overrideTotal?: number) {
         if (!header || isResaving || items.length === 0) return;
+        if ((overrideTotal ?? grandTotal) > MONEY_MAX) {
+            setItemActionError('Requisition total exceeds the supported amount.');
+            return;
+        }
         if (isCashierPayeeMissing) {
             setItemActionError('Payee is required for Cashier requisitions.');
             return;
@@ -701,7 +706,7 @@ export function RSViewModal({
                                             setItemActionError(null);
                                         }}
                                         placeholder="Enter payee name…"
-                                        aria-invalid={isCashierPayeeMissing}
+                                        aria-invalid={isCashierPayeeMissing || characterCount(payeeInput.trim()) > REQUISITION_TEXT_LIMIT}
                                         style={{
                                             width: '100%',
                                             minHeight: 32,
@@ -716,6 +721,7 @@ export function RSViewModal({
                                         }}
                                     />
                                     {isCashierPayeeMissing && <span style={{ display: 'block', marginTop: 3, color: t.cellRed, fontSize: 9 }}>Payee is required.</span>}
+                                    {characterCount(payeeInput.trim()) > REQUISITION_TEXT_LIMIT && <span style={{ display: 'block', marginTop: 3, color: t.cellRed, fontSize: 9 }}>Payee must not exceed 255 characters.</span>}
                                 </div>
                             ) : displayField('Payee', header.payee, false, undefined, <User className="h-4 w-4" />)}
                             {displayField('Total Amount', `₱ ${fmtCurrency(grandTotal)}`, true, t.cellGreen, <CircleDollarSign className="h-4 w-4" />)}

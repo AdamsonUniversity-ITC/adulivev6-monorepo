@@ -152,3 +152,9 @@ must remain in place even when configuration is cached.
 - Some authenticated end-to-end report and workflow checks require a seeded integration environment and cannot be proven by compilation or isolated feature tests alone.
 - Existing `router.tsx` lint debt should be handled separately from feature changes to avoid mixing unrelated cleanup with production fixes.
 - Enable `ABMS_LOGISTICS_WORKFLOW_V2` only after the migration, backend, and refreshed Administration/Controller/Logistics/Stockroom clients are deployed and active-stage smoke tests pass; retire `ABMS_ACCEPT_LEGACY_SERVE` after confirming adoption.
+
+## Requisition Input Limits (2026-09-29)
+
+Budget Request Entry and the shared Requisition Process editor use the existing `budget_request_entry_items.description` and `budget_request_entry.note` `VARCHAR(255)` columns. Description writes normalize pasted whitespace before 255-character validation; note formatting is preserved. The separate `remarks` column is unchanged. Both the UI and API enforce these limits, including Logistics description editing and Requisition Process Save Note.
+
+Field audit against the final migrations and write validators: `unit_of_measurement` is `VARCHAR(255)` with a stricter established 50-character API limit; payee and payee-detail account name/address are `VARCHAR(255)`; TIN and account number are unsigned BIGINT and must be no greater than `18446744073709551615`; item quantity is signed INT (up to `2147483647`, with zero allowed only in the Stockroom quantity workflow); financial columns are `DECIMAL(15,2)`; requisition uploads accept xlsx, csv, pdf, jpg/jpeg, png, gif, webp, bmp, and svg up to 25 MiB per file. Payment form and selected account identity continue to be constrained by their existing API and workflow checks. Integer storage cannot preserve leading zeroes in TIN or account number.
