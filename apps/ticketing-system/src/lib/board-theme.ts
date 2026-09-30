@@ -63,6 +63,46 @@ export const BOARD_THEME_PRESETS = [
 
 export type BoardThemePresetId = (typeof BOARD_THEME_PRESETS)[number]["id"];
 
+/** Themes offered in Board Settings. Other presets still render if already saved. */
+export const APPEARANCE_THEMES = [
+  {
+    id: "graphite",
+    label: "Graphite",
+    description: "Cool charcoal and a technical grid",
+  },
+  {
+    id: "aurora",
+    label: "Aurora",
+    description: "Cool atmospheric color",
+  },
+  {
+    id: "ember",
+    label: "Ember",
+    description: "Warm red and amber",
+  },
+  {
+    id: "tide",
+    label: "Tide",
+    description: "Navy and teal",
+  },
+  {
+    id: "circuit",
+    label: "Circuit",
+    description: "Green and technical",
+  },
+  {
+    id: "lattice",
+    label: "Lattice",
+    description: "Quiet architectural grid",
+  },
+] as const satisfies ReadonlyArray<{
+  id: BoardThemePresetId;
+  label: string;
+  description: string;
+}>;
+
+export type AppearanceThemeId = (typeof APPEARANCE_THEMES)[number]["id"];
+
 export const DEFAULT_THEME_PRESET: BoardThemePresetId = "graphite";
 
 export function normalizeThemePreset(

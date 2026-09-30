@@ -1,4 +1,3 @@
-import { env } from '@repo/axios-config/env';
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
 export type ReportFilters = {
@@ -26,7 +25,8 @@ export type ReportType =
   | 'clearance-bottlenecks'
   | 'by-course'
   | 'trends'
-  | 'foreigner-split';
+  | 'foreigner-split'
+  | 'day-to-day';
 
 export type SummaryReport = {
   total: number;
@@ -133,6 +133,35 @@ export type ForeignerSplitReport = {
   }>;
 };
 
+export type ReportCourseOption = {
+  id: string;
+  label: string;
+};
+
+export type DayToDayReport = {
+  rows: Array<{
+    date: string | null;
+    student_no: string;
+    name: string;
+    course: string;
+    documents_requested: string;
+    assessment_amount: number;
+    drs_no: string | null;
+    purpose: string | null;
+    graduation_date: string | null;
+    eta: string | null;
+    delivered_or_picked_up: string | null;
+    contact_no: string | null;
+    receive_mode: string;
+  }>;
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+};
+
 function toParams(filters: ReportFilters): Record<string, string | boolean> {
   const params: Record<string, string | boolean> = {};
 
@@ -159,9 +188,10 @@ function toParams(filters: ReportFilters): Record<string, string | boolean> {
 async function fetchReport<T>(
   path: string,
   filters: ReportFilters,
+  extraParams?: Record<string, string | number | boolean>,
 ): Promise<T> {
   const { data } = await registrarSvc.get<{ data: T }>(path, {
-    params: toParams(filters),
+    params: { ...toParams(filters), ...extraParams },
   });
 
   return data.data;
@@ -209,21 +239,29 @@ export const fetchTrendsReport = (filters: ReportFilters) =>
 export const fetchForeignerSplitReport = (filters: ReportFilters) =>
   fetchReport<ForeignerSplitReport>('/v1/drs/reports/foreigner-split', filters);
 
-export function buildReportExportUrl(
+export const fetchDayToDayReport = (filters: ReportFilters, page = 1) =>
+  fetchReport<DayToDayReport>('/v1/drs/reports/day-to-day', filters, { page });
+
+export async function fetchReportCourses(): Promise<ReportCourseOption[]> {
+  const { data } = await registrarSvc.get<{ data: ReportCourseOption[] }>(
+    '/v1/drs/reports/courses',
+  );
+
+  return Array.isArray(data.data) ? data.data : [];
+}
+
+export async function queueReportExport(
   reportType: ReportType,
   filters: ReportFilters,
-): string {
-  const params = new URLSearchParams();
-  const entries = toParams(filters);
+): Promise<string> {
+  const { data } = await registrarSvc.post<{ message?: string }>(
+    `/v1/drs/reports/${reportType}/export`,
+    toParams(filters),
+  );
 
-  Object.entries(entries).forEach(([key, value]) => {
-    params.set(key, String(value));
-  });
-
-  const query = params.toString();
-  const base = env.registrarService.replace(/\/$/, '');
-
-  return `${base}/v1/drs/reports/${reportType}/export${query ? `?${query}` : ''}`;
+  return (
+    data.message ?? 'Your report is being prepared and will be emailed to you.'
+  );
 }
 
 export const REPORT_TABS: Array<{ id: ReportType; label: string }> = [
@@ -234,9 +272,10 @@ export const REPORT_TABS: Array<{ id: ReportType; label: string }> = [
   { id: 'turnaround', label: 'Turnaround' },
   { id: 'by-course', label: 'By course' },
   { id: 'revenue', label: 'Revenue' },
+  { id: 'day-to-day', label: 'Day to day' },
 ];
 
-export type ReportGroupId = 'now' | 'workload' | 'programs';
+export type ReportGroupId = 'now' | 'workload' | 'programs' | 'register';
 
 export const REPORT_GROUPS: Array<{
   id: ReportGroupId;
@@ -257,6 +296,11 @@ export const REPORT_GROUPS: Array<{
     id: 'programs',
     label: 'Programs',
     tabs: ['by-course', 'revenue'],
+  },
+  {
+    id: 'register',
+    label: 'Register',
+    tabs: ['day-to-day'],
   },
 ];
 

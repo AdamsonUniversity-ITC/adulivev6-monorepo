@@ -16,12 +16,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAdutsShortcuts } from "@/hooks/use-aduts-shortcuts";
 import { fetchCurrentBoard } from "@/lib/aduts-api";
 import { getBoardSubdomain, isPlatformHost } from "@/lib/adutsHost";
-import {
-  accentForeground,
-  DEFAULT_THEME_PRESET,
-  normalizeAccentColor,
-  normalizeThemePreset,
-} from "@/lib/board-theme";
+import { DEFAULT_THEME_PRESET, normalizeThemePreset } from "@/lib/board-theme";
 import { formatBoardLabel } from "@/lib/format-labels";
 import { ensureAuthenticated } from "@/lib/ensure-authenticated";
 import { Button } from "@repo/ui/components/button";
@@ -30,7 +25,7 @@ export interface RouterContext {
   queryClient: QueryClient;
 }
 
-const ACCENT_VARS = [
+const ACCENT_OVERRIDE_VARS = [
   "--primary",
   "--ring",
   "--sidebar-primary",
@@ -72,35 +67,18 @@ function RootComponent() {
   const themePreset = platform
     ? DEFAULT_THEME_PRESET
     : normalizeThemePreset(boardQuery.data?.theme_preset);
-  const accent = platform
-    ? null
-    : normalizeAccentColor(boardQuery.data?.accent_color);
 
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.boardTheme = themePreset;
-
-    if (accent) {
-      const fg = accentForeground(accent);
-      root.style.setProperty("--primary", accent);
-      root.style.setProperty("--ring", accent);
-      root.style.setProperty("--sidebar-primary", accent);
-      root.style.setProperty("--sidebar-ring", accent);
-      root.style.setProperty("--primary-foreground", fg);
-      root.style.setProperty("--sidebar-primary-foreground", fg);
-    } else {
-      for (const prop of ACCENT_VARS) {
-        root.style.removeProperty(prop);
-      }
+    for (const prop of ACCENT_OVERRIDE_VARS) {
+      root.style.removeProperty(prop);
     }
 
     return () => {
       delete root.dataset.boardTheme;
-      for (const prop of ACCENT_VARS) {
-        root.style.removeProperty(prop);
-      }
     };
-  }, [platform, themePreset, accent]);
+  }, [themePreset]);
 
   return (
     <div

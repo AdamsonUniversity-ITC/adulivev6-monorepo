@@ -9,8 +9,16 @@
       (function () {
         try {
           var stored = localStorage.getItem("aduts-theme");
-          var theme = stored === "light" || stored === "dark" ? stored : "dark";
-          document.documentElement.classList.toggle("dark", theme === "dark");
+          var theme =
+            stored === "light" || stored === "dark" || stored === "system"
+              ? stored
+              : "dark";
+          var systemDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          var dark =
+            theme === "dark" || (theme === "system" && systemDark);
+          document.documentElement.classList.toggle("dark", dark);
         } catch (e) {
           document.documentElement.classList.add("dark");
         }

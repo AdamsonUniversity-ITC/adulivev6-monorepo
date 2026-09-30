@@ -6,6 +6,7 @@
 
 /* --- graphite: diagonal brushed-metal sheen --- */
 :root[data-board-theme="graphite"],
+.theme-scope[data-board-theme="graphite"],
 .aduts-shell[data-theme-preset="graphite"],
 .aduts-theme-swatch--graphite {
   --aduts-theme-bg-pattern: url("/theme-patterns/graphite.svg");
@@ -24,6 +25,7 @@
 }
 
 .dark[data-board-theme="graphite"],
+.theme-scope.dark[data-board-theme="graphite"],
 .dark .aduts-shell[data-theme-preset="graphite"],
 .dark .aduts-theme-swatch--graphite {
   --aduts-theme-bg-pattern: url("/theme-patterns/graphite-dark.svg");
@@ -42,6 +44,7 @@
 
 /* --- aurora: northern-lights glow --- */
 :root[data-board-theme="aurora"],
+.theme-scope[data-board-theme="aurora"],
 .aduts-shell[data-theme-preset="aurora"],
 .aduts-theme-swatch--aurora {
   --aduts-theme-bg-pattern: url("/theme-patterns/aurora.svg");
@@ -57,6 +60,7 @@
 }
 
 .dark[data-board-theme="aurora"],
+.theme-scope.dark[data-board-theme="aurora"],
 .dark .aduts-shell[data-theme-preset="aurora"],
 .dark .aduts-theme-swatch--aurora {
   --aduts-theme-bg-pattern: url("/theme-patterns/aurora-dark.svg");
@@ -72,6 +76,7 @@
 
 /* --- mist: diffuse blue-lavender fog --- */
 :root[data-board-theme="mist"],
+.theme-scope[data-board-theme="mist"],
 .aduts-shell[data-theme-preset="mist"],
 .aduts-theme-swatch--mist {
   --aduts-theme-bg-pattern: url("/theme-patterns/mist.svg");
@@ -86,6 +91,7 @@
 }
 
 .dark[data-board-theme="mist"],
+.theme-scope.dark[data-board-theme="mist"],
 .dark .aduts-shell[data-theme-preset="mist"],
 .dark .aduts-theme-swatch--mist {
   --aduts-theme-bg-pattern: url("/theme-patterns/mist-dark.svg");
@@ -100,6 +106,7 @@
 
 /* --- ember: warm glow from lower corner --- */
 :root[data-board-theme="ember"],
+.theme-scope[data-board-theme="ember"],
 .aduts-shell[data-theme-preset="ember"],
 .aduts-theme-swatch--ember {
   --aduts-theme-bg-pattern: url("/theme-patterns/ember.svg");
@@ -114,6 +121,7 @@
 }
 
 .dark[data-board-theme="ember"],
+.theme-scope.dark[data-board-theme="ember"],
 .dark .aduts-shell[data-theme-preset="ember"],
 .dark .aduts-theme-swatch--ember {
   --aduts-theme-bg-pattern: url("/theme-patterns/ember-dark.svg");
@@ -128,6 +136,7 @@
 
 /* --- tide: horizontal ocean depth bands --- */
 :root[data-board-theme="tide"],
+.theme-scope[data-board-theme="tide"],
 .aduts-shell[data-theme-preset="tide"],
 .aduts-theme-swatch--tide {
   --aduts-theme-bg-pattern: url("/theme-patterns/tide.svg");
@@ -142,6 +151,7 @@
 }
 
 .dark[data-board-theme="tide"],
+.theme-scope.dark[data-board-theme="tide"],
 .dark .aduts-shell[data-theme-preset="tide"],
 .dark .aduts-theme-swatch--tide {
   --aduts-theme-bg-pattern: url("/theme-patterns/tide-dark.svg");
@@ -156,6 +166,7 @@
 
 /* --- lattice: orthogonal grid --- */
 :root[data-board-theme="lattice"],
+.theme-scope[data-board-theme="lattice"],
 .aduts-shell[data-theme-preset="lattice"],
 .aduts-theme-swatch--lattice {
   --aduts-theme-bg-pattern: url("/theme-patterns/lattice.svg");
@@ -170,6 +181,7 @@
 }
 
 .dark[data-board-theme="lattice"],
+.theme-scope.dark[data-board-theme="lattice"],
 .dark .aduts-shell[data-theme-preset="lattice"],
 .dark .aduts-theme-swatch--lattice {
   --aduts-theme-bg-pattern: url("/theme-patterns/lattice-dark.svg");
@@ -184,6 +196,7 @@
 
 /* --- circuit: PCB dots and traces --- */
 :root[data-board-theme="circuit"],
+.theme-scope[data-board-theme="circuit"],
 .aduts-shell[data-theme-preset="circuit"],
 .aduts-theme-swatch--circuit {
   --aduts-theme-bg-pattern: url("/theme-patterns/circuit.svg");
@@ -198,6 +211,7 @@
 }
 
 .dark[data-board-theme="circuit"],
+.theme-scope.dark[data-board-theme="circuit"],
 .dark .aduts-shell[data-theme-preset="circuit"],
 .dark .aduts-theme-swatch--circuit {
   --aduts-theme-bg-pattern: url("/theme-patterns/circuit-dark.svg");
@@ -212,6 +226,7 @@
 
 /* --- origami: angular facet planes --- */
 :root[data-board-theme="origami"],
+.theme-scope[data-board-theme="origami"],
 .aduts-shell[data-theme-preset="origami"],
 .aduts-theme-swatch--origami {
   --aduts-theme-bg-pattern: url("/theme-patterns/origami.svg");
@@ -227,6 +242,7 @@
 }
 
 .dark[data-board-theme="origami"],
+.theme-scope.dark[data-board-theme="origami"],
 .dark .aduts-shell[data-theme-preset="origami"],
 .dark .aduts-theme-swatch--origami {
   --aduts-theme-bg-pattern: url("/theme-patterns/origami-dark.svg");
@@ -242,6 +258,7 @@
 
 /* --- dune: warm sand bands --- */
 :root[data-board-theme="dune"],
+.theme-scope[data-board-theme="dune"],
 .aduts-shell[data-theme-preset="dune"],
 .aduts-theme-swatch--dune {
   --aduts-theme-bg-pattern: url("/theme-patterns/dune.svg");
@@ -256,6 +273,7 @@
 }
 
 .dark[data-board-theme="dune"],
+.theme-scope.dark[data-board-theme="dune"],
 .dark .aduts-shell[data-theme-preset="dune"],
 .dark .aduts-theme-swatch--dune {
   --aduts-theme-bg-pattern: url("/theme-patterns/dune-dark.svg");
@@ -270,6 +288,7 @@
 
 /* --- prism: muted spectral arc --- */
 :root[data-board-theme="prism"],
+.theme-scope[data-board-theme="prism"],
 .aduts-shell[data-theme-preset="prism"],
 .aduts-theme-swatch--prism {
   --aduts-theme-bg-pattern: url("/theme-patterns/prism.svg");
@@ -283,6 +302,7 @@
 }
 
 .dark[data-board-theme="prism"],
+.theme-scope.dark[data-board-theme="prism"],
 .dark .aduts-shell[data-theme-preset="prism"],
 .dark .aduts-theme-swatch--prism {
   --aduts-theme-bg-pattern: url("/theme-patterns/prism-dark.svg");
@@ -296,6 +316,7 @@
 
 /* --- harbor: nautical dusk horizon --- */
 :root[data-board-theme="harbor"],
+.theme-scope[data-board-theme="harbor"],
 .aduts-shell[data-theme-preset="harbor"],
 .aduts-theme-swatch--harbor {
   --aduts-theme-bg-pattern: url("/theme-patterns/harbor.svg");
@@ -310,6 +331,7 @@
 }
 
 .dark[data-board-theme="harbor"],
+.theme-scope.dark[data-board-theme="harbor"],
 .dark .aduts-shell[data-theme-preset="harbor"],
 .dark .aduts-theme-swatch--harbor {
   --aduts-theme-bg-pattern: url("/theme-patterns/harbor-dark.svg");
@@ -324,6 +346,7 @@
 
 /* --- horizon: dusk skyline band --- */
 :root[data-board-theme="horizon"],
+.theme-scope[data-board-theme="horizon"],
 .aduts-shell[data-theme-preset="horizon"],
 .aduts-theme-swatch--horizon {
   --aduts-theme-bg-pattern: url("/theme-patterns/horizon.svg");
@@ -337,6 +360,7 @@
 }
 
 .dark[data-board-theme="horizon"],
+.theme-scope.dark[data-board-theme="horizon"],
 .dark .aduts-shell[data-theme-preset="horizon"],
 .dark .aduts-theme-swatch--horizon {
   --aduts-theme-bg-pattern: url("/theme-patterns/horizon-dark.svg");
