@@ -26,7 +26,9 @@ export type ReportType =
   | 'by-course'
   | 'trends'
   | 'foreigner-split'
-  | 'day-to-day';
+  | 'day-to-day'
+  | 'monthly-accomplishment'
+  | 'yearly-documents';
 
 export type SummaryReport = {
   total: number;
@@ -162,6 +164,44 @@ export type DayToDayReport = {
   };
 };
 
+export type MonthlyAccomplishmentMetrics = {
+  persons: number;
+  attachments: number;
+  documents_accomplished: number;
+  income: number;
+};
+
+export type MonthlyAccomplishmentReport = {
+  sections: Array<{
+    college_id: string;
+    college_name: string;
+    rows: Array<{
+      document_group_id: number | null;
+      document_group_name: string;
+      persons: number;
+      attachments: number;
+      documents_accomplished: number;
+      income: number;
+    }>;
+    totals: MonthlyAccomplishmentMetrics;
+  }>;
+  grand_totals: MonthlyAccomplishmentMetrics;
+};
+
+export type YearlyDocumentsReport = {
+  year: number;
+  rows: Array<{
+    requestable_type: string;
+    requestable_id: number;
+    name: string;
+    kind: string;
+    months: Record<string, number>;
+    total: number;
+  }>;
+  month_totals: Record<string, number>;
+  grand_total: number;
+};
+
 function toParams(filters: ReportFilters): Record<string, string | boolean> {
   const params: Record<string, string | boolean> = {};
 
@@ -242,6 +282,15 @@ export const fetchForeignerSplitReport = (filters: ReportFilters) =>
 export const fetchDayToDayReport = (filters: ReportFilters, page = 1) =>
   fetchReport<DayToDayReport>('/v1/drs/reports/day-to-day', filters, { page });
 
+export const fetchMonthlyAccomplishmentReport = (filters: ReportFilters) =>
+  fetchReport<MonthlyAccomplishmentReport>(
+    '/v1/drs/reports/monthly-accomplishment',
+    filters,
+  );
+
+export const fetchYearlyDocumentsReport = (filters: ReportFilters) =>
+  fetchReport<YearlyDocumentsReport>('/v1/drs/reports/yearly-documents', filters);
+
 export async function fetchReportCourses(): Promise<ReportCourseOption[]> {
   const { data } = await registrarSvc.get<{ data: ReportCourseOption[] }>(
     '/v1/drs/reports/courses',
@@ -273,6 +322,8 @@ export const REPORT_TABS: Array<{ id: ReportType; label: string }> = [
   { id: 'by-course', label: 'By course' },
   { id: 'revenue', label: 'Revenue' },
   { id: 'day-to-day', label: 'Day to day' },
+  { id: 'monthly-accomplishment', label: 'Monthly accomplishment' },
+  { id: 'yearly-documents', label: 'Yearly documents' },
 ];
 
 export type ReportGroupId = 'now' | 'workload' | 'programs' | 'register';
@@ -300,7 +351,7 @@ export const REPORT_GROUPS: Array<{
   {
     id: 'register',
     label: 'Register',
-    tabs: ['day-to-day'],
+    tabs: ['day-to-day', 'monthly-accomplishment', 'yearly-documents'],
   },
 ];
 

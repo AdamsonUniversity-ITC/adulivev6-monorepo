@@ -1,14 +1,21 @@
 import type { ReportFilters } from '@/api/reports.ts';
 import { DrsStatusBadge } from '@/components/drs-ui.tsx';
-import { describeAppliedFilters } from './-report-utils.ts';
+import {
+  describeAppliedFilters,
+  type ReportPeriodMode,
+} from './-report-utils.ts';
 
 type ReportAppliedFiltersProps = {
   filters: ReportFilters;
+  periodMode?: ReportPeriodMode;
 };
 
 /** Caption stating what the figures below are actually counting. */
-export function ReportAppliedFilters({ filters }: ReportAppliedFiltersProps) {
-  const chips = describeAppliedFilters(filters);
+export function ReportAppliedFilters({
+  filters,
+  periodMode = 'range',
+}: ReportAppliedFiltersProps) {
+  const chips = describeAppliedFilters(filters, periodMode);
 
   if (chips.length === 0) {
     return (

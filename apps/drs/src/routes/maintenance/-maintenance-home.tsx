@@ -16,6 +16,7 @@ import { ChevronRight } from 'lucide-react';
 import { useState, type JSX } from 'react';
 import { ApplicationSheet } from './-application-sheet.tsx';
 import { ApplyDisclaimerSheet } from './-apply-disclaimer-sheet.tsx';
+import { RequestRestrictionsSheet } from './-request-restrictions-sheet.tsx';
 import { AssessmentSheet } from './-assessment-sheet.tsx';
 import { AutoDisposalSheet } from './-auto-disposal-sheet.tsx';
 import { AutoFetchSheet } from './-auto-fetch-sheet.tsx';
@@ -70,6 +71,14 @@ const steps: Step[] = [
     accessCode: 'application',
     group: 'Catalog',
     component: <ApplyDisclaimerSheet />,
+  },
+  {
+    label: 'Request restrictions',
+    description:
+      'Block re-requesting an item while an unpaid request for it is still open.',
+    accessCode: 'application',
+    group: 'Catalog',
+    component: <RequestRestrictionsSheet />,
   },
   {
     label: 'Stages and tasks',

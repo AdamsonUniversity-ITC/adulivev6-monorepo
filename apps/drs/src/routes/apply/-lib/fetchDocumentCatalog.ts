@@ -14,6 +14,7 @@ export type DocumentCatalogResult = {
   eligibility: CatalogEligibilityMeta | null;
   studentBalance: StudentBalanceMeta | null;
   applyDisclaimerHtml: string;
+  blockWhileUnpaid: boolean;
 };
 
 export const fetchDocumentCatalog =
@@ -24,6 +25,7 @@ export const fetchDocumentCatalog =
         eligibility?: CatalogEligibilityMeta | null;
         student_balance?: StudentBalanceMeta | null;
         apply_disclaimer_html?: string | null;
+        block_while_unpaid?: boolean | null;
       };
     }>('v1/drs/document-catalog');
 
@@ -36,6 +38,7 @@ export const fetchDocumentCatalog =
           typeof data.meta?.apply_disclaimer_html === 'string'
             ? data.meta.apply_disclaimer_html
             : '',
+        blockWhileUnpaid: Boolean(data.meta?.block_while_unpaid),
       };
     }
 
@@ -45,6 +48,7 @@ export const fetchDocumentCatalog =
         eligibility: null,
         studentBalance: null,
         applyDisclaimerHtml: '',
+        blockWhileUnpaid: false,
       };
     }
 
@@ -53,5 +57,6 @@ export const fetchDocumentCatalog =
       eligibility: null,
       studentBalance: null,
       applyDisclaimerHtml: '',
+      blockWhileUnpaid: false,
     };
   };

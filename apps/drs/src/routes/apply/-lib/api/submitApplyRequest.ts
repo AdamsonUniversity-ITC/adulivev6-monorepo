@@ -9,6 +9,12 @@ export type ApplyRequestLine = {
   option_answers?: Array<{ option_id: number; value: string }>;
 };
 
+export type ApplyCartLine = {
+  clientId: string;
+  catalogKey: string;
+  quantity: number;
+};
+
 export type ApplySupportingUpload = {
   requestable_type: 'document';
   requestable_id: number;
@@ -27,6 +33,13 @@ export type ApplyRequestPayload = {
   lines: ApplyRequestLine[];
   supporting_uploads?: ApplySupportingUpload[];
 };
+
+export function createApplyCartClientId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `line-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function lineFromCatalogKey(
   key: string,
@@ -58,26 +71,43 @@ function lineFromCatalogKey(
 }
 
 export type ValidateApplyLineQuantitiesResult =
-  | { ok: true; lines: ApplyRequestLine[] }
+  | { ok: true; lines: ApplyRequestLine[]; cartLines: ApplyCartLine[] }
   | { ok: false; message: string };
 
+export function totalQtyForCatalogKey(
+  cartLines: ApplyCartLine[],
+  catalogKey: string,
+): number {
+  return cartLines.reduce(
+    (sum, line) =>
+      line.catalogKey === catalogKey && line.quantity > 0
+        ? sum + line.quantity
+        : sum,
+    0,
+  );
+}
+
 /**
- * Ensures each positive quantity is a known catalog key and does not exceed
- * the per-line max from `allow_multiple_per_request` (via maxByKey).
+ * Ensures each positive cart line is a known catalog key and the summed
+ * quantity per catalog item does not exceed maxByKey.
  */
-export function validateApplyLineQuantities(
-  quantities: Record<string, number>,
+export function validateApplyCartLines(
+  cartLines: ApplyCartLine[],
   maxByKey: Map<string, number>,
 ): ValidateApplyLineQuantitiesResult {
+  const totals = new Map<string, number>();
   const lines: ApplyRequestLine[] = [];
+  const kept: ApplyCartLine[] = [];
 
-  for (const [key, rawQty] of Object.entries(quantities)) {
-    const qty = Math.floor(Number.isFinite(rawQty) ? rawQty : 0);
+  for (const cartLine of cartLines) {
+    const qty = Math.floor(
+      Number.isFinite(cartLine.quantity) ? cartLine.quantity : 0,
+    );
     if (qty <= 0) {
       continue;
     }
 
-    const max = maxByKey.get(key);
+    const max = maxByKey.get(cartLine.catalogKey);
     if (max === undefined) {
       return {
         ok: false,
@@ -85,15 +115,18 @@ export function validateApplyLineQuantities(
           'The catalog changed while you were ordering. Refresh the page and try again.',
       };
     }
-    if (qty > max) {
+
+    const nextTotal = (totals.get(cartLine.catalogKey) ?? 0) + qty;
+    if (nextTotal > max) {
       return {
         ok: false,
         message:
           'Quantity exceeds the maximum allowed for one or more items. Adjust your cart and try again.',
       };
     }
+    totals.set(cartLine.catalogKey, nextTotal);
 
-    const line = lineFromCatalogKey(key, qty);
+    const line = lineFromCatalogKey(cartLine.catalogKey, qty);
     if (!line) {
       return {
         ok: false,
@@ -101,6 +134,7 @@ export function validateApplyLineQuantities(
       };
     }
     lines.push(line);
+    kept.push({ ...cartLine, quantity: qty });
   }
 
   if (lines.length === 0) {
@@ -110,25 +144,51 @@ export function validateApplyLineQuantities(
     };
   }
 
-  return { ok: true, lines };
+  return { ok: true, lines, cartLines: kept };
 }
 
-export function attachOptionAnswersToLines(
-  lines: ApplyRequestLine[],
-  answersByDocumentId: Record<
+/** @deprecated Prefer validateApplyCartLines for multi-line carts. */
+export function validateApplyLineQuantities(
+  quantities: Record<string, number>,
+  maxByKey: Map<string, number>,
+): ValidateApplyLineQuantitiesResult {
+  const cartLines: ApplyCartLine[] = Object.entries(quantities).map(
+    ([catalogKey, quantity]) => ({
+      clientId: createApplyCartClientId(),
+      catalogKey,
+      quantity,
+    }),
+  );
+  return validateApplyCartLines(cartLines, maxByKey);
+}
+
+export function attachOptionAnswersToCartLines(
+  cartLines: ApplyCartLine[],
+  optionAnswers: Record<string, string>,
+  optionsByDocumentId: Map<
     number,
-    Array<{ option_id: number; value: string }>
+    Array<{ id: number; is_required?: boolean }>
   >,
 ): ApplyRequestLine[] {
-  return lines.map((line) => {
-    if (line.requestable_type !== 'document') {
-      return line;
+  return cartLines.flatMap((cartLine) => {
+    const base = lineFromCatalogKey(cartLine.catalogKey, cartLine.quantity);
+    if (!base) return [];
+    if (base.requestable_type !== 'document') {
+      return [base];
     }
-    const answers = answersByDocumentId[line.requestable_id];
-    if (!answers || answers.length === 0) {
-      return line;
+    const options = optionsByDocumentId.get(base.requestable_id) ?? [];
+    const answers = options
+      .map((option) => ({
+        option_id: option.id,
+        value: (
+          optionAnswers[`${cartLine.clientId}:${option.id}`] ?? ''
+        ).trim(),
+      }))
+      .filter((row) => row.value !== '');
+    if (answers.length === 0) {
+      return [base];
     }
-    return { ...line, option_answers: answers };
+    return [{ ...base, option_answers: answers }];
   });
 }
 

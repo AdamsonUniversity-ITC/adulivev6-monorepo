@@ -4,6 +4,7 @@ import {
   fetchDayToDayReport,
   fetchDocumentDemandReport,
   fetchForeignerSplitReport,
+  fetchMonthlyAccomplishmentReport,
   fetchPaymentStatusReport,
   fetchReleaseModeReport,
   fetchRevenueReport,
@@ -12,6 +13,7 @@ import {
   fetchTatByStatusReport,
   fetchTrendsReport,
   fetchTurnaroundReport,
+  fetchYearlyDocumentsReport,
   REPORT_GROUPS,
   REPORT_TABS,
   reportGroupForType,
@@ -57,11 +59,16 @@ import { ReportTabPanel } from './-report-tab-panel.tsx';
 import { SimpleReportTable } from './-report-table.tsx';
 import {
   describeAppliedFilters,
+  filtersFromMonthYear,
+  filtersFromYear,
   formatReportCount,
   formatReportCurrency,
   formatReportDays,
   formatReportLabel,
   formatReportPercent,
+  isCleanMonthWindow,
+  isCleanYearWindow,
+  reportPeriodMode,
 } from './-report-utils.ts';
 
 const ReportBarChart = lazy(() =>
@@ -90,6 +97,30 @@ function ReportSectionTitle({ children }: { children: string }) {
 }
 
 const defaultFilters: ReportFilters = {};
+
+function currentMonthFilters(): Pick<ReportFilters, 'date_from' | 'date_to'> {
+  const now = new Date();
+  return filtersFromMonthYear(now.getFullYear(), now.getMonth() + 1);
+}
+
+function currentYearFilters(): Pick<ReportFilters, 'date_from' | 'date_to'> {
+  return filtersFromYear(new Date().getFullYear());
+}
+
+const YEARLY_MONTH_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 export function ReportsPage() {
   const [draftFilters, setDraftFilters] =
@@ -132,6 +163,52 @@ export function ReportsPage() {
   useEffect(() => {
     setDayToDayPage(1);
   }, [appliedFilters]);
+
+  const periodMode = reportPeriodMode(activeTab);
+
+  useEffect(() => {
+    if (periodMode !== 'month') {
+      return;
+    }
+
+    const month = currentMonthFilters();
+    setDraftFilters((current) => {
+      const datesUnset = !current.date_from && !current.date_to;
+      if (!datesUnset && isCleanMonthWindow(current)) {
+        return current;
+      }
+      return { ...current, ...month };
+    });
+    setAppliedFilters((current) => {
+      const datesUnset = !current.date_from && !current.date_to;
+      if (!datesUnset && isCleanMonthWindow(current)) {
+        return current;
+      }
+      return { ...current, ...month };
+    });
+  }, [periodMode]);
+
+  useEffect(() => {
+    if (periodMode !== 'year') {
+      return;
+    }
+
+    const year = currentYearFilters();
+    setDraftFilters((current) => {
+      const datesUnset = !current.date_from && !current.date_to;
+      if (!datesUnset && isCleanYearWindow(current)) {
+        return current;
+      }
+      return { ...current, ...year };
+    });
+    setAppliedFilters((current) => {
+      const datesUnset = !current.date_from && !current.date_to;
+      if (!datesUnset && isCleanYearWindow(current)) {
+        return current;
+      }
+      return { ...current, ...year };
+    });
+  }, [periodMode]);
 
   const summaryQuery = useQuery({
     queryKey: ['drs-report', 'summary', appliedFilters],
@@ -197,6 +274,16 @@ export function ReportsPage() {
     queryFn: () => fetchDayToDayReport(appliedFilters, dayToDayPage),
     enabled: activeTab === 'day-to-day',
   });
+  const monthlyAccomplishmentQuery = useQuery({
+    queryKey: ['drs-report', 'monthly-accomplishment', appliedFilters],
+    queryFn: () => fetchMonthlyAccomplishmentReport(appliedFilters),
+    enabled: activeTab === 'monthly-accomplishment',
+  });
+  const yearlyDocumentsQuery = useQuery({
+    queryKey: ['drs-report', 'yearly-documents', appliedFilters],
+    queryFn: () => fetchYearlyDocumentsReport(appliedFilters),
+    enabled: activeTab === 'yearly-documents',
+  });
 
   const activeLabel =
     REPORT_TABS.find((tab) => tab.id === activeTab)?.label ?? 'Report';
@@ -234,6 +321,12 @@ export function ReportsPage() {
         return { byCourse: courseQuery.data ?? {} };
       case 'day-to-day':
         return { dayToDay: dayToDayQuery.data ?? {} };
+      case 'monthly-accomplishment':
+        return {
+          monthlyAccomplishment: monthlyAccomplishmentQuery.data ?? {},
+        };
+      case 'yearly-documents':
+        return { yearlyDocuments: yearlyDocumentsQuery.data ?? {} };
       default:
         return {};
     }
@@ -250,6 +343,8 @@ export function ReportsPage() {
     clearanceQuery.data,
     courseQuery.data,
     dayToDayQuery.data,
+    monthlyAccomplishmentQuery.data,
+    yearlyDocumentsQuery.data,
     trendsQuery.data,
     foreignerQuery.data,
   ]);
@@ -260,8 +355,8 @@ export function ReportsPage() {
   };
 
   const canResetFilters =
-    describeAppliedFilters(draftFilters).length > 0 ||
-    describeAppliedFilters(appliedFilters).length > 0;
+    describeAppliedFilters(draftFilters, periodMode).length > 0 ||
+    describeAppliedFilters(appliedFilters, periodMode).length > 0;
 
   const tabLoading =
     (onStatus && statusQuery.isLoading) ||
@@ -272,7 +367,10 @@ export function ReportsPage() {
       (turnaroundQuery.isLoading || tatByStatusQuery.isLoading)) ||
     (activeTab === 'by-course' && courseQuery.isLoading) ||
     (activeTab === 'revenue' && revenueQuery.isLoading) ||
-    (activeTab === 'day-to-day' && dayToDayQuery.isLoading);
+    (activeTab === 'day-to-day' && dayToDayQuery.isLoading) ||
+    (activeTab === 'monthly-accomplishment' &&
+      monthlyAccomplishmentQuery.isLoading) ||
+    (activeTab === 'yearly-documents' && yearlyDocumentsQuery.isLoading);
 
   return (
     <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
@@ -293,6 +391,7 @@ export function ReportsPage() {
 
       <ReportFiltersBar
         filters={draftFilters}
+        periodMode={periodMode}
         onChange={setDraftFilters}
         onApply={() => setAppliedFilters({ ...draftFilters })}
         onReset={handleResetFilters}
@@ -300,7 +399,10 @@ export function ReportsPage() {
         isApplying={tabLoading || (onNow && summaryQuery.isLoading)}
       />
 
-      <ReportAppliedFilters filters={appliedFilters} />
+      <ReportAppliedFilters
+        filters={appliedFilters}
+        periodMode={periodMode}
+      />
 
       <div className="space-y-4">
         <div className="space-y-2 lg:hidden">
@@ -804,6 +906,152 @@ export function ReportsPage() {
                   </Button>
                 </div>
               ) : null}
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="monthly-accomplishment" className="space-y-4">
+            <ReportTabPanel
+              isLoading={monthlyAccomplishmentQuery.isLoading}
+              isError={monthlyAccomplishmentQuery.isError}
+              loadingLabel="Loading monthly accomplishment…"
+              onRetry={() => void monthlyAccomplishmentQuery.refetch()}
+            >
+              {(monthlyAccomplishmentQuery.data?.sections ?? []).length ===
+              0 ? (
+                <SimpleReportTable
+                  columns={[
+                    'Document group',
+                    'Number of person',
+                    'Number of attachments',
+                    'Number of documents accomplished',
+                    'Income',
+                  ]}
+                  rows={[]}
+                />
+              ) : (
+                <div className="space-y-6">
+                  {(monthlyAccomplishmentQuery.data?.sections ?? []).map(
+                    (section) => (
+                      <div key={section.college_id} className="space-y-3">
+                        <ReportSectionTitle>
+                          {section.college_name}
+                        </ReportSectionTitle>
+                        <SimpleReportTable
+                          columns={[
+                            'Document group',
+                            'Number of person',
+                            'Number of attachments',
+                            'Number of documents accomplished',
+                            'Income',
+                          ]}
+                          rows={[
+                            ...section.rows.map((row) => [
+                              row.document_group_name,
+                              formatReportCount(row.persons),
+                              formatReportCount(row.attachments),
+                              formatReportCount(row.documents_accomplished),
+                              formatReportCurrency(row.income),
+                            ]),
+                            [
+                              'Total',
+                              formatReportCount(section.totals.persons),
+                              formatReportCount(section.totals.attachments),
+                              formatReportCount(
+                                section.totals.documents_accomplished,
+                              ),
+                              formatReportCurrency(section.totals.income),
+                            ],
+                          ]}
+                        />
+                      </div>
+                    ),
+                  )}
+                  <div className="space-y-3">
+                    <ReportSectionTitle>Grand total</ReportSectionTitle>
+                    <SimpleReportTable
+                      columns={[
+                        'Metric',
+                        'Number of person',
+                        'Number of attachments',
+                        'Number of documents accomplished',
+                        'Income',
+                      ]}
+                      rows={[
+                        [
+                          'All colleges',
+                          formatReportCount(
+                            monthlyAccomplishmentQuery.data?.grand_totals
+                              .persons ?? 0,
+                          ),
+                          formatReportCount(
+                            monthlyAccomplishmentQuery.data?.grand_totals
+                              .attachments ?? 0,
+                          ),
+                          formatReportCount(
+                            monthlyAccomplishmentQuery.data?.grand_totals
+                              .documents_accomplished ?? 0,
+                          ),
+                          formatReportCurrency(
+                            monthlyAccomplishmentQuery.data?.grand_totals
+                              .income ?? 0,
+                          ),
+                        ],
+                      ]}
+                    />
+                  </div>
+                </div>
+              )}
+            </ReportTabPanel>
+          </TabsContent>
+
+          <TabsContent value="yearly-documents" className="space-y-4">
+            <ReportTabPanel
+              isLoading={yearlyDocumentsQuery.isLoading}
+              isError={yearlyDocumentsQuery.isError}
+              loadingLabel="Loading yearly documents…"
+              onRetry={() => void yearlyDocumentsQuery.refetch()}
+            >
+              <ReportSectionTitle>
+                {yearlyDocumentsQuery.data?.year
+                  ? `Year ${yearlyDocumentsQuery.data.year}`
+                  : 'Yearly documents'}
+              </ReportSectionTitle>
+              <SimpleReportTable
+                columns={[
+                  'Document / package',
+                  'Kind',
+                  ...YEARLY_MONTH_LABELS,
+                  'Total',
+                ]}
+                rows={[
+                  ...(yearlyDocumentsQuery.data?.rows ?? []).map((row) => [
+                    row.name,
+                    formatReportLabel(row.kind),
+                    ...YEARLY_MONTH_LABELS.map((_, index) =>
+                      formatReportCount(row.months[String(index + 1)] ?? 0),
+                    ),
+                    formatReportCount(row.total),
+                  ]),
+                  ...(yearlyDocumentsQuery.data?.rows?.length
+                    ? [
+                        [
+                          'Total',
+                          '',
+                          ...YEARLY_MONTH_LABELS.map((_, index) =>
+                            formatReportCount(
+                              yearlyDocumentsQuery.data?.month_totals[
+                                String(index + 1)
+                              ] ?? 0,
+                            ),
+                          ),
+                          formatReportCount(
+                            yearlyDocumentsQuery.data?.grand_total ?? 0,
+                          ),
+                        ],
+                      ]
+                    : []),
+                ]}
+              />
             </ReportTabPanel>
           </TabsContent>
         </Tabs>

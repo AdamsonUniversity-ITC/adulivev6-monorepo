@@ -20,7 +20,7 @@ import {
 import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2, Copy } from 'lucide-react';
 import * as React from 'react';
 
 import {
@@ -56,6 +56,7 @@ export type DraftLine = {
   requestable_id: number;
   quantity: number;
   label: string;
+  option_answers?: Array<{ option_id: number; value: string }>;
 };
 
 type CatalogPickRow = {
@@ -203,8 +204,9 @@ export function AddCatalogLinesDialog({
         <DialogHeader>
           <DialogTitle>Add document or package</DialogTitle>
           <DialogDescription>
-            Choose from the registrar catalog. If an item allows multiple
-            copies, picking it again increases the quantity.
+            Choose from the registrar catalog. Re-picking an item that allows
+            multiple copies increases its quantity. Use Duplicate on a line when
+            you need a separate copy with different options.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
@@ -1194,6 +1196,15 @@ function RequestedItemsEditor({
   onLinesChange: React.Dispatch<React.SetStateAction<DraftLine[]>>;
   onOpenCatalog: () => void;
 }) {
+  const totalQtyFor = (line: DraftLine) =>
+    lines
+      .filter(
+        (row) =>
+          row.requestable_type === line.requestable_type &&
+          row.requestable_id === line.requestable_id,
+      )
+      .reduce((sum, row) => sum + row.quantity, 0);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1220,6 +1231,13 @@ function RequestedItemsEditor({
             line.requestable_type === 'document' &&
             lockedCompanionIds.includes(line.requestable_id);
           const lockedBy = lockedCompanionLabels[line.requestable_id];
+          const sameCount = lines.filter(
+            (row) =>
+              row.requestable_type === line.requestable_type &&
+              row.requestable_id === line.requestable_id,
+          ).length;
+          const canDuplicate =
+            editable && totalQtyFor(line) < MAX_LINE_QTY;
 
           return (
             <div
@@ -1227,7 +1245,22 @@ function RequestedItemsEditor({
               className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{line.label}</p>
+                <p className="text-sm font-medium">
+                  {line.label}
+                  {sameCount > 1 ? (
+                    <span className="text-muted-foreground font-normal">
+                      {' '}
+                      · copy{' '}
+                      {lines
+                        .slice(0, index + 1)
+                        .filter(
+                          (row) =>
+                            row.requestable_type === line.requestable_type &&
+                            row.requestable_id === line.requestable_id,
+                        ).length}
+                    </span>
+                  ) : null}
+                </p>
                 {isLockedCompanion && lockedBy ? (
                   <p className="text-muted-foreground text-xs">
                     Required with {lockedBy}. It cannot be removed while that
@@ -1268,6 +1301,37 @@ function RequestedItemsEditor({
                     }}
                   />
                 </div>
+                {canDuplicate ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    disabled={!editable}
+                    onClick={() =>
+                      onLinesChange((prev) => {
+                        if (totalQtyFor(line) >= MAX_LINE_QTY) {
+                          toast.error(
+                            'Quantity exceeds the maximum allowed for this item.',
+                          );
+                          return prev;
+                        }
+                        return [
+                          ...prev,
+                          {
+                            requestable_type: line.requestable_type,
+                            requestable_id: line.requestable_id,
+                            quantity: 1,
+                            label: line.label,
+                          },
+                        ];
+                      })
+                    }
+                  >
+                    <Copy className="mr-1 size-3.5" aria-hidden="true" />
+                    Duplicate
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
