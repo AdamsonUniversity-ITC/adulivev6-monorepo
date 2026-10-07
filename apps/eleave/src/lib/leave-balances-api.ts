@@ -12,7 +12,13 @@ export async function fetchMyLeaveBalances(): Promise<LeaveBalanceRecord[]> {
   const response = await hrmdoSvc.get<{ data: LeaveBalanceRecord[] }>(
     "v1/leave-balances/me",
   )
-  return response.data.data
+  const unwrapped = response.data.data
+
+  if (unwrapped === undefined) {
+    throw new Error("leave-balances/me returned no data payload.")
+  }
+
+  return unwrapped
 }
 
 export async function fetchEmployeeLeaveBalances(
