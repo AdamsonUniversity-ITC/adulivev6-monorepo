@@ -63,6 +63,9 @@ function PlatformHome() {
               <Card className="hover:border-primary/50 h-full shadow-sm transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring">
                 <CardHeader className="p-5">
                   <CardTitle className="text-lg">{board.board_name}</CardTitle>
+                  <CardDescription className="mt-1.5 truncate font-mono text-xs">
+                    {board.url}
+                  </CardDescription>
                   {board.description ? (
                     <CardDescription className="mt-1.5 line-clamp-2 text-sm">
                       {board.description}

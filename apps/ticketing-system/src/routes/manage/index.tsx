@@ -93,7 +93,10 @@ function ManageBoardPage() {
 
   const logoUploadMutation = useMutation({
     mutationFn: (file: File) => uploadBoardLogo(file),
-    onSuccess: () => {
+    onSuccess: (board) => {
+      queryClient.setQueryData(["aduts", "board"], (prev: typeof board | undefined) =>
+        prev ? { ...prev, ...board } : board,
+      );
       invalidateBoard();
       toast.success("Board logo updated.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -103,7 +106,10 @@ function ManageBoardPage() {
 
   const logoRemoveMutation = useMutation({
     mutationFn: () => removeBoardLogo(),
-    onSuccess: () => {
+    onSuccess: (board) => {
+      queryClient.setQueryData(["aduts", "board"], (prev: typeof board | undefined) =>
+        prev ? { ...prev, ...board } : board,
+      );
       invalidateBoard();
       toast.success("Board logo removed.");
     },

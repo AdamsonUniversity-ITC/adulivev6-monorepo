@@ -31,6 +31,7 @@ export type Board = {
   is_public: boolean;
   url: string;
   kb_url?: string | null;
+  frontend_url?: string | null;
   accent_color?: string | null;
   theme_preset?: string | null;
   sla_resolve_hours?: number | null;
@@ -787,6 +788,7 @@ export async function createBoard(payload: {
   slug?: string;
   description?: string;
   is_public?: boolean;
+  frontend_url?: string | null;
   sections?: Array<{ section_name: string }>;
 }) {
   const { data } = await hrmdoSvc.post<{ data: Board }>(
@@ -805,6 +807,7 @@ export async function updateAdminBoard(
     is_public: boolean;
     sla_resolve_hours: number | null;
     kb_url: string | null;
+    frontend_url: string | null;
   }>,
 ) {
   const { data } = await hrmdoSvc.patch<{ data: Board }>(
