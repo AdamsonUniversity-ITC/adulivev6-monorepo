@@ -3,12 +3,19 @@ import { buildLoginUrl } from './login-url';
 
 let loginAppReachable: boolean | null = null;
 
+/** Vite/Node inject NODE_ENV; avoid import.meta (TS1470 under NodeNext/CJS). */
+function isDev(): boolean {
+  return (
+    typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
+  );
+}
+
 async function isLoginAppReachable(): Promise<boolean> {
   if (loginAppReachable !== null) {
     return loginAppReachable;
   }
 
-  if (!import.meta.env.DEV) {
+  if (!isDev()) {
     loginAppReachable = true;
     return loginAppReachable;
   }
@@ -30,7 +37,7 @@ export async function redirectOnUnauthorized(returnTo?: string): Promise<void> {
     return;
   }
 
-  if (import.meta.env.DEV) {
+  if (isDev()) {
     console.warn(
       '[auth] Session missing or expired, but the login app is not reachable. Start the auth frontend or sign in via the API before using DRS.',
     );

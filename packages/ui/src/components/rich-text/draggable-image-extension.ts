@@ -129,7 +129,12 @@ export const ResizableDraggableInlineImage = Image.extend({
               style: "display:inline;",
             };
 
-            tr.insert(toPos, state.schema.nodes.image.create(attrs));
+            const imageType = state.schema.nodes.image;
+            if (!imageType) {
+              return false;
+            }
+
+            tr.insert(toPos, imageType.create(attrs));
 
             tr.doc.descendants((child, pos) => {
               if (child.type.name === "paragraph" && child.content.size === 0) {
