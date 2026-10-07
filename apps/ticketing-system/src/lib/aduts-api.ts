@@ -34,6 +34,7 @@ export type Board = {
   accent_color?: string | null;
   theme_preset?: string | null;
   sla_resolve_hours?: number | null;
+  logo_url?: string | null;
   deleted_at?: string | null;
   sections?: Array<{
     id: number;
@@ -856,6 +857,25 @@ export async function updateCurrentBoard(
     "v1/aduts/board",
     payload,
   );
+  return data.data;
+}
+
+export async function uploadBoardLogo(file: File) {
+  const formData = new FormData();
+  formData.append("logo", file);
+
+  const { data } = await hrmdoSvc.post<{ data: Board }>(
+    "v1/aduts/board/logo",
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+  return data.data;
+}
+
+export async function removeBoardLogo() {
+  const { data } = await hrmdoSvc.delete<{ data: Board }>("v1/aduts/board/logo");
   return data.data;
 }
 

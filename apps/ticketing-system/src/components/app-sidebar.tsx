@@ -9,7 +9,6 @@ import {
   Settings2,
   SlashSquare,
   Tags,
-  Ticket,
   Users,
   UserCog,
   Wrench,
@@ -92,7 +91,6 @@ export function AppSidebar() {
 
   const mainNavItems: NavItem[] = [
     { title: "Home", url: "/", icon: Home },
-    { title: "Tickets", url: "/tickets", icon: Ticket },
     ...(showReports
       ? [{ title: "Reports", url: "/reports", icon: BarChart3 } as NavItem]
       : []),
@@ -145,8 +143,16 @@ export function AppSidebar() {
               <Link to="/">
                 <div className="ring-primary/10 flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1">
                   <img
-                    src="/assets/images/adulogo.png"
-                    alt="Adamson University"
+                    src={
+                      !platform && boardQuery.data?.logo_url
+                        ? boardQuery.data.logo_url
+                        : "/assets/images/adulogo.png"
+                    }
+                    alt={
+                      !platform && boardQuery.data?.board_name
+                        ? boardQuery.data.board_name
+                        : "Adamson University"
+                    }
                     className="size-full object-cover"
                   />
                 </div>
