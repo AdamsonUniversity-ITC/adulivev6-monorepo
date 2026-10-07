@@ -71,7 +71,7 @@ function MyLeavePage() {
     return [
       {
         label: "Total requests",
-        value: leaveApplicationsResponse?.meta.total ?? rows.length,
+        value: leaveApplicationsResponse?.meta?.total ?? rows.length,
         icon: FileText,
         cardClassName:
           "border-blue-300/70 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.22),_transparent_55%),linear-gradient(90deg,_#93c5fd_0%,_#60a5fa_52%,_#3b82f6_100%)]",
@@ -110,7 +110,7 @@ function MyLeavePage() {
         valueClassName: "text-white",
       },
     ]
-  }, [leaveApplicationsResponse?.meta.total, rows])
+  }, [leaveApplicationsResponse?.meta?.total, rows])
 
   return (
     <div className="space-y-8">

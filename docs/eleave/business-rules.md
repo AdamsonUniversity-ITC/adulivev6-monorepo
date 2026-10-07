@@ -85,7 +85,9 @@ Configured per leave type via Settings → Leave Types (`enforces_dependent_care
 `LeaveDependentCareLimitService`:
 
 - When the leave type flag is on and reason contains “dependent”:
-  - Count uses this calendar year for that leave type (new apps; plus legacy HR `leave_details` only when `leave_code` is `el`).
+  - Count **approved** uses this calendar year for that leave type:
+    - New apps: `leave_applications` with `overall_status = Approved` (Pending and Partially Approved do not count).
+    - Legacy HR `leave_details` (only when `leave_code` is `el`): `status = Approved`, `SUM(total)`, `absent_start_date >= 2024-08-01`, leave type `Emergency Leave (EL)` or the leave type’s `old_leave_type` when set.
   - Block apply on `reason` when `used >= dependent_care_yearly_limit`.
 - This is a **use counter**, not a leave credit balance. Admin sets the yearly max once; usage resets each calendar year.
 - Reason phrase (`dependent`) remains code-driven.
