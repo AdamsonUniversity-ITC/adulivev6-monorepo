@@ -28,6 +28,7 @@ function NewBoardPage() {
   const [boardName, setBoardName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [frontendUrl, setFrontendUrl] = useState("");
   const [sectionName, setSectionName] = useState("Helpdesk");
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +50,7 @@ function NewBoardPage() {
       board_name: boardName,
       slug: slug || undefined,
       description: description || undefined,
+      frontend_url: frontendUrl.trim() || null,
       sections: sectionName ? [{ section_name: sectionName }] : [],
     });
   }
@@ -82,6 +84,21 @@ function NewBoardPage() {
               />
               <p className="text-muted-foreground text-xs">
                 Becomes {slug || "slug"}.localhost.test
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="frontend-url">Frontend URL (optional)</Label>
+              <Input
+                id="frontend-url"
+                type="url"
+                placeholder="http://itc-ts.localhost.test:5174"
+                value={frontendUrl}
+                onChange={(e) => setFrontendUrl(e.target.value)}
+                className="shadow-xs"
+              />
+              <p className="text-muted-foreground text-xs">
+                Override the Your Boards link when the slug host needs a port or
+                custom base.
               </p>
             </div>
             <div className="space-y-2">

@@ -49,6 +49,7 @@ function AdminBoardDetailPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [frontendUrl, setFrontendUrl] = useState("");
   const [adminUserId, setAdminUserId] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
@@ -56,6 +57,7 @@ function AdminBoardDetailPage() {
     setName(board.board_name);
     setSlug(board.slug);
     setDescription(board.description ?? "");
+    setFrontendUrl(board.frontend_url ?? board.url ?? "");
     setHydrated(true);
   }
 
@@ -65,11 +67,13 @@ function AdminBoardDetailPage() {
         board_name: name,
         slug,
         description: description || null,
+        frontend_url: frontendUrl.trim() || null,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ["aduts", "admin", "boards"],
       });
+      void queryClient.invalidateQueries({ queryKey: ["aduts", "boards"] });
     },
   });
 
@@ -142,6 +146,20 @@ function AdminBoardDetailPage() {
             <div className="space-y-2">
               <Label>Slug</Label>
               <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="frontend-url">Frontend URL</Label>
+              <Input
+                id="frontend-url"
+                type="url"
+                placeholder="http://itc-ts.localhost.test:5174"
+                value={frontendUrl}
+                onChange={(e) => setFrontendUrl(e.target.value)}
+              />
+              <p className="text-muted-foreground text-xs">
+                Used by Your Boards and notification links. Include the port in
+                local (e.g. :5174). Leave blank to use the slug-based host.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
