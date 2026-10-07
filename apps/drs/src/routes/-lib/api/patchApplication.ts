@@ -14,6 +14,7 @@ export type PatchApplicationPayload = {
     requestable_type: 'document' | 'package';
     requestable_id: number;
     quantity: number;
+    option_answers?: Array<{ option_id: number; value: string }>;
   }>;
 };
 

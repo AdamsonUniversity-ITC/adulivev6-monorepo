@@ -4,6 +4,7 @@ import type {
   DayToDayReport,
   DocumentDemandReport,
   ForeignerSplitReport,
+  MonthlyAccomplishmentReport,
   PaymentStatusReport,
   ReleaseModeReport,
   ReportFilters,
@@ -14,6 +15,7 @@ import type {
   TatByStatusReport,
   TrendsReport,
   TurnaroundReport,
+  YearlyDocumentsReport,
 } from '@/api/reports.ts';
 import {
   Document,
@@ -30,6 +32,7 @@ import {
   formatReportDays,
   formatReportLabel,
   formatReportPercent,
+  reportPeriodMode,
 } from './-report-utils.ts';
 
 const styles = StyleSheet.create({
@@ -596,6 +599,114 @@ function renderReportBody(
         </>
       );
     }
+    case 'monthly-accomplishment': {
+      const data = payload.monthlyAccomplishment as
+        | MonthlyAccomplishmentReport
+        | undefined;
+      return (
+        <>
+          <Text style={styles.sectionTitle}>Monthly accomplishment</Text>
+          {(data?.sections ?? []).map((section) => (
+            <View key={section.college_id} wrap={false}>
+              <Text style={styles.sectionTitle}>{section.college_name}</Text>
+              <DataTable
+                columns={[
+                  'Document group',
+                  'Number of person',
+                  'Number of attachments',
+                  'Number of documents accomplished',
+                  'Income',
+                ]}
+                rows={[
+                  ...section.rows.map((row) => [
+                    row.document_group_name,
+                    formatReportCount(row.persons),
+                    formatReportCount(row.attachments),
+                    formatReportCount(row.documents_accomplished),
+                    formatReportCurrency(row.income),
+                  ]),
+                  [
+                    'Total',
+                    formatReportCount(section.totals.persons),
+                    formatReportCount(section.totals.attachments),
+                    formatReportCount(section.totals.documents_accomplished),
+                    formatReportCurrency(section.totals.income),
+                  ],
+                ]}
+              />
+            </View>
+          ))}
+          <Text style={styles.sectionTitle}>Grand total</Text>
+          <DataTable
+            columns={[
+              'Metric',
+              'Number of person',
+              'Number of attachments',
+              'Number of documents accomplished',
+              'Income',
+            ]}
+            rows={[
+              [
+                'All colleges',
+                formatReportCount(data?.grand_totals.persons ?? 0),
+                formatReportCount(data?.grand_totals.attachments ?? 0),
+                formatReportCount(
+                  data?.grand_totals.documents_accomplished ?? 0,
+                ),
+                formatReportCurrency(data?.grand_totals.income ?? 0),
+              ],
+            ]}
+          />
+        </>
+      );
+    }
+    case 'yearly-documents': {
+      const data = payload.yearlyDocuments as YearlyDocumentsReport | undefined;
+      const monthLabels = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return (
+        <>
+          <Text style={styles.sectionTitle}>
+            Yearly documents{data?.year ? ` (${data.year})` : ''}
+          </Text>
+          <DataTable
+            columns={['Document / package', 'Kind', ...monthLabels, 'Total']}
+            rows={[
+              ...(data?.rows ?? []).map((row) => [
+                row.name,
+                formatReportLabel(row.kind),
+                ...monthLabels.map((_, index) =>
+                  formatReportCount(row.months[String(index + 1)] ?? 0),
+                ),
+                formatReportCount(row.total),
+              ]),
+              [
+                'Total',
+                '',
+                ...monthLabels.map((_, index) =>
+                  formatReportCount(
+                    data?.month_totals[String(index + 1)] ?? 0,
+                  ),
+                ),
+                formatReportCount(data?.grand_total ?? 0),
+              ],
+            ]}
+          />
+        </>
+      );
+    }
     default:
       return null;
   }
@@ -611,11 +722,17 @@ function ReportPdfDocument({
     <Document>
       <Page
         size="A4"
-        orientation={reportType === 'day-to-day' ? 'landscape' : 'portrait'}
+        orientation={
+          reportType === 'day-to-day' || reportType === 'yearly-documents'
+            ? 'landscape'
+            : 'portrait'
+        }
         style={styles.page}
       >
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{formatFiltersSummary(filters)}</Text>
+        <Text style={styles.subtitle}>
+          {formatFiltersSummary(filters, reportPeriodMode(reportType))}
+        </Text>
         {renderReportBody(reportType, payload)}
       </Page>
     </Document>

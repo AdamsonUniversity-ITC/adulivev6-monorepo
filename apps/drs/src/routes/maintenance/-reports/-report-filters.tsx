@@ -25,9 +25,19 @@ import {
   parseReportDate,
   startOfReportDay,
 } from './-report-date-picker.tsx';
+import {
+  REPORT_MONTH_OPTIONS,
+  filtersFromMonthYear,
+  filtersFromYear,
+  monthYearFromFilters,
+  reportYearOptions,
+  yearFromFilters,
+  type ReportPeriodMode,
+} from './-report-utils.ts';
 
 type ReportFiltersBarProps = {
   filters: ReportFilters;
+  periodMode?: ReportPeriodMode;
   onChange: (filters: ReportFilters) => void;
   onApply: () => void;
   onReset: () => void;
@@ -37,6 +47,7 @@ type ReportFiltersBarProps = {
 
 export function ReportFiltersBar({
   filters,
+  periodMode = 'range',
   onChange,
   onApply,
   onReset,
@@ -51,42 +62,135 @@ export function ReportFiltersBar({
   const selectedCourse =
     courses.find((course) => course.id === filters.course_id) ?? null;
 
+  const yearOptions = reportYearOptions();
+  const monthYear = monthYearFromFilters(filters);
+  const selectedYear =
+    periodMode === 'year'
+      ? yearFromFilters(filters)
+      : (monthYear?.year ?? null);
+  const selectedMonth = monthYear?.month ?? null;
+
+  const handleMonthChange = (monthValue: string) => {
+    const month = Number(monthValue);
+    const year = selectedYear ?? new Date().getFullYear();
+    onChange({
+      ...filters,
+      ...filtersFromMonthYear(year, month),
+    });
+  };
+
+  const handleMonthYearChange = (yearValue: string) => {
+    const year = Number(yearValue);
+    const month = selectedMonth ?? new Date().getMonth() + 1;
+    onChange({
+      ...filters,
+      ...filtersFromMonthYear(year, month),
+    });
+  };
+
+  const handleYearChange = (yearValue: string) => {
+    const year = Number(yearValue);
+    onChange({
+      ...filters,
+      ...filtersFromYear(year),
+    });
+  };
+
   return (
     <div className="bg-muted/30 grid gap-4 rounded-md border p-4 md:grid-cols-2 xl:grid-cols-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="date_from">Date from</Label>
-        <ReportDatePicker
-          id="date_from"
-          value={filters.date_from}
-          placeholder="Start date"
-          disabledDate={(date) => {
-            const maxDate = parseReportDate(filters.date_to);
-            return maxDate
-              ? startOfReportDay(date) > startOfReportDay(maxDate)
-              : false;
-          }}
-          onChange={(value) =>
-            onChange({ ...filters, date_from: value || undefined })
-          }
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="date_to">Date to</Label>
-        <ReportDatePicker
-          id="date_to"
-          value={filters.date_to}
-          placeholder="End date"
-          disabledDate={(date) => {
-            const minDate = parseReportDate(filters.date_from);
-            return minDate
-              ? startOfReportDay(date) < startOfReportDay(minDate)
-              : false;
-          }}
-          onChange={(value) =>
-            onChange({ ...filters, date_to: value || undefined })
-          }
-        />
-      </div>
+      {periodMode === 'month' ? (
+        <div className="space-y-1.5 md:col-span-2">
+          <Label>Month</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Select
+              value={selectedMonth != null ? String(selectedMonth) : undefined}
+              onValueChange={handleMonthChange}
+            >
+              <SelectTrigger id="period_month" aria-label="Month">
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent>
+                {REPORT_MONTH_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={String(option.value)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={selectedYear != null ? String(selectedYear) : undefined}
+              onValueChange={handleMonthYearChange}
+            >
+              <SelectTrigger id="period_month_year" aria-label="Year">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      ) : periodMode === 'year' ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="period_year">Year</Label>
+          <Select
+            value={selectedYear != null ? String(selectedYear) : undefined}
+            onValueChange={handleYearChange}
+          >
+            <SelectTrigger id="period_year">
+              <SelectValue placeholder="Select year" />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map((year) => (
+                <SelectItem key={year} value={String(year)}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="date_from">Date from</Label>
+            <ReportDatePicker
+              id="date_from"
+              value={filters.date_from}
+              placeholder="Start date"
+              disabledDate={(date) => {
+                const maxDate = parseReportDate(filters.date_to);
+                return maxDate
+                  ? startOfReportDay(date) > startOfReportDay(maxDate)
+                  : false;
+              }}
+              onChange={(value) =>
+                onChange({ ...filters, date_from: value || undefined })
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="date_to">Date to</Label>
+            <ReportDatePicker
+              id="date_to"
+              value={filters.date_to}
+              placeholder="End date"
+              disabledDate={(date) => {
+                const minDate = parseReportDate(filters.date_from);
+                return minDate
+                  ? startOfReportDay(date) < startOfReportDay(minDate)
+                  : false;
+              }}
+              onChange={(value) =>
+                onChange({ ...filters, date_to: value || undefined })
+              }
+            />
+          </div>
+        </>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="school_year">School year</Label>
         <Input

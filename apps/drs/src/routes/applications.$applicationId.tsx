@@ -202,6 +202,17 @@ function ApplicationDetailPage() {
             requestable_id: Number.isFinite(id) ? id : 0,
             quantity: l.quantity,
             label: l.request_name,
+            option_answers: (l.option_answers ?? [])
+              .map((answer) => ({
+                option_id: Number(answer.option_id),
+                value: String(answer.value ?? ''),
+              }))
+              .filter(
+                (answer) =>
+                  Number.isFinite(answer.option_id) &&
+                  answer.option_id > 0 &&
+                  answer.value.trim() !== '',
+              ),
           };
         }) ?? [];
       setLines(next);
@@ -358,6 +369,9 @@ function ApplicationDetailPage() {
           requestable_type: l.requestable_type,
           requestable_id: l.requestable_id,
           quantity: l.quantity,
+          ...(l.option_answers && l.option_answers.length > 0
+            ? { option_answers: l.option_answers }
+            : {}),
         })),
       }),
     onSuccess: (updated: DRSApplicationDetail) => {

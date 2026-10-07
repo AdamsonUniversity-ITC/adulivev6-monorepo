@@ -46,15 +46,18 @@ import { Textarea } from '@repo/ui/components/textarea';
 import { toast } from '@repo/ui/exports';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Copy } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { fetchPaymentCollectionSettings } from '../maintenance/-lib/api/paymentCollectionSettings.ts';
 import {
-  attachOptionAnswersToLines,
+  attachOptionAnswersToCartLines,
   buildApplyRequestPayload,
+  createApplyCartClientId,
   submitApplyRequest,
-  validateApplyLineQuantities,
+  totalQtyForCatalogKey,
+  validateApplyCartLines,
+  type ApplyCartLine,
   type ApplySupportingUpload,
 } from './-lib/api/submitApplyRequest.ts';
 import {
@@ -202,9 +205,7 @@ type ProcessedGroup = {
 function ApplyDocumentsPage() {
   const navigate = useNavigate();
   const [search, setSearch] = React.useState('');
-  const [quantities, setQuantities] = React.useState<Record<string, number>>(
-    {},
-  );
+  const [cartLines, setCartLines] = React.useState<ApplyCartLine[]>([]);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [supportingUploads, setSupportingUploads] = React.useState<
@@ -244,6 +245,7 @@ function ApplyDocumentsPage() {
 
   const groups = catalog?.groups ?? [];
   const ctx = eligibilityFromApiMeta(catalog?.eligibility);
+  const blockWhileUnpaid = Boolean(catalog?.blockWhileUnpaid);
   const studentBalance = catalog?.studentBalance ?? null;
   const balanceAmountLabel = formatStudentBalanceAmount(studentBalance);
   const balanceKindLabel = studentBalance
@@ -353,6 +355,10 @@ function ApplyDocumentsPage() {
           m.set(docKey(d.id), 0);
           continue;
         }
+        if (blockWhileUnpaid && d.has_unpaid_request) {
+          m.set(docKey(d.id), 0);
+          continue;
+        }
         const allowMulti =
           !d.once_per_student && d.allow_multiple_per_request !== false;
         m.set(docKey(d.id), allowMulti ? MAX_LINE_QTY : 1);
@@ -363,13 +369,17 @@ function ApplyDocumentsPage() {
           m.set(pkgKey(p.id), 0);
           continue;
         }
+        if (blockWhileUnpaid && p.has_unpaid_request) {
+          m.set(pkgKey(p.id), 0);
+          continue;
+        }
         const allowMulti =
           !p.once_per_student && p.allow_multiple_per_request !== false;
         m.set(pkgKey(p.id), allowMulti ? MAX_LINE_QTY : 1);
       }
     }
     return m;
-  }, [sortedGroups, ctx]);
+  }, [sortedGroups, ctx, blockWhileUnpaid]);
 
   const catalogLookup = React.useMemo(() => {
     const m = new Map<
@@ -412,9 +422,11 @@ function ApplyDocumentsPage() {
 
   const lockedCompanionMeta = React.useMemo(() => {
     const locked = new Map<string, string[]>();
-    for (const [key, qty] of Object.entries(quantities)) {
-      if (qty <= 0 || !key.startsWith('d:')) continue;
-      const parentId = Number(key.slice(2));
+    for (const cartLine of cartLines) {
+      if (cartLine.quantity <= 0 || !cartLine.catalogKey.startsWith('d:')) {
+        continue;
+      }
+      const parentId = Number(cartLine.catalogKey.slice(2));
       const companions = companionIdsByDocId.get(parentId) ?? [];
       const parentName = documentNameById.get(parentId) ?? 'another document';
       for (const companionId of companions) {
@@ -425,12 +437,19 @@ function ApplyDocumentsPage() {
       }
     }
     return locked;
-  }, [quantities, companionIdsByDocId, documentNameById]);
+  }, [cartLines, companionIdsByDocId, documentNameById]);
 
   const summaryLines = React.useMemo((): SummaryLine[] => {
+    const byKey = new Map<string, number>();
+    for (const cartLine of cartLines) {
+      if (cartLine.quantity <= 0) continue;
+      byKey.set(
+        cartLine.catalogKey,
+        (byKey.get(cartLine.catalogKey) ?? 0) + cartLine.quantity,
+      );
+    }
     const rows: SummaryLine[] = [];
-    for (const [key, qty] of Object.entries(quantities)) {
-      if (qty <= 0) continue;
+    for (const [key, qty] of byKey) {
       const meta = catalogLookup.get(key);
       const unit = priceIndex.get(key) ?? 0;
       rows.push({
@@ -444,14 +463,21 @@ function ApplyDocumentsPage() {
     }
     rows.sort((a, b) => a.title.localeCompare(b.title));
     return rows;
-  }, [quantities, catalogLookup, priceIndex]);
+  }, [cartLines, catalogLookup, priceIndex]);
 
   const selectedSupportingRequirements =
     React.useMemo((): SelectedSupportingRequirement[] => {
       const rows: SelectedSupportingRequirement[] = [];
+      const selectedDocIds = new Set<number>();
+      for (const cartLine of cartLines) {
+        if (cartLine.quantity <= 0 || !cartLine.catalogKey.startsWith('d:')) {
+          continue;
+        }
+        selectedDocIds.add(Number(cartLine.catalogKey.slice(2)));
+      }
       for (const group of sortedGroups) {
         for (const doc of group.documents ?? []) {
-          if ((quantities[docKey(doc.id)] ?? 0) <= 0) {
+          if (!selectedDocIds.has(doc.id)) {
             continue;
           }
 
@@ -470,100 +496,220 @@ function ApplyDocumentsPage() {
       }
 
       return rows;
-    }, [quantities, sortedGroups]);
+    }, [cartLines, sortedGroups]);
 
   const { totalSelected, lineCount, unitCount } = React.useMemo(() => {
     let total = 0;
     let lines = 0;
     let units = 0;
-    for (const [key, qty] of Object.entries(quantities)) {
-      if (qty <= 0) continue;
-      const unit = priceIndex.get(key) ?? 0;
-      total += unit * qty;
+    for (const cartLine of cartLines) {
+      if (cartLine.quantity <= 0) continue;
+      const unit = priceIndex.get(cartLine.catalogKey) ?? 0;
+      total += unit * cartLine.quantity;
       lines += 1;
-      units += qty;
+      units += cartLine.quantity;
     }
     return { totalSelected: total, lineCount: lines, unitCount: units };
-  }, [quantities, priceIndex]);
+  }, [cartLines, priceIndex]);
 
   React.useEffect(() => {
-    setQuantities((prev) => {
+    setCartLines((prev) => {
       let changed = false;
-      const next = { ...prev };
-      for (const key of Object.keys(prev)) {
-        const qty = prev[key];
-        if (qty === undefined || qty <= 0) continue;
-        const max = maxQtyByKey.get(key);
-        if (max === undefined) {
-          delete next[key];
+      const next: ApplyCartLine[] = [];
+      for (const cartLine of prev) {
+        const max = maxQtyByKey.get(cartLine.catalogKey);
+        if (max === undefined || max <= 0) {
           changed = true;
           continue;
         }
-        if (qty > max) {
-          if (max <= 0) {
-            delete next[key];
-          } else {
-            next[key] = max;
-          }
+        const totalOthers = totalQtyForCatalogKey(
+          prev.filter((row) => row.clientId !== cartLine.clientId),
+          cartLine.catalogKey,
+        );
+        const lineMax = Math.max(0, max - totalOthers);
+        if (cartLine.quantity > lineMax) {
           changed = true;
+          if (lineMax > 0) {
+            next.push({ ...cartLine, quantity: lineMax });
+          }
+          continue;
         }
+        next.push(cartLine);
       }
       return changed ? next : prev;
     });
   }, [maxQtyByKey]);
 
-  const setLineQuantity = React.useCallback(
-    (key: string, qty: number) => {
-      const max = maxQtyByKey.get(key) ?? 0;
-      const clamped = Math.max(
-        0,
-        Math.min(max, Math.floor(Number.isFinite(qty) ? qty : 0)),
-      );
+  const ensureCompanions = React.useCallback(
+    (lines: ApplyCartLine[], parentCatalogKey: string): ApplyCartLine[] => {
+      if (!parentCatalogKey.startsWith('d:')) {
+        return lines;
+      }
+      const parentId = Number(parentCatalogKey.slice(2));
+      let next = [...lines];
+      const queue = [...(companionIdsByDocId.get(parentId) ?? [])];
+      const seen = new Set<number>();
+      while (queue.length > 0) {
+        const companionId = queue.shift();
+        if (companionId == null || seen.has(companionId)) continue;
+        seen.add(companionId);
+        const companionKey = docKey(companionId);
+        const companionMax = maxQtyByKey.get(companionKey) ?? 1;
+        if (totalQtyForCatalogKey(next, companionKey) < 1 && companionMax > 0) {
+          next = [
+            ...next,
+            {
+              clientId: createApplyCartClientId(),
+              catalogKey: companionKey,
+              quantity: 1,
+            },
+          ];
+        }
+        for (const nested of companionIdsByDocId.get(companionId) ?? []) {
+          queue.push(nested);
+        }
+      }
+      return next;
+    },
+    [companionIdsByDocId, maxQtyByKey],
+  );
 
-      setQuantities((prev) => {
-        const isLocked = (lockedCompanionMeta.get(key)?.length ?? 0) > 0;
+  const setCartLineQuantity = React.useCallback(
+    (clientId: string, catalogKey: string, qty: number) => {
+      const max = maxQtyByKey.get(catalogKey) ?? 0;
+      const isLocked = (lockedCompanionMeta.get(catalogKey)?.length ?? 0) > 0;
+
+      setCartLines((prev) => {
+        const existing = prev.find((row) => row.clientId === clientId);
+        const othersTotal = totalQtyForCatalogKey(
+          prev.filter((row) => row.clientId !== clientId),
+          catalogKey,
+        );
+        const lineMax = Math.max(0, max - othersTotal);
+        const clamped = Math.max(
+          0,
+          Math.min(lineMax, Math.floor(Number.isFinite(qty) ? qty : 0)),
+        );
+
         if (clamped <= 0 && isLocked) {
           toast.error(
-            `This document is required with ${lockedCompanionMeta.get(key)?.join(', ')}.`,
+            `This document is required with ${lockedCompanionMeta.get(catalogKey)?.join(', ')}.`,
           );
           return prev;
         }
 
-        const next = { ...prev };
-        if (clamped <= 0) {
-          delete next[key];
+        let next: ApplyCartLine[];
+        if (!existing) {
+          if (clamped <= 0) {
+            return prev;
+          }
+          next = [
+            ...prev,
+            {
+              clientId,
+              catalogKey,
+              quantity: clamped,
+            },
+          ];
+        } else if (clamped <= 0) {
+          next = prev.filter((row) => row.clientId !== clientId);
+          setOptionAnswers((answers) => {
+            const cleaned = { ...answers };
+            for (const key of Object.keys(cleaned)) {
+              if (key.startsWith(`${clientId}:`)) {
+                delete cleaned[key];
+              }
+            }
+            return cleaned;
+          });
         } else {
-          next[key] = clamped;
+          next = prev.map((row) =>
+            row.clientId === clientId ? { ...row, quantity: clamped } : row,
+          );
         }
 
-        if (key.startsWith('d:') && clamped > 0) {
-          const parentId = Number(key.slice(2));
-          const queue = [...(companionIdsByDocId.get(parentId) ?? [])];
-          const seen = new Set<number>();
-          while (queue.length > 0) {
-            const companionId = queue.shift();
-            if (companionId == null || seen.has(companionId)) continue;
-            seen.add(companionId);
-            const companionKey = docKey(companionId);
-            const companionMax = maxQtyByKey.get(companionKey) ?? 1;
-            const current = next[companionKey] ?? 0;
-            if (current < 1) {
-              next[companionKey] = Math.min(companionMax, 1);
-            }
-            for (const nested of companionIdsByDocId.get(companionId) ?? []) {
-              queue.push(nested);
-            }
-          }
+        if (clamped > 0) {
+          next = ensureCompanions(next, catalogKey);
         }
 
         return next;
       });
     },
-    [maxQtyByKey, companionIdsByDocId, lockedCompanionMeta],
+    [maxQtyByKey, lockedCompanionMeta, ensureCompanions],
+  );
+
+  const setCatalogItemInCart = React.useCallback(
+    (catalogKey: string, checked: boolean) => {
+      const max = maxQtyByKey.get(catalogKey) ?? 0;
+      const isLocked = (lockedCompanionMeta.get(catalogKey)?.length ?? 0) > 0;
+
+      setCartLines((prev) => {
+        const existing = prev.filter((row) => row.catalogKey === catalogKey);
+        if (!checked) {
+          if (isLocked) {
+            toast.error(
+              `This document is required with ${lockedCompanionMeta.get(catalogKey)?.join(', ')}.`,
+            );
+            return prev;
+          }
+          const removeIds = new Set(existing.map((row) => row.clientId));
+          setOptionAnswers((answers) => {
+            const cleaned = { ...answers };
+            for (const key of Object.keys(cleaned)) {
+              const clientId = key.split(':')[0];
+              if (clientId && removeIds.has(clientId)) {
+                delete cleaned[key];
+              }
+            }
+            return cleaned;
+          });
+          return prev.filter((row) => row.catalogKey !== catalogKey);
+        }
+
+        if (existing.length > 0 || max <= 0) {
+          return prev;
+        }
+
+        return ensureCompanions(
+          [
+            ...prev,
+            {
+              clientId: createApplyCartClientId(),
+              catalogKey,
+              quantity: 1,
+            },
+          ],
+          catalogKey,
+        );
+      });
+    },
+    [maxQtyByKey, lockedCompanionMeta, ensureCompanions],
+  );
+
+  const duplicateCartLine = React.useCallback(
+    (catalogKey: string) => {
+      const max = maxQtyByKey.get(catalogKey) ?? 0;
+      setCartLines((prev) => {
+        const total = totalQtyForCatalogKey(prev, catalogKey);
+        if (total >= max) {
+          toast.error('Quantity exceeds the maximum allowed for this item.');
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            clientId: createApplyCartClientId(),
+            catalogKey,
+            quantity: 1,
+          },
+        ];
+      });
+    },
+    [maxQtyByKey],
   );
 
   const clearSelection = () => {
-    setQuantities({});
+    setCartLines([]);
     setSupportingUploads({});
     setOptionAnswers({});
   };
@@ -587,7 +733,7 @@ function ApplyDocumentsPage() {
     const values = getValues();
     setIsSubmitting(true);
     try {
-      const validated = validateApplyLineQuantities(quantities, maxQtyByKey);
+      const validated = validateApplyCartLines(cartLines, maxQtyByKey);
       if (!validated.ok) {
         toast.error(validated.message);
         return;
@@ -606,40 +752,33 @@ function ApplyDocumentsPage() {
         return;
       }
 
-      for (const line of validated.lines) {
-        if (line.requestable_type !== 'document') continue;
-        const doc = groups
-          .flatMap((g) => g.documents ?? [])
-          .find((d) => d.id === line.requestable_id);
-        for (const option of doc?.options ?? []) {
-          if (!option.is_required) continue;
-          const key = `${line.requestable_id}:${option.id}`;
-          if (!(optionAnswers[key] ?? '').trim()) {
-            toast.error(
-              `Answer “${option.label}” for ${doc?.document_name ?? 'document'}.`,
-            );
-            return;
-          }
+      const optionsByDocumentId = new Map<
+        number,
+        Array<{ id: number; is_required?: boolean; label: string }>
+      >();
+      for (const group of groups) {
+        for (const doc of group.documents ?? []) {
+          optionsByDocumentId.set(doc.id, doc.options ?? []);
         }
       }
 
-      const answersByDocumentId: Record<
-        number,
-        Array<{ option_id: number; value: string }>
-      > = {};
-      for (const line of validated.lines) {
-        if (line.requestable_type !== 'document') continue;
-        const doc = groups
-          .flatMap((g) => g.documents ?? [])
-          .find((d) => d.id === line.requestable_id);
-        const answers = (doc?.options ?? [])
-          .map((option) => ({
-            option_id: option.id,
-            value: (optionAnswers[`${line.requestable_id}:${option.id}`] ?? '').trim(),
-          }))
-          .filter((row) => row.value !== '');
-        if (answers.length > 0) {
-          answersByDocumentId[line.requestable_id] = answers;
+      for (const cartLine of validated.cartLines) {
+        if (!cartLine.catalogKey.startsWith('d:')) continue;
+        const docId = Number(cartLine.catalogKey.slice(2));
+        const docOptions = optionsByDocumentId.get(docId) ?? [];
+        const docName =
+          documentNameById.get(docId) ??
+          groups
+            .flatMap((g) => g.documents ?? [])
+            .find((d) => d.id === docId)?.document_name ??
+          'document';
+        for (const option of docOptions) {
+          if (!option.is_required) continue;
+          const key = `${cartLine.clientId}:${option.id}`;
+          if (!(optionAnswers[key] ?? '').trim()) {
+            toast.error(`Answer “${option.label}” for ${docName}.`);
+            return;
+          }
         }
       }
 
@@ -662,7 +801,11 @@ function ApplyDocumentsPage() {
 
       const payload = buildApplyRequestPayload(
         values,
-        attachOptionAnswersToLines(validated.lines, answersByDocumentId),
+        attachOptionAnswersToCartLines(
+          validated.cartLines,
+          optionAnswers,
+          optionsByDocumentId,
+        ),
         uploadRows,
       );
       const { id } = await submitApplyRequest(payload);
@@ -777,51 +920,126 @@ function ApplyDocumentsPage() {
                             <ul className="divide-border/70 divide-y border-y">
                               {visibleDocs.map((doc) => {
                                 const key = docKey(doc.id);
-                                const qty = quantities[key] ?? 0;
-                                return (
-                                  <li key={key}>
-                                    <CatalogLineRow
-                                      quantity={qty}
-                                      maxQuantity={maxQtyByKey.get(key) ?? 0}
-                                      allowMultiple={
-                                        !doc.once_per_student &&
-                                        doc.allow_multiple_per_request !== false
-                                      }
-                                      alreadyRequested={Boolean(
-                                        doc.once_per_student &&
-                                        doc.already_requested,
-                                      )}
-                                      locked={
-                                        (lockedCompanionMeta.get(key)?.length ??
-                                          0) > 0
-                                      }
-                                      lockedByNames={
-                                        lockedCompanionMeta.get(key) ?? []
-                                      }
-                                      onQuantityChange={(q) =>
-                                        setLineQuantity(key, q)
-                                      }
-                                      title={doc.document_name}
-                                      unitPrice={doc.price}
-                                      rules={doc.rules}
-                                      options={doc.options ?? []}
-                                      downloadableForms={
-                                        doc.downloadable_forms ?? []
-                                      }
-                                      optionAnswers={optionAnswers}
-                                      onOptionAnswerChange={(
-                                        optionId,
-                                        value,
-                                      ) =>
-                                        setOptionAnswers((prev) => ({
-                                          ...prev,
-                                          [`${doc.id}:${optionId}`]: value,
-                                        }))
-                                      }
-                                      documentId={doc.id}
-                                    />
-                                  </li>
+                                const itemLines = cartLines.filter(
+                                  (row) => row.catalogKey === key,
                                 );
+                                const totalQty = totalQtyForCatalogKey(
+                                  cartLines,
+                                  key,
+                                );
+                                const maxQuantity = maxQtyByKey.get(key) ?? 0;
+                                const allowMultiple =
+                                  !doc.once_per_student &&
+                                  doc.allow_multiple_per_request !== false;
+                                const alreadyRequested = Boolean(
+                                  doc.once_per_student && doc.already_requested,
+                                );
+                                const unpaidBlocked = Boolean(
+                                  blockWhileUnpaid && doc.has_unpaid_request,
+                                );
+                                const locked =
+                                  (lockedCompanionMeta.get(key)?.length ?? 0) >
+                                  0;
+                                const lockedByNames =
+                                  lockedCompanionMeta.get(key) ?? [];
+                                const rows =
+                                  itemLines.length > 0
+                                    ? itemLines
+                                    : [
+                                        {
+                                          clientId: `empty-${key}`,
+                                          catalogKey: key,
+                                          quantity: 0,
+                                        },
+                                      ];
+
+                                return rows.map((cartLine, copyIndex) => {
+                                  const lineMax = Math.max(
+                                    cartLine.quantity,
+                                    maxQuantity -
+                                      (totalQty - cartLine.quantity),
+                                  );
+                                  return (
+                                    <li key={cartLine.clientId}>
+                                      <CatalogLineRow
+                                        quantity={cartLine.quantity}
+                                        maxQuantity={lineMax}
+                                        allowMultiple={allowMultiple}
+                                        alreadyRequested={alreadyRequested}
+                                        unpaidBlocked={unpaidBlocked}
+                                        locked={locked}
+                                        lockedByNames={lockedByNames}
+                                        copyIndex={
+                                          itemLines.length > 1
+                                            ? copyIndex + 1
+                                            : undefined
+                                        }
+                                        canDuplicate={
+                                          allowMultiple &&
+                                          cartLine.quantity > 0 &&
+                                          totalQty < maxQuantity
+                                        }
+                                        onDuplicate={() =>
+                                          duplicateCartLine(key)
+                                        }
+                                        onQuantityChange={(q) => {
+                                          if (cartLine.quantity <= 0 && q > 0) {
+                                            setCatalogItemInCart(key, true);
+                                            return;
+                                          }
+                                          if (
+                                            cartLine.clientId.startsWith(
+                                              'empty-',
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          setCartLineQuantity(
+                                            cartLine.clientId,
+                                            key,
+                                            q,
+                                          );
+                                        }}
+                                        onCheckedChange={(checked) => {
+                                          if (
+                                            !checked &&
+                                            !cartLine.clientId.startsWith(
+                                              'empty-',
+                                            )
+                                          ) {
+                                            setCartLineQuantity(
+                                              cartLine.clientId,
+                                              key,
+                                              0,
+                                            );
+                                            return;
+                                          }
+                                          setCatalogItemInCart(key, checked);
+                                        }}
+                                        title={doc.document_name}
+                                        unitPrice={doc.price}
+                                        rules={doc.rules}
+                                        options={doc.options ?? []}
+                                        downloadableForms={
+                                          doc.downloadable_forms ?? []
+                                        }
+                                        optionAnswers={optionAnswers}
+                                        optionAnswerPrefix={cartLine.clientId}
+                                        onOptionAnswerChange={(
+                                          optionId,
+                                          value,
+                                        ) =>
+                                          setOptionAnswers((prev) => ({
+                                            ...prev,
+                                            [`${cartLine.clientId}:${optionId}`]:
+                                              value,
+                                          }))
+                                        }
+                                        documentId={doc.id}
+                                      />
+                                    </li>
+                                  );
+                                });
                               })}
                             </ul>
                           </div>
@@ -833,30 +1051,103 @@ function ApplyDocumentsPage() {
                             <ul className="divide-border/70 divide-y border-y">
                               {visiblePkgs.map((pkg) => {
                                 const key = pkgKey(pkg.id);
-                                const qty = quantities[key] ?? 0;
-                                return (
-                                  <li key={key}>
-                                    <CatalogLineRow
-                                      quantity={qty}
-                                      maxQuantity={maxQtyByKey.get(key) ?? 0}
-                                      allowMultiple={
-                                        !pkg.once_per_student &&
-                                        pkg.allow_multiple_per_request !== false
-                                      }
-                                      alreadyRequested={Boolean(
-                                        pkg.once_per_student &&
-                                        pkg.already_requested,
-                                      )}
-                                      onQuantityChange={(q) =>
-                                        setLineQuantity(key, q)
-                                      }
-                                      title={pkg.package_name}
-                                      unitPrice={pkg.price}
-                                      rules={pkg.rules}
-                                      includedItems={pkg.included_items}
-                                    />
-                                  </li>
+                                const itemLines = cartLines.filter(
+                                  (row) => row.catalogKey === key,
                                 );
+                                const totalQty = totalQtyForCatalogKey(
+                                  cartLines,
+                                  key,
+                                );
+                                const maxQuantity = maxQtyByKey.get(key) ?? 0;
+                                const allowMultiple =
+                                  !pkg.once_per_student &&
+                                  pkg.allow_multiple_per_request !== false;
+                                const alreadyRequested = Boolean(
+                                  pkg.once_per_student && pkg.already_requested,
+                                );
+                                const unpaidBlocked = Boolean(
+                                  blockWhileUnpaid && pkg.has_unpaid_request,
+                                );
+                                const rows =
+                                  itemLines.length > 0
+                                    ? itemLines
+                                    : [
+                                        {
+                                          clientId: `empty-${key}`,
+                                          catalogKey: key,
+                                          quantity: 0,
+                                        },
+                                      ];
+
+                                return rows.map((cartLine, copyIndex) => {
+                                  const lineMax = Math.max(
+                                    cartLine.quantity,
+                                    maxQuantity -
+                                      (totalQty - cartLine.quantity),
+                                  );
+                                  return (
+                                    <li key={cartLine.clientId}>
+                                      <CatalogLineRow
+                                        quantity={cartLine.quantity}
+                                        maxQuantity={lineMax}
+                                        allowMultiple={allowMultiple}
+                                        alreadyRequested={alreadyRequested}
+                                        unpaidBlocked={unpaidBlocked}
+                                        copyIndex={
+                                          itemLines.length > 1
+                                            ? copyIndex + 1
+                                            : undefined
+                                        }
+                                        canDuplicate={
+                                          allowMultiple &&
+                                          cartLine.quantity > 0 &&
+                                          totalQty < maxQuantity
+                                        }
+                                        onDuplicate={() =>
+                                          duplicateCartLine(key)
+                                        }
+                                        onQuantityChange={(q) => {
+                                          if (cartLine.quantity <= 0 && q > 0) {
+                                            setCatalogItemInCart(key, true);
+                                            return;
+                                          }
+                                          if (
+                                            cartLine.clientId.startsWith(
+                                              'empty-',
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          setCartLineQuantity(
+                                            cartLine.clientId,
+                                            key,
+                                            q,
+                                          );
+                                        }}
+                                        onCheckedChange={(checked) => {
+                                          if (
+                                            !checked &&
+                                            !cartLine.clientId.startsWith(
+                                              'empty-',
+                                            )
+                                          ) {
+                                            setCartLineQuantity(
+                                              cartLine.clientId,
+                                              key,
+                                              0,
+                                            );
+                                            return;
+                                          }
+                                          setCatalogItemInCart(key, checked);
+                                        }}
+                                        title={pkg.package_name}
+                                        unitPrice={pkg.price}
+                                        rules={pkg.rules}
+                                        includedItems={pkg.included_items}
+                                      />
+                                    </li>
+                                  );
+                                });
                               })}
                             </ul>
                           </div>
@@ -1402,7 +1693,12 @@ function CatalogLineRow({
   maxQuantity,
   allowMultiple,
   alreadyRequested = false,
+  unpaidBlocked = false,
   onQuantityChange,
+  onCheckedChange,
+  onDuplicate,
+  canDuplicate = false,
+  copyIndex,
   title,
   unitPrice,
   rules,
@@ -1412,6 +1708,7 @@ function CatalogLineRow({
   options = [],
   downloadableForms = [],
   optionAnswers = {},
+  optionAnswerPrefix,
   onOptionAnswerChange,
   documentId,
 }: {
@@ -1419,7 +1716,12 @@ function CatalogLineRow({
   maxQuantity: number;
   allowMultiple: boolean;
   alreadyRequested?: boolean;
+  unpaidBlocked?: boolean;
   onQuantityChange: (qty: number) => void;
+  onCheckedChange?: (checked: boolean) => void;
+  onDuplicate?: () => void;
+  canDuplicate?: boolean;
+  copyIndex?: number;
   title: string;
   unitPrice: string | number;
   rules: CatalogDocument['rules'];
@@ -1429,18 +1731,21 @@ function CatalogLineRow({
   options?: CatalogDocumentOption[];
   downloadableForms?: CatalogDownloadableForm[];
   optionAnswers?: Record<string, string>;
+  optionAnswerPrefix?: string;
   onOptionAnswerChange?: (optionId: number, value: string) => void;
   documentId?: number;
 }) {
   const unit = parsePriceNumber(unitPrice);
   const lineTotal = unit * quantity;
   const inCart = quantity > 0;
-  const unavailable = alreadyRequested || maxQuantity <= 0;
+  const unavailable = alreadyRequested || unpaidBlocked || maxQuantity <= 0;
 
   const setInCart = (checked: boolean) => {
     if (unavailable) {
       toast.error(
-        'This item can only be requested once and was already requested.',
+        unpaidBlocked
+          ? 'You already have an unpaid request for this item.'
+          : 'This item can only be requested once and was already requested.',
       );
       return;
     }
@@ -1448,6 +1753,10 @@ function CatalogLineRow({
       toast.error(
         `This document is required with ${lockedByNames.join(', ') || 'another document'}.`,
       );
+      return;
+    }
+    if (onCheckedChange) {
+      onCheckedChange(checked);
       return;
     }
     if (checked) {
@@ -1460,7 +1769,9 @@ function CatalogLineRow({
   const toggleInCart = () => {
     if (unavailable) {
       toast.error(
-        'This item can only be requested once and was already requested.',
+        unpaidBlocked
+          ? 'You already have an unpaid request for this item.'
+          : 'This item can only be requested once and was already requested.',
       );
       return;
     }
@@ -1494,7 +1805,15 @@ function CatalogLineRow({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm leading-snug font-medium">{title}</p>
+          <p className="text-sm leading-snug font-medium">
+            {title}
+            {copyIndex != null ? (
+              <span className="text-muted-foreground font-normal">
+                {' '}
+                · copy {copyIndex}
+              </span>
+            ) : null}
+          </p>
           {includedItems && includedItems.length > 0 ? (
             <ul className="text-muted-foreground mt-1.5 list-disc space-y-0.5 pl-4 text-xs leading-snug">
               {includedItems.map((item) => (
@@ -1541,7 +1860,7 @@ function CatalogLineRow({
               onKeyDown={(e) => e.stopPropagation()}
             >
               {options.map((option) => {
-                const answerKey = `${documentId}:${option.id}`;
+                const answerKey = `${optionAnswerPrefix ?? documentId}:${option.id}`;
                 const value = optionAnswers[answerKey] ?? '';
                 return (
                   <div key={option.id} className="space-y-1.5">
@@ -1593,6 +1912,10 @@ function CatalogLineRow({
             <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
               Already requested. This item can only be requested once.
             </p>
+          ) : unpaidBlocked ? (
+            <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
+              You already have an unpaid request for this item.
+            </p>
           ) : !allowMultiple ? (
             <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
               One copy per request.
@@ -1601,38 +1924,52 @@ function CatalogLineRow({
         </div>
       </div>
       <div
-        className="flex shrink-0 items-center justify-end gap-1"
+        className="flex shrink-0 flex-col items-end gap-2"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          className="size-9 sm:size-7"
-          disabled={unavailable || quantity <= 0 || (locked && quantity <= 1)}
-          aria-label={`Decrease quantity of ${title}`}
-          onClick={() => onQuantityChange(quantity - 1)}
-        >
-          <Minus className="size-3.5" />
-        </Button>
-        <span
-          className="text-foreground min-w-9 px-1 text-center text-sm font-semibold tabular-nums sm:min-w-7"
-          aria-live="polite"
-        >
-          {quantity}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          className="size-9 sm:size-7"
-          disabled={unavailable || quantity >= maxQuantity}
-          aria-label={`Increase quantity of ${title}`}
-          onClick={() => onQuantityChange(quantity + 1)}
-        >
-          <Plus className="size-3.5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="size-9 sm:size-7"
+            disabled={unavailable || quantity <= 0 || (locked && quantity <= 1)}
+            aria-label={`Decrease quantity of ${title}`}
+            onClick={() => onQuantityChange(quantity - 1)}
+          >
+            <Minus className="size-3.5" />
+          </Button>
+          <span
+            className="text-foreground min-w-9 px-1 text-center text-sm font-semibold tabular-nums sm:min-w-7"
+            aria-live="polite"
+          >
+            {quantity}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="size-9 sm:size-7"
+            disabled={unavailable || quantity >= maxQuantity}
+            aria-label={`Increase quantity of ${title}`}
+            onClick={() => onQuantityChange(quantity + 1)}
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </div>
+        {canDuplicate && onDuplicate ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={onDuplicate}
+          >
+            <Copy className="mr-1 size-3.5" aria-hidden="true" />
+            Duplicate
+          </Button>
+        ) : null}
       </div>
     </div>
   );

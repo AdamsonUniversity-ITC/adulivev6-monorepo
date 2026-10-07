@@ -49,6 +49,7 @@ export type CatalogDocument = {
   allow_multiple_per_request?: boolean;
   once_per_student?: boolean;
   already_requested?: boolean;
+  has_unpaid_request?: boolean;
   rules?: DocumentRuleRow[] | null;
   supporting_document_requirements?: SupportingDocumentRequirement[] | null;
   options?: CatalogDocumentOption[] | null;
@@ -73,6 +74,7 @@ export type CatalogPackage = {
   allow_multiple_per_request?: boolean;
   once_per_student?: boolean;
   already_requested?: boolean;
+  has_unpaid_request?: boolean;
   rules?: DocumentRuleRow[] | null;
   included_items?: Array<{ id: number; label: string }>;
 };
