@@ -80,3 +80,19 @@ describe("remembering the selected tab", () => {
     expect(parseStatusList(parseTicketsSearch({}).status)).toEqual([]);
   });
 });
+
+describe("awaiting_ack filter", () => {
+  it("parses truthy awaiting_ack flags", () => {
+    expect(parseTicketsSearch({ awaiting_ack: "1" }).awaiting_ack).toBe(true);
+    expect(parseTicketsSearch({ awaiting_ack: true }).awaiting_ack).toBe(true);
+    expect(parseTicketsSearch({ awaiting_ack: "true" }).awaiting_ack).toBe(
+      true,
+    );
+  });
+
+  it("leaves awaiting_ack unset when absent or falsy", () => {
+    expect(parseTicketsSearch({}).awaiting_ack).toBeUndefined();
+    expect(parseTicketsSearch({ awaiting_ack: "0" }).awaiting_ack).toBeUndefined();
+    expect(parseTicketsSearch({ awaiting_ack: false }).awaiting_ack).toBeUndefined();
+  });
+});

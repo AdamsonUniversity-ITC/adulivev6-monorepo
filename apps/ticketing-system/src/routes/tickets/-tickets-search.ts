@@ -7,6 +7,8 @@ export type TicketsSearch = {
   category_id?: number;
   /** Forwarded from another section and not yet picked up. Not a status. */
   transferred?: boolean;
+  /** Resolved tickets the current user requested and still needs to close. */
+  awaiting_ack?: boolean;
   page?: number;
   rows?: number;
 };
@@ -126,6 +128,7 @@ export function parseTicketsSearch(
     assigned_to: parsePositiveInt(search.assigned_to),
     category_id: parsePositiveInt(search.category_id),
     transferred: parseFlag(search.transferred),
+    awaiting_ack: parseFlag(search.awaiting_ack),
     page: parsePositiveInt(search.page) ?? 1,
     rows: parsePositiveInt(search.rows) ?? 15,
   };

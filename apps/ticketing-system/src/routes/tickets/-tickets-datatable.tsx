@@ -61,6 +61,7 @@ export type TicketsMetrics = {
   closed: number;
   unread_replies: number;
   transferred: number;
+  awaiting_ack: number;
 };
 
 type TicketsDatatableProps = {
@@ -89,10 +90,16 @@ export function TicketsDatatable({
   const assignedTo = search.assigned_to ? String(search.assigned_to) : "";
   const categoryId = search.category_id ? String(search.category_id) : "";
   const transferred = search.transferred === true;
+  const awaitingAck = search.awaiting_ack === true;
   // No tab lit at all means nothing matches. Transferred is not a status, so if
   // that tab is still lit it stands on its own across every status instead.
-  const statusParam =
-    status === EMPTY_STATUS_FILTER && transferred ? undefined : status;
+  // Acknowledge omits status entirely so the default open/in_progress filter
+  // does not AND away resolved tickets waiting for the requester.
+  const statusParam = awaitingAck
+    ? undefined
+    : status === EMPTY_STATUS_FILTER && transferred
+      ? undefined
+      : status;
   const pagination = React.useMemo<PaginationState>(
     () => ({
       pageIndex: Math.max(0, (search.page ?? 1) - 1),
@@ -142,6 +149,7 @@ export function TicketsDatatable({
     assignedTo,
     categoryId,
     transferred,
+    awaitingAck,
     pagination.pageIndex,
     pagination.pageSize,
   ]);
@@ -157,6 +165,7 @@ export function TicketsDatatable({
       categoryId,
       keyword,
       transferred,
+      awaitingAck,
       pagination.pageIndex,
       pagination.pageSize,
     ],
@@ -168,14 +177,29 @@ export function TicketsDatatable({
         assigned_to: assignedTo || undefined,
         category_id: categoryId || undefined,
         keyword: keyword.trim() || undefined,
-        transferred: transferred ? 1 : undefined,
+        transferred: transferred && !awaitingAck ? 1 : undefined,
+        awaiting_ack: awaitingAck ? 1 : undefined,
         page: pagination.pageIndex + 1,
         rows: pagination.pageSize,
       }),
   });
 
   React.useEffect(() => {
-    onMetricsChange?.(ticketsQuery.data?.metrics ?? null);
+    const raw = ticketsQuery.data?.metrics;
+    if (!raw) {
+      onMetricsChange?.(null);
+      return;
+    }
+    onMetricsChange?.({
+      open: raw.open,
+      in_progress: raw.in_progress,
+      pending_approval: raw.pending_approval,
+      resolved: raw.resolved,
+      closed: raw.closed,
+      unread_replies: raw.unread_replies,
+      transferred: raw.transferred,
+      awaiting_ack: raw.awaiting_ack ?? 0,
+    });
   }, [onMetricsChange, ticketsQuery.data?.metrics]);
 
   const rows = ticketsQuery.data?.data ?? [];

@@ -1,12 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { AccessDeniedState } from "@/components/access-denied-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageShell } from "@/components/page-shell";
 import { ThemeGallery } from "@/components/theme-gallery";
 import { requireBoardAdminCapability } from "@/lib/admin-guards";
-import { fetchCurrentBoard, updateCurrentBoard } from "@/lib/aduts-api";
+import {
+  fetchCurrentBoard,
+  removeBoardLogo,
+  updateCurrentBoard,
+  uploadBoardLogo,
+} from "@/lib/aduts-api";
 import { getAxiosStatus } from "@/lib/axios-status";
 import {
   DEFAULT_THEME_PRESET,
@@ -27,6 +32,8 @@ import { Label } from "@repo/ui/components/label";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toast } from "@repo/ui/exports";
 
+const ADU_LOGO = "/assets/images/adulogo.png";
+
 export const Route = createFileRoute("/manage/")({
   beforeLoad: async ({ context }) => {
     await requireBoardAdminCapability(context.queryClient);
@@ -36,6 +43,7 @@ export const Route = createFileRoute("/manage/")({
 
 function ManageBoardPage() {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const boardQuery = useQuery({
     queryKey: ["aduts", "board"],
     queryFn: fetchCurrentBoard,
@@ -83,6 +91,25 @@ function ManageBoardPage() {
     onError: () => toast.error("Could not update appearance."),
   });
 
+  const logoUploadMutation = useMutation({
+    mutationFn: (file: File) => uploadBoardLogo(file),
+    onSuccess: () => {
+      invalidateBoard();
+      toast.success("Board logo updated.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    onError: () => toast.error("Could not upload board logo."),
+  });
+
+  const logoRemoveMutation = useMutation({
+    mutationFn: () => removeBoardLogo(),
+    onSuccess: () => {
+      invalidateBoard();
+      toast.success("Board logo removed.");
+    },
+    onError: () => toast.error("Could not remove board logo."),
+  });
+
   if (boardQuery.isLoading) {
     return <LoadingState label="Loading board…" />;
   }
@@ -110,6 +137,16 @@ function ManageBoardPage() {
     setThemePreset(preset);
     appearanceMutation.mutate(preset);
   }
+
+  function onLogoSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    logoUploadMutation.mutate(file);
+  }
+
+  const logoUrl = boardQuery.data?.logo_url ?? null;
+  const logoBusy =
+    logoUploadMutation.isPending || logoRemoveMutation.isPending;
 
   return (
     <PageShell
@@ -151,6 +188,54 @@ function ManageBoardPage() {
                   placeholder="https://"
                   className="shadow-xs"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Board logo</Label>
+                <p className="text-muted-foreground text-xs">
+                  Shown in the sidebar. JPEG, PNG, or WebP up to 2 MB.
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="ring-primary/10 flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1">
+                    <img
+                      src={logoUrl ?? ADU_LOGO}
+                      alt={logoUrl ? "Board logo" : "Default AdU logo"}
+                      className="size-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                      className="sr-only"
+                      onChange={onLogoSelected}
+                      disabled={logoBusy}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={logoBusy}
+                      className="shadow-xs"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {logoUploadMutation.isPending
+                        ? "Uploading…"
+                        : "Upload logo"}
+                    </Button>
+                    {logoUrl ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={logoBusy}
+                        onClick={() => logoRemoveMutation.mutate()}
+                      >
+                        {logoRemoveMutation.isPending
+                          ? "Removing…"
+                          : "Remove"}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
               <div className="pt-2">
                 <Button

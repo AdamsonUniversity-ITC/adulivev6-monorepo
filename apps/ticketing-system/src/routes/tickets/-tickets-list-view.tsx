@@ -13,10 +13,11 @@ import {
 } from "./-tickets-search";
 
 /**
- * Every tab but Transferred toggles a value in the `status` filter. Transferred
- * is not a status, so it toggles its own param and is AND-ed with the status
- * filter: under the default Open + In Progress it reads as "what was handed to
- * me and not yet picked up".
+ * Every tab but Transferred and Acknowledge toggles a value in the `status`
+ * filter. Transferred and Acknowledge are not statuses, so each toggles its
+ * own param. Acknowledge is mutually exclusive with status tabs: the API ANDs
+ * awaiting_ack with status, and the default open/in_progress filter would
+ * always return zero.
  */
 const TABS = [
   { id: "open", label: "Open", kind: "status" },
@@ -25,6 +26,7 @@ const TABS = [
   { id: "transferred", label: "Transferred", kind: "transferred" },
   { id: "resolved", label: "Resolved", kind: "status" },
   { id: "closed", label: "Closed", kind: "status" },
+  { id: "awaiting_ack", label: "Acknowledge", kind: "awaiting_ack" },
 ] as const;
 
 type Tab = (typeof TABS)[number];
@@ -57,11 +59,15 @@ export function TicketsListView({ search, from }: TicketsListViewProps) {
     const status = serializeStatusList(next);
     writeStoredStatusFilter(status);
     void navigate({
-      search: (prev) => ({
-        ...prev,
-        status,
-        page: 1,
-      }),
+      search: (prev) => {
+        const nextSearch = {
+          ...prev,
+          status,
+          page: 1,
+        };
+        delete nextSearch.awaiting_ack;
+        return nextSearch;
+      },
     });
   }
 
@@ -71,18 +77,44 @@ export function TicketsListView({ search, from }: TicketsListViewProps) {
       search: (prev) => {
         const nextSearch = { ...prev, transferred: next, page: 1 };
         if (!next) delete nextSearch.transferred;
+        delete nextSearch.awaiting_ack;
+        return nextSearch;
+      },
+    });
+  }
+
+  function toggleAwaitingAck() {
+    const next = search.awaiting_ack === true ? undefined : true;
+    void navigate({
+      search: (prev) => {
+        const nextSearch = { ...prev, awaiting_ack: next, page: 1 };
+        if (!next) {
+          delete nextSearch.awaiting_ack;
+        } else {
+          delete nextSearch.transferred;
+        }
         return nextSearch;
       },
     });
   }
 
   function isTabActive(tab: Tab) {
+    if (tab.kind === "awaiting_ack") {
+      return search.awaiting_ack === true;
+    }
+    if (search.awaiting_ack === true) {
+      return false;
+    }
     return tab.kind === "transferred"
       ? search.transferred === true
       : selectedStatuses.includes(tab.id as TicketStatusId);
   }
 
   function onTabClick(tab: Tab) {
+    if (tab.kind === "awaiting_ack") {
+      toggleAwaitingAck();
+      return;
+    }
     if (tab.kind === "transferred") {
       toggleTransferred();
       return;
