@@ -7,6 +7,7 @@ const isVitest = Boolean(process.env.VITEST);
 
 export default defineConfig({
   resolve: {
+    // @tiptap/pm is subpath-only (no "." export) — do not dedupe/optimize the bare package.
     dedupe: [
       "react",
       "react-dom",
@@ -14,13 +15,11 @@ export default defineConfig({
       "prosemirror-state",
       "prosemirror-view",
       "prosemirror-transform",
-      "@tiptap/pm",
     ],
   },
   optimizeDeps: {
     include: [
       "prosemirror-model",
-      "@tiptap/pm",
       "@tiptap/extension-mention",
       "@tiptap/suggestion",
     ],

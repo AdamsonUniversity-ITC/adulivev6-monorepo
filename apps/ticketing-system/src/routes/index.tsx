@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { PageShell } from "@/components/page-shell";
 import { fetchBoards, fetchCurrentBoard } from "@/lib/aduts-api";
@@ -14,6 +15,7 @@ import {
 } from "@repo/ui/components/card";
 
 import { TicketsListView } from "./tickets/-tickets-list-view";
+import type { TicketsMetrics } from "./tickets/-tickets-datatable";
 import {
   parseTicketsSearch,
   type TicketsSearch,
@@ -94,6 +96,8 @@ function PlatformHome() {
 
 function BoardHome() {
   const search = Route.useSearch();
+  const [metrics, setMetrics] = useState<TicketsMetrics | null>(null);
+  const filingBlocked = (metrics?.awaiting_ack ?? 0) > 0;
   const boardQuery = useQuery({
     queryKey: ["aduts", "board"],
     queryFn: fetchCurrentBoard,
@@ -107,16 +111,48 @@ function BoardHome() {
         "File and track support tickets for this board."
       }
       action={
-        <Button asChild className="shadow-xs">
-          <Link to="/tickets/new">New Ticket</Link>
-        </Button>
+        filingBlocked ? (
+          <div className="flex max-w-sm flex-col gap-1.5 sm:items-end">
+            <Button type="button" disabled className="shadow-xs">
+              New Ticket
+            </Button>
+            <p className="text-muted-foreground text-xs leading-relaxed sm:text-right">
+              An unacknowledged resolved ticket blocks new tickets.{" "}
+              <Button variant="link" className="h-auto px-0 text-xs" asChild>
+                <Link
+                  to="/"
+                  search={(prev) => {
+                    const next: TicketsSearch = {
+                      ...prev,
+                      awaiting_ack: true,
+                      page: 1,
+                    };
+                    delete next.transferred;
+                    return next;
+                  }}
+                >
+                  Open the Acknowledge filter
+                </Link>
+              </Button>
+              .
+            </p>
+          </div>
+        ) : (
+          <Button asChild className="shadow-xs">
+            <Link to="/tickets/new">New Ticket</Link>
+          </Button>
+        )
       }
       width="full"
       bordered={false}
       dense
       className="-mx-1 -my-2 sm:-mx-2 sm:-my-3 md:-my-4"
     >
-      <TicketsListView search={search} from="/" />
+      <TicketsListView
+        search={search}
+        from="/"
+        onMetricsChange={setMetrics}
+      />
     </PageShell>
   );
 }

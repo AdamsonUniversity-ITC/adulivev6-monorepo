@@ -1,12 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type FormEvent, useMemo, useState } from "react";
 import type { PreuploadedFile } from "@repo/ui/components/file-dropzone";
 
 import { PageShell } from "@/components/page-shell";
 import { TicketAttachmentDropzone } from "@/components/ticket-attachment-dropzone";
-import { createTicket, fetchCurrentBoard } from "@/lib/aduts-api";
+import { createTicket, fetchCurrentBoard, fetchTickets } from "@/lib/aduts-api";
 import { isPlatformHost } from "@/lib/adutsHost";
+import { getAxiosMessage } from "@/lib/axios-status";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -26,6 +27,8 @@ import {
 } from "@repo/ui/components/select";
 import { Textarea } from "@repo/ui/components/textarea";
 
+import { parseTicketsSearch } from "./-tickets-search";
+
 export const Route = createFileRoute("/tickets/new")({
   component: NewTicketPage,
 });
@@ -38,6 +41,12 @@ function NewTicketPage() {
     queryFn: fetchCurrentBoard,
     enabled: !platform,
   });
+  const unackedQuery = useQuery({
+    queryKey: ["aduts", "tickets", "awaiting-ack-block"],
+    queryFn: () => fetchTickets({ awaiting_ack: 1, rows: 1 }),
+    enabled: !platform,
+  });
+  const filingBlocked = (unackedQuery.data?.meta.total ?? 0) > 0;
 
   const [section, setSection] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -75,7 +84,8 @@ function NewTicketPage() {
         params: { ticketNumber: ticket.ticket_number },
       });
     },
-    onError: () => setError("Could not create ticket."),
+    onError: (error) =>
+      setError(getAxiosMessage(error, "Could not create ticket.")),
   });
 
   if (platform) {
@@ -89,7 +99,7 @@ function NewTicketPage() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (uploading) return;
+    if (uploading || filingBlocked) return;
     if (categoryRequired && !categoryId) {
       setError("Select a category for this section.");
       return;
@@ -119,6 +129,26 @@ function NewTicketPage() {
         ) : undefined
       }
     >
+      <p className="text-muted-foreground text-sm leading-relaxed">
+        Acknowledge a resolved ticket before you file another one on this
+        board. An unacknowledged resolved ticket blocks new tickets.
+        {filingBlocked ? (
+          <>
+            {" "}
+            You must acknowledge the resolved ticket first.{" "}
+            <Button variant="link" className="h-auto px-0" asChild>
+              <Link
+                to="/"
+                search={parseTicketsSearch({ awaiting_ack: true })}
+              >
+                Acknowledge it on Home
+              </Link>
+            </Button>
+            .
+          </>
+        ) : null}
+      </p>
+
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Request Details</CardTitle>
@@ -229,6 +259,7 @@ function NewTicketPage() {
               type="submit"
               disabled={
                 mutation.isPending ||
+                filingBlocked ||
                 !section ||
                 uploading ||
                 (categoryRequired && !categoryId)
