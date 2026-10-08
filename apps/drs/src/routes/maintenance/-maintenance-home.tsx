@@ -27,6 +27,7 @@ import {
   type MaintenanceLoaderAccess,
 } from './-maintenance-loader-data-context.tsx';
 import { MaintenanceNavigationProvider } from './-maintenance-navigation-context.tsx';
+import { PaidInAssessmentSheet } from './-paid-in-assessment-sheet.tsx';
 import { PaymentCollectionSheet } from './-payment-collection-sheet.tsx';
 import { PaymentVerificationSheet } from './-payment-verification-sheet.tsx';
 import { TaskKindAccessSheet } from './-task-kind-access-sheet.tsx';
@@ -86,6 +87,14 @@ const steps: Step[] = [
     accessCode: 'workflow',
     group: 'Workflow',
     component: <WorkflowSheet />,
+  },
+  {
+    label: 'Paid in assessment',
+    description:
+      'Stages to skip when a request is tagged Paid in Assessment.',
+    accessCode: 'workflow',
+    group: 'Workflow',
+    component: <PaidInAssessmentSheet />,
   },
   {
     label: 'Email notifications',

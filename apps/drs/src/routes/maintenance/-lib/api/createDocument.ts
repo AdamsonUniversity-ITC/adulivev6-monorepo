@@ -7,6 +7,7 @@ export type CreateDocumentPayload = {
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
+  check_assessment?: boolean;
   supporting_document_requirements?: Array<{
     name: string;
     instructions?: string | null;

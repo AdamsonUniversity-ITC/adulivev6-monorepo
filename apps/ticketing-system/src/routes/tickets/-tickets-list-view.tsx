@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
 
@@ -39,11 +39,20 @@ type TicketsListViewProps = {
   search: TicketsSearch;
   /** Route id used for typed search navigation */
   from: "/" | "/tickets/";
+  onMetricsChange?: (metrics: TicketsMetrics | null) => void;
 };
 
-export function TicketsListView({ search, from }: TicketsListViewProps) {
+export function TicketsListView({
+  search,
+  from,
+  onMetricsChange,
+}: TicketsListViewProps) {
   const navigate = useNavigate({ from });
   const [metrics, setMetrics] = useState<TicketsMetrics | null>(null);
+
+  useEffect(() => {
+    onMetricsChange?.(metrics);
+  }, [metrics, onMetricsChange]);
 
   // parseTicketsSearch already falls back to the stored filter, so by the time
   // this renders the selection is resolved.

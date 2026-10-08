@@ -170,6 +170,7 @@ export type DRSApplicationRow = {
   disposed_at: string | null;
   disposal_metadata?: Record<string, unknown> | null;
   is_foreigner_student: boolean;
+  paid_in_assessment?: boolean;
   release_date: string | null;
   date_released: string | null;
   cleared: DRSApplicationClearedRef;

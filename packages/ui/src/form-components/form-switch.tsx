@@ -41,7 +41,12 @@ export const FormSwitch = ({
                 <FieldTitle>{label}</FieldTitle>
                 {desc && <FieldDescription>{desc}</FieldDescription>}
               </FieldContent>
-              <Switch {...field} id={name} />
+              <Switch
+                {...field}
+                id={name}
+                checked={Boolean(field.value)}
+                onCheckedChange={(checked: boolean) => field.onChange(checked)}
+              />
             </Field>
           </FieldLabel>
           {fieldState.invalid && (

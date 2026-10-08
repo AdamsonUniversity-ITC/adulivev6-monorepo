@@ -86,6 +86,7 @@ const makeDetailFormSchema = (kind: CatalogKind) =>
     is_active: z.boolean(),
     allow_multiple_per_request: z.boolean(),
     once_per_student: z.boolean(),
+    check_assessment: z.boolean(),
     rules: z.object({
       graduate: z.boolean(),
       undergraduate: z.boolean(),
@@ -197,6 +198,7 @@ const detailToForm = (
     is_active: Boolean(detail.is_active),
     allow_multiple_per_request: detail.allow_multiple_per_request !== false,
     once_per_student: Boolean(detail.once_per_student),
+    check_assessment: Boolean(detail.check_assessment),
     rules,
     supporting_document_requirements:
       kind === 'document'
@@ -288,6 +290,7 @@ export const CatalogDetail = ({
       is_active: true,
       allow_multiple_per_request: true,
       once_per_student: false,
+      check_assessment: false,
       rules: { ...EMPTY_CATALOG_RULES },
       supporting_document_requirements: [],
       options: [],
@@ -325,6 +328,7 @@ export const CatalogDetail = ({
             ? false
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
+          check_assessment: values.check_assessment,
           group_id: groupId,
           rules: values.rules,
           supporting_document_requirements:
@@ -354,6 +358,7 @@ export const CatalogDetail = ({
           ? false
           : values.allow_multiple_per_request,
         once_per_student: values.once_per_student,
+        check_assessment: values.check_assessment,
         group_id: groupId,
         package_rules: values.rules,
         included_items: mapIncludedItemsPayload(values.included_items),
@@ -484,6 +489,14 @@ export const CatalogDetail = ({
               name="once_per_student"
               label="Can only be requested once"
             />
+            <div className="sm:col-span-2">
+              <FormSwitch
+                form={form}
+                name="check_assessment"
+                label="Check Assessment"
+                desc="The Paid in Assessment tag applies only when every item in the request has this on, and the student already has a graduation or transcript fee on assessment."
+              />
+            </div>
           </div>
 
           <Separator />

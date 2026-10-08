@@ -59,6 +59,7 @@ const makeCatalogFormSchema = (kind: CatalogKind) =>
     is_active: z.boolean(),
     allow_multiple_per_request: z.boolean(),
     once_per_student: z.boolean(),
+    check_assessment: z.boolean(),
     supporting_document_requirements: z.array(
       z.object({
         name: z.string().min(1, { message: 'Name is required.' }).max(255),
@@ -122,6 +123,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       is_active: true,
       allow_multiple_per_request: true,
       once_per_student: false,
+      check_assessment: false,
       supporting_document_requirements: [],
       included_items: [],
     },
@@ -150,6 +152,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
               ? false
               : values.allow_multiple_per_request,
             once_per_student: values.once_per_student,
+            check_assessment: values.check_assessment,
             supporting_document_requirements:
               values.supporting_document_requirements.map((item, index) => ({
                 ...item,
@@ -169,6 +172,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             ? false
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
+          check_assessment: values.check_assessment,
           included_items: mapIncludedItemsPayload(values.included_items),
         },
         selectedGroup,
@@ -243,6 +247,12 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             form={form}
             name="once_per_student"
             label="Can only be requested once"
+          />
+          <FormSwitch
+            form={form}
+            name="check_assessment"
+            label="Check Assessment"
+            desc="The Paid in Assessment tag applies only when every item in the request has this on, and the student already has a graduation or transcript fee on assessment."
           />
 
           {kind === 'document' ? (

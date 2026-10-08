@@ -6,6 +6,7 @@ export type CreatePackagePayload = {
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
+  check_assessment?: boolean;
   included_items?: Array<{
     id?: number | string | null;
     document_id?: number | null;
