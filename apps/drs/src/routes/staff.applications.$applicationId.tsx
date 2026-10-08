@@ -16,6 +16,7 @@ import {
 import { hasDrAdminAccessForHost } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { isNotFoundError } from '@/lib/isNotFoundError.ts';
+import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
 import { Checkbox } from '@repo/ui/components/checkbox';
 import { Input } from '@repo/ui/components/input';
@@ -1381,6 +1382,14 @@ function StaffApplicationWorkPage() {
               <DrsStatusBadge tone={toneForStatus(app.status)}>
                 {app.current_stage?.name ?? formatStatusLabel(app.status)}
               </DrsStatusBadge>
+              {app.paid_in_assessment ? (
+                <Badge
+                  variant="secondary"
+                  className="rounded-sm px-1.5 py-0 text-[11px] font-medium"
+                >
+                  Paid in Assessment
+                </Badge>
+              ) : null}
               {app.is_foreigner_student ? (
                 <DrsStatusBadge tone="neutral">
                   Foreigner student

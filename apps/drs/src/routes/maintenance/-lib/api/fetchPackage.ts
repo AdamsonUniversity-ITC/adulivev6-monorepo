@@ -15,6 +15,7 @@ export type PackageDetail = {
   is_active: boolean;
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
+  check_assessment?: boolean;
   rules?: PackageRule[];
   included_items?: Array<{
     id: number | string;
