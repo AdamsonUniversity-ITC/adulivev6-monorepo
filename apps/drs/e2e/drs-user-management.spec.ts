@@ -184,6 +184,11 @@ async function mockUserManagementApis(page: Page) {
               clearance_name: 'Registrar Clearance',
               users: [],
             },
+            {
+              id: 11,
+              clearance_name: 'Library Clearance',
+              users: [],
+            },
           ],
         },
       });
@@ -301,4 +306,38 @@ test('admin can open DRS user management and start an assignment', async ({
     .click();
   await page.getByRole('button', { name: /save assignment/i }).click();
   await expect(page.getByText('Assignment saved.')).toBeVisible();
+});
+
+test('admin can assign several clearance departments at once', async ({
+  page,
+}) => {
+  await mockUserManagementApis(page);
+  const posts: string[] = [];
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      request.url().includes('/v1/drs/workflow/assignments')
+    ) {
+      posts.push(request.postData() ?? '');
+    }
+  });
+
+  await page.goto('/maintenance');
+  await page.getByText('Users and roles').click();
+  await page.getByText('Ada Registrar').click();
+  await page.getByRole('button', { name: /assign/i }).click();
+
+  await page.getByRole('combobox').first().click();
+  await page
+    .getByRole('option', { name: 'Clearance department', exact: true })
+    .click();
+
+  await page.getByRole('checkbox', { name: 'Registrar Clearance' }).check();
+  await page.getByRole('checkbox', { name: 'Library Clearance' }).check();
+  await page.getByRole('button', { name: 'Save 2 assignments' }).click();
+
+  await expect(page.getByText('Assignments saved.')).toBeVisible();
+  expect(posts).toHaveLength(2);
+  expect(posts.join('\n')).toContain('"clearance_id":"10"');
+  expect(posts.join('\n')).toContain('"clearance_id":"11"');
 });

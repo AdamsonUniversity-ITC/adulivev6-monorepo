@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
+import { AccessDeniedState } from "@/components/access-denied-state";
+import { LoadingState } from "@/components/loading-state";
 import { PageShell } from "@/components/page-shell";
 import { PeopleSearchPicker } from "@/components/people-search-picker";
 import { PersonIdentity } from "@/components/person-identity";
-import { requireBoardAdminCapability } from "@/lib/admin-guards";
+import { requireSectionHeadOrBoardAdmin } from "@/lib/admin-guards";
 import {
   addBoardMember,
   createBoardSection,
   fetchBoardSections,
+  fetchCurrentBoard,
   removeBoardMember,
   syncBoardSectionMembers,
   updateBoardMember,
@@ -18,6 +21,7 @@ import {
   type PersonSearchResult,
   type SectionRow,
 } from "@/lib/aduts-api";
+import { getAxiosStatus } from "@/lib/axios-status";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -41,17 +45,34 @@ import { toast } from "@repo/ui/exports";
 
 export const Route = createFileRoute("/manage/staff")({
   beforeLoad: async ({ context }) => {
-    await requireBoardAdminCapability(context.queryClient);
+    await requireSectionHeadOrBoardAdmin(context.queryClient);
   },
   component: ManageStaffPage,
 });
 
 function ManageStaffPage() {
   const queryClient = useQueryClient();
+  const boardQuery = useQuery({
+    queryKey: ["aduts", "board"],
+    queryFn: fetchCurrentBoard,
+  });
   const sectionsQuery = useQuery({
     queryKey: ["aduts", "board", "sections"],
     queryFn: fetchBoardSections,
   });
+  const isBoardAdmin = boardQuery.data?.access?.is_board_admin === true;
+  const visibleSections = useMemo(() => {
+    const rows = sectionsQuery.data ?? [];
+    if (isBoardAdmin) return rows;
+    const headed = boardQuery.data?.access?.headed_section_ids;
+    if (!headed?.length) return rows;
+    const allowed = new Set(headed);
+    return rows.filter((section) => allowed.has(section.id));
+  }, [
+    boardQuery.data?.access?.headed_section_ids,
+    isBoardAdmin,
+    sectionsQuery.data,
+  ]);
 
   const [sectionName, setSectionName] = useState("");
   const [createHrSectionId, setCreateHrSectionId] = useState("");
@@ -78,6 +99,13 @@ function ManageStaffPage() {
     }
     setHrDrafts(next);
   }, [sectionsQuery.data]);
+
+  useEffect(() => {
+    if (isBoardAdmin || memberSectionId) return;
+    if (visibleSections.length === 1) {
+      setMemberSectionId(String(visibleSections[0]!.id));
+    }
+  }, [isBoardAdmin, memberSectionId, visibleSections]);
 
   const createSectionMutation = useMutation({
     mutationFn: () =>
@@ -142,8 +170,8 @@ function ManageStaffPage() {
       addBoardMember({
         section_id: Number(memberSectionId),
         user_id: Number(selectedPerson?.user_id),
-        is_section_head: isHead,
-        has_assign_access: canAssign || isHead,
+        is_section_head: isBoardAdmin && isHead,
+        has_assign_access: isBoardAdmin ? canAssign || isHead : canAssign,
       }),
     onSuccess: () => {
       setSelectedPerson(null);
@@ -163,7 +191,13 @@ function ManageStaffPage() {
     }: {
       memberId: number;
       payload: { is_section_head?: boolean; has_assign_access?: boolean };
-    }) => updateBoardMember(memberId, payload),
+    }) =>
+      updateBoardMember(
+        memberId,
+        isBoardAdmin
+          ? payload
+          : { has_assign_access: payload.has_assign_access },
+      ),
     onSuccess: invalidate,
     onError: () => toast.error("Failed to update member."),
   });
@@ -176,13 +210,18 @@ function ManageStaffPage() {
 
   function onCreateSection(event: FormEvent) {
     event.preventDefault();
-    if (!sectionName.trim()) return;
+    if (!isBoardAdmin || !sectionName.trim()) return;
     createSectionMutation.mutate();
   }
 
   function onAddMember(event: FormEvent) {
     event.preventDefault();
     if (!memberSectionId || !selectedPerson?.user_id) return;
+    if (
+      !visibleSections.some((section) => String(section.id) === memberSectionId)
+    ) {
+      return;
+    }
     addMemberMutation.mutate();
   }
 
@@ -195,6 +234,7 @@ function ManageStaffPage() {
   }
 
   async function persistHrSectionId(section: SectionRow): Promise<boolean> {
+    if (!isBoardAdmin) return false;
     const parsed = parseHrId(hrDrafts[section.id] ?? "");
     if (parsed === "invalid") {
       toast.error("HR Section ID must be a positive number.");
@@ -212,61 +252,89 @@ function ManageStaffPage() {
     }
   }
 
+  if (boardQuery.isLoading) {
+    return <LoadingState label="Loading staff…" />;
+  }
+
+  if (boardQuery.isError) {
+    if (getAxiosStatus(boardQuery.error) === 403) {
+      return (
+        <AccessDeniedState description="You do not have access to manage staff." />
+      );
+    }
+    return <AccessDeniedState description="Could not load staff." />;
+  }
+
   return (
-    <PageShell title="Staff" description="Manage sections and support staff.">
+    <PageShell
+      title="Staff"
+      description={
+        isBoardAdmin
+          ? "Manage sections and support staff."
+          : "Manage staff in the sections you head."
+      }
+    >
       <div className="space-y-6">
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle>Setup</CardTitle>
             <CardDescription>
-              Create sections with an optional HR Section ID for member sync.
+              {isBoardAdmin
+                ? "Create sections with an optional HR Section ID for member sync."
+                : "Add people to the sections you head."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <form
-              onSubmit={onCreateSection}
-              className="flex flex-wrap items-end gap-2"
-            >
-              <div className="min-w-[10rem] flex-1 space-y-1">
-                <Label htmlFor="section-name" className="text-xs">
-                  Section name
-                </Label>
-                <Input
-                  id="section-name"
-                  placeholder="e.g. Helpdesk"
-                  value={sectionName}
-                  onChange={(e) => setSectionName(e.target.value)}
-                  className="h-9 shadow-xs"
-                />
-              </div>
-              <div className="w-[8.5rem] space-y-1">
-                <Label htmlFor="create-hr-id" className="text-xs">
-                  HR Section ID
-                </Label>
-                <Input
-                  id="create-hr-id"
-                  inputMode="numeric"
-                  placeholder="Optional"
-                  value={createHrSectionId}
-                  onChange={(e) => setCreateHrSectionId(e.target.value)}
-                  className="h-9 shadow-xs"
-                />
-              </div>
-              <Button
-                type="submit"
-                size="sm"
-                className="h-9"
-                disabled={
-                  createSectionMutation.isPending || !sectionName.trim()
-                }
+            {isBoardAdmin ? (
+              <form
+                onSubmit={onCreateSection}
+                className="flex flex-wrap items-end gap-2"
               >
-                Add
-              </Button>
-            </form>
+                <div className="min-w-[10rem] flex-1 space-y-1">
+                  <Label htmlFor="section-name" className="text-xs">
+                    Section name
+                  </Label>
+                  <Input
+                    id="section-name"
+                    placeholder="e.g. Helpdesk"
+                    value={sectionName}
+                    onChange={(e) => setSectionName(e.target.value)}
+                    className="h-9 shadow-xs"
+                  />
+                </div>
+                <div className="w-[8.5rem] space-y-1">
+                  <Label htmlFor="create-hr-id" className="text-xs">
+                    HR Section ID
+                  </Label>
+                  <Input
+                    id="create-hr-id"
+                    inputMode="numeric"
+                    placeholder="Optional"
+                    value={createHrSectionId}
+                    onChange={(e) => setCreateHrSectionId(e.target.value)}
+                    className="h-9 shadow-xs"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-9"
+                  disabled={
+                    createSectionMutation.isPending || !sectionName.trim()
+                  }
+                >
+                  Add
+                </Button>
+              </form>
+            ) : null}
 
             <form
               onSubmit={onAddMember}
-              className="flex flex-wrap items-end gap-2 border-t pt-4"
+              className={
+                isBoardAdmin
+                  ? "flex flex-wrap items-end gap-2 border-t pt-4"
+                  : "flex flex-wrap items-end gap-2"
+              }
             >
               <div className="min-w-[9rem] space-y-1">
                 <Label className="text-xs">Section</Label>
@@ -278,7 +346,7 @@ function ManageStaffPage() {
                     <SelectValue placeholder="Select…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(sectionsQuery.data ?? []).map((section) => (
+                    {visibleSections.map((section) => (
                       <SelectItem key={section.id} value={String(section.id)}>
                         {section.section_name}
                       </SelectItem>
@@ -295,17 +363,19 @@ function ManageStaffPage() {
                   onClear={() => setSelectedPerson(null)}
                 />
               </div>
-              <label className="mb-1.5 flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={isHead}
-                  onCheckedChange={(v) => {
-                    const next = v === true;
-                    setIsHead(next);
-                    if (next) setCanAssign(true);
-                  }}
-                />
-                Head
-              </label>
+              {isBoardAdmin ? (
+                <label className="mb-1.5 flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={isHead}
+                    onCheckedChange={(v) => {
+                      const next = v === true;
+                      setIsHead(next);
+                      if (next) setCanAssign(true);
+                    }}
+                  />
+                  Head
+                </label>
+              ) : null}
               <label className="mb-1.5 flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={canAssign}
@@ -334,12 +404,14 @@ function ManageStaffPage() {
           <CardHeader className="pb-3">
             <CardTitle>Roster</CardTitle>
             <CardDescription>
-              Edit HR Section ID and sync active teachers into the roster.
+              {isBoardAdmin
+                ? "Edit HR Section ID and sync active teachers into the roster."
+                : "Sync active teachers into the roster when an HR section is already linked."}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {(sectionsQuery.data ?? []).map((section) => (
+              {visibleSections.map((section) => (
                 <div
                   key={section.id}
                   className="flex flex-col gap-4 p-4 md:flex-row md:items-start"
@@ -356,63 +428,84 @@ function ManageStaffPage() {
                         HR: {section.hr_section_name}
                       </p>
                     ) : null}
-                    <div className="flex items-end gap-2">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <Label htmlFor={`hr-${section.id}`} className="text-xs">
-                          HR Section ID
-                        </Label>
-                        <Input
-                          id={`hr-${section.id}`}
-                          inputMode="numeric"
-                          value={hrDrafts[section.id] ?? ""}
-                          onChange={(e) =>
-                            setHrDrafts((prev) => ({
-                              ...prev,
-                              [section.id]: e.target.value,
-                            }))
-                          }
-                          onBlur={() => void persistHrSectionId(section)}
-                          className="h-8 shadow-xs"
-                          placeholder="cid"
-                        />
-                      </div>
+                    {isBoardAdmin ? (
+                      <>
+                        <div className="flex items-end gap-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <Label
+                              htmlFor={`hr-${section.id}`}
+                              className="text-xs"
+                            >
+                              HR Section ID
+                            </Label>
+                            <Input
+                              id={`hr-${section.id}`}
+                              inputMode="numeric"
+                              value={hrDrafts[section.id] ?? ""}
+                              onChange={(e) =>
+                                setHrDrafts((prev) => ({
+                                  ...prev,
+                                  [section.id]: e.target.value,
+                                }))
+                              }
+                              onBlur={() => void persistHrSectionId(section)}
+                              className="h-8 shadow-xs"
+                              placeholder="cid"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 shrink-0"
+                            title="Sync members from HR"
+                            disabled={
+                              syncMutation.isPending ||
+                              updateSectionMutation.isPending ||
+                              !(hrDrafts[section.id] ?? "").trim()
+                            }
+                            onClick={() => {
+                              void (async () => {
+                                const ok = await persistHrSectionId(section);
+                                if (!ok) return;
+                                syncMutation.mutate(section.id);
+                              })();
+                            }}
+                          >
+                            <RefreshCw
+                              className={`size-3.5 ${syncMutation.isPending ? "animate-spin" : ""}`}
+                            />
+                          </Button>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={section.is_approver === true}
+                            disabled={updateSectionMutation.isPending}
+                            onCheckedChange={(v) =>
+                              updateSectionMutation.mutate({
+                                sectionId: section.id,
+                                payload: { is_approver: v === true },
+                              })
+                            }
+                          />
+                          Approver section
+                        </label>
+                      </>
+                    ) : section.hr_section_id != null ? (
                       <Button
                         type="button"
                         size="icon"
                         variant="outline"
                         className="h-8 w-8 shrink-0"
                         title="Sync members from HR"
-                        disabled={
-                          syncMutation.isPending ||
-                          updateSectionMutation.isPending ||
-                          !(hrDrafts[section.id] ?? "").trim()
-                        }
-                        onClick={() => {
-                          void (async () => {
-                            const ok = await persistHrSectionId(section);
-                            if (!ok) return;
-                            syncMutation.mutate(section.id);
-                          })();
-                        }}
+                        disabled={syncMutation.isPending}
+                        onClick={() => syncMutation.mutate(section.id)}
                       >
                         <RefreshCw
                           className={`size-3.5 ${syncMutation.isPending ? "animate-spin" : ""}`}
                         />
                       </Button>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={section.is_approver === true}
-                        disabled={updateSectionMutation.isPending}
-                        onCheckedChange={(v) =>
-                          updateSectionMutation.mutate({
-                            sectionId: section.id,
-                            payload: { is_approver: v === true },
-                          })
-                        }
-                      />
-                      Approver section
-                    </label>
+                    ) : null}
                   </div>
 
                   <div className="bg-card/80 overflow-hidden rounded-lg border md:flex-1">
@@ -448,24 +541,26 @@ function ManageStaffPage() {
                           <div className="flex flex-wrap items-center gap-1">
                             {!m.is_section_head ? (
                               <>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8"
-                                  disabled={updateMemberMutation.isPending}
-                                  onClick={() =>
-                                    updateMemberMutation.mutate({
-                                      memberId: m.id,
-                                      payload: {
-                                        is_section_head: true,
-                                        has_assign_access: true,
-                                      },
-                                    })
-                                  }
-                                >
-                                  Make Head
-                                </Button>
+                                {isBoardAdmin ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8"
+                                    disabled={updateMemberMutation.isPending}
+                                    onClick={() =>
+                                      updateMemberMutation.mutate({
+                                        memberId: m.id,
+                                        payload: {
+                                          is_section_head: true,
+                                          has_assign_access: true,
+                                        },
+                                      })
+                                    }
+                                  >
+                                    Make Head
+                                  </Button>
+                                ) : null}
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -487,16 +582,20 @@ function ManageStaffPage() {
                                 </Button>
                               </>
                             ) : null}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeMemberMutation.mutate(m.id)}
-                              disabled={removeMemberMutation.isPending}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
-                            >
-                              Remove
-                            </Button>
+                            {isBoardAdmin || !m.is_section_head ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  removeMemberMutation.mutate(m.id)
+                                }
+                                disabled={removeMemberMutation.isPending}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+                              >
+                                Remove
+                              </Button>
+                            ) : null}
                           </div>
                         </li>
                       ))}
@@ -509,7 +608,7 @@ function ManageStaffPage() {
                   </div>
                 </div>
               ))}
-              {(sectionsQuery.data?.length ?? 0) === 0 ? (
+              {visibleSections.length === 0 ? (
                 <div className="text-muted-foreground p-6 text-center text-sm">
                   No sections created yet.
                 </div>
