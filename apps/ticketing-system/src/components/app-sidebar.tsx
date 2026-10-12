@@ -108,9 +108,13 @@ export function AppSidebar() {
         ]
       : []),
     ...(showManage
+      ? [{ title: "Settings", url: "/manage", icon: Settings2 }]
+      : []),
+    ...(showManage || showSectionResources
+      ? [{ title: "Staff", url: "/manage/staff", icon: Users }]
+      : []),
+    ...(showManage
       ? [
-          { title: "Settings", url: "/manage", icon: Settings2 },
-          { title: "Staff", url: "/manage/staff", icon: Users },
           { title: "Customers", url: "/manage/customers", icon: Contact },
           { title: "Admins", url: "/manage/admins", icon: UserCog },
         ]

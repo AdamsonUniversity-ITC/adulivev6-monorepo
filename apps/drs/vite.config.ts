@@ -16,7 +16,8 @@ export default defineConfig({
     tsconfigPaths(),
   ],
   server: {
-    host: true,
+    // `true` binds IPv6 only. Windows resolves this host to 127.0.0.1, so Firefox never reaches that socket.
+    host: '0.0.0.0',
     allowedHosts: ['college-drs.localhost.test', 'shs-drs.localhost.test'],
     fs: {
       allow: ['..'],

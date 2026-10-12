@@ -9,6 +9,7 @@ import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { checkPermission } from '@repo/hooks';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
+import { Checkbox } from '@repo/ui/components/checkbox';
 import {
   Card,
   CardContent,
@@ -553,6 +554,54 @@ const unwrapClearanceDepartments = (
 const flattenTasks = (stages: WorkflowStage[]): WorkflowTask[] =>
   stages.flatMap((stage) => stage.tasks ?? []);
 
+type TargetOption = {
+  id: string;
+  label: string;
+};
+
+const heldTargetIds = (
+  responsibilities: WorkflowResponsibility[],
+  targetType: AssignmentTargetType,
+): Set<string> => {
+  const ids = new Set<string>();
+
+  for (const item of responsibilities) {
+    if (
+      targetType === 'clearance_department' &&
+      item.target_type === 'clearance_department' &&
+      item.target_key
+    ) {
+      ids.add(String(item.target_key));
+    }
+
+    if (
+      targetType === 'task_kind' &&
+      item.target_type === 'task_kind' &&
+      item.kind
+    ) {
+      ids.add(item.kind);
+    }
+
+    if (
+      targetType === 'stage' &&
+      item.target_type === 'stage' &&
+      item.stage?.id
+    ) {
+      ids.add(item.stage.id);
+    }
+
+    if (
+      targetType === 'task' &&
+      item.target_type === 'task' &&
+      item.task?.id
+    ) {
+      ids.add(item.task.id);
+    }
+  }
+
+  return ids;
+};
+
 function AssignDialog({
   profile,
 }: {
@@ -562,7 +611,7 @@ function AssignDialog({
   const [open, setOpen] = useState(false);
   const [targetType, setTargetType] =
     useState<AssignmentTargetType>('task_kind');
-  const [targetValue, setTargetValue] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [role, setRole] = useState<'primary' | 'fallback' | 'approver'>(
     'primary',
   );
@@ -594,8 +643,38 @@ function AssignDialog({
   const clearances = unwrapClearanceDepartments(clearancesQuery.data);
   const stages = stagesQuery.data ?? [];
   const tasks = flattenTasks(stages);
+  const heldIds = useMemo(
+    () => heldTargetIds(profile.responsibilities, targetType),
+    [profile.responsibilities, targetType],
+  );
+  const options = useMemo((): TargetOption[] => {
+    if (targetType === 'clearance_department') {
+      return clearances.map((item) => ({
+        id: String(item.id),
+        label: clearanceLabel(item),
+      }));
+    }
 
-  const buildPayload = (): AssignmentPayload => {
+    if (targetType === 'task_kind') {
+      return (taskKindsQuery.data ?? []).map((item) => ({
+        id: item.kind,
+        label: item.label,
+      }));
+    }
+
+    if (targetType === 'stage') {
+      return stages.map((item) => ({ id: item.id, label: item.name }));
+    }
+
+    if (targetType === 'task') {
+      return tasks.map((item) => ({ id: item.id, label: item.name }));
+    }
+
+    return [];
+  }, [clearances, stages, targetType, taskKindsQuery.data, tasks]);
+  const pendingIds = selectedIds.filter((id) => !heldIds.has(id));
+
+  const buildPayload = (value: string): AssignmentPayload => {
     const base = {
       emp_no: profile.employee.emp_no,
       assignment_role: role,
@@ -611,15 +690,15 @@ function AssignDialog({
     }
 
     if (targetType === 'task_kind') {
-      return { ...base, target_type: targetType, kind: targetValue };
+      return { ...base, target_type: targetType, kind: value };
     }
 
     if (targetType === 'clearance_department') {
       return {
         ...base,
         target_type: targetType,
-        clearance_id: targetValue,
-        target_key: targetValue,
+        clearance_id: value,
+        target_key: value,
       };
     }
 
@@ -632,48 +711,99 @@ function AssignDialog({
     }
 
     if (targetType === 'stage') {
-      const stage = stages.find((item) => item.id === targetValue);
+      const stage = stages.find((item) => item.id === value);
       return {
         ...base,
         target_type: targetType,
-        stage_id: targetValue,
+        stage_id: value,
         name: stage?.name ?? null,
       };
     }
 
-    const task = tasks.find((item) => item.id === targetValue);
+    const task = tasks.find((item) => item.id === value);
     return {
       ...base,
       target_type: targetType,
-      task_id: targetValue,
+      task_id: value,
       name: task?.name ?? null,
     };
   };
 
+  const refreshAssignments = () => {
+    queryClient.invalidateQueries({
+      queryKey: profileKey(profile.employee.emp_no),
+    });
+    queryClient.invalidateQueries({
+      queryKey: historyKey(profile.employee.emp_no),
+    });
+  };
+
   const assignMutation = useMutation({
-    mutationFn: () => assignWorkflowUser(buildPayload()),
-    onSuccess: () => {
-      toast.success('Assignment saved.');
-      setOpen(false);
-      setTargetValue('');
-      queryClient.invalidateQueries({
-        queryKey: profileKey(profile.employee.emp_no),
-      });
-      queryClient.invalidateQueries({
-        queryKey: historyKey(profile.employee.emp_no),
-      });
+    mutationFn: async () => {
+      if (!targetRequiresValue(targetType)) {
+        await assignWorkflowUser(buildPayload(''));
+        return { saved: 1, total: 1, remaining: [] as string[] };
+      }
+
+      const values = selectedIds.filter((id) => !heldIds.has(id));
+      let saved = 0;
+
+      for (const value of values) {
+        try {
+          await assignWorkflowUser(buildPayload(value));
+          saved += 1;
+        } catch {
+          return { saved, total: values.length, remaining: values.slice(saved) };
+        }
+      }
+
+      return { saved, total: values.length, remaining: [] as string[] };
     },
-    onError: () => toast.error('Failed to save assignment.'),
+    onSuccess: (result) => {
+      refreshAssignments();
+
+      if (result.saved === result.total && result.total > 0) {
+        toast.success(
+          result.total === 1 ? 'Assignment saved.' : 'Assignments saved.',
+        );
+        setOpen(false);
+        setSelectedIds([]);
+        return;
+      }
+
+      setSelectedIds(result.remaining);
+
+      if (result.saved === 0) {
+        toast.error('Failed to save assignment.');
+        return;
+      }
+
+      toast.error(`Saved ${result.saved} of ${result.total}.`);
+    },
   });
 
   const isSaveDisabled =
     assignMutation.isPending ||
-    (targetRequiresValue(targetType) && !targetValue) ||
-    ((targetType === 'assessment' || targetType === 'assessment_foreigner') &&
-      !assessmentQuery.data?.id);
+    (targetRequiresValue(targetType)
+      ? pendingIds.length === 0
+      : (targetType === 'assessment' ||
+          targetType === 'assessment_foreigner') &&
+        !assessmentQuery.data?.id);
+
+  const saveLabel = assignMutation.isPending
+    ? 'Saving...'
+    : pendingIds.length > 1
+      ? `Save ${pendingIds.length} assignments`
+      : 'Save assignment';
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSelectedIds([]);
+      }}
+    >
       <DialogTrigger asChild>
         <Button type="button" size="sm" className="gap-2">
           <UserPlus className="h-4 w-4" />
@@ -689,7 +819,7 @@ function AssignDialog({
             value={targetType}
             onValueChange={(value) => {
               setTargetType(value as AssignmentTargetType);
-              setTargetValue('');
+              setSelectedIds([]);
             }}
           >
             <SelectTrigger>
@@ -712,64 +842,40 @@ function AssignDialog({
             </SelectContent>
           </Select>
 
-          {targetType === 'clearance_department' ? (
-            <Select value={targetValue} onValueChange={setTargetValue}>
-              <SelectTrigger>
-                <SelectValue placeholder="Clearance department" />
-              </SelectTrigger>
-              <SelectContent>
-                {clearances.map((item) => (
-                  <SelectItem key={String(item.id)} value={String(item.id)}>
-                    {clearanceLabel(item)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
+          {targetRequiresValue(targetType) ? (
+            <div className="max-h-48 space-y-2 overflow-y-auto">
+              {options.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No targets available.
+                </p>
+              ) : (
+                options.map((option) => {
+                  const held = heldIds.has(option.id);
+                  const checked = held || selectedIds.includes(option.id);
 
-          {targetType === 'task_kind' ? (
-            <Select value={targetValue} onValueChange={setTargetValue}>
-              <SelectTrigger>
-                <SelectValue placeholder="Task kind" />
-              </SelectTrigger>
-              <SelectContent>
-                {(taskKindsQuery.data ?? []).map((item) => (
-                  <SelectItem key={item.kind} value={item.kind}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-
-          {targetType === 'stage' ? (
-            <Select value={targetValue} onValueChange={setTargetValue}>
-              <SelectTrigger>
-                <SelectValue placeholder="Workflow stage" />
-              </SelectTrigger>
-              <SelectContent>
-                {stages.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-
-          {targetType === 'task' ? (
-            <Select value={targetValue} onValueChange={setTargetValue}>
-              <SelectTrigger>
-                <SelectValue placeholder="Workflow task" />
-              </SelectTrigger>
-              <SelectContent>
-                {tasks.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  return (
+                    <label
+                      key={option.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        aria-label={option.label}
+                        checked={checked}
+                        disabled={held || assignMutation.isPending}
+                        onCheckedChange={(value) => {
+                          setSelectedIds((current) =>
+                            value === true
+                              ? [...current, option.id]
+                              : current.filter((id) => id !== option.id),
+                          );
+                        }}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
           ) : null}
 
           <Select
@@ -799,7 +905,7 @@ function AssignDialog({
             disabled={isSaveDisabled}
             onClick={() => assignMutation.mutate()}
           >
-            {assignMutation.isPending ? 'Saving...' : 'Save assignment'}
+            {saveLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
