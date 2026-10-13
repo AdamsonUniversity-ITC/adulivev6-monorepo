@@ -4,12 +4,19 @@ import {
   getDrSubdomain,
   hasDrCmsAccessForHost,
 } from '@/lib/drsPermissions.ts';
-import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
+import {
+  DRS_AUTH_USER_QUERY_KEY,
+  fetchAuthUser,
+  normalizePermissions,
+  resetFetchAuthUser,
+} from '@/lib/fetchAuthUser.ts';
+import { stopViewAs, viewAsLabel } from '@/lib/viewAs.ts';
 import { fetchWorkflowStageAccess } from '@/routes/-lib/api/fetchWorkflowStageAccess.ts';
 import { loadMaintenanceAccess } from '@/routes/maintenance/-lib/loadMaintenanceAccess.ts';
 import { checkPermission } from '@repo/hooks';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Button } from '@repo/ui/components/button';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useRouter } from '@tanstack/react-router';
 
 const TENANT_LABEL: Record<string, string> = {
   'college-drs': 'College',
@@ -31,14 +38,24 @@ const FIVE_MINUTES = 5 * 60 * 1000;
  * this bar identifies where you are inside the document request system.
  */
 export function DrsAppNav() {
-  const permissionsQuery = useQuery({
-    queryKey: ['drs-auth-permissions'],
-    queryFn: async () => normalizePermissions((await fetchAuthUser()).data),
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const authQuery = useQuery({
+    queryKey: DRS_AUTH_USER_QUERY_KEY,
+    queryFn: async () => (await fetchAuthUser()).data,
     staleTime: FIVE_MINUTES,
     retry: false,
   });
 
-  const permissions = permissionsQuery.data ?? [];
+  const permissions = normalizePermissions(authQuery.data ?? { id: 0 });
+  const viewingAs = authQuery.data?.view_as ?? null;
+
+  const exitViewAs = () => {
+    stopViewAs();
+    resetFetchAuthUser();
+    queryClient.clear();
+    void router.invalidate();
+  };
   const isStudent = checkPermission(permissions, DRS_STUDENT_APPLY_PERMISSION);
   const isCmsUser = hasDrCmsAccessForHost(permissions);
 
@@ -46,14 +63,14 @@ export function DrsAppNav() {
     queryKey: ['drs-employee-workflow-stage-access'],
     queryFn: fetchWorkflowStageAccess,
     staleTime: FIVE_MINUTES,
-    enabled: permissionsQuery.isSuccess && !isStudent,
+    enabled: authQuery.isSuccess && !isStudent,
   });
 
   const maintenanceAccessQuery = useQuery({
     queryKey: ['drs-maintenance-access'],
     queryFn: loadMaintenanceAccess,
     staleTime: FIVE_MINUTES,
-    enabled: permissionsQuery.isSuccess && isCmsUser,
+    enabled: authQuery.isSuccess && isCmsUser,
   });
 
   const maintenanceAccess = maintenanceAccessQuery.data?.access ?? [];
@@ -89,6 +106,20 @@ export function DrsAppNav() {
       aria-label="Document Request System"
       className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-14 z-30 border-b backdrop-blur print:hidden"
     >
+      {viewingAs && authQuery.data ? (
+        <div className="border-b bg-muted/50">
+          <div className="mx-auto flex h-10 w-full max-w-[90rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+            <p className="truncate text-sm">
+              Viewing as{' '}
+              <span className="font-medium">{viewAsLabel(authQuery.data)}</span>
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={exitViewAs}>
+              Exit
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto flex h-11 w-full max-w-[90rem] items-center gap-4 px-4 sm:px-6 lg:px-8">
         <div className="hidden shrink-0 items-baseline gap-1.5 md:flex">
           <span className="text-sm font-semibold tracking-tight">

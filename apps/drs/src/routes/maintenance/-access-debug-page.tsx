@@ -9,6 +9,14 @@ import {
   DrsSection,
   DrsStatusBadge,
 } from '@/components/drs-ui.tsx';
+import { hasDrsSuperAdminAccess } from '@/lib/drsPermissions.ts';
+import {
+  DRS_AUTH_USER_QUERY_KEY,
+  fetchAuthUser,
+  normalizePermissions,
+  resetFetchAuthUser,
+} from '@/lib/fetchAuthUser.ts';
+import { startViewAs } from '@/lib/viewAs.ts';
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import {
@@ -19,13 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from '@repo/ui/components/table';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { type JSX, useMemo, useState } from 'react';
 import { fetchAccessDebugExplain } from './-lib/api/access-debug/fetchAccessDebugExplain.ts';
 import type { AccessDebugCheck } from './-lib/api/access-debug/types.ts';
 import { fetchUserManagementUsers } from './-lib/api/user-management/fetchUsers.ts';
 import type { UserManagementRow } from './-lib/api/user-management/types.ts';
+import { fetchViewAsAvailability } from './-lib/api/view-as/fetchViewAsAvailability.ts';
 import { useDebouncedValue } from './-lib/hooks/useDebouncedValue.ts';
 
 const CHECK_SECTIONS: Record<string, string> = {
@@ -99,12 +109,44 @@ function CheckIcon({ passed }: { passed: boolean }) {
 }
 
 export function AccessDebugPage(): JSX.Element {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [selectedEmployee, setSelectedEmployee] =
     useState<UserManagementRow | null>(null);
   const [applicationRef, setApplicationRef] = useState('');
   const [submittedApplication, setSubmittedApplication] = useState('');
   const debouncedEmployeeSearch = useDebouncedValue(employeeSearch.trim(), 300);
+
+  const authQuery = useQuery({
+    queryKey: DRS_AUTH_USER_QUERY_KEY,
+    queryFn: async () => (await fetchAuthUser()).data,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isSuperAdmin = hasDrsSuperAdminAccess(
+    normalizePermissions(authQuery.data ?? { id: 0 }),
+  );
+  const viewAsQuery = useQuery({
+    queryKey: ['drs', 'view-as'],
+    queryFn: fetchViewAsAvailability,
+    enabled: isSuperAdmin && authQuery.data?.view_as == null,
+  });
+  const canStartViewAs =
+    isSuperAdmin &&
+    authQuery.data?.view_as == null &&
+    viewAsQuery.data?.enabled === true;
+
+  const beginViewAs = () => {
+    const userId = selectedEmployee?.user_id;
+    if (!userId) {
+      return;
+    }
+
+    startViewAs(userId);
+    resetFetchAuthUser();
+    queryClient.clear();
+    void navigate({ to: '/staff/queue' });
+  };
 
   const userSearchQuery = useQuery({
     queryKey: userSearchKey(debouncedEmployeeSearch),
@@ -166,7 +208,17 @@ export function AccessDebugPage(): JSX.Element {
                       ? ` · ${selectedEmployee.email}`
                       : ''}
                   </div>
+                  {canStartViewAs && selectedEmployee.user_id == null ? (
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      This employee has no login, so view as is unavailable.
+                    </p>
+                  ) : null}
                 </div>
+                {canStartViewAs && selectedEmployee.user_id != null ? (
+                  <Button type="button" size="sm" onClick={beginViewAs}>
+                    View as this employee
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
