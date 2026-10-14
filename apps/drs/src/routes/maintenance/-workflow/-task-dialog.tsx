@@ -54,6 +54,8 @@ export const TaskDialog = ({
   const [slug, setSlug] = useState('');
   const [kind, setKind] = useState<WorkflowTaskKind>('manual');
   const [isRequired, setIsRequired] = useState(true);
+  const [allowsStaffReceiveModeChange, setAllowsStaffReceiveModeChange] =
+    useState(false);
   const [parallelGroup, setParallelGroup] = useState('');
   const [clearanceId, setClearanceId] = useState<string>('');
   const [config, setConfig] = useState<Record<string, unknown>>({});
@@ -64,6 +66,9 @@ export const TaskDialog = ({
     setSlug(task?.slug ?? '');
     setKind((task?.kind as WorkflowTaskKind | undefined) ?? 'manual');
     setIsRequired(task ? Boolean(task.is_required) : true);
+    setAllowsStaffReceiveModeChange(
+      Boolean(task?.allows_staff_receive_mode_change),
+    );
     setParallelGroup(task?.parallel_group ?? '');
     setClearanceId(task?.drs_clearance_id ?? '');
     setConfig(task?.config_json ?? {});
@@ -108,6 +113,7 @@ export const TaskDialog = ({
       slug: slug.trim() || undefined,
       kind,
       is_required: isRequired,
+      allows_staff_receive_mode_change: allowsStaffReceiveModeChange,
       parallel_group: parallelGroup.trim() || null,
       drs_clearance_id: kindMeta?.requires_clearance
         ? Number(clearanceId)
@@ -267,6 +273,28 @@ export const TaskDialog = ({
             >
               Required to advance this stage
             </Label>
+          </div>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="task-receive-mode"
+              className="mt-0.5"
+              checked={allowsStaffReceiveModeChange}
+              onCheckedChange={(value) =>
+                setAllowsStaffReceiveModeChange(value === true)
+              }
+            />
+            <div className="space-y-1">
+              <Label
+                htmlFor="task-receive-mode"
+                className="cursor-pointer font-normal"
+              >
+                Staff can change delivery mode on this task
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Only staff who can complete this task may switch pickup and
+                courier delivery while the task is still open.
+              </p>
+            </div>
           </div>
 
           {kindMeta && visibleConfigEntries.length > 0 ? (

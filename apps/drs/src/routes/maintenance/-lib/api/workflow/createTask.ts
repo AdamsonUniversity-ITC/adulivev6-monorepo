@@ -6,6 +6,7 @@ export type CreateTaskPayload = {
   slug?: string;
   kind: WorkflowTaskKind;
   is_required?: boolean;
+  allows_staff_receive_mode_change?: boolean;
   parallel_group?: string | null;
   drs_clearance_id?: number | string | null;
   config_json?: Record<string, unknown> | null;

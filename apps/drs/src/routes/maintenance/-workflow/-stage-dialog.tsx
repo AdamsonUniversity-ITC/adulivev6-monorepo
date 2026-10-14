@@ -43,8 +43,6 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
     setRestrictAssignedUsersToCoursePrograms,
   ] = useState(false);
   const [allowsOwnerCancellation, setAllowsOwnerCancellation] = useState(false);
-  const [allowsStaffReceiveModeChange, setAllowsStaffReceiveModeChange] =
-    useState(false);
   const [transitionRule, setTransitionRule] =
     useState<TransitionRule>('all_required_done');
 
@@ -58,9 +56,6 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
       Boolean(stage?.restrict_assigned_users_to_course_programs),
     );
     setAllowsOwnerCancellation(Boolean(stage?.allows_owner_cancellation));
-    setAllowsStaffReceiveModeChange(
-      Boolean(stage?.allows_staff_receive_mode_change),
-    );
     setTransitionRule(stage?.transition_rule ?? 'all_required_done');
   }, [open, stage]);
 
@@ -96,7 +91,6 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
       restrict_assigned_users_to_course_programs:
         restrictAssignedUsersToCoursePrograms,
       allows_owner_cancellation: allowsOwnerCancellation,
-      allows_staff_receive_mode_change: allowsStaffReceiveModeChange,
     };
 
     if (stage) {
@@ -232,27 +226,6 @@ export const StageDialog = ({ open, stage, onOpenChange, onSaved }: Props) => {
                 Students may cancel their own request while the application is
                 in this stage. Staff with cancel permission can cancel
                 regardless of this setting.
-              </p>
-            </div>
-          </div>
-          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
-            <Checkbox
-              id="stage-staff-receive-mode"
-              checked={allowsStaffReceiveModeChange}
-              onCheckedChange={(value) =>
-                setAllowsStaffReceiveModeChange(value === true)
-              }
-            />
-            <div className="space-y-1">
-              <Label
-                htmlFor="stage-staff-receive-mode"
-                className="cursor-pointer font-normal"
-              >
-                Staff can change delivery mode at this stage
-              </Label>
-              <p className="text-muted-foreground text-xs">
-                Staff may switch pickup and courier delivery (and delivery
-                address) while the application is in this stage.
               </p>
             </div>
           </div>

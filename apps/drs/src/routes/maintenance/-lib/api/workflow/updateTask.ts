@@ -6,6 +6,7 @@ export type UpdateTaskPayload = {
   slug?: string;
   kind?: WorkflowTaskKind;
   is_required?: boolean;
+  allows_staff_receive_mode_change?: boolean;
   parallel_group?: string | null;
   drs_clearance_id?: number | string | null;
   drs_workflow_stage_id?: number | string;

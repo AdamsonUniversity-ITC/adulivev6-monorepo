@@ -11,6 +11,7 @@ import {
   resetFetchAuthUser,
 } from '@/lib/fetchAuthUser.ts';
 import { stopViewAs, viewAsLabel } from '@/lib/viewAs.ts';
+import { fetchReportAccess } from '@/api/reports.ts';
 import { fetchWorkflowStageAccess } from '@/routes/-lib/api/fetchWorkflowStageAccess.ts';
 import { loadMaintenanceAccess } from '@/routes/maintenance/-lib/loadMaintenanceAccess.ts';
 import { checkPermission } from '@repo/hooks';
@@ -73,8 +74,17 @@ export function DrsAppNav() {
     enabled: authQuery.isSuccess && isCmsUser,
   });
 
+  const reportAccessQuery = useQuery({
+    queryKey: ['drs-report-access'],
+    queryFn: fetchReportAccess,
+    staleTime: FIVE_MINUTES,
+    enabled: authQuery.isSuccess && !isStudent && !isCmsUser,
+  });
+
   const maintenanceAccess = maintenanceAccessQuery.data?.access ?? [];
   const hasQueue = stageAccessQuery.data?.hasWorkflowStageAccess === true;
+  const canViewReports =
+    isCmsUser || reportAccessQuery.data?.can_view === true;
 
   const items: NavItem[] = [];
 
@@ -87,7 +97,7 @@ export function DrsAppNav() {
     items.push({ label: 'Queue', to: '/staff/queue' });
   }
 
-  if (isCmsUser || hasQueue) {
+  if (canViewReports) {
     items.push({ label: 'Reports', to: '/maintenance/reports' });
   }
 

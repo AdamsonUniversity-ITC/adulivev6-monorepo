@@ -21,7 +21,8 @@ const baseTask = (overrides: Partial<WorkflowTask> = {}): WorkflowTask => ({
   slug: 'process-application',
   kind: 'processing',
   is_required: true,
-  position: 1,
+  allows_staff_receive_mode_change: false,
+  position: 1
   parallel_group: null,
   drs_clearance_id: null,
   config_json: null,
