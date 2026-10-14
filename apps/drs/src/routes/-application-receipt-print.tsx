@@ -1,6 +1,7 @@
 import { formatStatusLabel } from '@/components/drs-ui.tsx';
 
 import {
+  applicationCountsAsPaid,
   displayApplicationRef,
   type DRSApplicationDetail,
 } from './-lib/types/applications.ts';
@@ -165,7 +166,7 @@ export function ApplicationReceiptPrint({
           />
           <ReceiptField
             label="Payment status"
-            value={app.is_paid ? 'Paid' : 'Unpaid'}
+            value={applicationCountsAsPaid(app) ? 'Paid' : 'Unpaid'}
           />
           <ReceiptField
             label="Receive mode"

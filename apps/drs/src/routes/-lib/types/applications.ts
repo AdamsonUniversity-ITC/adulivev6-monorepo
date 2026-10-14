@@ -12,6 +12,12 @@ export type DRSApplicationLineRow = {
   quantity: number;
   assessed_unit_price?: number | null;
   is_cancelled?: boolean;
+  package_items?: Array<{
+    id: string;
+    label: string;
+    document_id: string | null;
+    amount: number;
+  }>;
   option_answers?: Array<{
     id: string;
     option_id: string | null;
@@ -200,6 +206,13 @@ export type DRSAssessmentOtherFee = {
   fee_name: string;
   amount: number;
 };
+
+export function applicationCountsAsPaid(app: {
+  is_paid?: boolean;
+  paid_in_assessment?: boolean;
+}): boolean {
+  return app.is_paid === true || app.paid_in_assessment === true;
+}
 
 export type DRSApplicationDetail = DRSApplicationRow & {
   editable?: boolean;

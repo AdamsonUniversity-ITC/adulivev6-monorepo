@@ -21,6 +21,10 @@ export type CompleteApplicationTaskPayload = {
     quantity: number;
     amount: number;
     is_cancelled?: boolean;
+    package_items?: Array<{
+      id: number;
+      amount: number;
+    }>;
   }> | null;
   notify_student?: boolean;
 };

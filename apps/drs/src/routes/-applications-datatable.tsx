@@ -22,6 +22,7 @@ import * as React from 'react';
 
 import { fetchApplications } from './-lib/api/fetchApplications.ts';
 import {
+  applicationCountsAsPaid,
   displayApplicationRef,
   type DRSApplicationRow as ApplicationRow,
 } from './-lib/types/applications.ts';
@@ -221,9 +222,11 @@ export function ApplicationsDataTable() {
                         </DrsStatusBadge>
                       ) : null}
                       <DrsStatusBadge
-                        tone={row.is_paid ? 'success' : 'warning'}
+                        tone={
+                          applicationCountsAsPaid(row) ? 'success' : 'warning'
+                        }
                       >
-                        {row.is_paid ? 'Paid' : 'Unpaid'}
+                        {applicationCountsAsPaid(row) ? 'Paid' : 'Unpaid'}
                       </DrsStatusBadge>
                     </div>
                     <p className="text-muted-foreground text-xs">

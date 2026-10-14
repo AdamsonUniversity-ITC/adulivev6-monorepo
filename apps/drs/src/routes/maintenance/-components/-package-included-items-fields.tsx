@@ -1,4 +1,5 @@
 import { Button } from '@repo/ui/components/button';
+import { FormCheckbox } from '@repo/ui/form-components/form-checkbox';
 import {
   Combobox,
   ComboboxContent,
@@ -26,6 +27,7 @@ export type PackageIncludedItemFormValue = {
   id?: number | string | null;
   document_id?: number | null;
   label: string;
+  amount?: number | null;
   account_code?: string | null;
   sort_order?: number | null;
 };
@@ -33,6 +35,7 @@ export type PackageIncludedItemFormValue = {
 type DocumentOption = {
   id: number;
   document_name: string;
+  price: number;
   group_name: string;
   is_active: boolean;
 };
@@ -101,6 +104,11 @@ function IncludedItemRow({
                   shouldValidate: true,
                 });
                 form.setValue(`${name}.${index}.label`, next.document_name, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+                form.setValue(`${name}.${index}.amount`, Number(next.price ?? 0), {
                   shouldDirty: true,
                   shouldTouch: true,
                   shouldValidate: true,
@@ -202,6 +210,33 @@ function IncludedItemRow({
         </Button>
       </div>
 
+      <Controller
+        control={form.control}
+        name={`${name}.${index}.amount`}
+        render={({ field: input, fieldState }) => (
+          <div className="space-y-1">
+            <Label htmlFor={`${name}-${index}-amount`} className="text-xs">
+              Amount
+            </Label>
+            <Input
+              {...input}
+              id={`${name}-${index}-amount`}
+              type="number"
+              min="0"
+              step="0.01"
+              value={input.value ?? ''}
+              disabled={disabled}
+              placeholder="0.00"
+            />
+            {fieldState.error ? (
+              <p className="text-destructive text-xs">
+                {fieldState.error.message}
+              </p>
+            ) : null}
+          </div>
+        )}
+      />
+
       {!hasDocument ? (
         <Controller
           control={form.control}
@@ -230,6 +265,44 @@ function IncludedItemRow({
           )}
         />
       ) : null}
+    </div>
+  );
+}
+
+export function PackagePriceSummary({
+  form,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form: UseFormReturn<any>;
+}) {
+  const items = (useWatch({ control: form.control, name: 'included_items' }) ??
+    []) as Array<{ amount?: number | string | null }>;
+  const waiveFees = Boolean(
+    useWatch({ control: form.control, name: 'waive_fees' }),
+  );
+  const sum = items.reduce(
+    (total, item) => total + (Number(item?.amount) || 0),
+    0,
+  );
+  const price = waiveFees ? 0 : sum;
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-1">
+        <Label>Price (per copy)</Label>
+        <p className="text-sm font-medium tabular-nums">
+          {price.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {waiveFees
+            ? 'No fee. The package price stays 0.'
+            : 'Sum of the amounts on the included items.'}
+        </p>
+      </div>
+      <FormCheckbox form={form} name="waive_fees" label="No fee" />
     </div>
   );
 }
@@ -264,6 +337,7 @@ export function PackageIncludedItemsFields({
           return docs.map((doc) => ({
             id: Number(doc.id),
             document_name: doc.document_name,
+            price: Number(doc.price ?? 0),
             group_name: group.group_name,
             is_active: doc.is_active !== false,
           }));
@@ -300,6 +374,7 @@ export function PackageIncludedItemsFields({
             append({
               document_id: null,
               label: '',
+              amount: 0,
               account_code: '',
               sort_order: fields.length,
             })
