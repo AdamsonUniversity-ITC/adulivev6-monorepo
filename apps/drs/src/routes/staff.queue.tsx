@@ -34,6 +34,7 @@ import * as React from 'react';
 import { ApplicationFlagBadges } from './-components/application-flag-badges.tsx';
 import {
   fetchEmployeeApplications,
+  fetchEmployeePrograms,
   fetchIncomingApplicationCount,
 } from './-lib/api/fetchEmployeeApplications.ts';
 import { fetchFlagDefinitions } from './-lib/api/fetchFlagDefinitions.ts';
@@ -50,6 +51,7 @@ export const Route = createFileRoute('/staff/queue')({
   component: StaffQueuePage,
 });
 
+const FIVE_MINUTES = 5 * 60 * 1000;
 const QUEUE_STATUS_STORAGE_PREFIX = 'drs.staff-queue.status';
 const QUEUE_FLAG_STORAGE_PREFIX = 'drs.staff-queue.flag';
 const QUEUE_WATCH_STORAGE_PREFIX = 'drs.staff-queue.watch-new';
@@ -253,6 +255,7 @@ function StaffQueuePage() {
   const [flagFilter, setFlagFilter] = React.useState(() =>
     readStoredQueueFlag(),
   );
+  const [program, setProgram] = React.useState('');
   const [watchNew, setWatchNew] = React.useState(() => readStoredQueueWatch());
   const [watchedSince, setWatchedSince] = React.useState(() =>
     new Date().toISOString(),
@@ -262,7 +265,7 @@ function StaffQueuePage() {
 
   React.useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [debouncedSearch, status, flagFilter]);
+  }, [debouncedSearch, status, flagFilter, program]);
 
   const stageAccessQuery = useQuery({
     queryKey: ['drs-employee-workflow-stage-access'],
@@ -274,8 +277,15 @@ function StaffQueuePage() {
     queryFn: fetchFlagDefinitions,
   });
 
+  const programsQuery = useQuery({
+    queryKey: ['drs-employee-programs'],
+    queryFn: fetchEmployeePrograms,
+    staleTime: FIVE_MINUTES,
+  });
+
   const stageSlugs = stageAccessQuery.data?.stageSlugs ?? [];
   const flagDefinitions = flagDefinitionsQuery.data ?? [];
+  const programs = programsQuery.data ?? [];
 
   React.useEffect(() => {
     if (!stageAccessQuery.isSuccess || statusHydrated) return;
@@ -287,6 +297,13 @@ function StaffQueuePage() {
     setStatusHydrated(true);
   }, [stageAccessQuery.isSuccess, stageSlugs, status, statusHydrated]);
 
+  React.useEffect(() => {
+    if (!programsQuery.isSuccess || program === '') return;
+    if (!programs.some((option) => option.id === program)) {
+      setProgram('');
+    }
+  }, [programsQuery.isSuccess, programs, program]);
+
   const handleStatusChange = React.useCallback((value: string) => {
     const next = value === 'all' ? '' : value;
     setStatus(next);
@@ -297,6 +314,10 @@ function StaffQueuePage() {
     const next = value === 'all' ? '' : value;
     setFlagFilter(next);
     writeStoredQueueFlag(next);
+  }, []);
+
+  const handleProgramChange = React.useCallback((value: string) => {
+    setProgram(value === 'all' ? '' : value);
   }, []);
 
   const handleWatchChange = React.useCallback((checked: boolean) => {
@@ -320,6 +341,7 @@ function StaffQueuePage() {
       debouncedSearch,
       status,
       flagFilter,
+      program,
     ],
     queryFn: () =>
       fetchEmployeeApplications({
@@ -328,13 +350,14 @@ function StaffQueuePage() {
         search: debouncedSearch,
         status,
         flag: flagFilter,
+        courseId: program,
       }),
     placeholderData: (prev) => prev,
   });
 
   const incomingQuery = useQuery({
-    queryKey: ['drs-employee-queue-incoming', watchedSince],
-    queryFn: () => fetchIncomingApplicationCount(watchedSince),
+    queryKey: ['drs-employee-queue-incoming', watchedSince, program],
+    queryFn: () => fetchIncomingApplicationCount(watchedSince, program),
     enabled: watchNew,
     refetchInterval: watchNew ? 30_000 : false,
   });
@@ -376,6 +399,36 @@ function StaffQueuePage() {
       ) : null}
     </div>
   );
+
+  const emptyQueueMessage = program
+    ? 'No requests match this program. Clear the program filter to see the rest of your queue.'
+    : flagFilter
+      ? 'No requests match this flag. Clear the flag filter to see the rest of your queue.'
+      : status
+        ? 'No requests are at this stage. Clear the stage filter to see the rest of your queue.'
+        : 'Requests appear here once they reach a stage you are assigned to.';
+
+  const programFilterSelect = (triggerId: string, triggerClassName: string) =>
+    programs.length === 0 ? null : (
+      <>
+        <Label htmlFor={triggerId} className="sr-only">
+          Program
+        </Label>
+        <Select value={program || 'all'} onValueChange={handleProgramChange}>
+          <SelectTrigger id={triggerId} className={triggerClassName}>
+            <SelectValue placeholder="All programs" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All programs</SelectItem>
+            {programs.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </>
+    );
 
   const flagFilterSelect = (triggerId: string, triggerClassName: string) => (
     <>
@@ -434,6 +487,11 @@ function StaffQueuePage() {
               </SelectContent>
             </Select>
           </div>
+          {programs.length > 0 ? (
+            <div className="min-w-0 flex-1">
+              {programFilterSelect('queue-program-mobile', 'w-full')}
+            </div>
+          ) : null}
           <div className="min-w-0 flex-1">
             {flagFilterSelect('queue-flag-mobile', 'w-full')}
           </div>
@@ -447,13 +505,7 @@ function StaffQueuePage() {
         ) : rows.length === 0 ? (
           <DrsEmptyState
             title="Nothing waiting on you"
-            description={
-              flagFilter
-                ? 'No requests match this flag. Clear the flag filter to see the rest of your queue.'
-                : status
-                  ? 'No requests are at this stage. Clear the stage filter to see the rest of your queue.'
-                  : 'Requests appear here once they reach a stage you are assigned to.'
-            }
+            description={emptyQueueMessage}
           />
         ) : (
           <ul className="divide-border/70 divide-y border-y">
@@ -557,6 +609,7 @@ function StaffQueuePage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {programFilterSelect('queue-program', 'w-[220px]')}
                 {flagFilterSelect('queue-flag', 'w-40')}
                 {watchControls('queue-watch-new')}
               </>
@@ -568,11 +621,7 @@ function StaffQueuePage() {
             loadingMessage: 'Loading your queue…',
             errorMessage:
               'The queue could not be loaded. Check your connection and try again.',
-            emptyMessage: flagFilter
-              ? 'No requests match this flag. Clear the flag filter to see the rest of your queue.'
-              : status
-                ? 'No requests are waiting at this stage. Clear the stage filter to see the rest of your queue.'
-                : 'Nothing is waiting on you. Requests appear here once they reach a stage you are assigned to.',
+            emptyMessage: emptyQueueMessage,
           }}
         />
 

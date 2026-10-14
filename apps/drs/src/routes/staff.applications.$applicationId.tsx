@@ -61,6 +61,7 @@ import { assertStaffPortalAccess } from './-lib/assertStaffPortalAccess.ts';
 import {
   type DRSActiveStageTask,
   type DRSApplicationDetail,
+  type DRSApplicationLineRow,
   type DRSApplicationSupportingFile,
   displayApplicationRef,
 } from './-lib/types/applications.ts';
@@ -586,6 +587,8 @@ function AssessmentTaskPanel({
   setRemarkByTask,
   linePriceByTask,
   setLinePriceByTask,
+  packageItemPriceByTask,
+  setPackageItemPriceByTask,
   lineQuantityByTask,
   setLineQuantityByTask,
   lineCancelledByTask,
@@ -601,6 +604,10 @@ function AssessmentTaskPanel({
   setRemarkByTask: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   linePriceByTask: Record<string, Record<string, string>>;
   setLinePriceByTask: React.Dispatch<
+    React.SetStateAction<Record<string, Record<string, string>>>
+  >;
+  packageItemPriceByTask: Record<string, Record<string, string>>;
+  setPackageItemPriceByTask: React.Dispatch<
     React.SetStateAction<Record<string, Record<string, string>>>
   >;
   lineQuantityByTask: Record<string, Record<string, string>>;
@@ -626,15 +633,45 @@ function AssessmentTaskPanel({
   completeMutation: CompleteMutationApi;
 }) {
   const linePrices = linePriceByTask[task.id] ?? {};
+  const packageItemPrices = packageItemPriceByTask[task.id] ?? {};
   const lineQuantities = lineQuantityByTask[task.id] ?? {};
   const lineCancelled = lineCancelledByTask[task.id] ?? {};
   const otherFees = otherFeesByTask[task.id] ?? [];
 
+  const quantityFor = (line: DRSApplicationLineRow) => {
+    const quantityRaw = Number.parseInt(
+      lineQuantities[line.id] ?? String(line.quantity),
+      10,
+    );
+    return Number.isFinite(quantityRaw)
+      ? Math.max(1, quantityRaw)
+      : line.quantity;
+  };
+
+  const packageUnit = (line: DRSApplicationLineRow) => {
+    const items = line.package_items ?? [];
+    if (items.length === 0) return null;
+    let sum = 0;
+    for (const item of items) {
+      const amount = parseMoneyInput(packageItemPrices[item.id] ?? '');
+      if (amount === null) return null;
+      sum += amount;
+    }
+    return Math.round(sum * 100) / 100;
+  };
+
+  const lineAmount = (line: DRSApplicationLineRow) => {
+    const unit = packageUnit(line);
+    if (unit !== null) {
+      return Math.round(unit * quantityFor(line) * 100) / 100;
+    }
+    return parseMoneyInput(linePrices[line.id] ?? '');
+  };
+
   const lineTotal =
     app.lines?.reduce((sum, line) => {
       if (lineCancelled[line.id]) return sum;
-      const amount = parseMoneyInput(linePrices[line.id] ?? '');
-      return sum + (amount ?? 0);
+      return sum + (lineAmount(line) ?? 0);
     }, 0) ?? 0;
   const otherFeesTotal = otherFees.reduce(
     (sum, fee) => sum + (parseMoneyInput(fee.amount) ?? 0),
@@ -657,14 +694,9 @@ function AssessmentTaskPanel({
     const line_updates =
       app.lines?.map((line) => {
         const cancelled = Boolean(lineCancelled[line.id]);
-        const quantityRaw = Number.parseInt(
-          lineQuantities[line.id] ?? String(line.quantity),
-          10,
-        );
-        const quantity = Number.isFinite(quantityRaw)
-          ? Math.max(1, quantityRaw)
-          : line.quantity;
-        const amount = parseMoneyInput(linePrices[line.id] ?? '');
+        const quantity = quantityFor(line);
+        const unit = packageUnit(line);
+        const amount = lineAmount(line);
         if (!cancelled && amount === null) {
           throw new Error(`Enter a valid total for ${line.request_name}.`);
         }
@@ -674,6 +706,14 @@ function AssessmentTaskPanel({
           quantity,
           amount: amount ?? 0,
           is_cancelled: cancelled,
+          ...(unit !== null
+            ? {
+                package_items: (line.package_items ?? []).map((item) => ({
+                  id: Number(item.id),
+                  amount: parseMoneyInput(packageItemPrices[item.id] ?? '') ?? 0,
+                })),
+              }
+            : {}),
         };
       }) ?? [];
 
@@ -720,7 +760,8 @@ function AssessmentTaskPanel({
           {app.lines?.length ? (
             app.lines.map((line) => {
               const cancelled = Boolean(lineCancelled[line.id]);
-              const amount = parseMoneyInput(linePrices[line.id] ?? '');
+              const amount = lineAmount(line);
+              const packageItems = line.package_items ?? [];
               return (
                 <div
                   key={line.id}
@@ -728,7 +769,7 @@ function AssessmentTaskPanel({
                     cancelled ? 'opacity-60' : ''
                   }`}
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 space-y-2">
                     <p
                       className={`truncate text-sm font-medium ${
                         cancelled ? 'text-muted-foreground line-through' : ''
@@ -739,6 +780,35 @@ function AssessmentTaskPanel({
                     {cancelled ? (
                       <p className="text-muted-foreground text-xs">Cancelled</p>
                     ) : null}
+                    {packageItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-2"
+                      >
+                        <p className="text-muted-foreground truncate text-sm">
+                          {item.label}
+                        </p>
+                        <Input
+                          id={`package-item-${task.id}-${item.id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          disabled={cancelled}
+                          aria-label={`${item.label} amount`}
+                          value={packageItemPrices[item.id] ?? ''}
+                          onChange={(event) =>
+                            setPackageItemPriceByTask((prev) => ({
+                              ...prev,
+                              [task.id]: {
+                                ...(prev[task.id] ?? {}),
+                                [item.id]: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                    ))}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor={`line-qty-${task.id}-${line.id}`}>
@@ -762,6 +832,14 @@ function AssessmentTaskPanel({
                       }
                     />
                   </div>
+                  {packageItems.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Line total</p>
+                      <p className="text-sm tabular-nums">
+                        {formatMoney(amount ?? 0)}
+                      </p>
+                    </div>
+                  ) : (
                   <div className="space-y-1">
                     <Label htmlFor={`line-price-${task.id}-${line.id}`}>
                       Line total
@@ -785,6 +863,7 @@ function AssessmentTaskPanel({
                       placeholder="0.00"
                     />
                   </div>
+                  )}
                   <div className="flex items-end gap-2">
                     <span
                       className={`text-muted-foreground hidden text-sm sm:inline ${
@@ -1010,6 +1089,9 @@ function StaffApplicationWorkPage() {
   const [linePriceByTask, setLinePriceByTask] = React.useState<
     Record<string, Record<string, string>>
   >({});
+  const [packageItemPriceByTask, setPackageItemPriceByTask] = React.useState<
+    Record<string, Record<string, string>>
+  >({});
   const [lineQuantityByTask, setLineQuantityByTask] = React.useState<
     Record<string, Record<string, string>>
   >({});
@@ -1080,6 +1162,21 @@ function StaffApplicationWorkPage() {
                 )
               : '',
           ]),
+        );
+      }
+      return next;
+    });
+    setPackageItemPriceByTask((prev) => {
+      const next = { ...prev };
+      for (const t of query.data.active_stage_tasks ?? []) {
+        if (t.kind !== 'assessment' || next[t.id] !== undefined) continue;
+        next[t.id] = Object.fromEntries(
+          (query.data.lines ?? []).flatMap((line) =>
+            (line.package_items ?? []).map((item) => [
+              item.id,
+              String(item.amount),
+            ]),
+          ),
         );
       }
       return next;
@@ -1558,6 +1655,8 @@ function StaffApplicationWorkPage() {
                         setRemarkByTask={setRemarkByTask}
                         linePriceByTask={linePriceByTask}
                         setLinePriceByTask={setLinePriceByTask}
+                        packageItemPriceByTask={packageItemPriceByTask}
+                        setPackageItemPriceByTask={setPackageItemPriceByTask}
                         lineQuantityByTask={lineQuantityByTask}
                         setLineQuantityByTask={setLineQuantityByTask}
                         lineCancelledByTask={lineCancelledByTask}
@@ -1592,7 +1691,14 @@ function StaffApplicationWorkPage() {
                                   mod.items.length > 0 ? (
                                     <ul className="text-muted-foreground mt-1 list-inside list-disc text-xs">
                                       {mod.items.map((item, idx) => (
-                                        <li key={`${mod.key}-${idx}`}>
+                                        <li
+                                          key={`${mod.key}-${idx}`}
+                                          className={
+                                            item.startsWith('OSL violations:')
+                                              ? 'text-status-danger'
+                                              : undefined
+                                          }
+                                        >
                                           {item}
                                         </li>
                                       ))}

@@ -22,6 +22,7 @@ import { createDocument } from '../-lib/api/createDocument.ts';
 import { createPackage } from '../-lib/api/createPackage.ts';
 import {
   PackageIncludedItemsFields,
+  PackagePriceSummary,
   type PackageIncludedItemFormValue,
 } from './-package-included-items-fields.tsx';
 import {
@@ -34,6 +35,7 @@ const includedItemSchema = z
   .object({
     document_id: z.number().int().positive().nullable().optional(),
     label: z.string().min(1, { message: 'Name is required.' }).max(255),
+    amount: z.coerce.number().min(0).max(9999999.99),
     account_code: z.string().max(50).nullable().optional(),
     sort_order: z.number().nullable().optional(),
   })
@@ -52,6 +54,7 @@ const makeCatalogFormSchema = (kind: CatalogKind) =>
   z.object({
     name: z.string().min(1, { message: 'Name is required.' }).max(255),
     price: z.coerce.number().min(0).max(999999999),
+    waive_fees: z.boolean(),
     account_code:
       kind === 'document'
         ? z.string().min(1, { message: 'Account code is required.' }).max(50)
@@ -101,6 +104,7 @@ const mapIncludedItemsPayload = (
     return {
       document_id: documentId,
       label: item.label,
+      amount: Number(item.amount ?? 0),
       account_code: documentId
         ? null
         : (item.account_code ?? '').trim() || null,
@@ -119,6 +123,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
     defaultValues: {
       name: '',
       price: 0,
+      waive_fees: false,
       account_code: '',
       is_active: true,
       allow_multiple_per_request: true,
@@ -166,7 +171,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       return createPackage(
         {
           package_name: values.name,
-          price: values.price,
+          waive_fees: values.waive_fees,
           is_active: values.is_active,
           allow_multiple_per_request: values.once_per_student
             ? false
@@ -222,7 +227,11 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             label="Name"
             placeholder={copy.placeholder}
           />
-          <FormInput form={form} name="price" type="number" label="Price" />
+          {kind === 'document' ? (
+            <FormInput form={form} name="price" type="number" label="Price" />
+          ) : (
+            <PackagePriceSummary form={form} />
+          )}
           {kind === 'document' ? (
             <FormInput
               form={form}

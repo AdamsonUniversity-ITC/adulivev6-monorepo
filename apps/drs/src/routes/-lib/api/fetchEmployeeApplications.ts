@@ -9,12 +9,42 @@ export type EmployeeApplicationsMeta = {
   total: number;
 };
 
+export type EmployeeProgramOption = {
+  id: string;
+  label: string;
+};
+
+export async function fetchEmployeePrograms(): Promise<EmployeeProgramOption[]> {
+  const { data: body } = await registrarSvc.get<unknown>(
+    'v1/drs/employee/me/programs',
+  );
+
+  if (!body || typeof body !== 'object') return [];
+
+  const data = (body as { data?: unknown }).data;
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap((row) => {
+    if (!row || typeof row !== 'object') return [];
+    const record = row as { id?: unknown; label?: unknown };
+    const id = typeof record.id === 'string' ? record.id.trim() : '';
+    if (id === '') return [];
+    const label =
+      typeof record.label === 'string' && record.label.trim() !== ''
+        ? record.label.trim()
+        : id;
+
+    return [{ id, label }];
+  });
+}
+
 export async function fetchEmployeeApplications(params: {
   page: number;
   perPage: number;
   search?: string;
   status?: string;
   flag?: string;
+  courseId?: string;
 }): Promise<{ rows: DRSApplicationRow[]; meta: EmployeeApplicationsMeta }> {
   const { data: body } = await registrarSvc.get<unknown>(
     'v1/drs/employee/applications',
@@ -25,6 +55,7 @@ export async function fetchEmployeeApplications(params: {
         ...(params.search?.trim() ? { search: params.search.trim() } : {}),
         ...(params.status?.trim() ? { status: params.status.trim() } : {}),
         ...(params.flag?.trim() ? { flag: params.flag.trim() } : {}),
+        ...(params.courseId?.trim() ? { course_id: params.courseId.trim() } : {}),
       },
     },
   );
@@ -60,10 +91,16 @@ export async function fetchEmployeeApplications(params: {
 
 export async function fetchIncomingApplicationCount(
   since: string,
+  courseId?: string,
 ): Promise<number> {
   const { data: body } = await registrarSvc.get<unknown>(
     'v1/drs/employee/applications/incoming-count',
-    { params: { since } },
+    {
+      params: {
+        since,
+        ...(courseId?.trim() ? { course_id: courseId.trim() } : {}),
+      },
+    },
   );
 
   if (!body || typeof body !== 'object') return 0;

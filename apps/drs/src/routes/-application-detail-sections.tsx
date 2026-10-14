@@ -38,6 +38,7 @@ import { type TempUpload } from '@/lib/tempUploads.ts';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
 import { postApplicationSupportingRequirementUploads } from './-lib/api/postApplicationSupportingRequirementUploads.ts';
 import {
+  applicationCountsAsPaid,
   type DRSApplicationClearanceRow,
   type DRSApplicationDetail,
 } from './-lib/types/applications.ts';
@@ -318,8 +319,10 @@ export function RequestSummaryPanel({
               : 'Not assessed'}
           </p>
           {breakdown.hasAmount ? (
-            <DrsStatusBadge tone={app.is_paid ? 'success' : 'warning'}>
-              {app.is_paid ? 'Paid' : 'Unpaid'}
+            <DrsStatusBadge
+              tone={applicationCountsAsPaid(app) ? 'success' : 'warning'}
+            >
+              {applicationCountsAsPaid(app) ? 'Paid' : 'Unpaid'}
             </DrsStatusBadge>
           ) : null}
         </div>
