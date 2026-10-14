@@ -17,6 +17,7 @@ export type PackageDetail = {
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
   check_assessment?: boolean;
+  check_first_transaction?: boolean;
   rules?: PackageRule[];
   included_items?: Array<{
     id: number | string;

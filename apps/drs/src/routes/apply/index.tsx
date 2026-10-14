@@ -355,6 +355,10 @@ function ApplyDocumentsPage() {
           m.set(docKey(d.id), 0);
           continue;
         }
+        if (d.check_first_transaction && d.has_prior_graduation) {
+          m.set(docKey(d.id), 0);
+          continue;
+        }
         if (blockWhileUnpaid && d.has_unpaid_request) {
           m.set(docKey(d.id), 0);
           continue;
@@ -366,6 +370,10 @@ function ApplyDocumentsPage() {
       for (const p of g.packages ?? []) {
         if (!itemVisibleForRules(p.rules, ctx)) continue;
         if (p.once_per_student && p.already_requested) {
+          m.set(pkgKey(p.id), 0);
+          continue;
+        }
+        if (p.check_first_transaction && p.has_prior_graduation) {
           m.set(pkgKey(p.id), 0);
           continue;
         }
@@ -937,6 +945,10 @@ function ApplyDocumentsPage() {
                                 const unpaidBlocked = Boolean(
                                   blockWhileUnpaid && doc.has_unpaid_request,
                                 );
+                                const priorGraduationBlocked = Boolean(
+                                  doc.check_first_transaction &&
+                                    doc.has_prior_graduation,
+                                );
                                 const locked =
                                   (lockedCompanionMeta.get(key)?.length ?? 0) >
                                   0;
@@ -967,6 +979,9 @@ function ApplyDocumentsPage() {
                                         allowMultiple={allowMultiple}
                                         alreadyRequested={alreadyRequested}
                                         unpaidBlocked={unpaidBlocked}
+                                        priorGraduationBlocked={
+                                          priorGraduationBlocked
+                                        }
                                         locked={locked}
                                         lockedByNames={lockedByNames}
                                         copyIndex={
@@ -1068,6 +1083,10 @@ function ApplyDocumentsPage() {
                                 const unpaidBlocked = Boolean(
                                   blockWhileUnpaid && pkg.has_unpaid_request,
                                 );
+                                const priorGraduationBlocked = Boolean(
+                                  pkg.check_first_transaction &&
+                                    pkg.has_prior_graduation,
+                                );
                                 const rows =
                                   itemLines.length > 0
                                     ? itemLines
@@ -1093,6 +1112,9 @@ function ApplyDocumentsPage() {
                                         allowMultiple={allowMultiple}
                                         alreadyRequested={alreadyRequested}
                                         unpaidBlocked={unpaidBlocked}
+                                        priorGraduationBlocked={
+                                          priorGraduationBlocked
+                                        }
                                         copyIndex={
                                           itemLines.length > 1
                                             ? copyIndex + 1
@@ -1694,6 +1716,7 @@ function CatalogLineRow({
   allowMultiple,
   alreadyRequested = false,
   unpaidBlocked = false,
+  priorGraduationBlocked = false,
   onQuantityChange,
   onCheckedChange,
   onDuplicate,
@@ -1717,6 +1740,7 @@ function CatalogLineRow({
   allowMultiple: boolean;
   alreadyRequested?: boolean;
   unpaidBlocked?: boolean;
+  priorGraduationBlocked?: boolean;
   onQuantityChange: (qty: number) => void;
   onCheckedChange?: (checked: boolean) => void;
   onDuplicate?: () => void;
@@ -1738,15 +1762,21 @@ function CatalogLineRow({
   const unit = parsePriceNumber(unitPrice);
   const lineTotal = unit * quantity;
   const inCart = quantity > 0;
-  const unavailable = alreadyRequested || unpaidBlocked || maxQuantity <= 0;
+  const unavailable =
+    alreadyRequested ||
+    unpaidBlocked ||
+    priorGraduationBlocked ||
+    maxQuantity <= 0;
+
+  const unavailableMessage = priorGraduationBlocked
+    ? 'A past graduation request blocks this item.'
+    : unpaidBlocked
+      ? 'You already have an unpaid request for this item.'
+      : 'This item can only be requested once and was already requested.';
 
   const setInCart = (checked: boolean) => {
     if (unavailable) {
-      toast.error(
-        unpaidBlocked
-          ? 'You already have an unpaid request for this item.'
-          : 'This item can only be requested once and was already requested.',
-      );
+      toast.error(unavailableMessage);
       return;
     }
     if (!checked && locked) {
@@ -1768,11 +1798,7 @@ function CatalogLineRow({
 
   const toggleInCart = () => {
     if (unavailable) {
-      toast.error(
-        unpaidBlocked
-          ? 'You already have an unpaid request for this item.'
-          : 'This item can only be requested once and was already requested.',
-      );
+      toast.error(unavailableMessage);
       return;
     }
     setInCart(!inCart);
@@ -1911,6 +1937,10 @@ function CatalogLineRow({
           {alreadyRequested ? (
             <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
               Already requested. This item can only be requested once.
+            </p>
+          ) : priorGraduationBlocked ? (
+            <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
+              A past graduation request blocks this item.
             </p>
           ) : unpaidBlocked ? (
             <p className="text-muted-foreground mt-1 text-[11px] leading-snug">
