@@ -355,6 +355,14 @@ export const REPORT_GROUPS: Array<{
   },
 ];
 
+export const fetchReportAccess = async (): Promise<{ can_view: boolean }> => {
+  const { data } = await registrarSvc.get<{ can_view?: boolean }>(
+    '/v1/drs/reports/access',
+  );
+
+  return { can_view: data?.can_view === true };
+};
+
 export function reportGroupForType(reportType: ReportType): ReportGroupId {
   const group = REPORT_GROUPS.find((entry) => entry.tabs.includes(reportType));
   return group?.id ?? 'volume';

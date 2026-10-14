@@ -32,6 +32,9 @@ export const TaskRow = ({
           {task.is_required ? null : (
             <DrsStatusBadge tone="neutral">Optional</DrsStatusBadge>
           )}
+          {task.allows_staff_receive_mode_change ? (
+            <DrsStatusBadge tone="info">Delivery mode</DrsStatusBadge>
+          ) : null}
           {task.parallel_group ? (
             <DrsStatusBadge tone="info">
               Group {task.parallel_group}

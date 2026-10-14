@@ -18,6 +18,7 @@ export type WorkflowTask = {
   slug: string;
   kind: WorkflowTaskKind;
   is_required: boolean;
+  allows_staff_receive_mode_change: boolean;
   position: number;
   parallel_group: string | null;
   drs_clearance_id: string | null;

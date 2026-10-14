@@ -30,6 +30,7 @@ import { MaintenanceNavigationProvider } from './-maintenance-navigation-context
 import { PaidInAssessmentSheet } from './-paid-in-assessment-sheet.tsx';
 import { PaymentCollectionSheet } from './-payment-collection-sheet.tsx';
 import { PaymentVerificationSheet } from './-payment-verification-sheet.tsx';
+import { ReportViewersSheet } from './-report-viewers-sheet.tsx';
 import { TaskKindAccessSheet } from './-task-kind-access-sheet.tsx';
 import {
   TASK_KIND_SLIDE_KINDS,
@@ -177,6 +178,13 @@ const steps: Step[] = [
     accessCode: 'reports',
     group: 'Reporting',
     href: '/maintenance/reports',
+  },
+  {
+    label: 'Report viewers',
+    description: 'Employees who may open the reports page on this site.',
+    accessCode: 'report-viewers',
+    group: 'Reporting',
+    component: <ReportViewersSheet />,
   },
 ];
 

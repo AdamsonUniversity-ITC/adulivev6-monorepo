@@ -1877,7 +1877,7 @@ function StaffApplicationWorkPage() {
             {app.may_change_receive_mode_as_staff ? (
               <DrsPanel
                 title="Delivery mode"
-                description="This stage allows staff to change how the student receives documents."
+                description="This task allows you to change how the student receives documents."
                 contentClassName="space-y-4"
               >
                 <div className="space-y-1.5">
