@@ -48,6 +48,8 @@ export type CatalogDocument = {
   is_active: boolean;
   allow_multiple_per_request?: boolean;
   once_per_student?: boolean;
+  check_first_transaction?: boolean;
+  has_prior_graduation?: boolean;
   already_requested?: boolean;
   has_unpaid_request?: boolean;
   rules?: DocumentRuleRow[] | null;
@@ -73,6 +75,8 @@ export type CatalogPackage = {
   is_active: boolean;
   allow_multiple_per_request?: boolean;
   once_per_student?: boolean;
+  check_first_transaction?: boolean;
+  has_prior_graduation?: boolean;
   already_requested?: boolean;
   has_unpaid_request?: boolean;
   rules?: DocumentRuleRow[] | null;

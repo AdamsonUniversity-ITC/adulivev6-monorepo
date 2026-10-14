@@ -7,6 +7,7 @@ export type EditPackagePayload = {
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
   check_assessment?: boolean;
+  check_first_transaction?: boolean;
   group_id?: number;
   package_rules?: {
     graduate?: boolean;

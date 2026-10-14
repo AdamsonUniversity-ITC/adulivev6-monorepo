@@ -50,6 +50,7 @@ export type DocumentDetail = {
   allow_multiple_per_request: boolean;
   once_per_student?: boolean;
   check_assessment?: boolean;
+  check_first_transaction?: boolean;
   rules?: DocumentRule[];
   supporting_document_requirements?: SupportingDocumentRequirement[];
   options?: DocumentOption[];

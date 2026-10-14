@@ -90,6 +90,7 @@ const makeDetailFormSchema = (kind: CatalogKind) =>
     allow_multiple_per_request: z.boolean(),
     once_per_student: z.boolean(),
     check_assessment: z.boolean(),
+    check_first_transaction: z.boolean(),
     rules: z.object({
       graduate: z.boolean(),
       undergraduate: z.boolean(),
@@ -207,6 +208,9 @@ const detailToForm = (
     allow_multiple_per_request: detail.allow_multiple_per_request !== false,
     once_per_student: Boolean(detail.once_per_student),
     check_assessment: Boolean(detail.check_assessment),
+    check_first_transaction: Boolean(
+      (detail as { check_first_transaction?: boolean }).check_first_transaction,
+    ),
     rules,
     supporting_document_requirements:
       kind === 'document'
@@ -301,6 +305,7 @@ export const CatalogDetail = ({
       allow_multiple_per_request: true,
       once_per_student: false,
       check_assessment: false,
+      check_first_transaction: false,
       rules: { ...EMPTY_CATALOG_RULES },
       supporting_document_requirements: [],
       options: [],
@@ -339,6 +344,7 @@ export const CatalogDetail = ({
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
           check_assessment: values.check_assessment,
+          check_first_transaction: values.check_first_transaction,
           group_id: groupId,
           rules: values.rules,
           supporting_document_requirements:
@@ -369,6 +375,7 @@ export const CatalogDetail = ({
           : values.allow_multiple_per_request,
         once_per_student: values.once_per_student,
         check_assessment: values.check_assessment,
+        check_first_transaction: values.check_first_transaction,
         group_id: groupId,
         package_rules: values.rules,
         included_items: mapIncludedItemsPayload(values.included_items),
@@ -509,6 +516,11 @@ export const CatalogDetail = ({
                 name="check_assessment"
                 label="Check Assessment"
                 desc="The Paid in Assessment tag applies only when every item in the request has this on, and the student already has a graduation or transcript fee on assessment."
+              />
+              <FormCheckbox
+                form={form}
+                name="check_first_transaction"
+                label="Restrict if a past graduation request exists"
               />
             </div>
           </div>

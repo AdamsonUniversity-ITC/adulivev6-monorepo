@@ -63,6 +63,7 @@ const makeCatalogFormSchema = (kind: CatalogKind) =>
     allow_multiple_per_request: z.boolean(),
     once_per_student: z.boolean(),
     check_assessment: z.boolean(),
+    check_first_transaction: z.boolean(),
     supporting_document_requirements: z.array(
       z.object({
         name: z.string().min(1, { message: 'Name is required.' }).max(255),
@@ -129,6 +130,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       allow_multiple_per_request: true,
       once_per_student: false,
       check_assessment: false,
+      check_first_transaction: false,
       supporting_document_requirements: [],
       included_items: [],
     },
@@ -158,6 +160,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
               : values.allow_multiple_per_request,
             once_per_student: values.once_per_student,
             check_assessment: values.check_assessment,
+            check_first_transaction: values.check_first_transaction,
             supporting_document_requirements:
               values.supporting_document_requirements.map((item, index) => ({
                 ...item,
@@ -178,6 +181,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             : values.allow_multiple_per_request,
           once_per_student: values.once_per_student,
           check_assessment: values.check_assessment,
+          check_first_transaction: values.check_first_transaction,
           included_items: mapIncludedItemsPayload(values.included_items),
         },
         selectedGroup,
@@ -262,6 +266,11 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             name="check_assessment"
             label="Check Assessment"
             desc="The Paid in Assessment tag applies only when every item in the request has this on, and the student already has a graduation or transcript fee on assessment."
+          />
+          <FormCheckbox
+            form={form}
+            name="check_first_transaction"
+            label="Restrict if a past graduation request exists"
           />
 
           {kind === 'document' ? (
