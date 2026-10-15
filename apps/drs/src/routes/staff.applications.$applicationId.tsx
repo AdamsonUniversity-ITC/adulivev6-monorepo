@@ -19,7 +19,6 @@ import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { isNotFoundError } from '@/lib/isNotFoundError.ts';
 import { Badge } from '@repo/ui/components/badge';
 import { Button } from '@repo/ui/components/button';
-import { Checkbox } from '@repo/ui/components/checkbox';
 import { Input } from '@repo/ui/components/input';
 import { Label } from '@repo/ui/components/label';
 import {
@@ -56,6 +55,7 @@ import {
   type CompleteApplicationTaskPayload,
   postCompleteApplicationTask,
 } from './-lib/api/postCompleteApplicationTask.ts';
+import { postNotifyStudent } from './-lib/api/postNotifyStudent.ts';
 import { postEmployeeCancelApplication } from './-lib/api/postEmployeeCancelApplication.ts';
 import { putSaveApplicationTaskRemarks } from './-lib/api/putSaveApplicationTaskRemarks.ts';
 import { assertStaffPortalAccess } from './-lib/assertStaffPortalAccess.ts';
@@ -1109,9 +1109,6 @@ function StaffApplicationWorkPage() {
     Record<string, string>
   >({});
   const [etaByTask, setEtaByTask] = React.useState<Record<string, string>>({});
-  const [notifyStudentByTask, setNotifyStudentByTask] = React.useState<
-    Record<string, boolean>
-  >({});
   const [linePriceByTask, setLinePriceByTask] = React.useState<
     Record<string, Record<string, string>>
   >({});
@@ -1353,6 +1350,15 @@ function StaffApplicationWorkPage() {
     isPending: completeMutation.isPending,
     mutate: requestComplete,
   };
+  const notifyStudentMutation = useMutation({
+    mutationFn: (taskId: string) => postNotifyStudent(applicationId, taskId),
+    onSuccess: () => {
+      toast.success('Student notified by email.');
+    },
+    onError: () => {
+      toast.error('Could not notify the student.');
+    },
+  });
   const saveRemarksMutation = useMutation({
     mutationFn: async (vars: {
       taskId: string;
@@ -1752,20 +1758,6 @@ function StaffApplicationWorkPage() {
                             className="min-h-[72px]"
                           />
                         </div>
-                        <label className="flex items-start gap-3">
-                          <Checkbox
-                            checked={notifyStudentByTask[task.id] === true}
-                            onCheckedChange={(value) =>
-                              setNotifyStudentByTask((prev) => ({
-                                ...prev,
-                                [task.id]: value === true,
-                              }))
-                            }
-                          />
-                          <span className="text-sm leading-snug">
-                            Notify student by email
-                          </span>
-                        </label>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
@@ -1777,13 +1769,21 @@ function StaffApplicationWorkPage() {
                                 payload: {
                                   remarks:
                                     remarkByTask[task.id]?.trim() || null,
-                                  notify_student:
-                                    notifyStudentByTask[task.id] === true,
                                 },
                               })
                             }
                           >
                             Clear
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={notifyStudentMutation.isPending}
+                            onClick={() =>
+                              notifyStudentMutation.mutate(task.id)
+                            }
+                          >
+                            Notify student by email
                           </Button>
                           <Button
                             type="button"
