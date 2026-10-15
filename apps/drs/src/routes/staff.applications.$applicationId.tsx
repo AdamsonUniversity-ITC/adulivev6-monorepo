@@ -13,6 +13,7 @@ import {
   formatStatusLabel,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
+import { fetchPaymentCollectionSettings } from '@/routes/maintenance/-lib/api/paymentCollectionSettings.ts';
 import { hasDrAdminAccessForHost } from '@/lib/drsPermissions.ts';
 import { fetchAuthUser, normalizePermissions } from '@/lib/fetchAuthUser.ts';
 import { isNotFoundError } from '@/lib/isNotFoundError.ts';
@@ -135,6 +136,7 @@ type OtherFeeDraft = {
   id: string;
   fee_name: string;
   amount: string;
+  account_code: string;
 };
 
 function parseMoneyInput(value: string): number | null {
@@ -145,11 +147,12 @@ function parseMoneyInput(value: string): number | null {
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
-function createOtherFeeDraft(): OtherFeeDraft {
+function createOtherFeeDraft(accountCode = ''): OtherFeeDraft {
   return {
     id: `fee-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     fee_name: '',
     amount: '',
+    account_code: accountCode,
   };
 }
 
@@ -595,6 +598,7 @@ function AssessmentTaskPanel({
   setLineCancelledByTask,
   otherFeesByTask,
   setOtherFeesByTask,
+  defaultOtherFeeAccountCode,
   saveRemarksMutation,
   completeMutation,
 }: {
@@ -622,6 +626,7 @@ function AssessmentTaskPanel({
   setOtherFeesByTask: React.Dispatch<
     React.SetStateAction<Record<string, OtherFeeDraft[]>>
   >;
+  defaultOtherFeeAccountCode: string;
   saveRemarksMutation: {
     isPending: boolean;
     mutate: (vars: {
@@ -680,7 +685,7 @@ function AssessmentTaskPanel({
 
   const updateOtherFee = (
     feeId: string,
-    patch: Partial<Pick<OtherFeeDraft, 'fee_name' | 'amount'>>,
+    patch: Partial<Pick<OtherFeeDraft, 'fee_name' | 'amount' | 'account_code'>>,
   ) => {
     setOtherFeesByTask((prev) => ({
       ...prev,
@@ -721,6 +726,7 @@ function AssessmentTaskPanel({
       .map((fee) => ({
         fee_name: fee.fee_name.trim(),
         amount: parseMoneyInput(fee.amount),
+        account_code: fee.account_code.trim(),
       }))
       .filter((fee) => fee.fee_name !== '' || fee.amount !== null);
 
@@ -735,6 +741,7 @@ function AssessmentTaskPanel({
     const normalizedOtherFees = other_fees.map((fee) => ({
       fee_name: fee.fee_name,
       amount: fee.amount ?? 0,
+      account_code: fee.account_code || null,
     }));
 
     completeMutation.mutate({
@@ -913,7 +920,10 @@ function AssessmentTaskPanel({
             onClick={() =>
               setOtherFeesByTask((prev) => ({
                 ...prev,
-                [task.id]: [...(prev[task.id] ?? []), createOtherFeeDraft()],
+                [task.id]: [
+                  ...(prev[task.id] ?? []),
+                  createOtherFeeDraft(defaultOtherFeeAccountCode),
+                ],
               }))
             }
           >
@@ -926,7 +936,7 @@ function AssessmentTaskPanel({
             {otherFees.map((fee) => (
               <div
                 key={fee.id}
-                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]"
+                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto]"
               >
                 <Input
                   value={fee.fee_name}
@@ -934,6 +944,15 @@ function AssessmentTaskPanel({
                     updateOtherFee(fee.id, { fee_name: event.target.value })
                   }
                   placeholder="Fee name"
+                />
+                <Input
+                  value={fee.account_code}
+                  maxLength={50}
+                  onChange={(event) =>
+                    updateOtherFee(fee.id, { account_code: event.target.value })
+                  }
+                  placeholder="Account code"
+                  aria-label="Account code"
                 />
                 <Input
                   type="number"
@@ -1069,6 +1088,13 @@ function StaffApplicationWorkPage() {
     queryKey: ['drs-employee-application', applicationId],
     queryFn: () => fetchEmployeeApplication(applicationId),
   });
+  const paymentSettingsQuery = useQuery({
+    queryKey: ['payment_collection_settings'],
+    queryFn: fetchPaymentCollectionSettings,
+    refetchOnWindowFocus: false,
+  });
+  const defaultOtherFeeAccountCode =
+    paymentSettingsQuery.data?.other_fee_account_code ?? '';
 
   const [remarkByTask, setRemarkByTask] = React.useState<
     Record<string, string>
@@ -1215,6 +1241,7 @@ function StaffApplicationWorkPage() {
           id: createOtherFeeDraft().id,
           fee_name: fee.fee_name,
           amount: String(fee.amount),
+          account_code: fee.account_code ?? '',
         }));
       }
       return next;
@@ -1663,6 +1690,7 @@ function StaffApplicationWorkPage() {
                         setLineCancelledByTask={setLineCancelledByTask}
                         otherFeesByTask={otherFeesByTask}
                         setOtherFeesByTask={setOtherFeesByTask}
+                        defaultOtherFeeAccountCode={defaultOtherFeeAccountCode}
                         saveRemarksMutation={saveRemarksMutation}
                         completeMutation={completeMutationApi}
                       />

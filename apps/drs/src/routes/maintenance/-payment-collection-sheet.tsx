@@ -30,6 +30,7 @@ import {
   deletePaymentCollectionOtherFee,
   deletePaymentCollectionPaymentMethod,
   fetchPaymentCollectionSettings,
+  updatePaymentCollectionOtherFeeAccountCode,
   type PaymentCollectionOtherFee,
   type PaymentCollectionPaymentMethod,
 } from './-lib/api/paymentCollectionSettings.ts';
@@ -57,6 +58,7 @@ export const PaymentCollectionSheet = (): JSX.Element => {
   const [methodDescription, setMethodDescription] = useState('');
   const [feeName, setFeeName] = useState('');
   const [amount, setAmount] = useState('');
+  const [accountCodeDraft, setAccountCodeDraft] = useState<string | null>(null);
   const [pendingPaymentMethod, setPendingPaymentMethod] =
     useState<PaymentCollectionPaymentMethod | null>(null);
   const [pendingOtherFee, setPendingOtherFee] =
@@ -93,6 +95,16 @@ export const PaymentCollectionSheet = (): JSX.Element => {
     onError: () => toast.error('Failed to remove payment method.'),
   });
 
+  const saveAccountCodeMutation = useMutation({
+    mutationFn: updatePaymentCollectionOtherFeeAccountCode,
+    onSuccess: () => {
+      toast.success('Default account code saved.');
+      setAccountCodeDraft(null);
+      invalidateSettings();
+    },
+    onError: () => toast.error('Failed to save the default account code.'),
+  });
+
   const createOtherFeeMutation = useMutation({
     mutationFn: createPaymentCollectionOtherFee,
     onSuccess: () => {
@@ -118,6 +130,8 @@ export const PaymentCollectionSheet = (): JSX.Element => {
   const settings = settingsQuery.data;
   const paymentMethods = settings?.payment_methods ?? [];
   const otherFees = settings?.other_fees ?? [];
+  const savedAccountCode = settings?.other_fee_account_code ?? '';
+  const accountCode = accountCodeDraft ?? savedAccountCode;
 
   const handlePaymentMethodSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -390,7 +404,36 @@ export const PaymentCollectionSheet = (): JSX.Element => {
                 </DialogContent>
               </Dialog>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <form
+                className="flex flex-wrap items-end gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  saveAccountCodeMutation.mutate(accountCode);
+                }}
+              >
+                <div className="min-w-48 flex-1">
+                  <Label htmlFor="other-fee-account-code">
+                    Default account code
+                  </Label>
+                  <Input
+                    id="other-fee-account-code"
+                    className="mt-1"
+                    value={accountCode}
+                    maxLength={50}
+                    autoComplete="off"
+                    placeholder="Used for assessment other payments"
+                    onChange={(event) => setAccountCodeDraft(event.target.value)}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={saveAccountCodeMutation.isPending}
+                >
+                  Save
+                </Button>
+              </form>
               {otherFees.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   No other fees yet.
