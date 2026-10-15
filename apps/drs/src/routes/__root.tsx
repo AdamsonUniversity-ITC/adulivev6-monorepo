@@ -5,6 +5,7 @@ import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 import { DrsAppNav } from '@/components/drs-app-nav.tsx';
+import { DrsErrorPage } from '@/components/drs-error-page.tsx';
 import { DrsNotFoundPage } from '@/components/drs-not-found-page.tsx';
 import { DrsThemeProvider } from '@/components/drs-theme-provider.tsx';
 
@@ -25,4 +26,5 @@ const RootLayout = () => (
 export const Route = createRootRoute({
   component: RootLayout,
   notFoundComponent: DrsNotFoundPage,
+  errorComponent: DrsErrorPage,
 });

@@ -1,9 +1,9 @@
 import { DrsThemeToggle } from '@/components/drs-theme-toggle.tsx';
 import {
   DRS_STUDENT_APPLY_PERMISSION,
-  getDrSubdomain,
   hasDrCmsAccessForHost,
 } from '@/lib/drsPermissions.ts';
+import { drsTenantLabel } from '@/lib/drsTenantLabel.ts';
 import {
   DRS_AUTH_USER_QUERY_KEY,
   fetchAuthUser,
@@ -18,12 +18,6 @@ import { checkPermission } from '@repo/hooks';
 import { Button } from '@repo/ui/components/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
-
-const TENANT_LABEL: Record<string, string> = {
-  'college-drs': 'College',
-  'shs-drs': 'Senior High School',
-  'bed-drs': 'Basic Education',
-};
 
 type NavItem = {
   label: string;
@@ -109,7 +103,7 @@ export function DrsAppNav() {
     }
   }
 
-  const tenant = TENANT_LABEL[getDrSubdomain(window.location.hostname)] ?? null;
+  const tenant = drsTenantLabel(window.location.hostname);
 
   return (
     <nav
