@@ -205,6 +205,7 @@ export type DRSApplicationRow = {
 export type DRSAssessmentOtherFee = {
   fee_name: string;
   amount: number;
+  account_code?: string | null;
 };
 
 export function applicationCountsAsPaid(app: {

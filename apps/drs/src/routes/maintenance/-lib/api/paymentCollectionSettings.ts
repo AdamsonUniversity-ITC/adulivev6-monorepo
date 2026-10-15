@@ -14,6 +14,7 @@ export type PaymentCollectionOtherFee = {
 
 export type PaymentCollectionSettings = {
   id: number | string;
+  other_fee_account_code?: string | null;
   payment_methods: PaymentCollectionPaymentMethod[];
   other_fees: PaymentCollectionOtherFee[];
 };
@@ -30,6 +31,7 @@ export type CreatePaymentCollectionOtherFeePayload = {
 
 const emptySettings: PaymentCollectionSettings = {
   id: '',
+  other_fee_account_code: null,
   payment_methods: [],
   other_fees: [],
 };
@@ -46,6 +48,7 @@ const unwrap = (body: unknown): PaymentCollectionSettings | null => {
 
   return {
     id: payload.id ?? emptySettings.id,
+    other_fee_account_code: payload.other_fee_account_code ?? null,
     payment_methods: Array.isArray(payload.payment_methods)
       ? payload.payment_methods
       : [],
@@ -61,6 +64,14 @@ export const fetchPaymentCollectionSettings =
 
     return unwrap(data);
   };
+
+export const updatePaymentCollectionOtherFeeAccountCode = async (
+  otherFeeAccountCode: string,
+): Promise<void> => {
+  await registrarSvc.patch(`v1/drs/payment-collection-settings`, {
+    other_fee_account_code: otherFeeAccountCode.trim() || null,
+  });
+};
 
 export const createPaymentCollectionPaymentMethod = async (
   payload: CreatePaymentCollectionPaymentMethodPayload,
