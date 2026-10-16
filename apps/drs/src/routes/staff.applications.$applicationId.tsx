@@ -11,6 +11,7 @@ import {
   DrsSection,
   DrsStatusBadge,
   formatStatusLabel,
+  clearanceViewerDisplay,
   toneForStatus,
 } from '@/components/drs-ui.tsx';
 import { fetchPaymentCollectionSettings } from '@/routes/maintenance/-lib/api/paymentCollectionSettings.ts';
@@ -211,7 +212,10 @@ function ProgressionConfirmSummary({
   });
   rows.push({
     label: 'Current stage',
-    value: app.current_stage?.name ?? formatStatusLabel(app.status),
+    value:
+      clearanceViewerDisplay(app.viewer_clearance_label)?.text ??
+      app.current_stage?.name ??
+      formatStatusLabel(app.status),
   });
   rows.push({
     label: 'Action',
@@ -1495,6 +1499,8 @@ function StaffApplicationWorkPage() {
     });
   };
 
+  const clearanceStatus = clearanceViewerDisplay(app.viewer_clearance_label);
+
   return (
     <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
       <div className="drs-screen-content space-y-5">
@@ -1510,15 +1516,11 @@ function StaffApplicationWorkPage() {
           badges={
             <>
               <DrsStatusBadge
-                tone={
-                  app.viewer_backtrack_cleared
-                    ? 'success'
-                    : toneForStatus(app.status)
-                }
+                tone={clearanceStatus?.tone ?? toneForStatus(app.status)}
               >
-                {app.viewer_backtrack_cleared
-                  ? 'Cleared'
-                  : (app.current_stage?.name ?? formatStatusLabel(app.status))}
+                {clearanceStatus?.text ??
+                  app.current_stage?.name ??
+                  formatStatusLabel(app.status)}
               </DrsStatusBadge>
               {app.paid_in_assessment ? (
                 <Badge

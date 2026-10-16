@@ -587,6 +587,15 @@ export function formatStatusLabel(value?: string | null): string {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+/** Pending or Cleared for staff whose only access is clearance sign-off. */
+export function clearanceViewerDisplay(
+  label: string | null | undefined,
+): { text: 'Pending' | 'Cleared'; tone: DrsStatusTone } | null {
+  if (label === 'pending') return { text: 'Pending', tone: 'warning' };
+  if (label === 'cleared') return { text: 'Cleared', tone: 'success' };
+  return null;
+}
+
 /* -------------------------------------------------------------------------- */
 /* States                                                                     */
 /* -------------------------------------------------------------------------- */

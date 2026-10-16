@@ -7,6 +7,7 @@ import {
   DrsSearchField,
   DrsStatusBadge,
   autoFetchRowClassName,
+  clearanceViewerDisplay,
   cx,
   formatStatusLabel,
   primaryAutoFetchTone,
@@ -177,6 +178,21 @@ function writeStoredQueueWatch(watching: boolean): void {
   }
 }
 
+function MobileQueueStatusBadge({ row }: { row: DRSApplicationRow }) {
+  const clearance = clearanceViewerDisplay(row.viewer_clearance_label);
+  if (clearance) {
+    return (
+      <DrsStatusBadge tone={clearance.tone}>{clearance.text}</DrsStatusBadge>
+    );
+  }
+
+  return (
+    <DrsStatusBadge tone={toneForStatus(row.status)}>
+      {row.current_stage?.name ?? formatStatusLabel(row.status)}
+    </DrsStatusBadge>
+  );
+}
+
 const columns: ColumnDef<DRSApplicationRow>[] = [
   {
     accessorKey: 'drs_no',
@@ -232,8 +248,13 @@ const columns: ColumnDef<DRSApplicationRow>[] = [
     ),
     meta: { label: 'Status' },
     cell: ({ row }) => {
-      if (row.original.viewer_backtrack_cleared) {
-        return <DrsStatusBadge tone="success">Cleared</DrsStatusBadge>;
+      const clearance = clearanceViewerDisplay(
+        row.original.viewer_clearance_label,
+      );
+      if (clearance) {
+        return (
+          <DrsStatusBadge tone={clearance.tone}>{clearance.text}</DrsStatusBadge>
+        );
       }
       const raw = String(row.original.status ?? '');
       return (
@@ -287,18 +308,30 @@ function StaffQueuePage() {
   });
 
   const stageSlugs = stageAccessQuery.data?.stageSlugs ?? [];
+  const clearanceStatusFilters =
+    stageAccessQuery.data?.clearanceStatusFilters === true;
+  const statusFilterLabel = clearanceStatusFilters ? 'All' : 'All stages';
   const flagDefinitions = flagDefinitionsQuery.data ?? [];
   const programs = programsQuery.data ?? [];
 
   React.useEffect(() => {
     if (!stageAccessQuery.isSuccess || statusHydrated) return;
 
-    if (status !== '' && !stageSlugs.includes(status)) {
+    const allowed = clearanceStatusFilters
+      ? ['pending', 'cleared']
+      : stageSlugs;
+    if (status !== '' && !allowed.includes(status)) {
       setStatus('');
       writeStoredQueueStatus('');
     }
     setStatusHydrated(true);
-  }, [stageAccessQuery.isSuccess, stageSlugs, status, statusHydrated]);
+  }, [
+    stageAccessQuery.isSuccess,
+    clearanceStatusFilters,
+    stageSlugs,
+    status,
+    statusHydrated,
+  ]);
 
   React.useEffect(() => {
     if (!programsQuery.isSuccess || program === '') return;
@@ -343,6 +376,7 @@ function StaffQueuePage() {
       pagination,
       debouncedSearch,
       status,
+      clearanceStatusFilters,
       flagFilter,
       program,
     ],
@@ -351,7 +385,8 @@ function StaffQueuePage() {
         page: pagination.pageIndex + 1,
         perPage: Math.min(pagination.pageSize, 100),
         search: debouncedSearch,
-        status,
+        status: clearanceStatusFilters ? undefined : status,
+        clearanceLabel: clearanceStatusFilters ? status : undefined,
         flag: flagFilter,
         courseId: program,
       }),
@@ -408,7 +443,9 @@ function StaffQueuePage() {
     : flagFilter
       ? 'No requests match this flag. Clear the flag filter to see the rest of your queue.'
       : status
-        ? 'No requests are at this stage. Clear the stage filter to see the rest of your queue.'
+        ? clearanceStatusFilters
+          ? 'No requests match this filter. Choose All to see the rest of your queue.'
+          : 'No requests are at this stage. Clear the stage filter to see the rest of your queue.'
         : 'Requests appear here once they reach a stage you are assigned to.';
 
   const programFilterSelect = (triggerId: string, triggerClassName: string) =>
@@ -474,19 +511,26 @@ function StaffQueuePage() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="min-w-0 flex-1">
             <Label htmlFor="queue-status-mobile" className="sr-only">
-              Stage
+              {clearanceStatusFilters ? 'Status' : 'Stage'}
             </Label>
             <Select value={status || 'all'} onValueChange={handleStatusChange}>
               <SelectTrigger id="queue-status-mobile" className="w-full">
-                <SelectValue placeholder="All stages" />
+                <SelectValue placeholder={statusFilterLabel} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All stages</SelectItem>
-                {stageSlugs.map((slug) => (
-                  <SelectItem key={slug} value={slug}>
-                    {formatStatusLabel(slug)}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">{statusFilterLabel}</SelectItem>
+                {clearanceStatusFilters ? (
+                  <>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="cleared">Cleared</SelectItem>
+                  </>
+                ) : (
+                  stageSlugs.map((slug) => (
+                    <SelectItem key={slug} value={slug}>
+                      {formatStatusLabel(slug)}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -535,14 +579,7 @@ function StaffQueuePage() {
                       <ApplicationFlagBadges
                         flagDetails={autoFetchFlagDetails(row)}
                       />
-                      {row.viewer_backtrack_cleared ? (
-                        <DrsStatusBadge tone="success">Cleared</DrsStatusBadge>
-                      ) : (
-                        <DrsStatusBadge tone={toneForStatus(row.status)}>
-                          {row.current_stage?.name ??
-                            formatStatusLabel(row.status)}
-                        </DrsStatusBadge>
-                      )}
+                      <MobileQueueStatusBadge row={row} />
                       <AutoFetchColorChips row={row} />
                     </div>
                     <ApplicationFlagBadges flagDetails={row.flag_details} />
@@ -598,22 +635,29 @@ function StaffQueuePage() {
             slot: (
               <>
                 <Label htmlFor="queue-status" className="sr-only">
-                  Stage
+                  {clearanceStatusFilters ? 'Status' : 'Stage'}
                 </Label>
                 <Select
                   value={status || 'all'}
                   onValueChange={handleStatusChange}
                 >
                   <SelectTrigger id="queue-status" className="w-[190px]">
-                    <SelectValue placeholder="All stages" />
+                    <SelectValue placeholder={statusFilterLabel} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All stages</SelectItem>
-                    {stageSlugs.map((slug) => (
-                      <SelectItem key={slug} value={slug}>
-                        {formatStatusLabel(slug)}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">{statusFilterLabel}</SelectItem>
+                    {clearanceStatusFilters ? (
+                      <>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="cleared">Cleared</SelectItem>
+                      </>
+                    ) : (
+                      stageSlugs.map((slug) => (
+                        <SelectItem key={slug} value={slug}>
+                          {formatStatusLabel(slug)}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 {programFilterSelect('queue-program', 'w-[220px]')}
