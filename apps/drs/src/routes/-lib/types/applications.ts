@@ -181,6 +181,8 @@ export type DRSApplicationRow = {
   date_released: string | null;
   cleared: DRSApplicationClearedRef;
   status: string;
+  /** True only for clearance staff looking back at a finished stage with nothing left to do. */
+  viewer_backtrack_cleared?: boolean;
   /** Personal flags for the current staff user (e.g. "checked"). */
   flags?: string[];
   /** Resolved label/icon for each applied flag key. */

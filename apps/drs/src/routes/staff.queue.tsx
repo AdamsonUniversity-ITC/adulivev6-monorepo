@@ -231,8 +231,11 @@ const columns: ColumnDef<DRSApplicationRow>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     meta: { label: 'Status' },
-    cell: ({ getValue }) => {
-      const raw = String(getValue() ?? '');
+    cell: ({ row }) => {
+      if (row.original.viewer_backtrack_cleared) {
+        return <DrsStatusBadge tone="success">Cleared</DrsStatusBadge>;
+      }
+      const raw = String(row.original.status ?? '');
       return (
         <DrsStatusBadge tone={toneForStatus(raw)}>
           {formatStatusLabel(raw)}
@@ -532,10 +535,14 @@ function StaffQueuePage() {
                       <ApplicationFlagBadges
                         flagDetails={autoFetchFlagDetails(row)}
                       />
-                      <DrsStatusBadge tone={toneForStatus(row.status)}>
-                        {row.current_stage?.name ??
-                          formatStatusLabel(row.status)}
-                      </DrsStatusBadge>
+                      {row.viewer_backtrack_cleared ? (
+                        <DrsStatusBadge tone="success">Cleared</DrsStatusBadge>
+                      ) : (
+                        <DrsStatusBadge tone={toneForStatus(row.status)}>
+                          {row.current_stage?.name ??
+                            formatStatusLabel(row.status)}
+                        </DrsStatusBadge>
+                      )}
                       <AutoFetchColorChips row={row} />
                     </div>
                     <ApplicationFlagBadges flagDetails={row.flag_details} />
