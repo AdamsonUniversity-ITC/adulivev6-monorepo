@@ -3,11 +3,13 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 export type WorkflowStageAccess = {
   hasWorkflowStageAccess: boolean;
   stageSlugs: string[];
+  clearanceStatusFilters: boolean;
 };
 
 const EMPTY: WorkflowStageAccess = {
   hasWorkflowStageAccess: false,
   stageSlugs: [],
+  clearanceStatusFilters: false,
 };
 
 export async function fetchWorkflowStageAccess(): Promise<WorkflowStageAccess> {
@@ -39,6 +41,7 @@ export async function fetchWorkflowStageAccess(): Promise<WorkflowStageAccess> {
     return {
       hasWorkflowStageAccess: data.has_workflow_stage_access === true,
       stageSlugs,
+      clearanceStatusFilters: data.clearance_status_filters === true,
     };
   } catch {
     return EMPTY;

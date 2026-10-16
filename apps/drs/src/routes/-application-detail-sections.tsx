@@ -31,6 +31,7 @@ import {
   DrsSection,
   DrsStatusBadge,
   formatStatusLabel,
+  clearanceViewerDisplay,
 } from '@/components/drs-ui.tsx';
 import { PrivateFileLink } from '@/components/private-file-link.tsx';
 import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
@@ -332,9 +333,9 @@ export function RequestSummaryPanel({
         <div className="flex items-baseline justify-between gap-3 py-2">
           <dt className="text-muted-foreground text-xs">Current stage</dt>
           <dd className="text-right font-medium">
-            {app.viewer_backtrack_cleared
-              ? 'Cleared'
-              : (app.current_stage?.name ?? formatStatusLabel(app.status))}
+            {clearanceViewerDisplay(app.viewer_clearance_label)?.text ??
+              app.current_stage?.name ??
+              formatStatusLabel(app.status)}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3 py-2">

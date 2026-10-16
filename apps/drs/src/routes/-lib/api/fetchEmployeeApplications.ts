@@ -43,6 +43,7 @@ export async function fetchEmployeeApplications(params: {
   perPage: number;
   search?: string;
   status?: string;
+  clearanceLabel?: string;
   flag?: string;
   courseId?: string;
 }): Promise<{ rows: DRSApplicationRow[]; meta: EmployeeApplicationsMeta }> {
@@ -53,7 +54,11 @@ export async function fetchEmployeeApplications(params: {
         page: params.page,
         per_page: params.perPage,
         ...(params.search?.trim() ? { search: params.search.trim() } : {}),
-        ...(params.status?.trim() ? { status: params.status.trim() } : {}),
+        ...(params.clearanceLabel?.trim()
+          ? { clearance_label: params.clearanceLabel.trim() }
+          : params.status?.trim()
+            ? { status: params.status.trim() }
+            : {}),
         ...(params.flag?.trim() ? { flag: params.flag.trim() } : {}),
         ...(params.courseId?.trim() ? { course_id: params.courseId.trim() } : {}),
       },
