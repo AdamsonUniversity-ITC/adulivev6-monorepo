@@ -23,9 +23,12 @@ import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { useContext, useEffect, useMemo } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { ConfirmActionDialog } from '../-clearance/-confirm-action-dialog.tsx';
+import { deleteDocument } from '../-lib/api/deleteDocument.ts';
+import { deletePackage } from '../-lib/api/deletePackage.ts';
 import { editDocument } from '../-lib/api/editDocument.ts';
 import { editPackage } from '../-lib/api/editPackage.ts';
 import {
@@ -277,6 +280,7 @@ export const CatalogDetail = ({
     );
   }
   const { setSelectedGroup } = ctx;
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const schema = useMemo(() => makeDetailFormSchema(kind), [kind]);
 
   const detailQuery = useQuery({
@@ -406,6 +410,20 @@ export const CatalogDetail = ({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      kind === 'document' ? deleteDocument(itemId) : deletePackage(itemId),
+    onSuccess: () => {
+      toast.success(kind === 'document' ? 'Document deleted.' : 'Package deleted.');
+      setDeleteOpen(false);
+      queryClient.invalidateQueries({ queryKey: [`${kind}s`] });
+      queryClient.invalidateQueries({ queryKey: [`${kind}_detail`, itemId] });
+    },
+    onError: () => {
+      toast.error(`Could not delete this ${kind}.`);
+    },
+  });
+
   if (detailQuery.isFetching && !detailQuery.data) {
     return (
       <Card>
@@ -416,7 +434,15 @@ export const CatalogDetail = ({
     );
   }
 
+  const itemName =
+    kind === 'document'
+      ? ((detailQuery.data as DocumentDetail | undefined)?.document_name ??
+        'this document')
+      : ((detailQuery.data as PackageDetail | undefined)?.package_name ??
+        'this package');
+
   return (
+    <>
     <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
@@ -599,6 +625,14 @@ export const CatalogDetail = ({
           <div className="border-border flex justify-end gap-2 border-t pt-4">
             <Button
               type="button"
+              variant="outline"
+              disabled={mutation.isPending || deleteMutation.isPending}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+            <Button
+              type="button"
               variant="ghost"
               disabled={mutation.isPending || !form.formState.isDirty}
               onClick={() =>
@@ -620,5 +654,15 @@ export const CatalogDetail = ({
         </CardContent>
       </Card>
     </form>
+    <ConfirmActionDialog
+      open={deleteOpen}
+      onOpenChange={setDeleteOpen}
+      title={kind === 'document' ? 'Delete document?' : 'Delete package?'}
+      description={`This cannot be undone. ${itemName} will be removed from the catalog. Requests already in progress will continue.`}
+      confirmLabel={kind === 'document' ? 'Delete document' : 'Delete package'}
+      pending={deleteMutation.isPending}
+      onConfirm={() => deleteMutation.mutate()}
+    />
+    </>
   );
 };

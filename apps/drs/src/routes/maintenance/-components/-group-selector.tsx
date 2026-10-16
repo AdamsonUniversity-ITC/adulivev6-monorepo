@@ -21,8 +21,6 @@ import { useContext, useEffect, useState } from 'react';
 import { ConfirmActionDialog } from '../-clearance/-confirm-action-dialog.tsx';
 import { deleteDocumentGroup } from '../-lib/api/deleteDocumentGroup.ts';
 import { fetchDocumentGroups } from '../-lib/api/fetchDocumentGroups.ts';
-import { fetchDocuments } from '../-lib/api/fetchDocuments.ts';
-import { fetchPackages } from '../-lib/api/fetchPackages.ts';
 import { DocumentManagementContext } from '../-providers/-document-management-context.tsx';
 import { AddGroupDialog } from './-add-group-dialog.tsx';
 import { EditGroupDialog } from './-edit-group-dialog.tsx';
@@ -43,22 +41,6 @@ export const GroupSelector = () => {
     queryFn: fetchDocumentGroups,
     refetchOnWindowFocus: false,
   });
-
-  const { data: documents = [] } = useQuery({
-    queryKey: ['documents', selectedGroup],
-    queryFn: () => fetchDocuments(selectedGroup as string),
-    enabled: Boolean(selectedGroup),
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: packages = [] } = useQuery({
-    queryKey: ['packages', selectedGroup],
-    queryFn: () => fetchPackages(selectedGroup as string),
-    enabled: Boolean(selectedGroup),
-    refetchOnWindowFocus: false,
-  });
-
-  const groupHasItems = documents.length > 0 || packages.length > 0;
 
   useEffect(() => {
     if (groups.length === 0) return;
@@ -81,9 +63,7 @@ export const GroupSelector = () => {
       setSelectedGroup(remaining[0] ? String(remaining[0].id) : null);
     },
     onError: () => {
-      toast.error(
-        'Could not delete this group. Remove all documents and packages first.',
-      );
+      toast.error('Could not delete this group.');
     },
   });
 
@@ -138,20 +118,13 @@ export const GroupSelector = () => {
               type="button"
               variant="outline"
               size="icon"
-              disabled={
-                !selectedGroup || groupHasItems || deleteMutation.isPending
-              }
+              disabled={!selectedGroup || deleteMutation.isPending}
               aria-label="Delete selected group"
               onClick={() => setDeleteOpen(true)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-          {selectedGroup && groupHasItems ? (
-            <p className="text-muted-foreground text-xs">
-              Remove all documents and packages before deleting this group.
-            </p>
-          ) : null}
         </CardContent>
       </Card>
 
@@ -161,8 +134,9 @@ export const GroupSelector = () => {
         title="Delete document group?"
         description={
           <>
-            This will permanently remove <strong>{selectedGroupName}</strong>.
-            The group must be empty before it can be deleted.
+            This cannot be undone. <strong>{selectedGroupName}</strong> and
+            every document and package in it will be removed from the catalog.
+            Requests already in progress will continue.
           </>
         }
         confirmLabel="Delete group"
