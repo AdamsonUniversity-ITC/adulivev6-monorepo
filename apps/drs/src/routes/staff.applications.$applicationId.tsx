@@ -1509,8 +1509,16 @@ function StaffApplicationWorkPage() {
           }
           badges={
             <>
-              <DrsStatusBadge tone={toneForStatus(app.status)}>
-                {app.current_stage?.name ?? formatStatusLabel(app.status)}
+              <DrsStatusBadge
+                tone={
+                  app.viewer_backtrack_cleared
+                    ? 'success'
+                    : toneForStatus(app.status)
+                }
+              >
+                {app.viewer_backtrack_cleared
+                  ? 'Cleared'
+                  : (app.current_stage?.name ?? formatStatusLabel(app.status))}
               </DrsStatusBadge>
               {app.paid_in_assessment ? (
                 <Badge
