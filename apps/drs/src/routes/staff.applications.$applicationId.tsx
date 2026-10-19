@@ -1752,7 +1752,8 @@ function StaffApplicationWorkPage() {
                                         <li
                                           key={`${mod.key}-${idx}`}
                                           className={
-                                            item.startsWith('OSL violations:')
+                                            item.startsWith('OSL violations:') ||
+                                            item.startsWith('TBI uncleared:')
                                               ? 'text-status-danger'
                                               : undefined
                                           }
