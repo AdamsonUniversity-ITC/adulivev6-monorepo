@@ -38,7 +38,7 @@ const OPTION_LABELS: Record<string, string> = {
   and: 'AND (all selected)',
   or: 'OR (any selected)',
   second_application: '2nd application',
-  without_osl_violation: 'Without OSL violation',
+  without_osl_violation: 'Without OSL violation or TBI',
   without_unreturned_books: 'Without unreturned books',
   probationary_status: 'Probationary Status',
   library: 'Library',
