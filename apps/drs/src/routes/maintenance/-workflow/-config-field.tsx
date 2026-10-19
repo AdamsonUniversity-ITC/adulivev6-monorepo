@@ -20,6 +20,7 @@ type Props = {
 const CONFIG_FIELD_LABELS: Record<string, string> = {
   sla_hours: 'SLA hours',
   allow_remarks: 'Allow remarks',
+  show_request_sidebar: 'Show total amount and messages',
   auto_clear_enabled: 'Auto clear',
   auto_clear_operator: 'Auto clear operator',
   auto_clear_conditions: 'Auto clear conditions',

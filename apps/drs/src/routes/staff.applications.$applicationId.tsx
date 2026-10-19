@@ -1500,6 +1500,9 @@ function StaffApplicationWorkPage() {
   };
 
   const clearanceStatus = clearanceViewerDisplay(app.viewer_clearance_label);
+  const showRequestSidebar = app.viewer_show_request_sidebar !== false;
+  const showRequestAside =
+    showRequestSidebar || Boolean(app.may_change_receive_mode_as_staff);
 
   return (
     <DrsPageShell maxWidth="xl" contentClassName="space-y-5">
@@ -1583,7 +1586,13 @@ function StaffApplicationWorkPage() {
           flagDetails={app.flag_details}
         />
 
-        <div className="grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div
+          className={
+            showRequestAside
+              ? 'grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]'
+              : 'grid gap-y-8'
+          }
+        >
           <div className="min-w-0 space-y-8">
             {/* The reason staff opened this page goes first. */}
             <DrsPanel
@@ -2017,7 +2026,8 @@ function StaffApplicationWorkPage() {
             ) : null}
           </div>
 
-          <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">
+          {showRequestAside ? (
+            <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">
             {app.may_change_receive_mode_as_staff ? (
               <DrsPanel
                 title="Delivery mode"
@@ -2078,25 +2088,30 @@ function StaffApplicationWorkPage() {
                 </Button>
               </DrsPanel>
             ) : null}
-            <RequestSummaryPanel
-              app={app}
-              footnote={
-                pendingActionable.length > 0
-                  ? `${pendingActionable.length} task${pendingActionable.length === 1 ? '' : 's'} waiting on you.`
-                  : 'No tasks are waiting on your account for this request.'
-              }
-            />
-            <DrsPanel
-              title="Messages"
-              description="Visible to the student and other staff on this request."
-              contentClassName="p-0"
-            >
-              <ApplicationMessagesPanel
-                applicationId={applicationId}
-                viewerRole="staff"
-              />
-            </DrsPanel>
-          </aside>
+            {showRequestSidebar ? (
+              <>
+                <RequestSummaryPanel
+                  app={app}
+                  footnote={
+                    pendingActionable.length > 0
+                      ? `${pendingActionable.length} task${pendingActionable.length === 1 ? '' : 's'} waiting on you.`
+                      : 'No tasks are waiting on your account for this request.'
+                  }
+                />
+                <DrsPanel
+                  title="Messages"
+                  description="Visible to the student and other staff on this request."
+                  contentClassName="p-0"
+                >
+                  <ApplicationMessagesPanel
+                    applicationId={applicationId}
+                    viewerRole="staff"
+                  />
+                </DrsPanel>
+              </>
+            ) : null}
+            </aside>
+          ) : null}
         </div>
       </div>
       <ConfirmActionDialog
