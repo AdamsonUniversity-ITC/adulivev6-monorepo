@@ -183,6 +183,8 @@ export type DRSApplicationRow = {
   status: string;
   /** Pending or Cleared for clearance-only staff. Absent or null keeps the real stage. */
   viewer_clearance_label?: 'pending' | 'cleared' | null;
+  /** False hides the amount and messages for clearance-only staff. Missing stays visible. */
+  viewer_show_request_sidebar?: boolean;
   /** Personal flags for the current staff user (e.g. "checked"). */
   flags?: string[];
   /** Resolved label/icon for each applied flag key. */
