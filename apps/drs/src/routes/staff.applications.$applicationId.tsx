@@ -1512,9 +1512,14 @@ function StaffApplicationWorkPage() {
           backLabel="Queue"
           title={`Request #${displayApplicationRef(app)}`}
           description={
-            app.student_no
-              ? `${app.student_name?.trim() || 'Student'} · ${app.student_no}`
-              : app.student_name?.trim() || undefined
+            [
+              app.student_no
+                ? `${app.student_name?.trim() || 'Student'} · ${app.student_no}`
+                : app.student_name?.trim(),
+              app.course_name?.trim() || app.course_id?.trim(),
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined
           }
           badges={
             <>

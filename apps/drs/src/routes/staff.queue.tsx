@@ -229,6 +229,11 @@ const columns: ColumnDef<DRSApplicationRow>[] = [
             ? row.original.student_name
             : row.original.student_no || '-'}
         </div>
+        <div className="text-muted-foreground max-w-56 truncate text-xs">
+          {row.original.course_name?.trim() ||
+            row.original.course_id?.trim() ||
+            '—'}
+        </div>
         <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
           <span className="max-w-56 truncate">{row.original.email}</span>
           {row.original.is_foreigner_student ? (
@@ -587,6 +592,9 @@ function StaffQueuePage() {
                       {row.student_name?.trim() || row.student_no || '—'}
                       {row.student_no && row.student_name?.trim()
                         ? ` · ${row.student_no}`
+                        : ''}
+                      {row.course_name?.trim() || row.course_id?.trim()
+                        ? ` · ${row.course_name?.trim() || row.course_id.trim()}`
                         : ''}
                     </p>
                   </div>

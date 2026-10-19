@@ -382,8 +382,8 @@ export function RequestDetailsSection({
       <DrsDataList columns={3}>
         <DrsDataItem label="Student name">{app.student_name}</DrsDataItem>
         <DrsDataItem label="Student number">{app.student_no}</DrsDataItem>
-        <DrsDataItem label="Course">
-          {app.course_name ?? app.course_id}
+        <DrsDataItem label="Program">
+          {app.course_name?.trim() || app.course_id}
         </DrsDataItem>
         <DrsDataItem label="School year and term">
           {app.school_year || app.semester
