@@ -1,10 +1,11 @@
 import axios from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 import { env } from './env';
+import { redirectOnUnauthorized } from './unauthorized-redirect';
 
 export const financeSvc = axios.create({
     baseURL: env.financeService,
-    timeout: 30000,
+    timeout: 300000,
     withCredentials: true,
     withXSRFToken: true,
     headers: {
@@ -96,8 +97,11 @@ financeSvc.interceptors.response.use(
         clearCompletedKey(response.config as IdempotentConfig);
         return response;
     },
-    error => {
+    async error => {
         if (error.response) clearCompletedKey(error.config as IdempotentConfig);
+        if (error.response?.status === 401) {
+            await redirectOnUnauthorized(window.location.href);
+        }
         return Promise.reject(error);
     },
 );

@@ -2,7 +2,7 @@ import { RootRoute, Route, createRouter, Outlet, redirect, isRedirect } from '@t
 import App from './App';
 import Home from './pages/Home';
 import Test from './pages/Test';
-import { financeSvc } from '@repo/axios-config/finance-service';
+import { buildLoginUrl, financeSvc } from '@repo/axios-config';
 import MaintenanceScreen from './pages/MaintenanceScreen';
 import BudgetSettings from './pages/administration/BudgetSettings.tsx';
 import OfficeSupplies from './pages/administration/OfficeSupplies.tsx';
@@ -38,15 +38,6 @@ const rootRoute = new RootRoute({
     component: App,
 });
 
-const resolveLoginUrl = () => {
-    const productionBaseUrl = import.meta.env.VITE_ADU_LIVE_PRODUCTION_URL?.trim()
-        || 'https://live.adamson.edu.ph';
-    const baseUrl = (import.meta.env.PROD
-        ? productionBaseUrl
-        : 'http://localhost.test:8081').replace(/\/+$/, '');
-
-    return `${baseUrl}/login`;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission helpers — mirrors the logic in Sidebar.tsx (canShowItem/buildPermissionSet)
@@ -113,7 +104,7 @@ const protectedRoute = new Route({
             await financeSvc.get('/abms/protected-test');
         } catch (error: any) {
             if (error.response?.status === 401) {
-                window.location.assign(resolveLoginUrl());
+                window.location.assign(buildLoginUrl({ returnTo: window.location.href }));
                 await new Promise(() => { });
             }
             if (error.response?.status === 503) {
@@ -149,6 +140,7 @@ const protectedRoute = new Route({
             return { user: null };
         }
     },
+
     pendingComponent: LoadingScreen,
     pendingMs: 0,
     pendingMinMs: 500,
