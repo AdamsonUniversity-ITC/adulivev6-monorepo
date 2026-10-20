@@ -71,8 +71,10 @@ export type AssignmentPayload = {
     | 'approval_chain'
     | 'clearance_department'
     | 'assessment'
-    | 'assessment_foreigner'
-    | 'graduate_programs';
+    | 'foreigner_only'
+    | 'no_foreigner'
+    | 'graduate_only'
+    | 'no_graduate';
   target_key?: string | null;
   clearance_id?: string | number | null;
   assessment_setting_id?: string | number | null;

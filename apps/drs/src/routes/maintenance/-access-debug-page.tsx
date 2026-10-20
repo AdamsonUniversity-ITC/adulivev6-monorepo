@@ -52,7 +52,7 @@ const CHECK_SECTIONS: Record<string, string> = {
   foreigner_scope: 'Application rules',
   course_program_match: 'Application rules',
   graduate_program_scope: 'Application rules',
-  foreign_assessment_allowlist: 'Application rules',
+  nationality_restriction: 'Application rules',
   actionable_task_filter: 'Active tasks',
   can_view_detail: 'Outcome',
   can_see_in_queue: 'Outcome',

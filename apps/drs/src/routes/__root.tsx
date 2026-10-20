@@ -9,7 +9,13 @@ import { DrsErrorPage } from '@/components/drs-error-page.tsx';
 import { DrsNotFoundPage } from '@/components/drs-not-found-page.tsx';
 import { DrsThemeProvider } from '@/components/drs-theme-provider.tsx';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const RootLayout = () => (
   <QueryClientProvider client={queryClient}>

@@ -51,7 +51,6 @@ import {
 } from './-lib/api/access/permissionLabels.ts';
 import { detachAssessmentUser } from './-lib/api/detachAssessmentUser.ts';
 import { detachClearanceDepartmentUser } from './-lib/api/detachClearanceDepartmentUser.ts';
-import { detachForeignerAssessmentUser } from './-lib/api/detachForeignerAssessmentUser.ts';
 import { fetchAssessmentSettings } from './-lib/api/fetchAssessmentSettings.ts';
 import { fetchClearanceDepartments } from './-lib/api/fetchClearanceDepartments.ts';
 import { assignWorkflowUser } from './-lib/api/user-management/assignWorkflowUser.ts';
@@ -258,11 +257,6 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
 
       if (item.target_type === 'assessment') {
         await detachAssessmentUser(empNo);
-        return item.id;
-      }
-
-      if (item.target_type === 'assessment_foreigner') {
-        await detachForeignerAssessmentUser(empNo);
         return item.id;
       }
 
@@ -516,10 +510,19 @@ type AssignmentTargetType =
   | 'payment_verification'
   | 'clearance_department'
   | 'assessment'
-  | 'assessment_foreigner'
-  | 'graduate_programs'
+  | 'foreigner_only'
+  | 'no_foreigner'
+  | 'graduate_only'
+  | 'no_graduate'
   | 'stage'
   | 'task';
+
+const ACCESS_RESTRICTION_TYPES: AssignmentTargetType[] = [
+  'foreigner_only',
+  'no_foreigner',
+  'graduate_only',
+  'no_graduate',
+];
 
 type ClearanceDepartment = {
   id: string | number;
@@ -600,10 +603,10 @@ const heldTargetIds = (
     }
 
     if (
-      targetType === 'graduate_programs' &&
-      item.target_type === 'graduate_programs'
+      ACCESS_RESTRICTION_TYPES.includes(targetType) &&
+      item.target_type === targetType
     ) {
-      ids.add('graduate_programs');
+      ids.add(targetType);
     }
   }
 
@@ -710,7 +713,7 @@ function AssignDialog({
       };
     }
 
-    if (targetType === 'assessment' || targetType === 'assessment_foreigner') {
+    if (targetType === 'assessment') {
       return {
         ...base,
         target_type: targetType,
@@ -718,7 +721,7 @@ function AssignDialog({
       };
     }
 
-    if (targetType === 'graduate_programs') {
+    if (ACCESS_RESTRICTION_TYPES.includes(targetType)) {
       return {
         ...base,
         target_type: targetType,
@@ -801,11 +804,9 @@ function AssignDialog({
     assignMutation.isPending ||
     (targetRequiresValue(targetType)
       ? pendingIds.length === 0
-      : targetType === 'graduate_programs'
-        ? heldIds.has('graduate_programs')
-        : (targetType === 'assessment' ||
-            targetType === 'assessment_foreigner') &&
-          !assessmentQuery.data?.id);
+      : ACCESS_RESTRICTION_TYPES.includes(targetType)
+        ? heldIds.has(targetType)
+        : targetType === 'assessment' && !assessmentQuery.data?.id);
 
   const saveLabel = assignMutation.isPending
     ? 'Saving...'
@@ -847,12 +848,14 @@ function AssignDialog({
                 Clearance department
               </SelectItem>
               <SelectItem value="assessment">Assessment assessor</SelectItem>
-              <SelectItem value="assessment_foreigner">
-                Foreigner access
+              <SelectItem value="foreigner_only">
+                Foreigner ONLY access
               </SelectItem>
-              <SelectItem value="graduate_programs">
-                Graduate program access
+              <SelectItem value="no_foreigner">No Foreigner access</SelectItem>
+              <SelectItem value="graduate_only">
+                Graduate Programs ONLY
               </SelectItem>
+              <SelectItem value="no_graduate">No Graduate Programs</SelectItem>
               <SelectItem value="payment_verification">
                 Payment verification
               </SelectItem>
