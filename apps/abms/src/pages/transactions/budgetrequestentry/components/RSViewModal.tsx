@@ -42,6 +42,10 @@ export interface RSViewHeader {
     section_id: string | null;
     school_year: string;
     status: string;
+    display_status?: string;
+    approval_data_quality_warnings?: { code: string; message: string }[];
+    is_controlled?: number;
+    approval_role?: 'controller' | 'vpf' | null;
     total_amount: number;
     created_at: string;
     note: string | null;
@@ -271,6 +275,9 @@ export function RSViewModal({
         requested_by_empno: header.requested_by,
         total_amount: grandTotal,
         status: header.status,
+        display_status: header.display_status,
+        is_controlled: header.is_controlled,
+        approval_role: header.approval_role,
         location: header.location,
         from: null,
         rstype: header.rstype,
@@ -622,7 +629,10 @@ export function RSViewModal({
                                 >
                                     Requisition Slip
                                 </span>
-                                {header && <StatusBadge status={normalizeEntryStatus(header.status, header.requisition_number)} t={t} />}
+                                {header && <StatusBadge status={header.display_status ?? normalizeEntryStatus(header.status, header.requisition_number)} t={t} />}
+                                {(header?.approval_data_quality_warnings ?? []).map(warning => (
+                                    <span key={warning.code} role="alert" style={{ color: t.cellAmber, fontSize: 12 }}>{warning.message}</span>
+                                ))}
                                 {canEdit && (
                                     <span
                                         className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md"

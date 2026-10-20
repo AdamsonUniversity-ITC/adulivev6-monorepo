@@ -84,6 +84,7 @@ erDiagram
         string from
         string note
         tinyint is_controlled "0 pending; 1 approved; 2 disapproved; default 0"
+        string approval_role "nullable controller or vpf; legacy null decisions are Controller"
         boolean for_liquidation
         boolean is_cash_advance "cashier RS tag; default false"
         boolean is_approve
@@ -325,6 +326,12 @@ erDiagram
 - `financial_idempotency_keys` records authenticated user, route/action, UUID key, canonical request hash, processing state, original response, and expiry. `(user_id, action, idempotency_key)` is unique.
 - Proposal, allocation, adjustment, requisition, requisition-item, and office-supply monetary columns covered by task ABMS-CORE-20260724-001 use `DECIMAL(15,2)`. Existing `released`, `liquidated_amount`, and `returned_amount` remain `DECIMAL(15,2)`.
 - Application balance decisions convert decimal strings to integer cents. Quantities remain integer values and are not money.
+
+## VPF Decision Attribution (ABMS-RS-20261020-001)
+
+`budget_request_entry.approval_role` is an additive nullable string containing `controller` or `vpf` for new decisions. It supplements the existing `is_controlled` 0/1/2 gate rather than introducing another decision column or stage. Existing rows retain null without backfill; completed null-role decisions retain legacy Controller attribution. Established decision resets clear the field, while Stockroom quantity edits and other approval-preserving actions retain it. The requisition model audits future role changes with existing decision evidence.
+
+The authentication service owns the additive `vpf-access` catalog record under the ABMS permission group. Finance `user_general_permissions.permission_id` references its dynamically resolved ID using the existing logical relationship. No new account, allocation, proposal, or organizational relationships are introduced.
 
 ## Platform Tables Outside the Domain Diagram
 

@@ -198,7 +198,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
                         <div><b>Department:</b><span>{row.department_section || '—'}</span></div>
                         <div><b>Requisition No.:</b><span>{row.requisition_no || '—'}</span></div>
                         <div><b>Requisition Date:</b><span>{formatDate(row.date)}</span></div>
-                        <div><b>Status:</b><span className="rs-status">{displayRequisitionStatus(row.status)}</span></div>
+                        <div><b>Status:</b><span className="rs-status">{displayRequisitionStatus(row.display_status ?? row.status)}</span></div>
                     </section>
 
                     <table className="rs-items">
@@ -248,8 +248,10 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
                             </div>
                         </>}
                         <div className="rs-budget-certification">
-                            <span>Budget Certified By:</span>
-                            <div className="rs-footer-signature"><div /><span>Controller</span></div>
+                            <span>{Number(row.is_controlled ?? 0) === 1 ? 'Budget Certified By:' : Number(row.is_controlled ?? 0) === 2 ? 'Budget Approval Disapproved:' : 'Budget Approval Pending:'}</span>
+                            <div className="rs-footer-signature"><div /><span>{Number(row.is_controlled ?? 0) === 1
+                                ? (row.approval_role === 'vpf' ? 'Vice President for Finance' : 'Controller')
+                                : 'Approving Officer'}</span></div>
                         </div>
                     </section>
                     <p>“In compliance with the requirement of the Data Privacy Act, we would like to secure your consent on the general use and sharing of information obtained from you in the course of transaction/s with any employee of the Adu Finance department. These data, which includes your sensitive or personal information, may be collected, processed or stored in accordance with the AdU retention and disposal policies for legitimate purposes. They may be used to implement transactions which you request, allow or authorize, and to comply with the AdU internal policies and its reporting obligations to government authorities under applicable laws.”</p>
@@ -285,7 +287,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
             .rs-print-info{display:flex;flex-direction:column;font-size:10.5px;line-height:1.5}
             .rs-budget-certification{width:52mm;font-size:10.5px;text-align:left}
             .rs-signature-certification{width:100%;font-size:10.5px;text-align:left}
-            .rs-footer-signature{width:100%;text-align:center;font-size:11.5px}.rs-footer-signature div{height:6mm;border-bottom:1px solid #000}.rs-footer-signature span{display:block;margin-top:2px;white-space:nowrap}
+            .rs-footer-signature{min-width:0;width:100%;text-align:center;font-size:11.5px}.rs-footer-signature div{height:6mm;border-bottom:1px solid #000}.rs-footer-signature span{display:block;margin-top:2px;white-space:normal;overflow-wrap:break-word}
             .rs-footer{font-size:9.5px;line-height:1.28;padding-top:4mm;text-align:justify}
             .rs-footer p{margin:2mm 0 0}
             .rs-paper-epson,.rs-paper-epson *{font-family:Tahoma,Arial,sans-serif;font-weight:400!important}
@@ -302,7 +304,7 @@ export function RSPrintPreview({ row, items, payeeDetail, printedBy, initialPape
             .rs-paper-epson .rs-details strong,.rs-paper-epson .rs-details span{font-size:14px}
             .rs-paper-epson .rs-payee-summary span{font-size:12.5px;line-height:1.3}
             .rs-paper-epson .rs-print-info,.rs-paper-epson .rs-budget-certification,.rs-paper-epson .rs-signature-certification{font-size:11px}
-            .rs-paper-epson .rs-footer-signature{font-size:11px}
+            .rs-paper-epson .rs-footer-signature{min-width:0;font-size:11px}
             .rs-paper-epson .rs-footer{font-size:10px;line-height:1.25}
             .rs-paper-half-legal .rs-sheet{height:7in;min-height:7in;max-height:7in;overflow:hidden}
             .rs-paper-half-legal .rs-report-header{min-height:12mm}

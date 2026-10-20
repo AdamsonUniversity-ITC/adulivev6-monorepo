@@ -48,6 +48,7 @@ export interface StockroomRow {
     requested_by_empno: string;
     total_amount: number;
     status: string | null;
+    display_status?: string;
     location: string | null;
     from: string | null;
     for_liquidation?: boolean;
@@ -631,7 +632,7 @@ export function StockroomView({ t, isDark, canSwitch, onSwitchRole, departments 
                                 {formatAmount(row.total_amount)}
                             </td>
                             <td style={cellStyle(t, COLUMNS.length, 5)}>
-                                <StatusBadge status={row.status} t={t} isDark={isDark} />
+                                <StatusBadge status={row.display_status ?? row.status} t={t} isDark={isDark} />
                             </td>
                             <td style={cellStyle(t, COLUMNS.length, 6)}>
                                 <span style={{ color: t.cellMuted, textTransform: 'uppercase' }}>{row.location ?? '—'}</span>

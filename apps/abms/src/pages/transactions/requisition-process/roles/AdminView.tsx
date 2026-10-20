@@ -57,6 +57,7 @@ export interface AdminRow {
     requested_by_empno: string;
     total_amount: number;
     status: string | null;
+    display_status?: string;
     location: string | null;
     from: string | null;
     note: string | null;
@@ -394,7 +395,7 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
     // RSProcessModal ever emits those action strings for admin-access (the
     // real button is labeled 'Disapprove'), so they were dead entries that
     // masked the fact that 'Disapprove' was never wired up.
-    const STATUS_ACTIONS = ['Forward to Controller', 'Disapprove', 'Reprocess RS', 'Send RS to Staff', 'For Pricing', 'Forward to Stockroom', 'Forward to BAO', 'Forward to Accounting', 'Forward to Acctg. Director', 'Forward to HRMDO', 'Forward to Cash Management', 'For Purchase'];
+    const STATUS_ACTIONS = ['Forward to Controller', 'Forward to VPF', 'Disapprove', 'Reprocess RS', 'Send RS to Staff', 'For Pricing', 'Forward to Stockroom', 'Forward to BAO', 'Forward to Accounting', 'Forward to Acctg. Director', 'Forward to HRMDO', 'Forward to Cash Management', 'For Purchase'];
 
     // Handle action button in modal
     const handleModalAction = useCallback(async (action: string, row: RSProcessRow) => {
@@ -482,8 +483,8 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
         // total_amount) + toast. Unlike the STATUS_ACTIONS above, this never
         // changes status/location, so the modal stays open afterward.
         if (action === 'Save Items') {
-            setSelectedRow(prev => prev ? { ...prev, items: row.items, total_amount: row.total_amount, is_controlled: row.is_controlled } : prev);
-            setRows(prev => prev.map(r => r.id === row.id ? { ...r, total_amount: row.total_amount, is_controlled: row.is_controlled } : r));
+            setSelectedRow(prev => prev ? { ...prev, ...row, items: row.items, total_amount: row.total_amount, is_controlled: row.is_controlled } : prev);
+            setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...row, total_amount: row.total_amount, is_controlled: row.is_controlled } : r));
             addToast('success', `Items updated for RS ${row.requisition_no}.`);
             return;
         }
@@ -496,17 +497,19 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
         if (action === 'Accept Quoted Prices') {
             setSelectedRow(prev => prev ? {
                 ...prev,
+                ...row,
                 items: row.items,
                 total_amount: row.total_amount,
                 is_controlled: row.is_controlled,
             } : prev);
             setRows(prev => prev.map(r => r.id === row.id ? {
                 ...r,
+                ...row,
                 total_amount: row.total_amount,
                 is_controlled: row.is_controlled,
             } : r));
             addToast('success', row.logistics_workflow_v2
-                ? `Quoted prices accepted for RS ${row.requisition_no}. Controller approval is pending again.`
+                ? `Quoted prices accepted for RS ${row.requisition_no}. ${row.required_approval_role === 'vpf' ? 'VPF' : 'Controller'} approval is pending again.`
                 : `Quoted prices accepted for RS ${row.requisition_no}. Costs and balances updated.`);
             return;
         }
@@ -657,7 +660,7 @@ export function AdminView({ t, isDark, canSwitch, onSwitchRole, departments = []
                                         {formatAmount(row.total_amount)}
                                     </td>
                                     <td style={cellStyle(t, COLUMNS.length, 5)}>
-                                        <StatusBadge status={row.status} t={t} isDark={isDark} />
+                                        <StatusBadge status={row.display_status ?? row.status} t={t} isDark={isDark} />
                                     </td>
                                     <td style={cellStyle(t, COLUMNS.length, 6)}>
                                         <span style={{

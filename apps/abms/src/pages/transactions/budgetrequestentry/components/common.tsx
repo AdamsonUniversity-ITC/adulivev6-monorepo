@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, ChevronDown, Eye, Info, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
-import type { BtnToken, DeptOption, ThemeTokens, ToastItem, Status, ToastKind } from '../types';
+import type { BtnToken, DeptOption, ThemeTokens, ToastItem, ToastKind } from '../types';
 import { organizationalUnitKey } from '../../../../lib/organizationalUnit';
 import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 
@@ -380,7 +380,7 @@ export function ActionsMenu({
     );
 }
 
-export function StatusBadge({ status, t }: { status: Status; t: ThemeTokens }) {
+export function StatusBadge({ status, t }: { status: string; t: ThemeTokens }) {
     const token = ((): typeof t.statusForReview => {
         switch (status) {
             case 'unsaved': return t.statusUnsaved ?? t.statusForReview;

@@ -284,7 +284,7 @@ export function AccountingView({ t, isDark, canSwitch, onSwitchRole, departments
                                         </div>
                                     </td>
                                     <td style={{ ...cellStyle(t, COLUMNS.length, 4), fontWeight: 600 }}>{formatAmount(row.total_amount)}</td>
-                                    <td style={cellStyle(t, COLUMNS.length, 5)}><StatusBadge status={row.status} t={t} /></td>
+                                    <td style={cellStyle(t, COLUMNS.length, 5)}><StatusBadge status={row.display_status ?? row.status} t={t} /></td>
                                     <td style={{ ...cellStyle(t, COLUMNS.length, 6), textTransform: 'uppercase', color: t.cellMuted }}>{row.location ?? '—'}</td>
                                     <td style={{ ...cellStyle(t, COLUMNS.length, 7), textTransform: 'uppercase', color: t.cellMuted }}>{row.from ?? '—'}</td>
                                 </tr>

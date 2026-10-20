@@ -929,3 +929,25 @@ flowchart TD
     G --> H
     H --> I[Commit atomically]
 ```
+
+## Amount-Based Approval Officer (ABMS-RS-20261020-001)
+
+```mermaid
+flowchart TD
+    A[Existing approval checkpoint] --> B{VPF routing enabled?}
+    B -- No --> C[Controller]
+    B -- Yes --> D{Current saved RS total valid?}
+    D -- No --> E[Report invalid total; reject decision without writes]
+    D -- Yes --> F{Total at least PHP 50000?}
+    F -- No --> C
+    F -- Yes --> G[VPF]
+    C --> H[Pending officer queue and display label]
+    G --> H
+    H --> I[Lock header and recheck role amount stage location decision]
+    I --> J{Authorized valid decision?}
+    J -- No --> K[403 or 422; no mutation]
+    J -- Yes --> L[Record shared decision and actual approval_role]
+    L --> M[Continue existing Administration workflow]
+```
+
+This selection does not introduce approval checkpoints. Existing resets start a new selection cycle; approval-preserving returns and Stockroom quantity/release operations retain the completed decision even if the amount later crosses the threshold. Deployment itself performs no RS updates.
