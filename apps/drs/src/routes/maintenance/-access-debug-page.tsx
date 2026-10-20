@@ -51,6 +51,7 @@ const CHECK_SECTIONS: Record<string, string> = {
   status_stage_match: 'Application rules',
   foreigner_scope: 'Application rules',
   course_program_match: 'Application rules',
+  graduate_program_scope: 'Application rules',
   foreign_assessment_allowlist: 'Application rules',
   actionable_task_filter: 'Active tasks',
   can_view_detail: 'Outcome',

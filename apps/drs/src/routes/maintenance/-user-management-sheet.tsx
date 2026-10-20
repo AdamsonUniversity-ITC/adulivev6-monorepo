@@ -517,6 +517,7 @@ type AssignmentTargetType =
   | 'clearance_department'
   | 'assessment'
   | 'assessment_foreigner'
+  | 'graduate_programs'
   | 'stage'
   | 'task';
 
@@ -596,6 +597,13 @@ const heldTargetIds = (
       item.task?.id
     ) {
       ids.add(item.task.id);
+    }
+
+    if (
+      targetType === 'graduate_programs' &&
+      item.target_type === 'graduate_programs'
+    ) {
+      ids.add('graduate_programs');
     }
   }
 
@@ -710,6 +718,13 @@ function AssignDialog({
       };
     }
 
+    if (targetType === 'graduate_programs') {
+      return {
+        ...base,
+        target_type: targetType,
+      };
+    }
+
     if (targetType === 'stage') {
       const stage = stages.find((item) => item.id === value);
       return {
@@ -786,9 +801,11 @@ function AssignDialog({
     assignMutation.isPending ||
     (targetRequiresValue(targetType)
       ? pendingIds.length === 0
-      : (targetType === 'assessment' ||
-          targetType === 'assessment_foreigner') &&
-        !assessmentQuery.data?.id);
+      : targetType === 'graduate_programs'
+        ? heldIds.has('graduate_programs')
+        : (targetType === 'assessment' ||
+            targetType === 'assessment_foreigner') &&
+          !assessmentQuery.data?.id);
 
   const saveLabel = assignMutation.isPending
     ? 'Saving...'
@@ -831,7 +848,10 @@ function AssignDialog({
               </SelectItem>
               <SelectItem value="assessment">Assessment assessor</SelectItem>
               <SelectItem value="assessment_foreigner">
-                Foreigner assessment assessor
+                Foreigner access
+              </SelectItem>
+              <SelectItem value="graduate_programs">
+                Graduate program access
               </SelectItem>
               <SelectItem value="payment_verification">
                 Payment verification
