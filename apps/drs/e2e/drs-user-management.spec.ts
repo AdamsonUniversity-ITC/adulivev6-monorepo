@@ -302,6 +302,9 @@ test('admin can open DRS user management and start an assignment', async ({
     page.getByRole('option', { name: 'Assessment assessor', exact: true }),
   ).toBeVisible();
   await expect(
+    page.getByRole('option', { name: 'Foreigner access', exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByRole('option', { name: 'Graduate program access', exact: true }),
   ).toBeVisible();
   await page

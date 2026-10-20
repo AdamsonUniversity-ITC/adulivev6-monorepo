@@ -848,7 +848,7 @@ function AssignDialog({
               </SelectItem>
               <SelectItem value="assessment">Assessment assessor</SelectItem>
               <SelectItem value="assessment_foreigner">
-                Foreigner assessment assessor
+                Foreigner access
               </SelectItem>
               <SelectItem value="graduate_programs">
                 Graduate program access
