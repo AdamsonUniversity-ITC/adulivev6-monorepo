@@ -463,36 +463,13 @@ function PaymentVerificationTaskPanel({
 }
 
 function PaymentCollectionTaskPanel({
-  task,
   app,
-  remarkByTask,
-  setRemarkByTask,
-  referenceByTask,
-  setReferenceByTask,
-  saveRemarksMutation,
-  completeMutation,
 }: {
-  task: DRSActiveStageTask;
   app: DRSApplicationDetail;
-  remarkByTask: Record<string, string>;
-  setRemarkByTask: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  referenceByTask: Record<string, string>;
-  setReferenceByTask: React.Dispatch<
-    React.SetStateAction<Record<string, string>>
-  >;
-  saveRemarksMutation: {
-    isPending: boolean;
-    mutate: (vars: {
-      taskId: string;
-      remarks: string | null;
-      kind?: string | null;
-    }) => void;
-  };
-  completeMutation: CompleteMutationApi;
 }) {
   const total =
     typeof app.payment_total === 'number' ? app.payment_total : null;
-  const verification = app.payment_verification;
+  const submission = app.payment_submission;
 
   return (
     <div className="space-y-4">
@@ -505,84 +482,18 @@ function PaymentCollectionTaskPanel({
         ) : (
           <p className="text-muted-foreground">No assessed amount available.</p>
         )}
-        {verification?.reference_number ? (
+        {submission?.submitted_at ? (
           <p className="border-t pt-2 text-xs">
-            Verifier reference no.:{' '}
-            <span className="font-medium">{verification.reference_number}</span>
+            Student submitted payment proof. Staff can verify after this
+            request reaches payment verification.
           </p>
         ) : null}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor={`reference-${task.id}`}>Reference number</Label>
-        <Input
-          id={`reference-${task.id}`}
-          value={referenceByTask[task.id] ?? ''}
-          onChange={(event) =>
-            setReferenceByTask((prev) => ({
-              ...prev,
-              [task.id]: event.target.value,
-            }))
-          }
-          placeholder="Payment reference number"
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor={`remarks-${task.id}`}>Remarks</Label>
-        <Textarea
-          id={`remarks-${task.id}`}
-          value={remarkByTask[task.id] ?? ''}
-          onChange={(e) =>
-            setRemarkByTask((prev) => ({
-              ...prev,
-              [task.id]: e.target.value,
-            }))
-          }
-          placeholder="Optional payment remarks"
-          className="min-h-[72px]"
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={saveRemarksMutation.isPending}
-          onClick={() =>
-            saveRemarksMutation.mutate({
-              taskId: task.id,
-              kind: task.kind,
-              remarks: remarkByTask[task.id]?.trim() || null,
-            })
-          }
-        >
-          Save remarks
-        </Button>
-        <Button
-          type="button"
-          disabled={completeMutation.isPending}
-          onClick={() => {
-            const reference = referenceByTask[task.id]?.trim() ?? '';
-            if (!reference) {
-              toast.error('Enter a payment reference number.');
-              return;
-            }
-
-            completeMutation.mutate({
-              taskId: task.id,
-              confirmLabel: 'Complete payment',
-              payload: {
-                reference_number: reference,
-                remarks: remarkByTask[task.id]?.trim() || null,
-              },
-            });
-          }}
-        >
-          Complete payment
-        </Button>
-      </div>
+      <p className="text-muted-foreground text-sm">
+        Waiting for the student to upload a receipt or pay through the
+        cashier. Staff verify payment after that student action.
+      </p>
     </div>
   );
 }
@@ -1694,16 +1605,7 @@ function StaffApplicationWorkPage() {
                         completeMutation={completeMutationApi}
                       />
                     ) : task.kind === 'payment_collection' ? (
-                      <PaymentCollectionTaskPanel
-                        task={task}
-                        app={app}
-                        remarkByTask={remarkByTask}
-                        setRemarkByTask={setRemarkByTask}
-                        referenceByTask={referenceByTask}
-                        setReferenceByTask={setReferenceByTask}
-                        saveRemarksMutation={saveRemarksMutation}
-                        completeMutation={completeMutationApi}
-                      />
+                      <PaymentCollectionTaskPanel app={app} />
                     ) : task.kind === 'assessment' ? (
                       <AssessmentTaskPanel
                         task={task}
