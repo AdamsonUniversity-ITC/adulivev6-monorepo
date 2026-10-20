@@ -23,7 +23,7 @@ import { InfiniteScrollSentinel } from '../../components/InfiniteScrollSentinel'
 const GENERAL_PERMISSION_NAMES = [
   'budget-access',
   'admin-access',
-  'controller-access',
+  'controller-access', 'vpf-access',
   'logistics-access',
   'stockroom-access',
   'cashier-access',

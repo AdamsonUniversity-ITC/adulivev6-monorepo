@@ -160,7 +160,7 @@ export const homeRoute = new Route({
 export const budgetsettingsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-settings',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-settings');
         return { data: response.data };
@@ -181,7 +181,7 @@ export const budgetstatusRoute = new Route({
 export const departmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/department',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/department');
         return { data: response.data };
@@ -192,7 +192,7 @@ export const departmentRoute = new Route({
 export const budgetreviewRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-review',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-review');
         const {
@@ -217,7 +217,7 @@ export const budgetreviewRoute = new Route({
 export const budgetreviewdetailsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-review/details',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access', 'vpf-access']),
     // Navigation state (mainAccountId, mainAccountName, unitId, unitName, unitKind,
     // current_school_year, proposal_school_year) is passed via router navigate({ state })
     // from BudgetReview.tsx and read inside BudgetReviewDetails via useRouter().state.location.state
@@ -227,10 +227,10 @@ export const budgetreviewdetailsRoute = new Route({
 export const userdepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/user-department-access',
-    beforeLoad: ({ context }) => requirePermissions(context, ['abms_user_department_access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['abms_user_department_access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const [permissionsRes, departmentsRes, usersRes] = await Promise.all([
-            authSvc.get('/abms-permissions'),
+            financeSvc.get('/user/abmspermission-catalog'),
             financeSvc.get('/abms/department'),
             financeSvc.get('/abms/access'),
         ]);
@@ -247,7 +247,7 @@ export const userdepartmentRoute = new Route({
 export const budgettransferaccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-transfer-account',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-transfer-account');
         const { units, school_years } = response.data;
@@ -259,7 +259,7 @@ export const budgettransferaccountRoute = new Route({
 export const budgetadjustmententryRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/budget-adjustment-entry',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/budget-adjustment-entry');
         const { current_school_year, departments, sections, main_accounts, sub_accounts, adjustment_entries } = response.data;
@@ -284,7 +284,7 @@ export const officeSuppliesRoute = new Route({
 export const mainAccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/chart-of-accounts',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const response = await financeSvc.get('/abms/main-accounts');
         return { data: response.data };
@@ -296,7 +296,7 @@ export const subAccountsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/admin/sub-accounts/$parentId',
     // Not a direct sidebar nav item; inherits Chart of Accounts' permission requirement.
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async ({ params }) => {
         const [subRes, parentRes] = await Promise.all([
             financeSvc.get('/abms/sub-accounts', { params: { parent_id: params.parentId } }),
@@ -315,7 +315,7 @@ export const budgetproposalentryRoute = new Route({
         const { user } = context;
 
         // 1. Fetch permissions first
-        const permissionsRes = await authSvc.get('/abms-permissions');
+        const permissionsRes = await financeSvc.get('/user/abmspermission-catalog');
         const permissions = permissionsRes.data.permissions;
 
         // 2. Pass it along to the finance service
@@ -337,7 +337,7 @@ export const budgetrequestentryRoute = new Route({
     beforeLoad: ({ context }) => requirePermissions(context, ['allow-budget-request-entry', 'admin-access', 'budget-access']),
     loader: async ({ context }) => {
         const username = context.user?.username;
-        const budgetrequestpermission = await authSvc.get('/abms-permissions/');
+        const budgetrequestpermission = await financeSvc.get('/user/abmspermission-catalog');
         const permission = budgetrequestpermission.data.permissions.find(
             (p: any) => p.name === 'allow-budget-request-entry'
         );
@@ -360,9 +360,9 @@ export const budgetrequestentryRoute = new Route({
 export const requesitionprocessRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/requisition-process',
-    beforeLoad: ({ context }) => requirePermissions(context, ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'stockroom-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'stockroom-access', 'controller-access', 'vpf-access']),
     loader: async () => {
-        const permissions = await authSvc.get('/abms-permissions/');
+        const permissions = await financeSvc.get('/user/abmspermission-catalog');
         const response = await financeSvc.get('/abms/requisition-process', {
             params: {
                 permissions: permissions.data.permissions,
@@ -383,7 +383,7 @@ export const requesitionprocessRoute = new Route({
 export const budgetperformancedepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-performance-department',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-performance-per-department');
 
@@ -394,7 +394,7 @@ export const budgetperformancedepartmentRoute = new Route({
 export const budgetperformanceaccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-performance-account',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-performance-per-account');
 
@@ -405,7 +405,7 @@ export const budgetperformanceaccountRoute = new Route({
 export const budgetperformanceuniversityRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-performance-university',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-performance-university');
 
@@ -416,7 +416,7 @@ export const budgetperformanceuniversityRoute = new Route({
 export const itemrequestedperaccountRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/item-requested-per-account',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/item-requested-per-account');
 
@@ -427,7 +427,7 @@ export const itemrequestedperaccountRoute = new Route({
 export const itemsrequestedbypayeeRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/items-requested-by-payee',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/items-requested-by-payee');
 
@@ -438,7 +438,7 @@ export const itemsrequestedbypayeeRoute = new Route({
 export const adjustmentsperdepartmentRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/adjustments-per-department',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/adjustments-per-department');
 
@@ -449,7 +449,7 @@ export const adjustmentsperdepartmentRoute = new Route({
 export const budgetliquidationRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-liquidation',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-liquidation');
 
@@ -460,7 +460,7 @@ export const budgetliquidationRoute = new Route({
 export const budgetproposalreportsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/budget-proposal-reports',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry']),
     loader: async () => {
         const data = await financeSvc.get('abms/budget-proposal-reports');
 
@@ -471,7 +471,7 @@ export const budgetproposalreportsRoute = new Route({
 export const unservedRsRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/unserved-rs',
-    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['admin-access', 'budget-access', 'controller-access', 'vpf-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/unserved-rs');
 

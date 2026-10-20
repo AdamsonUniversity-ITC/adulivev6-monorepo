@@ -164,7 +164,7 @@ function BudgetRequestEntryInner({
             const raw: Array<{
                 id: number; date: string; requisitionNo: string;
                 payee: string; requestedBy: string; requestedByName: string;
-                totalAmount: number; status: string; forLiquidation?: boolean;
+                totalAmount: number; status: string; forLiquidation?: boolean; display_status?: string;
             }> = res.data?.entries ?? [];
 
             const mapped: RSRecord[] = raw.map(e => ({
@@ -172,7 +172,7 @@ function BudgetRequestEntryInner({
                 payee: e.payee, requestedBy: e.requestedBy,
                 requestedByName: e.requestedByName,
                 totalAmount: e.totalAmount, status: normalizeEntryStatus(e.status, e.requisitionNo),
-                forLiquidation: !!e.forLiquidation,
+                forLiquidation: !!e.forLiquidation, display_status: e.display_status,
             }));
             setRecords(mapped);
             setNextCursor(res.data?.next_cursor ?? null);
@@ -196,14 +196,14 @@ function BudgetRequestEntryInner({
             const raw: Array<{
                 id: number; date: string; requisitionNo: string;
                 payee: string; requestedBy: string; requestedByName: string;
-                totalAmount: number; status: string; forLiquidation?: boolean;
+                totalAmount: number; status: string; forLiquidation?: boolean; display_status?: string;
             }> = res.data?.entries ?? [];
             const mapped: RSRecord[] = raw.map(e => ({
                 id: e.id, date: e.date, requisitionNo: e.requisitionNo,
                 payee: e.payee, requestedBy: e.requestedBy,
                 requestedByName: e.requestedByName,
                 totalAmount: e.totalAmount, status: normalizeEntryStatus(e.status, e.requisitionNo),
-                forLiquidation: !!e.forLiquidation,
+                forLiquidation: !!e.forLiquidation, display_status: e.display_status,
             }));
             setRecords(prev => [...prev, ...mapped]);
             setNextCursor(res.data?.next_cursor ?? null);
@@ -715,7 +715,7 @@ function BudgetRequestEntryInner({
 
                                         {/* Status */}
                                         <td className="px-4 py-4">
-                                            <StatusBadge status={row.status} t={t} />
+                                            <StatusBadge status={row.display_status ?? row.status} t={t} />
                                         </td>
                                     </tr>
                                 );

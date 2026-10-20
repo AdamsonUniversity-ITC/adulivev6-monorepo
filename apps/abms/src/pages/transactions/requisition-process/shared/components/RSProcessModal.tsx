@@ -82,6 +82,12 @@ export interface RSProcessRow {
     is_cash_advance?: boolean;
     /** 0 = pending, 1 = approved, 2 = disapproved by Controller */
     is_controlled?: number;
+    approval_role?: 'controller' | 'vpf' | null;
+    required_approval_role?: 'controller' | 'vpf' | null;
+    approval_history_role?: 'controller' | 'vpf';
+    display_status?: string;
+    vpf_approval_enabled?: boolean;
+    approval_data_quality_warnings?: { code: string; message: string }[];
     controller_approval_count?: number;
     controller_review_count?: number;
     price_reapproval_count?: number;
@@ -134,7 +140,9 @@ const AUDIT_FIELD_LABELS: Record<string, string> = {
     requested_by: 'Requested By',
     total_amount: 'Total Amount',
     school_year: 'School Year',
-    is_controlled: 'Controller Decision',
+    is_controlled: 'Approval Decision',
+    approval_role: 'Approving Role',
+    approval_review_role: 'Required Approving Role',
     location: 'Current Office',
     from: 'Previous Office',
     for_liquidation: 'For Liquidation',
@@ -213,6 +221,11 @@ function readableAuditValue(key: string, value: unknown): string {
         } catch {
             // Keep malformed legacy text readable as its original string.
         }
+    }
+    if (key === 'approval_role' || key === 'approval_review_role') {
+        if (value === 'vpf') return 'Vice President for Finance';
+        if (value === 'controller') return 'Controller';
+        return 'Legacy Controller / not recorded';
     }
     if (key === 'is_controlled') {
         return ({ 0: 'Pending', 1: 'Approved', 2: 'Disapproved' } as Record<number, string>)[Number(value)]
@@ -350,6 +363,10 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
         { label: 'Controller Approve', icon: CheckCircle2, variant: 'success', visibleOn: ['on process', 'for approval'], locationFilter: ['budget office'] },
         { label: 'Controller Disapprove', icon: XCircle, variant: 'danger', visibleOn: ['on process', 'for approval'], locationFilter: ['budget office'] },
     ],
+    'vpf-access': [
+        { label: 'VPF Approve', icon: CheckCircle2, variant: 'success', visibleOn: ['on process', 'for approval'], locationFilter: ['budget office'] },
+        { label: 'VPF Disapprove', icon: XCircle, variant: 'danger', visibleOn: ['on process', 'for approval'], locationFilter: ['budget office'] },
+    ],
     'logistics-access': [
         { label: 'Mark Served', variant: 'success', visibleOn: ['certified rs', 'unserved rs'] },
         { label: 'Mark Unserved', variant: 'secondary', visibleOn: ['certified rs'] },
@@ -375,7 +392,7 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // Mark Served remains restricted to Stockroom.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
-    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
+    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access', 'vpf-access'], confirm: false, toolbarGroup: 'left' },
     { label: 'Chat / Messages', icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     { label: 'RS Process History', icon: History, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     {
@@ -533,6 +550,7 @@ function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
     const icons: Record<PermissionKey, React.ReactNode> = {
         'budget-access': <PhilippinePeso style={{ width: 14, height: 14 }} />,
         'admin-access': <ShieldCheck style={{ width: 14, height: 14 }} />,
+        'vpf-access': <Stamp style={{ width: 14, height: 14 }} />,
         'controller-access': <Stamp style={{ width: 14, height: 14 }} />,
         'logistics-access': <Truck style={{ width: 14, height: 14 }} />,
         'accounting-access': <Calculator style={{ width: 14, height: 14 }} />,
@@ -551,6 +569,9 @@ function getConfirmCopy(action: string, roleKey?: PermissionKey, status?: string
         'Mark as Reviewed': { verb: 'mark this requisition slip as reviewed' },
         'Mark as Cancelled': { verb: 'cancel this requisition slip', danger: true },
         'Disapprove': { verb: 'disapprove this requisition slip', danger: true },
+        'VPF Approve': { verb: 'approve this requisition slip as Vice President for Finance' },
+        'VPF Disapprove': { verb: 'disapprove this requisition slip as Vice President for Finance', danger: true },
+        'Forward to VPF': { verb: 'forward this requisition slip to the Vice President for Finance' },
         'Controller Approve': { verb: 'approve this requisition slip as Controller' },
         'Controller Disapprove': { verb: 'disapprove this requisition slip as Controller', danger: true },
         'Forward to Controller': { verb: 'forward this requisition slip to the Controller' },
@@ -1211,6 +1232,7 @@ export function RSProcessModal({
             const updatedTotal = Number(res.data?.data?.total_amount ?? row.total_amount);
             onAction?.('Accept Quoted Prices', {
                 ...row,
+                ...res.data?.data,
                 items: updatedItems,
                 total_amount: updatedTotal,
                 is_controlled: Number(res.data?.data?.is_controlled ?? row.is_controlled),
@@ -1248,6 +1270,7 @@ export function RSProcessModal({
             });
             onAction?.('Save Fulfillment', {
                 ...row,
+                ...res.data?.data,
                 items: res.data?.items ?? row.items ?? [],
             });
         } catch (err: any) {
@@ -1288,7 +1311,7 @@ export function RSProcessModal({
             && (row.status ?? '').toLowerCase() === 'for approval'
             && (row.location ?? '').toLowerCase() === 'budget office')
         || (workflowV2
-            && roleKey === 'controller-access'
+            && ['controller-access', 'vpf-access'].includes(roleKey)
             && isLogisticsRequest
             && (row.status ?? '').toLowerCase() === 'for approval'
             && (row.location ?? '').toLowerCase() === 'budget office');
@@ -1558,6 +1581,7 @@ export function RSProcessModal({
             setItemDrafts({});
             onAction?.('Save Items', {
                 ...row,
+                ...res.data?.data,
                 items: updatedItems,
                 total_amount: updatedTotal,
                 is_controlled: Number(res.data?.data?.is_controlled ?? row.is_controlled ?? 0),
@@ -1641,6 +1665,7 @@ export function RSProcessModal({
             setChangedPriceItemIds({});
             onAction?.('Save Quoted Prices', {
                 ...row,
+                ...res.data?.data,
                 items: updatedItems,
                 status: updatedEntry.status ?? 'for approval',
                 location: updatedEntry.location ?? 'budget office',
@@ -1683,6 +1708,8 @@ export function RSProcessModal({
         a.label !== 'Reprocess RS' || statusLower !== 'reprocess';
 
     const controllerDecision = Number(row.is_controlled ?? 0);
+    const requiredOfficerLabel = row.required_approval_role === 'vpf' ? 'VPF' : 'Controller';
+    const historyOfficerLabel = row.approval_history_role === 'vpf' || (!row.approval_history_role && roleKey === 'vpf-access') ? 'VPF' : 'Controller';
     const lineItems: RSLineItem[] = row.items ?? [];
     const hasEditableLineItem = lineItems.some(item => (
         (item.fulfillment_status ?? 'pending') === 'pending'
@@ -1705,8 +1732,7 @@ export function RSProcessModal({
         && lineItems.some(item => item.quoted_price != null && item.is_quoted_price_accepted);
 
     const isControllerDecisionAction = (a: RoleAction) =>
-        a.label === 'Controller Approve'
-        || a.label === 'Controller Disapprove';
+        ['Controller Approve', 'Controller Disapprove', 'VPF Approve', 'VPF Disapprove'].includes(a.label);
 
     const isAdminOnwardAction = (a: RoleAction) =>
         a.forwardGroup
@@ -1744,15 +1770,18 @@ export function RSProcessModal({
          * is_controlled = 0
          */
         if (
-            roleKey === 'controller-access'
+            ['controller-access', 'vpf-access'].includes(roleKey)
             && isControllerDecisionAction(a)
         ) {
+            if (row.required_approval_role == null && row.vpf_approval_enabled) return false;
+            const requiredPermission = row.required_approval_role === 'vpf' ? 'vpf-access' : 'controller-access';
+            if (roleKey !== requiredPermission) return false;
             if (statusLower === 'on process') {
                 return controllerDecision === 0;
             }
 
             if (workflowV2 && isLogisticsRequest && statusLower === 'for approval') {
-                return a.label === 'Controller Approve'
+                return a.label.endsWith(' Approve')
                     ? [0, 2].includes(controllerDecision)
                     : controllerDecision === 0;
             }
@@ -1766,8 +1795,9 @@ export function RSProcessModal({
          */
         if (
             roleKey === 'admin-access'
-            && a.label === 'Controller'
+            && ['Controller', 'VPF'].includes(a.label)
         ) {
+            if (row.vpf_approval_enabled && row.required_approval_role == null) return false;
             return statusLower === 'for budget director'
                 || (
                     statusLower === 'on process'
@@ -1787,7 +1817,7 @@ export function RSProcessModal({
         if (
             roleKey === 'admin-access'
             && isAdminOnwardAction(a)
-            && a.label !== 'Controller'
+            && !['Controller', 'VPF'].includes(a.label)
         ) {
             return statusLower === 'on process'
                 && controllerDecision === 1;
@@ -1807,7 +1837,10 @@ export function RSProcessModal({
     const rightToolbarActions = COMMON_ACTIONS.filter(a => a.toolbarGroup === 'right' && matchesStatus(a) && matchesRole(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a) && isNotAlreadyReprocessed(a));
 
     // Footer (bottom): role-specific transition buttons only
-    const roleActions = ROLE_ACTIONS[roleKey] ?? [];
+    const roleActions = (ROLE_ACTIONS[roleKey] ?? []).map(action =>
+        action.label === 'Controller' && row.required_approval_role === 'vpf'
+            ? { ...action, label: 'VPF' } : action
+    );
     const visibleRoleActions = roleActions.filter(a => !a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a));
     const visibleForwardActions = roleActions.filter(a => a.forwardGroup && matchesStatus(a) && matchesLocation(a) && matchesControllerWorkflow(a) && matchesRequestTypeRouting(a));
 
@@ -2120,11 +2153,11 @@ export function RSProcessModal({
                                         ? (workflowV2
                                             ? hasPendingQuotedPriceAcceptance
                                                 ? 'Administration must accept every pending quoted-price revision first.'
-                                                : 'Controller approval is required before marking this RS for purchase.'
+                                                : `${requiredOfficerLabel} approval is required before marking this RS for purchase.`
                                             : 'Accept quoted prices before marking this RS for purchase.')
                                         : sendToWicoBlocked
                                             ? (workflowV2
-                                                ? 'At least one unresolved item must have an accepted price and Controller approval before sending to WICO.'
+                                                ? `At least one unresolved item must have an accepted price and ${requiredOfficerLabel} approval before sending to WICO.`
                                                 : (
                                                 allItemsHaveQuotedPrices
                                                     ? 'Administration must accept all quoted prices before sending this RS to WICO.'
@@ -2225,9 +2258,15 @@ export function RSProcessModal({
                                 border: `1px solid ${statusColors.border}`,
                                 flexShrink: 0,
                             }}>
-                                {displayRequisitionStatus(row.status).toUpperCase()}
+                                {displayRequisitionStatus(row.display_status ?? row.status).toUpperCase()}
                             </span>
                         </div>
+
+                        {(row.approval_data_quality_warnings ?? []).map(warning => (
+                            <div key={warning.code} role="alert" style={{ gridColumn: '1 / -1', color: t.cellAmber, fontSize: 12 }}>
+                                {warning.message}
+                            </div>
+                        ))}
 
                         {/* Row 2 left: Requested by */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2354,7 +2393,7 @@ export function RSProcessModal({
                                 <button
                                     onClick={() => setItemsExpanded(p => !p)}
                                     style={{
-                                        flex: roleKey === 'controller-access' ? '0 0 auto' : '1 1 auto',
+                                        flex: ['controller-access', 'vpf-access'].includes(roleKey) ? '0 0 auto' : '1 1 auto',
                                         minWidth: 0, display: 'flex', alignItems: 'center', gap: 10,
                                         background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
                                         textAlign: 'left',
@@ -2373,9 +2412,9 @@ export function RSProcessModal({
                                     </span>
                                 </button>
 
-                                {roleKey === 'controller-access' && (
+                                {['controller-access', 'vpf-access'].includes(roleKey) && (
                                     <div
-                                        title="Controller workflow arrivals and successful approvals recorded in the requisition audit history"
+                                        title={`${historyOfficerLabel} workflow arrivals and successful approvals recorded in the requisition audit history`}
                                         style={{
                                             flex: '1 1 320px', minWidth: 0,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2387,8 +2426,8 @@ export function RSProcessModal({
                                             color: isDark ? '#5eead4' : '#0f766e',
                                             lineHeight: 1.35, letterSpacing: '0.01em',
                                         }}>
-                                            Sent to Controller: {Number(row.controller_review_count ?? 0)} time(s)
-                                            {' · '}Approved by Controller: {Number(row.controller_approval_count ?? 0)} time(s)
+                                            Sent to {historyOfficerLabel}: {Number(row.controller_review_count ?? 0)} time(s)
+                                            {' · '}Approved by {historyOfficerLabel}: {Number(row.controller_approval_count ?? 0)} time(s)
                                             {Number(row.price_reapproval_count ?? 0) > 0
                                                 ? ` · Price reapproved: ${Number(row.price_reapproval_count ?? 0)} time(s)`
                                                 : ''}
@@ -2641,8 +2680,8 @@ export function RSProcessModal({
                                                 : <ShieldCheck style={{ width: 15, height: 15, flexShrink: 0 }} />}
                                             <span>
                                                 {controllerDecision === 2
-                                                    ? 'Controller disapproved this pricing cycle. Controller approval is required before For Purchase becomes available.'
-                                                    : 'Quoted prices are accepted. This RS now requires Controller approval before For Purchase becomes available.'}
+                                                    ? `${requiredOfficerLabel} disapproved this pricing cycle. ${requiredOfficerLabel} approval is required before For Purchase becomes available.`
+                                                    : `Quoted prices are accepted. This RS now requires ${requiredOfficerLabel} approval before For Purchase becomes available.`}
                                             </span>
                                         </div>
                                     )}
@@ -3184,14 +3223,14 @@ export function RSProcessModal({
                                     background: statusColors.text, flexShrink: 0,
                                 }} />
                                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: statusColors.text }}>
-                                    {displayRequisitionStatus(row.status).toUpperCase()}
+                                    {displayRequisitionStatus(row.display_status ?? row.status).toUpperCase()}
                                 </span>
                             </div>
                         </div>
                     </div>
 
                     {/* ── Action footer — role-specific buttons ───────────── */}
-                    {(visibleRoleActions.length > 0 || roleKey === 'controller-access') && (
+                    {(visibleRoleActions.length > 0 || ['controller-access', 'vpf-access'].includes(roleKey)) && (
                         <>
                             <div style={{ height: 1, background: t.cardHeaderBorder, flexShrink: 0 }} />
                             <div className="rs-process-role-footer" style={{

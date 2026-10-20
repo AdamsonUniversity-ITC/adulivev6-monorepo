@@ -5,6 +5,7 @@ export const ROLES = [
     { key: 'budget-access', label: 'Budget Office', icon: PhilippinePeso },
     { key: 'admin-access', label: 'Administration', icon: ShieldCheck },
     { key: 'controller-access', label: 'Controller', icon: BadgeCheck },
+    { key: 'vpf-access', label: 'Vice President for Finance', icon: BadgeCheck },
     { key: 'logistics-access', label: 'Purchasing', icon: Truck },
     { key: 'accounting-access', label: 'Accounting', icon: Calculator },
     { key: 'stockroom-access', label: 'Stockroom', icon: Package },
@@ -31,8 +32,9 @@ export function formatOrdinalApproval(value: number): string {
 
 export const ROLE_COLUMNS: Record<PermissionKey, string[]> = {
     'budget-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
-    'admin-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
-    'controller-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
+    'admin-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Approval', 'Location', 'From'],
+    'controller-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Approval', 'Location', 'From'],
+    'vpf-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Approval', 'Location', 'From'],
     'logistics-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'accounting-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'stockroom-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
@@ -191,6 +193,16 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
     },
     'controller-access': {
         status: { options: CONTROLLER_STATUS_OPTIONS, defaultLabel: 'For Controller' },
+        department: COMMON_DEPT_CONFIG,
+        searchField: COMMON_SEARCH_CONFIG,
+        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+        dateRange: COMMON_DATE_RANGE_CONFIG,
+        paymentForm: COMMON_PAYMENT_FORM_CONFIG,
+        sortColumns: COMMON_SORT_COLUMNS,
+        actions: COMMON_ACTIONS,
+    },
+    'vpf-access': {
+        status: { options: CONTROLLER_STATUS_OPTIONS.map(option => option.label === 'For Controller' ? { label: 'For VPF' } : option), defaultLabel: 'For VPF' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
