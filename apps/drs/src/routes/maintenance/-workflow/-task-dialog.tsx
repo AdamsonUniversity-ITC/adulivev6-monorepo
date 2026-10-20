@@ -53,6 +53,10 @@ export const TaskDialog = ({
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [kind, setKind] = useState<WorkflowTaskKind>('manual');
+  const [
+    restrictAssignedUsersToCoursePrograms,
+    setRestrictAssignedUsersToCoursePrograms,
+  ] = useState(false);
   const [isRequired, setIsRequired] = useState(true);
   const [allowsStaffReceiveModeChange, setAllowsStaffReceiveModeChange] =
     useState(false);
@@ -65,6 +69,9 @@ export const TaskDialog = ({
     setName(task?.name ?? '');
     setSlug(task?.slug ?? '');
     setKind((task?.kind as WorkflowTaskKind | undefined) ?? 'manual');
+    setRestrictAssignedUsersToCoursePrograms(
+      Boolean(task?.restrict_assigned_users_to_course_programs),
+    );
     setIsRequired(task ? Boolean(task.is_required) : true);
     setAllowsStaffReceiveModeChange(
       Boolean(task?.allows_staff_receive_mode_change),
@@ -112,6 +119,8 @@ export const TaskDialog = ({
       name: trimmed,
       slug: slug.trim() || undefined,
       kind,
+      restrict_assigned_users_to_course_programs:
+        restrictAssignedUsersToCoursePrograms ? true : null,
       is_required: isRequired,
       allows_staff_receive_mode_change: allowsStaffReceiveModeChange,
       parallel_group: parallelGroup.trim() || null,
@@ -260,6 +269,28 @@ export const TaskDialog = ({
               value={parallelGroup}
               onChange={(event) => setParallelGroup(event.target.value)}
             />
+          </div>
+          <div className="border-border bg-muted/30 flex gap-3 rounded-md border p-3">
+            <Checkbox
+              id="task-course-restrict"
+              className="mt-0.5"
+              checked={restrictAssignedUsersToCoursePrograms}
+              onCheckedChange={(value) =>
+                setRestrictAssignedUsersToCoursePrograms(value === true)
+              }
+            />
+            <div className="space-y-1">
+              <Label
+                htmlFor="task-course-restrict"
+                className="cursor-pointer font-normal"
+              >
+                Restrict assigned users to course programs
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                When enabled, staff assigned to this task only see matching
+                course programs. Leave unchecked to inherit the stage setting.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Checkbox

@@ -5,6 +5,7 @@ export type UpdateTaskPayload = {
   name?: string;
   slug?: string;
   kind?: WorkflowTaskKind;
+  restrict_assigned_users_to_course_programs?: boolean | null;
   is_required?: boolean;
   allows_staff_receive_mode_change?: boolean;
   parallel_group?: string | null;
