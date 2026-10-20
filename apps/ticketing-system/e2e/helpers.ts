@@ -125,16 +125,16 @@ export const fixtureTicket = {
 
 export const authBoardAdmin = {
   id: 20,
-  username: "board.admin",
-  email: "board.admin@example.com",
+  username: "2022070096",
+  email: "2022070096@example.com",
   permissions: [ACCESS, BOARD_ADMIN],
   user_info: { id: 2001, fname: "Board", lname: "Admin" },
 };
 
 export const authSuperAdmin = {
   id: 1,
-  username: "super.admin",
-  email: "super@example.com",
+  username: "2022070096",
+  email: "2022070096@example.com",
   permissions: [ACCESS, ADMIN, BOARD_ADMIN],
   user_info: { id: 1, fname: "Super", lname: "Admin" },
 };

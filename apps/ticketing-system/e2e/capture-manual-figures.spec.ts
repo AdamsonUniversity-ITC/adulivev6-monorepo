@@ -107,7 +107,7 @@ test.describe("manual figures", () => {
 
   test("sign-in screen", async ({ page }) => {
     const response = await page
-      .goto("http://login.localhost.test:8081/login", {
+      .goto("http://127.0.0.1:8081/login", {
         timeout: 8_000,
         waitUntil: "domcontentloaded",
       })
