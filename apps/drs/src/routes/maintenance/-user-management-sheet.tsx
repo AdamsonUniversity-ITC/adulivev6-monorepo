@@ -43,12 +43,14 @@ import {
 import { toast } from '@repo/ui/exports';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
-import { type JSX, useMemo, useState } from 'react';
+import { type JSX, useEffect, useMemo, useState } from 'react';
 import {
   DRS_CANCEL_APPLICATIONS_PERMISSION,
   DRS_USER_MANAGEMENT_MANAGE_PERMISSION,
   formatRolePermissionName,
 } from './-lib/api/access/permissionLabels.ts';
+import { fetchDrsRoles } from './-lib/api/roles/fetchDrsRoles.ts';
+import { isDrsRoleName, type DrsRole } from './-lib/api/roles/types.ts';
 import { detachAssessmentUser } from './-lib/api/detachAssessmentUser.ts';
 import { detachClearanceDepartmentUser } from './-lib/api/detachClearanceDepartmentUser.ts';
 import { fetchAssessmentSettings } from './-lib/api/fetchAssessmentSettings.ts';
@@ -59,6 +61,7 @@ import { fetchUserAssignmentHistory } from './-lib/api/user-management/fetchUser
 import { fetchUserManagementProfile } from './-lib/api/user-management/fetchUserProfile.ts';
 import { fetchUserManagementUsers } from './-lib/api/user-management/fetchUsers.ts';
 import { patchUserManagementPermissions } from './-lib/api/user-management/patchUserManagementPermissions.ts';
+import { putUserManagementRoles } from './-lib/api/user-management/putUserManagementRoles.ts';
 import type {
   AssignmentPayload,
   UserManagementProfile,
@@ -292,6 +295,13 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
     onError: () => toast.error('Failed to remove assignment.'),
   });
 
+  const drsRolesQuery = useQuery({
+    queryKey: ['drs', 'user-management', 'roles'],
+    queryFn: () => fetchDrsRoles(),
+    enabled: canManagePermissions,
+    refetchOnWindowFocus: false,
+  });
+
   const permissionMutation = useMutation({
     mutationFn: (vars: {
       permission: typeof DRS_CANCEL_APPLICATIONS_PERMISSION;
@@ -350,7 +360,16 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
       <CardContent className="space-y-5">
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Roles</h3>
-          <ChipList values={profile.roles} empty="No roles assigned." />
+          {canManagePermissions ? (
+            <UserDrsRolesEditor
+              empNo={empNo}
+              profile={profile}
+              availableRoles={drsRolesQuery.data ?? []}
+              isLoadingRoles={drsRolesQuery.isLoading}
+            />
+          ) : (
+            <ChipList values={profile.roles} empty="No roles assigned." />
+          )}
         </section>
 
         <section className="space-y-2">
@@ -445,6 +464,101 @@ function UserProfilePanel({ empNo }: { empNo: string }): JSX.Element {
   );
 }
 
+function UserDrsRolesEditor({
+  empNo,
+  profile,
+  availableRoles,
+  isLoadingRoles,
+}: {
+  empNo: string;
+  profile: UserManagementProfile;
+  availableRoles: DrsRole[];
+  isLoadingRoles: boolean;
+}): JSX.Element {
+  const queryClient = useQueryClient();
+  const assignedDrsRoles = profile.roles.filter(isDrsRoleName);
+  const otherRoles = profile.roles.filter((role) => !isDrsRoleName(role));
+  const [selected, setSelected] = useState<string[]>(assignedDrsRoles);
+
+  useEffect(() => {
+    setSelected(assignedDrsRoles);
+  }, [empNo, assignedDrsRoles.join('|')]);
+
+  const dirty = useMemo(() => {
+    if (selected.length !== assignedDrsRoles.length) return true;
+    const left = [...selected].sort();
+    const right = [...assignedDrsRoles].sort();
+    return left.some((value, index) => value !== right[index]);
+  }, [selected, assignedDrsRoles]);
+
+  const roleMutation = useMutation({
+    mutationFn: () => putUserManagementRoles(empNo, selected),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(profileKey(empNo), updated);
+      toast.success('Roles updated.');
+    },
+    onError: () => toast.error('Failed to update roles.'),
+  });
+
+  if (isLoadingRoles) {
+    return <p className="text-muted-foreground text-xs">Loading roles…</p>;
+  }
+
+  if (availableRoles.length === 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-muted-foreground text-xs">
+          No DRS roles have been created yet. Use Role setup to add one.
+        </p>
+        {otherRoles.length > 0 ? (
+          <ChipList values={otherRoles} empty="No other roles assigned." />
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="max-h-48 space-y-1 overflow-y-auto">
+        {availableRoles.map((role) => (
+          <label
+            key={role.id}
+            className="flex items-center gap-2 text-sm"
+          >
+            <Checkbox
+              checked={selected.includes(role.name)}
+              disabled={roleMutation.isPending}
+              onCheckedChange={(checked) => {
+                setSelected((current) =>
+                  checked === true
+                    ? [...current, role.name]
+                    : current.filter((name) => name !== role.name),
+                );
+              }}
+              aria-label={role.name}
+            />
+            <span>{role.name}</span>
+          </label>
+        ))}
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        disabled={!dirty || roleMutation.isPending}
+        onClick={() => roleMutation.mutate()}
+      >
+        {roleMutation.isPending ? 'Saving…' : 'Save roles'}
+      </Button>
+      {otherRoles.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-muted-foreground text-xs">Other roles</p>
+          <ChipList values={otherRoles} empty="" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ChipList({
   values,
   empty,
@@ -505,24 +619,47 @@ function ResponsibilityRow({
   );
 }
 
+type AccessRestrictionType =
+  | 'all_foreigner'
+  | 'foreigner_only'
+  | 'no_foreigner'
+  | 'graduate_only'
+  | 'no_graduate';
+
 type AssignmentTargetType =
   | 'task_kind'
   | 'payment_verification'
   | 'clearance_department'
   | 'assessment'
-  | 'foreigner_only'
-  | 'no_foreigner'
-  | 'graduate_only'
-  | 'no_graduate'
+  | 'access_restriction'
+  | AccessRestrictionType
   | 'stage'
   | 'task';
 
-const ACCESS_RESTRICTION_TYPES: AssignmentTargetType[] = [
+const ACCESS_RESTRICTION_TYPES: AccessRestrictionType[] = [
+  'all_foreigner',
   'foreigner_only',
   'no_foreigner',
   'graduate_only',
   'no_graduate',
 ];
+
+const ACCESS_RESTRICTION_OPTIONS: Array<{
+  id: AccessRestrictionType;
+  label: string;
+  group: 'nationality' | 'graduate';
+}> = [
+  { id: 'all_foreigner', label: 'All Foreigner access', group: 'nationality' },
+  { id: 'foreigner_only', label: 'Foreigner ONLY access', group: 'nationality' },
+  { id: 'no_foreigner', label: 'No Foreigner access', group: 'nationality' },
+  { id: 'graduate_only', label: 'Graduate Programs ONLY', group: 'graduate' },
+  { id: 'no_graduate', label: 'No Graduate Programs', group: 'graduate' },
+];
+
+const isAccessRestrictionType = (
+  value: string,
+): value is AccessRestrictionType =>
+  ACCESS_RESTRICTION_TYPES.includes(value as AccessRestrictionType);
 
 type ClearanceDepartment = {
   id: string | number;
@@ -532,7 +669,13 @@ type ClearanceDepartment = {
 };
 
 const targetRequiresValue = (targetType: AssignmentTargetType): boolean =>
-  ['task_kind', 'clearance_department', 'stage', 'task'].includes(targetType);
+  [
+    'task_kind',
+    'clearance_department',
+    'stage',
+    'task',
+    'access_restriction',
+  ].includes(targetType);
 
 const clearanceLabel = (item: ClearanceDepartment): string =>
   item.department_name ||
@@ -603,7 +746,15 @@ const heldTargetIds = (
     }
 
     if (
-      ACCESS_RESTRICTION_TYPES.includes(targetType) &&
+      targetType === 'access_restriction' &&
+      item.target_type &&
+      isAccessRestrictionType(item.target_type)
+    ) {
+      ids.add(item.target_type);
+    }
+
+    if (
+      isAccessRestrictionType(targetType) &&
       item.target_type === targetType
     ) {
       ids.add(targetType);
@@ -681,6 +832,13 @@ function AssignDialog({
       return tasks.map((item) => ({ id: item.id, label: item.name }));
     }
 
+    if (targetType === 'access_restriction') {
+      return ACCESS_RESTRICTION_OPTIONS.map((item) => ({
+        id: item.id,
+        label: item.label,
+      }));
+    }
+
     return [];
   }, [clearances, stages, targetType, taskKindsQuery.data, tasks]);
   const pendingIds = selectedIds.filter((id) => !heldIds.has(id));
@@ -721,10 +879,10 @@ function AssignDialog({
       };
     }
 
-    if (ACCESS_RESTRICTION_TYPES.includes(targetType)) {
+    if (isAccessRestrictionType(targetType) || isAccessRestrictionType(value)) {
       return {
         ...base,
-        target_type: targetType,
+        target_type: isAccessRestrictionType(value) ? value : targetType,
       };
     }
 
@@ -804,9 +962,7 @@ function AssignDialog({
     assignMutation.isPending ||
     (targetRequiresValue(targetType)
       ? pendingIds.length === 0
-      : ACCESS_RESTRICTION_TYPES.includes(targetType)
-        ? heldIds.has(targetType)
-        : targetType === 'assessment' && !assessmentQuery.data?.id);
+      : targetType === 'assessment' && !assessmentQuery.data?.id);
 
   const saveLabel = assignMutation.isPending
     ? 'Saving...'
@@ -848,14 +1004,9 @@ function AssignDialog({
                 Clearance department
               </SelectItem>
               <SelectItem value="assessment">Assessment assessor</SelectItem>
-              <SelectItem value="foreigner_only">
-                Foreigner ONLY access
+              <SelectItem value="access_restriction">
+                Access restriction
               </SelectItem>
-              <SelectItem value="no_foreigner">No Foreigner access</SelectItem>
-              <SelectItem value="graduate_only">
-                Graduate Programs ONLY
-              </SelectItem>
-              <SelectItem value="no_graduate">No Graduate Programs</SelectItem>
               <SelectItem value="payment_verification">
                 Payment verification
               </SelectItem>
@@ -875,6 +1026,16 @@ function AssignDialog({
                 options.map((option) => {
                   const held = heldIds.has(option.id);
                   const checked = held || selectedIds.includes(option.id);
+                  const exclusiveIds =
+                    targetType === 'access_restriction'
+                      ? ACCESS_RESTRICTION_OPTIONS.filter(
+                          (item) =>
+                            item.group ===
+                              ACCESS_RESTRICTION_OPTIONS.find(
+                                (row) => row.id === option.id,
+                              )?.group && item.id !== option.id,
+                        ).map((item) => item.id)
+                      : [];
 
                   return (
                     <label
@@ -886,11 +1047,18 @@ function AssignDialog({
                         checked={checked}
                         disabled={held || assignMutation.isPending}
                         onCheckedChange={(value) => {
-                          setSelectedIds((current) =>
-                            value === true
-                              ? [...current, option.id]
-                              : current.filter((id) => id !== option.id),
-                          );
+                          setSelectedIds((current) => {
+                            if (value !== true) {
+                              return current.filter((id) => id !== option.id);
+                            }
+
+                            return [
+                              ...current.filter(
+                                (id) => !exclusiveIds.includes(id as AccessRestrictionType),
+                              ),
+                              option.id,
+                            ];
+                          });
                         }}
                       />
                       <span>{option.label}</span>

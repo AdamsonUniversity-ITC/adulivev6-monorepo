@@ -35,6 +35,34 @@ async function mockUserManagementApis(page: Page) {
   });
 
   await page.route(
+    `${registrarApi}/v1/drs/user-management/roles**`,
+    async (route) => {
+      if (route.request().method() === 'OPTIONS') return fulfillOptions(route);
+
+      await route.fulfill({
+        contentType: 'application/json',
+        headers: corsHeaders,
+        json: {
+          data: [
+            {
+              id: '12',
+              name: 'DRS Cashier',
+              guard_name: 'api',
+              permissions: [
+                {
+                  id: '1',
+                  name: 'drs_regular_user_access',
+                  guard_name: 'api',
+                },
+              ],
+            },
+          ],
+        },
+      });
+    },
+  );
+
+  await page.route(
     `${registrarApi}/v1/drs/user-management/users**`,
     async (route) => {
       if (route.request().method() === 'OPTIONS') return fulfillOptions(route);
@@ -302,16 +330,7 @@ test('admin can open DRS user management and start an assignment', async ({
     page.getByRole('option', { name: 'Assessment assessor', exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('option', { name: 'Foreigner ONLY access', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('option', { name: 'No Foreigner access', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('option', { name: 'Graduate Programs ONLY', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('option', { name: 'No Graduate Programs', exact: true }),
+    page.getByRole('option', { name: 'Access restriction', exact: true }),
   ).toBeVisible();
   await page
     .getByRole('option', { name: 'Payment verification', exact: true })

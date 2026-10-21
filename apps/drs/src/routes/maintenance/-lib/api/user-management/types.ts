@@ -71,6 +71,7 @@ export type AssignmentPayload = {
     | 'approval_chain'
     | 'clearance_department'
     | 'assessment'
+    | 'all_foreigner'
     | 'foreigner_only'
     | 'no_foreigner'
     | 'graduate_only'
