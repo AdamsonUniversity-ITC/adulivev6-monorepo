@@ -36,6 +36,7 @@ import {
   TASK_KIND_SLIDE_KINDS,
   TASK_KIND_SLIDE_META,
 } from './-task-kind-slides.ts';
+import { RolesSheet } from './-roles-sheet.tsx';
 import { UserManagementSheet } from './-user-management-sheet.tsx';
 import { WorkflowSheet } from './-workflow-sheet.tsx';
 
@@ -162,6 +163,14 @@ const steps: Step[] = [
     accessCode: 'user-management',
     group: 'People and access',
     component: <UserManagementSheet />,
+  },
+  {
+    label: 'Role setup',
+    description:
+      'Create DRS roles, attach permissions to them, then assign the roles to users.',
+    accessCode: 'user-management',
+    group: 'People and access',
+    component: <RolesSheet />,
   },
   {
     label: 'Access debugger',
