@@ -58,7 +58,10 @@ function PlatformHome() {
         </p>
       )}
 
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        data-tour="boards-list"
+      >
         {(boardsQuery.data ?? []).map((board) => (
           <li key={board.id}>
             <a href={board.url} className="group block h-full outline-none">
@@ -86,7 +89,12 @@ function PlatformHome() {
       </ul>
 
       <div className="pt-2">
-        <Button variant="outline" asChild className="shadow-xs">
+        <Button
+          variant="outline"
+          asChild
+          className="shadow-xs"
+          data-tour="my-tickets"
+        >
           <Link to="/tickets">View my tickets across all boards</Link>
         </Button>
       </div>
@@ -112,7 +120,10 @@ function BoardHome() {
       }
       action={
         filingBlocked ? (
-          <div className="flex max-w-sm flex-col gap-1.5 sm:items-end">
+          <div
+            className="flex max-w-sm flex-col gap-1.5 sm:items-end"
+            data-tour="new-ticket"
+          >
             <Button type="button" disabled className="shadow-xs">
               New Ticket
             </Button>
@@ -138,7 +149,7 @@ function BoardHome() {
             </p>
           </div>
         ) : (
-          <Button asChild className="shadow-xs">
+          <Button asChild className="shadow-xs" data-tour="new-ticket">
             <Link to="/tickets/new">New Ticket</Link>
           </Button>
         )

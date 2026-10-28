@@ -20,6 +20,7 @@ import { DEFAULT_THEME_PRESET, normalizeThemePreset } from "@/lib/board-theme";
 import { formatBoardLabel } from "@/lib/format-labels";
 import { ensureAuthenticated } from "@/lib/ensure-authenticated";
 import { Button } from "@repo/ui/components/button";
+import { ClientOnboarding } from "@/components/client-onboarding";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -90,6 +91,7 @@ function RootComponent() {
         <Toaster richColors theme="system" />
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
         <ShortcutsHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <ClientOnboarding />
         <SidebarProvider className="bg-transparent has-data-[variant=inset]:bg-transparent! min-h-0 min-h-[calc(100svh-3.5rem)] flex-1">
           <AppSidebar />
           <SidebarInset className="bg-background/50 supports-backdrop-filter:bg-background/35 backdrop-blur-[2px]">
@@ -108,6 +110,7 @@ function RootComponent() {
                 variant="outline"
                 size="sm"
                 className="shadow-xs hidden sm:inline-flex"
+                data-tour="header-search"
                 onClick={() => setPaletteOpen(true)}
               >
                 Search

@@ -54,6 +54,9 @@ describe("ticketing page smokes", () => {
     expect(
       screen.getByRole("link", { name: "New Ticket" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show quick tour" }),
+    ).toBeInTheDocument();
   });
 
   it("redirects board tickets list to home", async () => {

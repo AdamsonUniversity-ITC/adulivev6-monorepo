@@ -111,6 +111,14 @@ vi.mock("@/lib/aduts-api", async (importOriginal) => {
     ...actual,
     fetchBoards: vi.fn(async () => getApiMocks().boards),
     fetchCurrentBoard: vi.fn(async () => getApiMocks().board),
+    fetchOnboarding: vi.fn(async () => ({
+      completed: true,
+      completed_at: "2026-01-01T00:00:00Z",
+    })),
+    completeOnboarding: vi.fn(async () => ({
+      completed: true,
+      completed_at: "2026-01-01T00:00:00Z",
+    })),
     fetchTickets: vi.fn(async () => getApiMocks().tickets),
     fetchTicket: vi.fn(async () => getApiMocks().ticket),
     fetchTatReport: vi.fn(async () => getApiMocks().tatReport),

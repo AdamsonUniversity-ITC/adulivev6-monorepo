@@ -149,7 +149,7 @@ export function TicketsListView({
 
   return (
     <>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" data-tour="status-tabs">
         {TABS.map((tab) => (
           <Button
             key={tab.id}

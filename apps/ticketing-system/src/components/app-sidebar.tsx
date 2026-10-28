@@ -186,7 +186,10 @@ export function AppSidebar() {
                     isActive={isNavItemActive(pathname, item.url)}
                     tooltip={item.title}
                   >
-                    <Link to={item.url}>
+                    <Link
+                      to={item.url}
+                      data-tour={item.url === "/" ? "sidebar-home" : undefined}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>

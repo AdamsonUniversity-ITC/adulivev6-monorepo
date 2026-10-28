@@ -254,6 +254,25 @@ export async function fetchCurrentBoard() {
   return data.data;
 }
 
+export type OnboardingStatus = {
+  completed: boolean;
+  completed_at: string | null;
+};
+
+export async function fetchOnboarding() {
+  const { data } = await hrmdoSvc.get<{ data: OnboardingStatus }>(
+    "v1/aduts/onboarding",
+  );
+  return data.data;
+}
+
+export async function completeOnboarding() {
+  const { data } = await hrmdoSvc.post<{ data: OnboardingStatus }>(
+    "v1/aduts/onboarding/complete",
+  );
+  return data.data;
+}
+
 export async function fetchTickets(
   params?: Record<string, string | number | boolean | undefined>,
 ) {
