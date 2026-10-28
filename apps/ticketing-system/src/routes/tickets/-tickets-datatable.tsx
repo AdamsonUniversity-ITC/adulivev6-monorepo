@@ -373,7 +373,7 @@ export function TicketsDatatable({
   );
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-tour="ticket-table">
       {selectedTickets.length > 0 ? (
         <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border p-2">
           <span className="text-muted-foreground px-1 text-sm">

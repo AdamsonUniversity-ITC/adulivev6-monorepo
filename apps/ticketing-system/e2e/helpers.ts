@@ -268,6 +268,12 @@ export async function mockAdutsApis(page: Page, options: MockOptions = {}) {
       });
     }
 
+    if (url.includes("/v1/aduts/onboarding")) {
+      return json({
+        data: { completed: true, completed_at: "2026-01-01T00:00:00Z" },
+      });
+    }
+
     if (url.includes("/v1/aduts/search")) {
       return json({ data: { tickets: [], people: [] } });
     }
