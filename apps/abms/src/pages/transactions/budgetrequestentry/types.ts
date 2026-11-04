@@ -28,7 +28,6 @@ export interface RSRecord {
     requestedByName: string;
     totalAmount: number; status: Status;
     forLiquidation?: boolean;
-    display_status?: string;
 }
 
 export interface ChatMessage {

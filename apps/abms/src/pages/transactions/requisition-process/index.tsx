@@ -9,7 +9,7 @@ import { DeptOption } from './shared/types';
 import { RolePickerModal } from './shared/components/RolePickerModal';
 import { BudgetView } from './roles/BudgetView';
 import { AdminView } from './roles/AdminView';
-import { ApprovalRoleView } from './roles/ApprovalRoleView';
+import { ControllerView } from './roles/ControllerView';
 import { LogisticsView } from './roles/LogisticsView';
 import { AccountingView } from './roles/AccountingView';
 import { StockroomView } from './roles/StockroomView';
@@ -45,8 +45,7 @@ function RoleView({
     switch (roleKey) {
         case 'budget-access': return <BudgetView     {...props} />;
         case 'admin-access': return <AdminView      {...props} />;
-        case 'controller-access':
-        case 'vpf-access': return <ApprovalRoleView key={roleKey} {...props} roleKey={roleKey} />;
+        case 'controller-access': return <ControllerView {...props} />;
         case 'logistics-access': return <LogisticsView  {...props} />;
         case 'accounting-access': return <AccountingView {...props} />;
         case 'stockroom-access': return <StockroomView  {...props} />;
@@ -60,8 +59,7 @@ function RoleView({
 function RequisitionProcessInner({ t, isDark }: { t: Theme; isDark: boolean }) {
     const { userpermissions } = useLoaderData({ from: requesitionprocessRoute.id });
 
-    const [vpfEnabled, setVpfEnabled] = useState(false);
-    const matched = ROLES.filter(r => userpermissions.includes(r.key) && (r.key !== 'vpf-access' || vpfEnabled));
+    const matched = ROLES.filter(r => userpermissions.includes(r.key));
     const [confirmedRole, setConfirmedRole] = useState<PermissionKey | null>(null);
 
     const [deptData, setDeptData] = useState<DeptData>({ departments: [], sections: [] });
@@ -71,7 +69,6 @@ function RequisitionProcessInner({ t, isDark }: { t: Theme; isDark: boolean }) {
     useEffect(() => {
         financeSvc.get('/abms/requisition-process/departments')
             .then(res => {
-                setVpfEnabled(res.data?.meta?.vpf_approval_enabled === true || res.data?.vpf_approval_enabled === true);
                 setDeptData({
                     departments: res.data?.departments ?? [],
                     sections: res.data?.sections ?? [],
@@ -88,22 +85,18 @@ function RequisitionProcessInner({ t, isDark }: { t: Theme; isDark: boolean }) {
     const activeRoleKey: PermissionKey | null =
         matched.length === 1 ? matched[0].key : confirmedRole;
 
-    if (deptLoading) {
+    if (matched.length === 0) {
         return (
             <div style={{ padding: '48px 0', textAlign: 'center' }}>
-                <p style={{ fontSize: 13, color: t.cellMuted }}>Loading…</p>
+                <p style={{ fontSize: 13, color: t.cellMuted }}>You don't have access to this page.</p>
             </div>
         );
     }
 
-    if (matched.length === 0) {
+    if (deptLoading) {
         return (
             <div style={{ padding: '48px 0', textAlign: 'center' }}>
-                <p style={{ fontSize: 13, color: t.cellMuted }}>
-                    {userpermissions.includes('vpf-access') && !vpfEnabled
-                        ? 'VPF approval is not enabled.'
-                        : "You don't have access to this page."}
-                </p>
+                <p style={{ fontSize: 13, color: t.cellMuted }}>Loading…</p>
             </div>
         );
     }
