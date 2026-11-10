@@ -360,7 +360,7 @@ export const budgetrequestentryRoute = new Route({
 export const requesitionprocessRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/transactions/requisition-process',
-    beforeLoad: ({ context }) => requirePermissions(context, ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'stockroom-access', 'controller-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'logistics-readonly-access', 'stockroom-access', 'controller-access']),
     loader: async () => {
         const permissions = await authSvc.get('/abms-permissions/');
         const response = await financeSvc.get('/abms/requisition-process', {
@@ -482,7 +482,7 @@ export const unservedRsRoute = new Route({
 export const purchasingAccomplishmentReportRoute = new Route({
     getParentRoute: () => protectedRoute,
     path: '/reports/purchasing-accomplishment-report',
-    beforeLoad: ({ context }) => requirePermissions(context, ['logistics-access']),
+    beforeLoad: ({ context }) => requirePermissions(context, ['logistics-access', 'logistics-readonly-access']),
     loader: async () => {
         const data = await financeSvc.get('abms/purchasing-accomplishment-report');
 

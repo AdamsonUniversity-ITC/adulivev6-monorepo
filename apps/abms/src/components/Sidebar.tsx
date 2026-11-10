@@ -162,7 +162,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: 'Budget Proposal Entry', href: '/transactions/budget-proposal-entry', permissions: ['allow-budget-proposal-entry'] },
       { label: 'Budget Request Entry', href: '/transactions/budget-request-entry', permissions: ['allow-budget-request-entry', 'admin-access', 'budget-access'] },
-      { label: 'Requisition Process', href: '/transactions/requisition-process', permissions: ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'stockroom-access', 'controller-access'] },
+      { label: 'Requisition Process', href: '/transactions/requisition-process', permissions: ['budget-access', 'admin-access', 'accounting-access', 'cashier-access', 'logistics-access', 'logistics-readonly-access', 'stockroom-access', 'controller-access'] },
       { label: 'Liquidation Submission', href: '/transactions/liquidation-submission', permissions: ['allow-budget-request-entry', 'budget-access', 'admin-access'] },
     ],
   },
@@ -179,7 +179,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: 'Budget Liquidation', href: '/reports/budget-liquidation', permissions: ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry'] },
       { label: 'Budget Proposal Reports', href: '/reports/budget-proposal-reports', permissions: ['admin-access', 'budget-access', 'controller-access', 'allow-budget-request-entry', 'allow-budget-proposal-entry'] },
       { label: 'Unserved RS', href: '/reports/unserved-rs', permissions: ['admin-access', 'budget-access', 'controller-access'] },
-      { label: 'Purchasing Accomplishment Report', href: '/reports/purchasing-accomplishment-report', permissions: ['logistics-access'] },
+      { label: 'Purchasing Accomplishment Report', href: '/reports/purchasing-accomplishment-report', permissions: ['logistics-access', 'logistics-readonly-access'] },
     ],
   },
   {

@@ -375,7 +375,7 @@ const ROLE_ACTIONS: Partial<Record<PermissionKey, RoleAction[]>> = {
 // Mark Served remains restricted to Stockroom.
 // ─────────────────────────────────────────────────────────────────────────────
 const COMMON_ACTIONS: RoleAction[] = [
-    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
+    { label: 'View Accounts', icon: Eye, variant: 'secondary', visibleOn: '*', restrictedTo: ['logistics-access', 'logistics-readonly-access', 'budget-access', 'admin-access', 'controller-access'], confirm: false, toolbarGroup: 'left' },
     { label: 'Chat / Messages', icon: MessageSquare, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     { label: 'RS Process History', icon: History, variant: 'secondary', visibleOn: '*', confirm: false, toolbarGroup: 'left' },
     {
@@ -426,6 +426,7 @@ const CANCEL_ACTION: RoleAction = {
 };
 
 const CANCEL_HIDDEN_ROLES: PermissionKey[] = [
+    'logistics-readonly-access',
     'logistics-access',
     'stockroom-access',
     'accounting-access',
@@ -535,6 +536,7 @@ function RoleIcon({ roleKey }: { roleKey: PermissionKey }) {
         'admin-access': <ShieldCheck style={{ width: 14, height: 14 }} />,
         'controller-access': <Stamp style={{ width: 14, height: 14 }} />,
         'logistics-access': <Truck style={{ width: 14, height: 14 }} />,
+        'logistics-readonly-access': <Truck style={{ width: 14, height: 14 }} />,
         'accounting-access': <Calculator style={{ width: 14, height: 14 }} />,
         'stockroom-access': <Package style={{ width: 14, height: 14 }} />,
         'cashier-access': <CreditCard style={{ width: 14, height: 14 }} />,
@@ -955,6 +957,7 @@ export function RSProcessModal({
     row, roleKey, roleLabel, t, isDark, isLoading = false, error = null, onClose, onChatRead, onAction,
     currentUser = { id: '', name: '' },
 }: RSProcessModalProps) {
+    const readOnly = roleKey === 'logistics-readonly-access';
     const [itemsExpanded, setItemsExpanded] = useState(true);
     const [pendingAction, setPendingAction] = useState<RoleAction | null>(null);
     const [showRSFiles, setShowRSFiles] = useState(false);
@@ -1026,6 +1029,7 @@ export function RSProcessModal({
 
     async function handleOpenPrintPreview() {
         const requiresDuplicatePrintCheck = [
+            'logistics-readonly-access',
             'logistics-access',
             'stockroom-access',
             'budget-access',
@@ -1283,7 +1287,7 @@ export function RSProcessModal({
     // purchase stage; historical/pending values are read-only.
     const hasStoredQuotedPrices = (row.items ?? []).some(item => item.quoted_price != null);
     const showQuotedPriceColumn = canPriceItems
-        || (roleKey === 'logistics-access' && isLogisticsRequest && hasStoredQuotedPrices)
+        || (['logistics-access', 'logistics-readonly-access'].includes(roleKey) && isLogisticsRequest && hasStoredQuotedPrices)
         || (roleKey === 'admin-access'
             && (row.status ?? '').toLowerCase() === 'for approval'
             && (row.location ?? '').toLowerCase() === 'budget office')
@@ -1667,6 +1671,7 @@ export function RSProcessModal({
         a.visibleOn === '*' || a.visibleOn.some(s => s.toLowerCase() === statusLower);
 
     const matchesRole = (a: RoleAction) => {
+        if (readOnly && !['View Accounts', 'Chat / Messages', 'RS Process History', 'Print RS'].includes(a.label)) return false;
         if (a.restrictedTo && !a.restrictedTo.includes(roleKey)) return false;
         if (
             roleKey === 'accounting-access'
@@ -2980,7 +2985,7 @@ export function RSProcessModal({
                                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: t.labelColor }}>
                                     Notes
                                 </span>
-                                {!isEditingNote && roleKey !== 'accounting-access' && (
+                                {!isEditingNote && !readOnly && (
                                     <button
                                         onClick={() => setIsEditingNote(true)}
                                         title="Edit note"
@@ -3932,6 +3937,7 @@ export function RSProcessModal({
 
             {/* ── Chat modal ─────────────────────────────────────────────────── */}
             <RSChatModal
+                readOnly={readOnly}
                 open={showChat}
                 onClose={() => setShowChat(false)}
                 entryId={row.id}
@@ -3966,7 +3972,7 @@ export function RSProcessModal({
                     items={row.items ?? []}
                     payeeDetail={payeeDetail}
                     printedBy={currentUser.name || currentUser.id || '—'}
-                    initialPaperId={roleKey === 'logistics-access' ? 'epson-half-legal' : 'letter-portrait'}
+                    initialPaperId={['logistics-access', 'logistics-readonly-access'].includes(roleKey) ? 'epson-half-legal' : 'letter-portrait'}
                     onClose={() => setShowPrintPreview(false)}
                 />
             )}
@@ -4295,7 +4301,7 @@ function RSChatBadge({
 // RSChatModal — portal modal wrapping the chat panel
 // ─────────────────────────────────────────────────────────────────────────────
 function RSChatModal({
-    open, onClose, entryId, currentUser, t, isDark, incomingMessage,
+    open, onClose, entryId, currentUser, t, isDark, incomingMessage, readOnly = false,
 }: {
     open: boolean;
     onClose: () => void;
@@ -4304,6 +4310,7 @@ function RSChatModal({
     t: Theme;
     isDark: boolean;
     incomingMessage?: ChatMessage | null;
+    readOnly?: boolean;
 }) {
     if (!open) return null;
 
@@ -4385,6 +4392,7 @@ function RSChatModal({
                 {/* Chat panel */}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                     <RSChatPanel
+                        readOnly={readOnly}
                         entryId={entryId}
                         currentUser={currentUser}
                         t={t}
@@ -4402,7 +4410,7 @@ function RSChatModal({
 // RSChatPanel — scrollable message list + send input
 // ─────────────────────────────────────────────────────────────────────────────
 function RSChatPanel({
-    entryId, currentUser, t, isDark, onNewMessage, incomingMessage,
+    entryId, currentUser, t, isDark, onNewMessage, incomingMessage, readOnly = false,
 }: {
     entryId: number;
     currentUser: { id: string; name: string };
@@ -4410,6 +4418,7 @@ function RSChatPanel({
     isDark: boolean;
     onNewMessage?: () => void;
     incomingMessage?: ChatMessage | null;
+    readOnly?: boolean;
 }) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
@@ -4501,6 +4510,7 @@ function RSChatPanel({
     }, [entryId, currentUser.id]);
 
     async function handleSend() {
+        if (readOnly) return;
         const text = inputValue.trim();
         if (!text || isSending || !currentUser.id) return;
         setIsSending(true);
@@ -4647,7 +4657,7 @@ function RSChatPanel({
             </div>
 
             {/* Input row */}
-            <div style={{
+            {!readOnly && <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 14px',
                 borderTop: `1px solid ${t.cardHeaderBorder}`,
@@ -4691,7 +4701,7 @@ function RSChatPanel({
                         : <Send style={{ width: 14, height: 14 }} />
                     }
                 </button>
-            </div>
+            </div>}
         </div>
     );
 }

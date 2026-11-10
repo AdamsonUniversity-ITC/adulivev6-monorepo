@@ -6,6 +6,7 @@ export const ROLES = [
     { key: 'admin-access', label: 'Administration', icon: ShieldCheck },
     { key: 'controller-access', label: 'Controller', icon: BadgeCheck },
     { key: 'logistics-access', label: 'Purchasing', icon: Truck },
+    { key: 'logistics-readonly-access', label: 'Logistics (Read Only)', icon: Truck },
     { key: 'accounting-access', label: 'Accounting', icon: Calculator },
     { key: 'stockroom-access', label: 'Stockroom', icon: Package },
     { key: 'cashier-access', label: 'Cashier', icon: CreditCard },
@@ -34,6 +35,7 @@ export const ROLE_COLUMNS: Record<PermissionKey, string[]> = {
     'admin-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
     'controller-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Controller Approval', 'Location', 'From'],
     'logistics-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
+    'logistics-readonly-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'accounting-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'stockroom-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
     'cashier-access': ['Date', 'Requisition No.', 'Department/Section', 'Requested By', 'Total Amount', 'Status', 'Location', 'From'],
@@ -168,6 +170,17 @@ const ADMIN_PAYMENT_FORM_CONFIG = {
     options: [...PAYMENT_FORM_OPTIONS, "Employee's Payroll", 'Employer Share', 'Allowance of SA'],
 };
 
+const LOGISTICS_FILTER_CONFIG: FilterPanelConfig = {
+    status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabels: ['For Pricing', 'For Purchase'] },
+    department: COMMON_DEPT_CONFIG,
+    searchField: COMMON_SEARCH_CONFIG,
+    schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
+    dateRange: COMMON_DATE_RANGE_CONFIG,
+    sortColumns: COMMON_SORT_COLUMNS,
+    defaultSortBy: 'Requisition No.',
+    actions: COMMON_ACTIONS,
+};
+
 export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
     'budget-access': {
         status: { options: BUDGET_STATUS_OPTIONS, defaultLabel: 'For Review' },
@@ -199,18 +212,10 @@ export const ROLE_FILTER_CONFIGS: Record<PermissionKey, FilterPanelConfig> = {
         sortColumns: COMMON_SORT_COLUMNS,
         actions: COMMON_ACTIONS,
     },
-    'logistics-access': {
-        status: { options: LOGISTICS_STATUS_OPTIONS, defaultLabels: ['For Pricing', 'For Purchase'] },
-        department: COMMON_DEPT_CONFIG,
-        searchField: COMMON_SEARCH_CONFIG,
-        schoolYear: COMMON_SCHOOL_YEAR_CONFIG,
-        dateRange: COMMON_DATE_RANGE_CONFIG,
-        sortColumns: COMMON_SORT_COLUMNS,
-        defaultSortBy: 'Requisition No.',
-        actions: COMMON_ACTIONS,
-    },
+    'logistics-access': LOGISTICS_FILTER_CONFIG,
+    'logistics-readonly-access': LOGISTICS_FILTER_CONFIG,
     'accounting-access': {
-        status: { options: GENERAL_STATUS_OPTIONS, defaultLabel: 'Certified RS' },
+        status: { options: [{ label: 'All' }, { label: 'Certified RS' }, { label: 'For Purchase' }], defaultLabel: 'For Purchase' },
         department: COMMON_DEPT_CONFIG,
         searchField: COMMON_SEARCH_CONFIG,
         schoolYear: COMMON_SCHOOL_YEAR_CONFIG,

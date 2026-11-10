@@ -24,7 +24,7 @@ const GENERAL_PERMISSION_NAMES = [
   'budget-access',
   'admin-access',
   'controller-access',
-  'logistics-access',
+  'logistics-access', 'logistics-readonly-access',
   'stockroom-access',
   'cashier-access',
   'accounting-access',

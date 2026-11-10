@@ -482,22 +482,40 @@ flowchart TD
     H -- No --> J[Display Unavailable and data-quality warning]
 ```
 
-## Cashier Accounting Correction and Controller Reapproval
+## Accounting Monitoring, Notes, and Cashier Correction
 
 ```mermaid
 flowchart TD
-    A[Certified Cashier RS] --> B{Current location}
-    B -->|Accounting Office, BAO, or HRMDO| C[Accounting read-only review]
-    B -->|Any other office| X[Excluded from Accounting worklist]
-    C --> D[Return to Budget locks and revalidates role, type, status, and location]
-    D --> E[Set For Budget Director at Budget Office; from exact office; Controller pending]
-    E --> F[Budget Director edits items with exact allocation and proposal reconciliation]
-    F --> G[Administration forwards to Controller as On Process]
-    G --> H{Controller decision}
-    H -->|Pending or Disapproved| I[Block onward Cashier routing]
-    H -->|Approved| J[Allow established Cashier destinations]
-    J --> K[HRMDO stores hrmdo; Accounting stores accounting office; BAO stores bao]
+    A[Accounting access] --> B{Status filter}
+    B -->|For Purchase - default| C[For Purchase at any destination]
+    B -->|Certified RS| D[Certified at Accounting Office only]
+    B -->|All or both| E[Union of C and D]
+    C --> F[View, print, chat, and edit note]
+    D --> F
+    E --> F
+    F --> N[Note save locks header and rechecks current eligibility]
+    D --> G{Certified Cashier RS}
+    G -->|Return to Budget| H[For Budget Director at Budget Office; exact from office; Controller pending]
+    H --> I[Administration correction and manual Controller forwarding]
+    I --> J{Controller approval}
+    J -->|Approved| K[Established Cashier destinations]
+    L[Existing return API eligibility at Accounting Office, BAO, HRMDO] --> H
 ```
+
+The Certified worklist excludes BAO/HRMDO; the separate return API retains its existing three-office eligibility.
+
+## Logistics Observer
+
+```mermaid
+flowchart LR
+    A[Assigned Logistics Read Only] --> B[Shared Logistics worklist and historical arrival scope]
+    A --> C[Same dashboard and purchasing reports]
+    B --> D[View details, accounts, quotes, messages, files and history]
+    D --> E[Print or download; own read receipts permitted]
+    B --> F[UI hides all mutations]
+    F --> G[Finance rejects direct writes without an independent writable grant]
+```
+
 
 ## Administration RS-Type Routing
 
