@@ -843,6 +843,7 @@ function ApplyDocumentsPage() {
 
       <div className="grid gap-x-10 gap-y-10 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-10">
+          <div data-tour="apply-catalog">
           <DrsSection
             title="Documents"
             description="Prices shown are per copy."
@@ -1181,6 +1182,7 @@ function ApplyDocumentsPage() {
               </Accordion>
             )}
           </DrsSection>
+          </div>
 
           <DrsSection
             title="Contact and delivery"
@@ -1445,6 +1447,7 @@ function ApplyDocumentsPage() {
                 form="apply-request-form"
                 className="w-full"
                 disabled={isLoading || unitCount === 0}
+                data-tour="apply-submit"
               >
                 Review and submit
               </Button>
@@ -1492,6 +1495,7 @@ function ApplyDocumentsPage() {
             type="submit"
             form="apply-request-form"
             disabled={isLoading || unitCount === 0}
+            data-tour="apply-submit"
           >
             Review and submit
           </Button>

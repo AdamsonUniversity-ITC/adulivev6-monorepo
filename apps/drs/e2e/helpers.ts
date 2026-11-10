@@ -22,3 +22,23 @@ export async function fulfillOptions(
 ) {
   await route.fulfill({ headers: corsHeaders, status: 204 });
 }
+
+export async function mockOnboardingCompleted(page: Page) {
+  await page.route(`${registrarApi}/v1/drs/onboarding**`, async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await fulfillOptions(route);
+      return;
+    }
+
+    await route.fulfill({
+      contentType: 'application/json',
+      headers: corsHeaders,
+      json: {
+        data: {
+          completed: true,
+          completed_at: '2026-01-01T00:00:00Z',
+        },
+      },
+    });
+  });
+}

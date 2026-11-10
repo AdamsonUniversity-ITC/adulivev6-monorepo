@@ -96,7 +96,7 @@ export type WorkflowKind = {
 };
 
 export type EmailNotificationTargetType = 'stage' | 'task_kind';
-export type EmailNotificationCondition = 'into' | 'out_of';
+export type EmailNotificationCondition = 'into' | 'out_of' | 'manual';
 
 export type EmailNotificationConfig = {
   id: string;

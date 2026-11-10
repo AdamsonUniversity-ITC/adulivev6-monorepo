@@ -21,8 +21,11 @@ type Props = {
   kinds: WorkflowKind[];
 };
 
-const conditionLabel = (condition: EmailNotificationConfig['condition']) =>
-  condition === 'into' ? 'Into' : 'Out of';
+const conditionLabel = (condition: EmailNotificationConfig['condition']) => {
+  if (condition === 'into') return 'Into';
+  if (condition === 'out_of') return 'Out of';
+  return 'Manual notify';
+};
 
 const targetLabel = (
   config: EmailNotificationConfig,
@@ -70,8 +73,8 @@ export const EmailNotificationsPanel = ({ stages, kinds }: Props) => {
             Email notifications
           </h2>
           <p className="text-muted-foreground text-sm">
-            Configurable emails attached to stages or task kinds (into / out
-            of).
+            Configurable emails for workflow into/out-of events, plus Manual
+            notify for the clearance &quot;Notify student by email&quot; button.
           </p>
         </div>
         <Button
