@@ -3,6 +3,7 @@ import {
   authApi,
   corsHeaders,
   fulfillOptions,
+  mockOnboardingCompleted,
   registrarApi,
 } from './helpers.ts';
 
@@ -10,6 +11,8 @@ async function mockStudentApplicationApis(
   page: Page,
   options: { mayCancel: boolean },
 ) {
+  await mockOnboardingCompleted(page);
+
   await page.route(authApi, async (route) => {
     if (route.request().method() === 'OPTIONS') return fulfillOptions(route);
 

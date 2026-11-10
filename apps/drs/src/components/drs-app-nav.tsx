@@ -140,6 +140,7 @@ export function DrsAppNav() {
               <Link
                 to={item.to as never}
                 activeOptions={{ exact: item.exact ?? false }}
+                data-tour={item.to === '/apply' ? 'nav-apply' : undefined}
                 className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring inline-flex h-7 items-center rounded-md px-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 activeProps={{
                   className: 'text-foreground bg-muted font-medium',

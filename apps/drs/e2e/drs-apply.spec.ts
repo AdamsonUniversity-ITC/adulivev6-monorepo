@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { authApi, corsHeaders, registrarApi } from './helpers.ts';
+import {
+  authApi,
+  corsHeaders,
+  mockOnboardingCompleted,
+  registrarApi,
+} from './helpers.ts';
 
 type SubmittedApplyPayload = {
   email: string;
@@ -26,6 +31,8 @@ async function mockStudentDrsApis(
   options: MockStudentDrsApiOptions = {},
 ) {
   let submittedPayload: SubmittedApplyPayload | null = null;
+
+  await mockOnboardingCompleted(page);
 
   await page.route(authApi, async (route) => {
     if (route.request().method() === 'OPTIONS') {

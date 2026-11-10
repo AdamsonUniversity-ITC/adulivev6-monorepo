@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { authApi, corsHeaders, fulfillOptions } from './helpers.ts';
+import {
+  authApi,
+  corsHeaders,
+  fulfillOptions,
+  mockOnboardingCompleted,
+} from './helpers.ts';
 
 async function mockAuthUser(page: Page, permissions: string[]) {
   await page.route(authApi, async (route) => {
@@ -19,6 +24,7 @@ async function mockAuthUser(page: Page, permissions: string[]) {
 
 test.describe('DRS not found page', () => {
   test('shows branded page for unknown routes', async ({ page }) => {
+    await mockOnboardingCompleted(page);
     await mockAuthUser(page, ['college-access']);
 
     await page.goto('/this-route-does-not-exist');

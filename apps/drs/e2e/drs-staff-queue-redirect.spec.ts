@@ -3,6 +3,7 @@ import {
   authApi,
   corsHeaders,
   fulfillOptions,
+  mockOnboardingCompleted,
   registrarApi,
 } from './helpers.ts';
 
@@ -15,6 +16,8 @@ async function mockHomeRedirectApis(
   page: Page,
   options: MockHomeRedirectOptions,
 ) {
+  await mockOnboardingCompleted(page);
+
   await page.route(authApi, async (route) => {
     if (route.request().method() === 'OPTIONS') return fulfillOptions(route);
 

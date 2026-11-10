@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
+import { ClientOnboarding } from '@/components/client-onboarding.tsx';
 import { DrsAppNav } from '@/components/drs-app-nav.tsx';
 import { DrsErrorPage } from '@/components/drs-error-page.tsx';
 import { DrsNotFoundPage } from '@/components/drs-not-found-page.tsx';
@@ -22,6 +23,7 @@ const RootLayout = () => (
     <DrsThemeProvider>
       <AuthLayout />
       <DrsAppNav />
+      <ClientOnboarding />
       <Toaster richColors />
       <Outlet />
       {import.meta.env.DEV ? <TanStackRouterDevtools /> : null}

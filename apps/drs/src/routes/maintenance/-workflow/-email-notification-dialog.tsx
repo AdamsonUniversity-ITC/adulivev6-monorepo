@@ -81,19 +81,37 @@ export const EmailNotificationDialog = ({
   const [bodyHtml, setBodyHtml] = useState(DEFAULT_BODY);
   const [isEnabled, setIsEnabled] = useState(true);
 
+  const isManual = condition === 'manual';
+
   useEffect(() => {
     if (!open) return;
+    const nextCondition = config?.condition ?? 'into';
+    const nextIsManual = nextCondition === 'manual';
     setName(config?.name ?? '');
-    setTargetType(config?.target_type ?? 'stage');
+    setTargetType(
+      nextIsManual ? 'task_kind' : (config?.target_type ?? 'stage'),
+    );
     setStageId(config?.drs_workflow_stage_id ?? '');
-    setTaskKind(config?.task_kind ?? '');
-    setCondition(config?.condition ?? 'into');
-    setNotifyStudent(config?.notify_student ?? true);
-    setNotifyStaff(config?.notify_staff ?? false);
+    setTaskKind(
+      nextIsManual
+        ? 'clearance_signoff'
+        : (config?.task_kind ?? ''),
+    );
+    setCondition(nextCondition);
+    setNotifyStudent(nextIsManual ? true : (config?.notify_student ?? true));
+    setNotifyStaff(nextIsManual ? false : (config?.notify_staff ?? false));
     setSubject(config?.subject ?? 'DRS request update: {{stage_name}}');
     setBodyHtml(config?.body_html ?? DEFAULT_BODY);
     setIsEnabled(config?.is_enabled ?? true);
   }, [open, config]);
+
+  useEffect(() => {
+    if (!isManual) return;
+    setTargetType('task_kind');
+    setTaskKind('clearance_signoff');
+    setNotifyStudent(true);
+    setNotifyStaff(false);
+  }, [isManual]);
 
   const previewSubject = useMemo(
     () => applyMergeTokens(subject, EMAIL_SAMPLE_TOKEN_VALUES),
@@ -132,27 +150,32 @@ export const EmailNotificationDialog = ({
       toast.error('Subject is required.');
       return;
     }
-    if (!notifyStudent && !notifyStaff) {
+    if (!isManual && !notifyStudent && !notifyStaff) {
       toast.error('Select at least one recipient.');
       return;
     }
-    if (targetType === 'stage' && !stageId) {
+    if (!isManual && targetType === 'stage' && !stageId) {
       toast.error('Select a workflow stage.');
       return;
     }
-    if (targetType === 'task_kind' && !taskKind) {
+    if (!isManual && targetType === 'task_kind' && !taskKind) {
       toast.error('Select a task kind.');
       return;
     }
 
     const payload: EmailNotificationPayload = {
       name: trimmedName,
-      target_type: targetType,
-      drs_workflow_stage_id: targetType === 'stage' ? stageId : null,
-      task_kind: targetType === 'task_kind' ? taskKind : null,
+      target_type: isManual ? 'task_kind' : targetType,
+      drs_workflow_stage_id:
+        !isManual && targetType === 'stage' ? stageId : null,
+      task_kind: isManual
+        ? 'clearance_signoff'
+        : targetType === 'task_kind'
+          ? taskKind
+          : null,
       condition,
-      notify_student: notifyStudent,
-      notify_staff: notifyStaff,
+      notify_student: isManual ? true : notifyStudent,
+      notify_staff: isManual ? false : notifyStaff,
       subject: trimmedSubject,
       body_html: bodyHtml,
       is_enabled: isEnabled,
@@ -188,8 +211,9 @@ export const EmailNotificationDialog = ({
             {config ? 'Edit email notification' : 'New email notification'}
           </DialogTitle>
           <DialogDescription>
-            Attach to a workflow stage or task kind. Subject and body support
-            merge tokens (see legend below).
+            Attach to a workflow stage or task kind, or choose Manual notify for
+            the clearance &quot;Notify student by email&quot; button. Subject
+            and body support merge tokens (see legend below).
           </DialogDescription>
         </DialogHeader>
 
@@ -214,6 +238,7 @@ export const EmailNotificationDialog = ({
                 <Label>Attach to</Label>
                 <Select
                   value={targetType}
+                  disabled={isManual}
                   onValueChange={(value) =>
                     setTargetType(value as EmailNotificationTargetType)
                   }
@@ -241,12 +266,20 @@ export const EmailNotificationDialog = ({
                   <SelectContent>
                     <SelectItem value="into">Into</SelectItem>
                     <SelectItem value="out_of">Out of</SelectItem>
+                    <SelectItem value="manual">
+                      Manual notify (button)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {targetType === 'stage' ? (
+            {isManual ? (
+              <p className="text-muted-foreground text-sm">
+                Locked to Clearance sign-off and student only. Used by the
+                staff &quot;Notify student by email&quot; button.
+              </p>
+            ) : targetType === 'stage' ? (
               <div className="space-y-2">
                 <Label>Stage</Label>
                 <Select value={stageId || undefined} onValueChange={setStageId}>
@@ -291,6 +324,7 @@ export const EmailNotificationDialog = ({
                 <label className="flex items-start gap-3">
                   <Checkbox
                     checked={notifyStudent}
+                    disabled={isManual}
                     onCheckedChange={(value) =>
                       setNotifyStudent(value === true)
                     }
@@ -299,15 +333,19 @@ export const EmailNotificationDialog = ({
                     Student (application contact email)
                   </span>
                 </label>
-                <label className="flex items-start gap-3">
-                  <Checkbox
-                    checked={notifyStaff}
-                    onCheckedChange={(value) => setNotifyStaff(value === true)}
-                  />
-                  <span className="text-sm">
-                    Staff (task-kind roster emails)
-                  </span>
-                </label>
+                {!isManual ? (
+                  <label className="flex items-start gap-3">
+                    <Checkbox
+                      checked={notifyStaff}
+                      onCheckedChange={(value) =>
+                        setNotifyStaff(value === true)
+                      }
+                    />
+                    <span className="text-sm">
+                      Staff (task-kind roster emails)
+                    </span>
+                  </label>
+                ) : null}
                 <label className="flex items-start gap-3">
                   <Checkbox
                     checked={isEnabled}

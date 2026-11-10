@@ -408,6 +408,9 @@ importers:
       react-hook-form:
         specifier: ^7.71.1
         version: 7.71.1(react@19.2.4)
+      react-joyride:
+        specifier: ^3.2.0
+        version: 3.2.0(@types/react@19.2.9)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       recharts:
         specifier: 2.15.4
         version: 2.15.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -15607,6 +15610,11 @@ snapshots:
       '@types/react': 19.2.14
       react: 19.2.4
 
+  react-innertext@1.1.5(@types/react@19.2.9)(react@19.2.4):
+    dependencies:
+      '@types/react': 19.2.9
+      react: 19.2.4
+
   react-is@16.13.1: {}
 
   react-is@17.0.2: {}
@@ -15624,6 +15632,23 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
       react-innertext: 1.1.5(@types/react@19.2.14)(react@19.2.4)
+      scroll: 3.0.1
+      scrollparent: 2.1.0
+      use-sync-external-store: 1.6.0(react@19.2.4)
+    transitivePeerDependencies:
+      - '@types/react'
+
+  react-joyride@3.2.0(@types/react@19.2.9)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@fastify/deepmerge': 3.2.4
+      '@floating-ui/react-dom': 2.1.9(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@gilbarbara/deep-equal': 0.4.1
+      '@gilbarbara/hooks': 0.11.0(react@19.2.4)
+      '@gilbarbara/types': 0.2.2
+      is-lite: 2.0.0
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      react-innertext: 1.1.5(@types/react@19.2.9)(react@19.2.4)
       scroll: 3.0.1
       scrollparent: 2.1.0
       use-sync-external-store: 1.6.0(react@19.2.4)
