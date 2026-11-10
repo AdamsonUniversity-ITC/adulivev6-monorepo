@@ -30,6 +30,11 @@ export const DRS_MERGE_TOKENS: DrsMergeToken[] = [
     token: '{{task_kind}}',
     purpose: 'Task kind slug',
   },
+  {
+    key: 'remarks',
+    token: '{{remarks}}',
+    purpose: 'Clearance remarks from Notify student by email',
+  },
 ];
 
 export const EMAIL_SAMPLE_TOKEN_VALUES: Record<string, string> = {
@@ -38,6 +43,7 @@ export const EMAIL_SAMPLE_TOKEN_VALUES: Record<string, string> = {
   stage_name: 'For Assessment',
   task_name: 'Assess fees',
   task_kind: 'assessment',
+  remarks: 'Please settle outstanding balances.',
 };
 
 export const AUTO_DISPOSAL_SAMPLE_TOKEN_VALUES: Record<string, string> = {
@@ -46,6 +52,7 @@ export const AUTO_DISPOSAL_SAMPLE_TOKEN_VALUES: Record<string, string> = {
   stage_name: 'For Processing',
   task_name: 'Process documents',
   task_kind: 'processing',
+  remarks: 'Please settle outstanding balances.',
 };
 
 export function applyMergeTokens(
