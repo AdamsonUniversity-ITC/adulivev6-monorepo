@@ -1266,7 +1266,8 @@ function StaffApplicationWorkPage() {
     mutate: requestComplete,
   };
   const notifyStudentMutation = useMutation({
-    mutationFn: (taskId: string) => postNotifyStudent(applicationId, taskId),
+    mutationFn: (vars: { taskId: string; remarks: string | null }) =>
+      postNotifyStudent(applicationId, vars.taskId, vars.remarks),
     onSuccess: () => {
       toast.success('Student notified by email.');
     },
@@ -1720,7 +1721,11 @@ function StaffApplicationWorkPage() {
                             variant="outline"
                             disabled={notifyStudentMutation.isPending}
                             onClick={() =>
-                              notifyStudentMutation.mutate(task.id)
+                              notifyStudentMutation.mutate({
+                                taskId: task.id,
+                                remarks:
+                                  remarkByTask[task.id]?.trim() || null,
+                              })
                             }
                           >
                             Notify student by email
