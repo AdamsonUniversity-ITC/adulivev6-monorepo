@@ -17,7 +17,7 @@ import { displayRequisitionStatus } from '../../shared/requisitionStatus';
 // Zod — query schema
 // ─────────────────────────────────────────────────────────────────────────────
 const LogisticsQuerySchema = z.object({
-    role: z.literal('logistics-access'),
+    role: z.enum(['logistics-access', 'logistics-readonly-access']),
     statuses: z.array(z.string()).min(1, 'At least one status is required'),
     department: z.string().nullable(),
     kind: z.enum(['Department', 'Section']).nullable(),
@@ -57,7 +57,6 @@ export interface LogisticsRow {
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
-const ROLE = ROLES.find(r => r.key === 'logistics-access')!;
 const FILTER_CFG = ROLE_FILTER_CONFIGS['logistics-access']!;
 const COLUMNS = ROLE_COLUMNS['logistics-access'];
 
@@ -127,9 +126,9 @@ function StatusBadge({ status, t, isDark }: { status: string | null; t: Theme; i
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-function buildQuery(fs: FilterState): LogisticsQuery {
+function buildQuery(fs: FilterState, role: LogisticsQuery['role']): LogisticsQuery {
     return {
-        role: 'logistics-access',
+        role,
         statuses: fs.activeStatuses,
         department: fs.allDepts ? null : (fs.selectedDeptId ?? null),
         kind: fs.allDepts ? null : (fs.selectedDeptKind ?? null),
@@ -230,6 +229,7 @@ function Toasts({
 // LogisticsView
 // ─────────────────────────────────────────────────────────────────────────────
 interface LogisticsViewProps {
+    readOnly?: boolean;
     t: Theme;
     isDark: boolean;
     canSwitch: boolean;
@@ -238,7 +238,9 @@ interface LogisticsViewProps {
     sections?: DeptOption[];
 }
 
-export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments = [], sections = [] }: LogisticsViewProps) {
+export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments = [], sections = [], readOnly = false }: LogisticsViewProps) {
+    const roleKey = readOnly ? 'logistics-readonly-access' : 'logistics-access';
+    const role = ROLES.find(item => item.key === roleKey)!;
     const { user } = useRouteContext({ strict: false });
     const currentUser = user
         ? { id: user.username ?? '', name: user.name ?? user.username ?? '' }
@@ -292,7 +294,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
     const handleRequery = useCallback(async () => {
         setError(null);
 
-        const parsed = LogisticsQuerySchema.safeParse(buildQuery(filterState));
+        const parsed = LogisticsQuerySchema.safeParse(buildQuery(filterState, roleKey));
         if (!parsed.success) {
             setError(parsed.error?.errors?.map(e => e.message).join(' · ') ?? 'Validation error.');
             return;
@@ -315,11 +317,11 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
         } finally {
             setLoading(false);
         }
-    }, [filterState]);
+    }, [filterState, roleKey]);
 
     const handleLoadMore = useCallback(async () => {
         if (!nextCursor || loading || loadingMore || loadMoreInFlightRef.current) return false;
-        const parsed = LogisticsQuerySchema.safeParse(buildQuery(filterState));
+        const parsed = LogisticsQuerySchema.safeParse(buildQuery(filterState, roleKey));
         if (!parsed.success) return false;
         loadMoreInFlightRef.current = true;
         setLoadingMore(true);
@@ -340,7 +342,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
             loadMoreInFlightRef.current = false;
             setLoadingMore(false);
         }
-    }, [filterState, nextCursor, loading, loadingMore]);
+    }, [filterState, nextCursor, loading, loadingMore, roleKey]);
 
     // Handle row click — fetch line items then open the RS Process modal
     const handleRowClick = useCallback(async (row: LogisticsRow) => {
@@ -369,6 +371,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
 
     // Handle action buttons clicked inside the modal
     const handleModalAction = useCallback(async (action: string, row: RSProcessRow) => {
+        if (readOnly && action !== 'View Accounts') return;
         if (action === 'View Accounts') {
             setAccountsModalOpen(true);
             setAccounts([]);
@@ -477,7 +480,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
         }
 
         addToast('info', `"${action}" isn't wired up yet for this role.`);
-    }, [handleRequery, addToast]);
+    }, [handleRequery, addToast, readOnly]);
 
     const wiredFilterCfg = {
         ...FILTER_CFG,
@@ -499,7 +502,7 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
             />
 
             <RolePage
-                role={ROLE}
+                role={role}
                 t={t}
                 isDark={isDark}
                 canSwitch={canSwitch}
@@ -663,8 +666,8 @@ export function LogisticsView({ t, isDark, canSwitch, onSwitchRole, departments 
             {selectedRow && (
                 <RSProcessModal
                     row={selectedRow}
-                    roleKey="logistics-access"
-                    roleLabel="Logistics"
+                    roleKey={roleKey}
+                    roleLabel={readOnly ? role.label : "Logistics"}
                     t={t}
                     isDark={isDark}
                     isLoading={modalLoading}

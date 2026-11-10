@@ -47,6 +47,7 @@ function RoleView({
         case 'admin-access': return <AdminView      {...props} />;
         case 'controller-access': return <ControllerView {...props} />;
         case 'logistics-access': return <LogisticsView  {...props} />;
+        case 'logistics-readonly-access': return <LogisticsView {...props} readOnly />;
         case 'accounting-access': return <AccountingView {...props} />;
         case 'stockroom-access': return <StockroomView  {...props} />;
         case 'cashier-access': return <CashierView    {...props} />;
@@ -113,6 +114,7 @@ function RequisitionProcessInner({ t, isDark }: { t: Theme; isDark: boolean }) {
             )}
             {activeRoleKey && (
                 <RoleView
+                    key={activeRoleKey}
                     roleKey={activeRoleKey}
                     t={t}
                     isDark={isDark}

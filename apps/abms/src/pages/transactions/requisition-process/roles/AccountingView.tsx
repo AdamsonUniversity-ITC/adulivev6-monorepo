@@ -202,6 +202,12 @@ export function AccountingView({ t, isDark, canSwitch, onSwitchRole, departments
     }, []);
 
     const handleModalAction = useCallback(async (action: string, row: RSProcessRow) => {
+        if (action === 'Save Note') {
+            setSelectedRow(previous => previous ? { ...previous, note: row.note ?? '' } : previous);
+            setRows(previous => previous.map(item => item.id === row.id ? { ...item, note: row.note ?? '' } : item));
+            toast.success(`Note saved for RS ${row.requisition_no}.`);
+            return;
+        }
         if (action !== 'Return to Administration') {
             return;
         }
