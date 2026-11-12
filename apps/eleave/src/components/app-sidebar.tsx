@@ -1,26 +1,22 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  BarChart3,
   BookOpen,
   CalendarDays,
   ChevronLeft,
-  ChevronRight,
   ClipboardCheck,
   CreditCard,
-  FolderOpen,
+  FileClock,
+  FileText,
   ListOrdered,
+  Mail,
   Settings2,
   UserCheck,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
@@ -33,11 +29,9 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarSeparator,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useMyEmployeeHrProfile } from "@/hooks/use-employee-hr-profile";
@@ -52,24 +46,58 @@ import { resolveDisplayName, resolveEmployeeNo } from "@/lib/fetch-auth-user";
 import { resolveHrmdoPortalUrl } from "@/lib/resolve-adu-live-url";
 import { cn } from "@/lib/utils";
 
-const mainNavItems = [
-  { title: "Guidelines", url: "/guidelines", icon: BookOpen },
-  { title: "My Leave", url: "/my-leave", icon: CalendarDays },
-  { title: "For Approval", url: "/for-approval", icon: ClipboardCheck },
-  { title: "HR Approval", url: "/hr-approval", icon: UserCheck },
-] as const;
+type NavItem = {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+};
 
-const adminNavItems = [
-  { title: "Beginning Balances", url: "/beginning-balances", icon: Wallet },
-  { title: "Employee Leave Credits", url: "/employee-leave-credits", icon: CreditCard },
-  { title: "Leave Types", url: "/settings/leave-types", icon: ListOrdered },
-  { title: "FL Cutoff Settings", url: "/settings/fl-cutoff", icon: Settings2 },
-] as const;
+type NavGroup = {
+  label: string;
+  items: readonly NavItem[];
+};
 
-const reportNavItems = [
-  { title: "Filed Leave", url: "/reports/filed-leave", icon: FolderOpen },
-  { title: "Filed Leave After Cutoff", url: "/reports/filed-leave-after-cutoff", icon: FolderOpen },
-] as const;
+const navGroups: readonly NavGroup[] = [
+  {
+    label: "Leave",
+    items: [
+      { title: "Guidelines", url: "/guidelines", icon: BookOpen },
+      { title: "My Leave", url: "/my-leave", icon: CalendarDays },
+      { title: "For Approval", url: "/for-approval", icon: ClipboardCheck },
+      { title: "HR Approval", url: "/hr-approval", icon: UserCheck },
+    ],
+  },
+  {
+    label: "Credits",
+    items: [
+      { title: "Beginning Balances", url: "/beginning-balances", icon: Wallet },
+      { title: "Employee Leave Credits", url: "/employee-leave-credits", icon: CreditCard },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { title: "Leave Types", url: "/settings/leave-types", icon: ListOrdered },
+      { title: "FL Cutoff Settings", url: "/settings/fl-cutoff", icon: Settings2 },
+      { title: "Applicant Emails", url: "/settings/applicant-emails", icon: Mail },
+    ],
+  },
+  {
+    label: "Reports",
+    items: [
+      { title: "Filed Leave", url: "/reports/filed-leave", icon: FileText },
+      {
+        title: "Filed Leave After Cutoff",
+        url: "/reports/filed-leave-after-cutoff",
+        icon: FileClock,
+      },
+    ],
+  },
+];
+
+// The ring offset keeps focus visible on the active pill.
+const navButtonClassName =
+  "relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 data-[active=true]:hover:text-primary-foreground group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0";
 
 function formatPendingCountBadge(count: number): string {
   if (count > 99) {
@@ -80,26 +108,16 @@ function formatPendingCountBadge(count: number): string {
 }
 
 function isNavItemActive(pathname: string, url: string) {
-  if (
-    url === "/my-leave" ||
-    url === "/for-approval" ||
-    url === "/hr-approval" ||
-    url === "/beginning-balances" ||
-    url === "/employee-leave-credits" ||
-    url === "/settings/fl-cutoff" ||
-    url === "/settings/leave-types"
-  ) {
-    return pathname === url || pathname.startsWith(`${url}/`);
-  }
-  return pathname === url;
+  return pathname === url || pathname.startsWith(`${url}/`);
 }
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [reportsOpen, setReportsOpen] = useState(() =>
-    pathname.startsWith("/reports"),
-  );
-  const isReportsActive = pathname.startsWith("/reports");
+  const { setOpenMobile } = useSidebar();
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname, setOpenMobile]);
 
   const { data: authUser } = useAuthUser();
   const { data: hrProfile } = useMyEmployeeHrProfile();
@@ -112,10 +130,6 @@ export function AppSidebar() {
   const email = hrProfile?.email?.trim() || authUser?.email || "";
   const avatarUrl = getAvatarUrlFromEmpNo(empNo);
   const initials = getInitialsFromDisplayName(displayName, empNo, "EL");
-
-  const visibleMainNavItems = mainNavItems.filter((item) =>
-    canAccessEleaveRoute(item.url, { user: authUser, profile: hrProfile }),
-  );
 
   function canViewNavItem(url: string): boolean {
     return canAccessEleaveRoute(url, { user: authUser, profile: hrProfile });
@@ -133,20 +147,13 @@ export function AppSidebar() {
     "/hr-approval": hrApprovalPendingCount,
   };
 
-  const visibleAdminNavItems = adminNavItems.filter((item) =>
-    canViewNavItem(item.url),
-  );
-  const visibleReportNavItems = reportNavItems.filter((item) =>
-    canViewNavItem(item.url),
-  );
-  const canViewReports = visibleReportNavItems.length > 0;
+  const visibleNavGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canViewNavItem(item.url)),
+    }))
+    .filter((group) => group.items.length > 0);
   const hrmdoPortalUrl = resolveHrmdoPortalUrl();
-
-  useEffect(() => {
-    if (pathname.startsWith("/reports")) {
-      setReportsOpen(true);
-    }
-  }, [pathname]);
 
   return (
     <Sidebar
@@ -184,112 +191,71 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="gap-0">
-        <SidebarGroup className="px-2 pt-1 group-data-[collapsible=icon]:px-1">
-          <SidebarGroupLabel className="px-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/40 uppercase group-data-[collapsible=icon]:hidden">
-            Menu
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {visibleMainNavItems.map((item) => {
-                const pendingCount = pendingCountByUrl[item.url] ?? 0
+        {visibleNavGroups.map((group, groupIndex) => (
+          <Fragment key={group.label}>
+            {groupIndex > 0 ? (
+              <SidebarSeparator className="mx-4 my-1 bg-sidebar-foreground/15 data-[orientation=horizontal]:w-auto group-data-[collapsible=icon]:mx-2" />
+            ) : null}
+            <SidebarGroup className="px-2 py-1 group-data-[collapsible=icon]:px-1">
+              <SidebarGroupLabel className="px-3 text-[11px] font-semibold text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+                {group.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-1">
+                  {group.items.map((item) => {
+                    const pendingCount = pendingCountByUrl[item.url] ?? 0
 
-                return (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isNavItemActive(pathname, item.url)}
-                    tooltip={item.title}
-                    className="relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
-                  >
-                    <Link to={item.url}>
-                      <item.icon className="mr-1 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
-                      <span className="group-data-[collapsible=icon]:hidden">
-                        {item.title}
-                      </span>
-                    </Link>
-                  </SidebarMenuButton>
-                  {pendingCount > 0 ? (
-                    <SidebarMenuBadge
-                      className={cn(
-                        "bg-amber-100 text-amber-800 peer-hover/menu-button:text-amber-900 peer-data-[active=true]/menu-button:text-amber-900",
-                        "!top-1/2 h-5 min-w-5 -translate-y-1/2 px-1.5 mr-2 leading-none",
-                        "group-data-[collapsible=icon]:flex",
-                      )}
-                    >
-                      <span className="flex h-full w-full items-center justify-center leading-none">
-                        {formatPendingCountBadge(pendingCount)}
-                      </span>
-                    </SidebarMenuBadge>
-                  ) : null}
-                </SidebarMenuItem>
-                )
-              })}
-
-              {visibleAdminNavItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isNavItemActive(pathname, item.url)}
-                    tooltip={item.title}
-                    className="relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md data-[active=true]:hover:bg-primary/90 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
-                  >
-                    <Link to={item.url}>
-                      <item.icon className="mr-2 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]:opacity-100" />
-                      <span className="group-data-[collapsible=icon]:hidden">
-                        {item.title}
-                      </span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-
-              {canViewReports ? (
-              <Collapsible
-                asChild
-                open={reportsOpen}
-                onOpenChange={setReportsOpen}
-                className="group/collapsible"
-              >
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip="Reports"
-                      isActive={isReportsActive}
-                      className="relative h-10 rounded-full px-3 font-medium transition-all duration-300 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:px-0"
-                    >
-                      <BarChart3 className="mr-2 size-5 opacity-70 transition-opacity group-data-[collapsible=icon]:mr-0 group-[[data-active=true]]/collapsible:opacity-100" />
-                      <span className="group-data-[collapsible=icon]:hidden">
-                        Reports
-                      </span>
-                      <ChevronRight className="ml-auto size-4 opacity-50 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub className="mx-2 mt-1 rounded-xl border-none bg-sidebar-accent/5 p-1 shadow-inner group-data-[collapsible=icon]:hidden">
-                      {visibleReportNavItems.map((item) => (
-                        <SidebarMenuSubItem key={item.url}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={pathname === item.url}
-                            className="h-8 rounded-full px-2 text-sm font-medium transition-all hover:bg-sidebar-accent/60 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                    return (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isNavItemActive(pathname, item.url)}
+                          tooltip={
+                            pendingCount > 0
+                              ? `${item.title} (${formatPendingCountBadge(pendingCount)} pending)`
+                              : item.title
+                          }
+                          className={navButtonClassName}
+                        >
+                          <Link to={item.url}>
+                            <span className="relative mr-1 inline-flex shrink-0 group-data-[collapsible=icon]:mr-0">
+                              <item.icon className="size-5 opacity-70 transition-opacity group-[[data-active=true]]:opacity-100" />
+                              {pendingCount > 0 ? (
+                                <span className="absolute -top-0.5 -right-0.5 hidden size-2 rounded-full bg-amber-500 ring-2 ring-white group-data-[collapsible=icon]:block dark:ring-slate-900" />
+                              ) : null}
+                            </span>
+                            <span className="group-data-[collapsible=icon]:sr-only">
+                              {item.title}
+                              {pendingCount > 0 ? (
+                                <span className="sr-only">
+                                  {` (${formatPendingCountBadge(pendingCount)} pending)`}
+                                </span>
+                              ) : null}
+                            </span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {pendingCount > 0 ? (
+                          <SidebarMenuBadge
+                            aria-hidden="true"
+                            className={cn(
+                              "bg-amber-100 text-amber-800 peer-hover/menu-button:text-amber-900 peer-data-[active=true]/menu-button:text-amber-900",
+                              "!top-1/2 h-5 min-w-5 -translate-y-1/2 px-1.5 mr-2 leading-none",
+                            )}
                           >
-                            <Link to={item.url}>
-                              <item.icon className="mr-2 size-4 opacity-70" />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-              ) : null}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                            <span className="flex h-full w-full items-center justify-center leading-none">
+                              {formatPendingCountBadge(pendingCount)}
+                            </span>
+                          </SidebarMenuBadge>
+                        ) : null}
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </Fragment>
+        ))}
       </SidebarContent>
-
       <SidebarFooter className="p-4 pb-6 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pb-4">
         <SidebarMenu>
           {hrmdoPortalUrl ? (
