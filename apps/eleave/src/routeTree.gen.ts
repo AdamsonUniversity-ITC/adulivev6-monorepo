@@ -26,6 +26,7 @@ import { Route as EmployeeLeaveCreditsIndexRouteImport } from './routes/employee
 import { Route as BeginningBalancesIndexRouteImport } from './routes/beginning-balances/index'
 import { Route as SettingsLeaveTypesRouteImport } from './routes/settings/leave-types'
 import { Route as SettingsFlCutoffRouteImport } from './routes/settings/fl-cutoff'
+import { Route as SettingsApplicantEmailsRouteImport } from './routes/settings/applicant-emails'
 import { Route as ReportsFiledLeaveAfterCutoffRouteImport } from './routes/reports/filed-leave-after-cutoff'
 import { Route as ReportsFiledLeaveRouteImport } from './routes/reports/filed-leave'
 import { Route as HrApprovalViewHrApprovalSheetRouteImport } from './routes/hr-approval/view-hr-approval-sheet'
@@ -120,6 +121,11 @@ const SettingsFlCutoffRoute = SettingsFlCutoffRouteImport.update({
   path: '/settings/fl-cutoff',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsApplicantEmailsRoute = SettingsApplicantEmailsRouteImport.update({
+  id: '/settings/applicant-emails',
+  path: '/settings/applicant-emails',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsFiledLeaveAfterCutoffRoute =
   ReportsFiledLeaveAfterCutoffRouteImport.update({
     id: '/reports/filed-leave-after-cutoff',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/reports/filed-leave-after-cutoff': typeof ReportsFiledLeaveAfterCutoffRoute
+  '/settings/applicant-emails': typeof SettingsApplicantEmailsRoute
   '/settings/fl-cutoff': typeof SettingsFlCutoffRoute
   '/settings/leave-types': typeof SettingsLeaveTypesRoute
   '/beginning-balances/': typeof BeginningBalancesIndexRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/reports/filed-leave-after-cutoff': typeof ReportsFiledLeaveAfterCutoffRoute
+  '/settings/applicant-emails': typeof SettingsApplicantEmailsRoute
   '/settings/fl-cutoff': typeof SettingsFlCutoffRoute
   '/settings/leave-types': typeof SettingsLeaveTypesRoute
   '/beginning-balances': typeof BeginningBalancesIndexRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/hr-approval/view-hr-approval-sheet': typeof HrApprovalViewHrApprovalSheetRoute
   '/reports/filed-leave': typeof ReportsFiledLeaveRoute
   '/reports/filed-leave-after-cutoff': typeof ReportsFiledLeaveAfterCutoffRoute
+  '/settings/applicant-emails': typeof SettingsApplicantEmailsRoute
   '/settings/fl-cutoff': typeof SettingsFlCutoffRoute
   '/settings/leave-types': typeof SettingsLeaveTypesRoute
   '/beginning-balances/': typeof BeginningBalancesIndexRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/reports/filed-leave-after-cutoff'
+    | '/settings/applicant-emails'
     | '/settings/fl-cutoff'
     | '/settings/leave-types'
     | '/beginning-balances/'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/reports/filed-leave-after-cutoff'
+    | '/settings/applicant-emails'
     | '/settings/fl-cutoff'
     | '/settings/leave-types'
     | '/beginning-balances'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/hr-approval/view-hr-approval-sheet'
     | '/reports/filed-leave'
     | '/reports/filed-leave-after-cutoff'
+    | '/settings/applicant-emails'
     | '/settings/fl-cutoff'
     | '/settings/leave-types'
     | '/beginning-balances/'
@@ -312,6 +324,7 @@ export interface RootRouteChildren {
   TestRoute: typeof TestRoute
   ReportsFiledLeaveRoute: typeof ReportsFiledLeaveRoute
   ReportsFiledLeaveAfterCutoffRoute: typeof ReportsFiledLeaveAfterCutoffRoute
+  SettingsApplicantEmailsRoute: typeof SettingsApplicantEmailsRoute
   SettingsFlCutoffRoute: typeof SettingsFlCutoffRoute
   SettingsLeaveTypesRoute: typeof SettingsLeaveTypesRoute
 }
@@ -435,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/fl-cutoff'
       fullPath: '/settings/fl-cutoff'
       preLoaderRoute: typeof SettingsFlCutoffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/applicant-emails': {
+      id: '/settings/applicant-emails'
+      path: '/settings/applicant-emails'
+      fullPath: '/settings/applicant-emails'
+      preLoaderRoute: typeof SettingsApplicantEmailsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports/filed-leave-after-cutoff': {
@@ -567,6 +587,7 @@ const rootRouteChildren: RootRouteChildren = {
   TestRoute: TestRoute,
   ReportsFiledLeaveRoute: ReportsFiledLeaveRoute,
   ReportsFiledLeaveAfterCutoffRoute: ReportsFiledLeaveAfterCutoffRoute,
+  SettingsApplicantEmailsRoute: SettingsApplicantEmailsRoute,
   SettingsFlCutoffRoute: SettingsFlCutoffRoute,
   SettingsLeaveTypesRoute: SettingsLeaveTypesRoute,
 }

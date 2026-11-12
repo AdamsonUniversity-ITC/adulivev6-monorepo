@@ -26,6 +26,11 @@ Durable documentation for the AdULive E-Leave system (frontend + HRMDO API modul
 - [User guide](./user-guide.md)
 - [Approver guide](./approver-guide.md)
 - [HR & admin guide](./hr-admin-guide.md)
+- [Mail queue recovery](./mail-queue-recovery.md) — manual Artisan runbook for stranded notification emails (`--execute` sends mail immediately)
+- [Phase 0 production-readiness checklist](./production-readiness-phase-0.md) — read-only production inspection, approval gates, deployment and rollback sequence
+- [Phase 0 inspection evidence template](./phase-0-inspection-evidence-template.md) — blank form for the authorized administrator's read-only inspection
+- [G0 findings report](./g0-findings-report.md) — findings for G1 review (blank until the authorized inspection)
+- [Production migration sequence](./production-migration-sequence.md) — the four recovery migrations, data-preserving rollback, deferred migrations
 
 ## Related code
 

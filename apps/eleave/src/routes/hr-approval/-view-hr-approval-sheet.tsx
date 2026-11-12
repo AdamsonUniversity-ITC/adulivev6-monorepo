@@ -80,6 +80,8 @@ import {
   SheetTitle,
 } from "../../components/ui/sheet.js"
 
+import { ApplicantFollowUpSection } from "./-applicant-follow-up-section"
+
 const leaveTypeSelectTriggerClassName = "h-9 w-40 max-w-full"
 const approvalStatusSelectTriggerClassName = "h-9 w-44 max-w-full"
 const dayPortionSelectTriggerClassName = "h-9 w-28 max-w-full"
@@ -1125,6 +1127,13 @@ export const ViewHrApprovalSheet = ({
                   </>
                 )}
               </div>
+
+              {!readOnly ? (
+                <ApplicantFollowUpSection
+                  leaveApplicationId={activeRequest.record.id}
+                  applicantName={activeRequest.employee}
+                />
+              ) : null}
             </div>
 
             <OtherInformationSection
