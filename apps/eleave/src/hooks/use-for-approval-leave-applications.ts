@@ -1,11 +1,14 @@
-import { useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
-import { fetchForApprovalLeaveApplications } from "@/lib/leave-applications-api"
+import {
+  fetchForApprovalLeaveApplications,
+  type ForApprovalListParams,
+} from "@/lib/leave-applications-api"
 
-export function useForApprovalLeaveApplications(perPage = 100) {
+export function useForApprovalLeaveApplications(params: ForApprovalListParams) {
   return useQuery({
-    queryKey: ["for-approval-leave-applications", perPage],
-    queryFn: () =>
-      fetchForApprovalLeaveApplications({ per_page: perPage, page: 1 }),
+    queryKey: ["for-approval-leave-applications", params],
+    queryFn: () => fetchForApprovalLeaveApplications(params),
+    placeholderData: keepPreviousData,
   })
 }
