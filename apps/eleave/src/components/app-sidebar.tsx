@@ -79,7 +79,7 @@ const navGroups: readonly NavGroup[] = [
     items: [
       { title: "Leave Types", url: "/settings/leave-types", icon: ListOrdered },
       { title: "FL Cutoff Settings", url: "/settings/fl-cutoff", icon: Settings2 },
-      { title: "Applicant Emails", url: "/settings/applicant-emails", icon: Mail },
+      { title: "Follow-up Remarks", url: "/settings/follow-up-remarks", icon: Mail },
     ],
   },
   {

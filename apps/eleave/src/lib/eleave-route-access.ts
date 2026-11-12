@@ -14,7 +14,7 @@ export const ELEAVE_ROUTE_ACCESS = {
   "/employee-leave-credits": "admin",
   "/settings/fl-cutoff": "admin",
   "/settings/leave-types": "admin",
-  "/settings/applicant-emails": "hrApproval",
+  "/settings/follow-up-remarks": "hrApproval",
   "/reports/filed-leave": "admin",
   "/reports/filed-leave-after-cutoff": "admin",
   "/hr-approval": "hrApproval",
