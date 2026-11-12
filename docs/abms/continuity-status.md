@@ -1,8 +1,10 @@
 # ABMS Continuity Status
 
-Last verified: 2026-08-11
+Last verified: 2026-11-12
 
 ## Current Scope
+
+finance_service authentication now matches registrar_service dual-guard ingress (`auth:api,adu-one`), stock Sanctum CSRF, and the registrar-style `AuthService` client for auth_service ABMS permission calls. See `system-context.md` Authentication and Session Handling.
 
 The principal ABMS workflow is implemented across Budget Proposal Entry, Budget Request Entry, the role-based requisition process, and Liquidation Submission. Liquidation Submission enforces authenticated typed-unit confidentiality for non-Administration/non-Budget users and locks a sole assigned unit in its filter. Reporting covers budget performance, requested items, adjustments, liquidation, proposal reports, and unserved requisitions.
 

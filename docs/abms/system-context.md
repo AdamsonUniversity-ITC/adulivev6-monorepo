@@ -195,7 +195,7 @@ The Budget Request Entry sidebar item and frontend route accept any of `allow-bu
 | `/api/abms/unserved-rs` | `UnservedRsController` | `UnservedRsReportService` |
 | `/api/abms/purchasing-accomplishment-report` | `PurchasingAccomplishmentReportController` | `PurchasingAccomplishmentReportService` |
 
-Each report prefix exposes `GET /` for filter data and `GET /preview` for calculated report output, protected by `auth:api`.
+Each report prefix exposes `GET /` for filter data and `GET /preview` for calculated report output, protected by `auth:api,adu-one`.
 
 Purchasing Accomplishment Report additionally requires general `logistics-access` on both endpoints and at the frontend route/sidebar. Its loader returns the application current date, used as the default for both From and To for daily tracking. Its read-only preview selects distinct live numbered requisitions by inclusive application-timezone header-audit arrivals into Logistics at For Pricing or For Purchase, then pairs later recognized exits to Budget Office or Stockroom. Current Cancelled/Disapproved status overrides processed classification; the remaining qualifying records are Pending, so Processed, Pending, and Cancelled/Disapproved reconcile to Total RS. Unreadable evidence produces structured warnings rather than inferred transitions. The shared report portal supplies the single Excel action beside Print.
 
@@ -244,6 +244,17 @@ The index loaders for Budget Performance Per Department, Budget Performance Per 
 - Organizational identity is `(unit_type, unit_id)`, never numeric ID alone.
 - In valid financial ownership, exactly one of `department_id` and `section_id` is populated.
 - Use IDs in selectors and request payloads; names/codes are display labels.
+
+## Authentication and Session Handling
+
+finance_service aligns with registrar_service for inbound auth and outbound auth_service calls:
+
+- Protected API/ABMS/broadcasting routes use `auth:api,adu-one`.
+- `api` is Laravel Passport with cookie name `X-SBD-TOKEN`, `withoutCookieEncryption()`, and the same token lifetimes as registrar (15d access / 30d refresh / 6mo personal).
+- `adu-one` accepts AdU ONE OIDC bearer tokens via `AduOneUserResolver` (`ADU_ONE_OIDC_ISSUER`, `ADU_ONE_OIDC_CLIENT_ID`, optional secret). Username resolution is a unique case-insensitive match on `adulive.users.username`; zero or multiple matches fail closed.
+- Sanctum `statefulApi()` enables first-party cookie SPA auth. CSRF uses the stock Laravel `ValidateCsrfToken` middleware (no finance-specific CSRF ignore / XSRF suppression).
+- Intentional exception vs registrar: finance has no web `login` route, so API guests receive JSON `401` rather than a `route('login')` redirect.
+- Outbound auth_service calls go through singleton `App\Services\AuthService` (`adu.services.auth` / `AUTH_SERVICE_HOST`, `AUTH_SERVICE_ID`, `AUTH_SERVICE_SECRET`). ABMS permission lookups keep the `AuthPermissionClient::find()` façade over `/api/abms-permissions/{id}`; Budget Settings uses `/api/abms-permissions/service`.
 
 ## Authorization and Data Quality
 
