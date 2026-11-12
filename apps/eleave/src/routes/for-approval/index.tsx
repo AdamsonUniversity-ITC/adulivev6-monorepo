@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as React from "react"
 
+import { useDataTable } from "@/components/shared/datatable"
+import DataTableSearchBar from "@/components/shared/datatable/DataTableSearchBar"
+import DataTableServerPagination from "@/components/shared/datatable/DataTableServerPagination"
+import type { RecordPagination } from "@/components/shared/datatable/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,10 +16,8 @@ import {
   getEmployeeAvatarUrl,
   getEmployeeInitials,
 } from "@/lib/employee-teacher-display"
-import {
-  collectLeavePeriodYears,
-  matchesLeaveYearFilter,
-} from "@/lib/leave-date-year"
+import type { PaginatedLeaveApplicationsResponse } from "@/lib/leave-applications-api"
+import { collectLeavePeriodYears } from "@/lib/leave-date-year"
 import {
   mapLeaveApplicationsToForApprovalRows,
   type ForApprovalRow,
@@ -29,31 +31,79 @@ export const Route = createFileRoute("/for-approval/")({
   component: ForApprovalPage,
 })
 
-const matchesStatusFilter = (
-  row: ForApprovalRow,
-  selectedStatus: string,
-  viewerEmpNo: string | null,
-): boolean => {
-  if (selectedStatus === "all") {
-    return true
+function mapToRecordPagination(
+  response: PaginatedLeaveApplicationsResponse | undefined,
+  rows: ForApprovalRow[],
+): RecordPagination {
+  const meta = response?.meta
+  const currentPage = meta?.current_page ?? 1
+  const perPage = meta?.per_page ?? rows.length
+  const total = meta?.total ?? rows.length
+  const from = total === 0 ? 0 : (currentPage - 1) * perPage + 1
+  const to = total === 0 ? 0 : from + rows.length - 1
+
+  return {
+    current_page: currentPage,
+    data: rows,
+    first_page_url: "",
+    from,
+    last_page: meta?.last_page ?? 1,
+    last_page_url: "",
+    links: [],
+    next_page_url: null,
+    path: "",
+    per_page: perPage,
+    prev_page_url: null,
+    to,
+    total,
   }
-
-  const viewerStatus =
-    resolveViewerApprovalStatus(row.record, viewerEmpNo) ?? "pending"
-
-  return viewerStatus === selectedStatus
 }
 
 function ForApprovalPage() {
   const { data: authUser } = useAuthUser()
   const viewerEmpNo = resolveEmployeeNo(authUser ?? {})
   const { data: allLeaveTypes = [] } = useLeaveTypeNames()
+  const tanstackHook = useDataTable()
+
+  const [selectedYear, setSelectedYear] = React.useState<string>(
+    String(new Date().getFullYear()),
+  )
+  const [selectedStatus, setSelectedStatus] = React.useState<string>("pending")
+  const [isViewSheetOpen, setIsViewSheetOpen] = React.useState(false)
+  const [activeRequest, setActiveRequest] = React.useState<ForApprovalRow | null>(
+    null,
+  )
+
+  React.useEffect(() => {
+    tanstackHook.setPage(1)
+  }, [tanstackHook.keyword, selectedYear, selectedStatus, tanstackHook.setPage])
+
+  const listParams = React.useMemo(
+    () => ({
+      page: tanstackHook.page,
+      per_page: tanstackHook.rows,
+      search: tanstackHook.keyword.trim() || undefined,
+      year: selectedYear === "all" ? undefined : selectedYear,
+      status: selectedStatus === "all" ? undefined : selectedStatus,
+    }),
+    [
+      tanstackHook.page,
+      tanstackHook.rows,
+      tanstackHook.keyword,
+      selectedYear,
+      selectedStatus,
+    ],
+  )
+
   const {
     data: response,
-    isLoading,
+    isPending,
+    isFetching,
     isError,
     refetch,
-  } = useForApprovalLeaveApplications()
+  } = useForApprovalLeaveApplications(listParams)
+
+  const isLoading = isPending || isFetching
 
   const leaveTypeNames = React.useMemo(
     () => new Map(allLeaveTypes.map((type) => [type.id, type.leave_name])),
@@ -65,44 +115,35 @@ function ForApprovalPage() {
     [leaveTypeNames, response?.data],
   )
 
-  const years = React.useMemo(
-    () =>
-      collectLeavePeriodYears(
-        rows.map((row) => ({
-          date_from: row.record.date_from,
-          date_to: row.record.date_to,
-        })),
-      ),
-    [rows],
+  const tableData = React.useMemo(
+    () => mapToRecordPagination(response, rows),
+    [response, rows],
   )
 
-  const [selectedYear, setSelectedYear] = React.useState<string>(
-    String(new Date().getFullYear()),
-  )
-  const [selectedStatus, setSelectedStatus] = React.useState<string>("pending")
-  const [isViewSheetOpen, setIsViewSheetOpen] = React.useState(false)
-  const [activeRequest, setActiveRequest] = React.useState<ForApprovalRow | null>(
-    null,
-  )
+  const years = React.useMemo(() => {
+    const fromData = collectLeavePeriodYears(
+      rows.map((row) => ({
+        date_from: row.record.date_from,
+        date_to: row.record.date_to,
+      })),
+    )
+    const selected = Number(selectedYear)
+
+    if (Number.isFinite(selected) && selectedYear !== "all" && !fromData.includes(selected)) {
+      return [selected, ...fromData].sort((a, b) => b - a)
+    }
+
+    if (fromData.length > 0) {
+      return fromData
+    }
+
+    return [new Date().getFullYear()]
+  }, [rows, selectedYear])
 
   const openDetails = (row: ForApprovalRow) => {
     setActiveRequest(row)
     setIsViewSheetOpen(true)
   }
-
-  const filteredRequests = React.useMemo(
-    () =>
-      rows.filter((row) => {
-        const yearMatches = matchesLeaveYearFilter(
-          row.record.date_from,
-          row.record.date_to,
-          selectedYear,
-        )
-
-        return yearMatches && matchesStatusFilter(row, selectedStatus, viewerEmpNo)
-      }),
-    [rows, selectedStatus, selectedYear, viewerEmpNo],
-  )
 
   return (
     <>
@@ -177,6 +218,15 @@ function ForApprovalPage() {
         </div>
 
         <div className="space-y-3 p-3 sm:p-4">
+          <DataTableSearchBar
+            tanstack={{ hook: tanstackHook }}
+            mode="enter"
+            data={{
+              placeholder: "Search by employee name or number (press Enter)...",
+            }}
+            styles={{ input: "h-9 pl-8 text-sm" }}
+          />
+
           {isLoading ? (
             Array.from({ length: 4 }).map((_, index) => (
               <Skeleton key={index} className="h-24 w-full rounded-xl" />
@@ -191,7 +241,7 @@ function ForApprovalPage() {
               </Button>
             </div>
           ) : (
-            filteredRequests.map((row) => {
+            rows.map((row) => {
               const avatarUrl = getEmployeeAvatarUrl(row.record.employee_teacher)
 
               return (
@@ -246,10 +296,19 @@ function ForApprovalPage() {
             })
           )}
 
-          {!isLoading && !isError && filteredRequests.length === 0 ? (
+          {!isLoading && !isError && rows.length === 0 ? (
             <div className="text-muted-foreground rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm">
               No leave requests match the selected filters.
             </div>
+          ) : null}
+
+          {!isLoading && !isError ? (
+            <>
+              <p className="text-muted-foreground text-sm">
+                {tableData.total} request{tableData.total === 1 ? "" : "s"} found
+              </p>
+              <DataTableServerPagination tanstack={{ hook: tanstackHook }} data={tableData} />
+            </>
           ) : null}
         </div>
       </section>
