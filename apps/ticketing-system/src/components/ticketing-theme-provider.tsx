@@ -9,7 +9,7 @@ export function TicketingThemeProvider({ children }: Props) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
+      defaultTheme="light"
       enableSystem
       storageKey="aduts-theme"
       disableTransitionOnChange

@@ -23,7 +23,7 @@ export function ThemeGallery({ value, disabled, onSelect }: ThemeGalleryProps) {
     setMounted(true);
   }, []);
 
-  const mode = mounted && resolvedTheme === "light" ? "light" : "dark";
+  const mode = mounted && resolvedTheme === "dark" ? "dark" : "light";
   const saved = BOARD_THEME_PRESETS.find((preset) => preset.id === value);
   const inGallery = APPEARANCE_THEMES.some((theme) => theme.id === value);
 

@@ -177,6 +177,7 @@ export const fixtureTicketList: TicketListResponse = {
     closed: 0,
     unread_replies: 0,
     transferred: 0,
+    unassigned: 0,
   },
 };
 

@@ -61,6 +61,7 @@ export type TicketsMetrics = {
   closed: number;
   unread_replies: number;
   transferred: number;
+  unassigned: number;
   awaiting_ack: number;
 };
 
@@ -90,14 +91,16 @@ export function TicketsDatatable({
   const assignedTo = search.assigned_to ? String(search.assigned_to) : "";
   const categoryId = search.category_id ? String(search.category_id) : "";
   const transferred = search.transferred === true;
+  const unassigned = search.unassigned === true;
   const awaitingAck = search.awaiting_ack === true;
-  // No tab lit at all means nothing matches. Transferred is not a status, so if
-  // that tab is still lit it stands on its own across every status instead.
-  // Acknowledge omits status entirely so the default open/in_progress filter
-  // does not AND away resolved tickets waiting for the requester.
+  // No tab lit at all means nothing matches. Transferred / Unassigned are not
+  // statuses, so if either tab is still lit it stands on its own across every
+  // status instead. Acknowledge omits status entirely so the default
+  // open/in_progress filter does not AND away resolved tickets waiting for
+  // the requester.
   const statusParam = awaitingAck
     ? undefined
-    : status === EMPTY_STATUS_FILTER && transferred
+    : status === EMPTY_STATUS_FILTER && (transferred || unassigned)
       ? undefined
       : status;
   const pagination = React.useMemo<PaginationState>(
@@ -149,6 +152,7 @@ export function TicketsDatatable({
     assignedTo,
     categoryId,
     transferred,
+    unassigned,
     awaitingAck,
     pagination.pageIndex,
     pagination.pageSize,
@@ -165,6 +169,7 @@ export function TicketsDatatable({
       categoryId,
       keyword,
       transferred,
+      unassigned,
       awaitingAck,
       pagination.pageIndex,
       pagination.pageSize,
@@ -178,6 +183,7 @@ export function TicketsDatatable({
         category_id: categoryId || undefined,
         keyword: keyword.trim() || undefined,
         transferred: transferred && !awaitingAck ? 1 : undefined,
+        unassigned: unassigned && !awaitingAck ? 1 : undefined,
         awaiting_ack: awaitingAck ? 1 : undefined,
         page: pagination.pageIndex + 1,
         rows: pagination.pageSize,
@@ -198,6 +204,7 @@ export function TicketsDatatable({
       closed: raw.closed,
       unread_replies: raw.unread_replies,
       transferred: raw.transferred,
+      unassigned: raw.unassigned ?? 0,
       awaiting_ack: raw.awaiting_ack ?? 0,
     });
   }, [onMetricsChange, ticketsQuery.data?.metrics]);

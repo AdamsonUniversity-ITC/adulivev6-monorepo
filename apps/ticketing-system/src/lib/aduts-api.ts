@@ -237,6 +237,7 @@ export type TicketListResponse = {
     closed: number;
     unread_replies: number;
     transferred: number;
+    unassigned?: number;
     unread_internal?: number;
     unread_mentions?: number;
     overdue?: number;
@@ -962,6 +963,10 @@ export async function updateBoardSection(
     payload,
   );
   return data.data;
+}
+
+export async function deleteBoardSection(sectionId: number) {
+  await hrmdoSvc.delete(`v1/aduts/board/sections/${sectionId}`);
 }
 
 export type SectionMemberSyncSummary = {
