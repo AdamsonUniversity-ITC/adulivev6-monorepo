@@ -63,7 +63,7 @@ export const AuthLayout = () => {
     <div className="bg-background/90 supports-backdrop-filter:bg-background/75 border-border sticky top-0 z-40 flex w-screen items-center justify-between border-b px-3 py-2 shadow-sm backdrop-blur">
       <div className="flex items-center gap-3 ps-2 sm:ps-4">
         <span className="ring-primary/10 relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2">
-          <a href="">
+          <a href="https://live.adamson.edu.ph">
             <img
               className="aspect-square h-full w-full"
               alt="Adamson Logo"
