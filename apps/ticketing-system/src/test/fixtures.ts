@@ -157,6 +157,7 @@ export const fixtureTicket: Ticket = {
     can_internal: true,
     can_submit_for_approval: true,
     can_return_from_approval: false,
+    can_return_to_head: false,
     can_share: true,
   },
 };

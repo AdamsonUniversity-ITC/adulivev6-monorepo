@@ -1,7 +1,16 @@
 import { useNavigate } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/components/dropdown-menu";
 
 import { TicketsDatatable, type TicketsMetrics } from "./-tickets-datatable";
 import {
@@ -13,24 +22,25 @@ import {
 } from "./-tickets-search";
 
 /**
- * Every tab but Transferred, Unassigned, and Acknowledge toggles a value in
- * the `status` filter. Those three are not statuses, so each toggles its own
- * param. Acknowledge is mutually exclusive with status tabs: the API ANDs
- * awaiting_ack with status, and the default open/in_progress filter would
- * always return zero.
+ * Primary chips stay visible. Everything else lives under More so the row
+ * stays short as filter kinds grow. Acknowledge remains exclusive with the
+ * special-flag tabs; status items still multi-toggle the status CSV.
  */
-const TABS = [
+const PRIMARY_TABS = [
   { id: "open", label: "Open", kind: "status" },
+  { id: "unassigned", label: "Unassigned", kind: "unassigned" },
   { id: "in_progress", label: "In Progress", kind: "status" },
   { id: "pending_approval", label: "For Approval", kind: "status" },
+] as const;
+
+const MORE_TABS = [
   { id: "transferred", label: "Transferred", kind: "transferred" },
-  { id: "unassigned", label: "Unassigned", kind: "unassigned" },
   { id: "resolved", label: "Resolved", kind: "status" },
   { id: "closed", label: "Closed", kind: "status" },
   { id: "awaiting_ack", label: "Acknowledge", kind: "awaiting_ack" },
 ] as const;
 
-type Tab = (typeof TABS)[number];
+type Tab = (typeof PRIMARY_TABS)[number] | (typeof MORE_TABS)[number];
 
 function tabCount(tab: Tab["id"], metrics: TicketsMetrics) {
   return metrics[tab] ?? 0;
@@ -153,6 +163,8 @@ export function TicketsListView({
     toggleStatus(tab.id as TicketStatusId);
   }
 
+  const moreActiveCount = MORE_TABS.filter((tab) => isTabActive(tab)).length;
+
   function onSearchChange(patch: Partial<TicketsSearch>) {
     void navigate({
       search: (prev) => {
@@ -169,10 +181,14 @@ export function TicketsListView({
     });
   }
 
+  function tabLabel(tab: Tab) {
+    return `${tab.label}${metrics ? ` (${tabCount(tab.id, metrics)})` : ""}`;
+  }
+
   return (
     <>
-      <div className="flex flex-wrap gap-2" data-tour="status-tabs">
-        {TABS.map((tab) => (
+      <div className="flex flex-wrap items-center gap-2" data-tour="status-tabs">
+        {PRIMARY_TABS.map((tab) => (
           <Button
             key={tab.id}
             type="button"
@@ -181,10 +197,38 @@ export function TicketsListView({
             aria-pressed={isTabActive(tab)}
             onClick={() => onTabClick(tab)}
           >
-            {tab.label}
-            {metrics ? ` (${tabCount(tab.id, metrics)})` : ""}
+            {tabLabel(tab)}
           </Button>
         ))}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant={moreActiveCount > 0 ? "default" : "outline"}
+              aria-label="More filters"
+            >
+              More
+              {moreActiveCount > 0 ? ` · ${moreActiveCount}` : ""}
+              <ChevronDown className="size-3.5 opacity-70" aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>More filters</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {MORE_TABS.map((tab) => (
+              <DropdownMenuCheckboxItem
+                key={tab.id}
+                checked={isTabActive(tab)}
+                onCheckedChange={() => onTabClick(tab)}
+                onSelect={(event) => event.preventDefault()}
+              >
+                {tabLabel(tab)}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <TicketsDatatable

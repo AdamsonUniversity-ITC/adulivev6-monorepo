@@ -14,6 +14,7 @@ import {
   type PresencePeer,
   type PersonProfile,
   returnTicketFromApproval,
+  returnTicketToHead,
   revokeTicketShare,
   sendTicketMessage,
   shareTicket,
@@ -190,7 +191,12 @@ function TicketDetailPage() {
   const [csatComment, setCsatComment] = useState("");
   const [presencePeers, setPresencePeers] = useState<PresencePeer[]>([]);
   const [confirmStatusAction, setConfirmStatusAction] = useState<
-    null | "cancel" | "resolve" | "return_approval" | "sign_off"
+    | null
+    | "cancel"
+    | "resolve"
+    | "return_approval"
+    | "return_to_head"
+    | "sign_off"
   >(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareSectionId, setShareSectionId] = useState("");
@@ -302,6 +308,18 @@ function TicketDetailPage() {
       toast.success("Assignee updated");
     },
     onError: () => toast.error("Could not assign"),
+  });
+
+  const returnToHeadMutation = useMutation({
+    mutationFn: () => returnTicketToHead(ticketNumber),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Ticket returned to section head");
+    },
+    onError: (error) =>
+      toast.error(
+        getAxiosMessage(error, "Could not return this ticket to the section head."),
+      ),
   });
 
   const transferMutation = useMutation({
@@ -577,6 +595,8 @@ function TicketDetailPage() {
       statusMutation.mutate({ status: "resolved" });
     } else if (confirmStatusAction === "return_approval") {
       returnApprovalMutation.mutate();
+    } else if (confirmStatusAction === "return_to_head") {
+      returnToHeadMutation.mutate();
     } else if (confirmStatusAction === "sign_off" && mySignOff) {
       signOffMutation.mutate(mySignOff.id);
     }
@@ -595,6 +615,10 @@ function TicketDetailPage() {
   const returnTargetLabel =
     ticket.approval?.origin_section_name?.trim() || "the requesting section";
   const canShare = !!ticket.access?.can_share && shareableSections.length > 0;
+  const canReturnToHead = !!ticket.access?.can_return_to_head;
+  const returnToHeadLabel = ticket.access?.can_assign
+    ? "Recall Ticket"
+    : "Return Ticket";
   const remainingSignOffs = shares.filter((s) => !s.resolved_at).length;
 
   type TicketAction = {
@@ -675,6 +699,13 @@ function TicketDetailPage() {
       disabled: false,
       onSelect: () => setShareDialogOpen(true),
     },
+    canReturnToHead && {
+      key: "return_to_head",
+      label: returnToHeadLabel,
+      variant: "outline",
+      disabled: returnToHeadMutation.isPending,
+      onSelect: () => setConfirmStatusAction("return_to_head"),
+    },
     ticket.access?.can_cancel && {
       key: "cancel",
       label: "Cancel",
@@ -686,11 +717,45 @@ function TicketDetailPage() {
 
   const ticketActions = candidateActions.filter((a): a is TicketAction => !!a);
 
-  // Cancel stays a standalone button; the rest collapse into the split button.
+  // Cancel stays standalone. Return/Recall stays in the ellipsis so it never
+  // crowds the primary slot.
   const cancelAction = ticketActions.find((a) => a.key === "cancel") ?? null;
-  const [primaryAction, ...menuActions] = ticketActions.filter(
-    (a) => a.key !== "cancel",
+  const returnToHeadAction =
+    ticketActions.find((a) => a.key === "return_to_head") ?? null;
+  const [primaryAction, ...restMenuActions] = ticketActions.filter(
+    (a) => a.key !== "cancel" && a.key !== "return_to_head",
   );
+  const menuActions = [
+    ...restMenuActions,
+    ...(returnToHeadAction ? [returnToHeadAction] : []),
+  ];
+
+  function renderMenuItems(actions: TicketAction[]) {
+    return actions.map((action) =>
+      action.submenu ? (
+        <DropdownMenuSub key={action.key}>
+          <DropdownMenuSubTrigger disabled={action.disabled}>
+            {action.label}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="max-w-72">
+            {action.submenu.map((entry) => (
+              <DropdownMenuItem key={entry.id} onSelect={entry.onSelect}>
+                <span className="truncate">{entry.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      ) : (
+        <DropdownMenuItem
+          key={action.key}
+          disabled={action.disabled}
+          onSelect={action.onSelect}
+        >
+          <span className="truncate">{action.label}</span>
+        </DropdownMenuItem>
+      ),
+    );
+  }
 
   // Both the staff and shared-participant bars render this same row.
   const actionButtons = (
@@ -745,38 +810,28 @@ function TicketDetailPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="max-w-72">
-                  {menuActions.map((action) =>
-                    action.submenu ? (
-                      <DropdownMenuSub key={action.key}>
-                        <DropdownMenuSubTrigger disabled={action.disabled}>
-                          {action.label}
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="max-w-72">
-                          {action.submenu.map((entry) => (
-                            <DropdownMenuItem
-                              key={entry.id}
-                              onSelect={entry.onSelect}
-                            >
-                              <span className="truncate">{entry.label}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    ) : (
-                      <DropdownMenuItem
-                        key={action.key}
-                        disabled={action.disabled}
-                        onSelect={action.onSelect}
-                      >
-                        <span className="truncate">{action.label}</span>
-                      </DropdownMenuItem>
-                    ),
-                  )}
+                  {renderMenuItems(menuActions)}
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : null}
         </ButtonGroup>
+      ) : menuActions.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="More actions"
+            >
+              <EllipsisVertical />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="max-w-72">
+            {renderMenuItems(menuActions)}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
 
       {cancelAction ? (
@@ -1405,20 +1460,28 @@ function TicketDetailPage() {
                 ? "Cancel this ticket?"
                 : confirmStatusAction === "return_approval"
                   ? `Send back to ${returnTargetLabel}?`
-                  : confirmStatusAction === "sign_off"
-                    ? "Mark your part resolved?"
-                    : "Mark as resolved?"}
+                  : confirmStatusAction === "return_to_head"
+                    ? ticket.access?.can_assign
+                      ? "Recall this ticket?"
+                      : "Return this ticket?"
+                    : confirmStatusAction === "sign_off"
+                      ? "Mark your part resolved?"
+                      : "Mark as resolved?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmStatusAction === "cancel"
                 ? "This closes the ticket without resolving it. You can reopen it later if needed."
                 : confirmStatusAction === "return_approval"
                   ? "This returns the ticket to its original section and section head, with the status it had before review."
-                  : confirmStatusAction === "sign_off"
-                    ? remainingSignOffs > 1
-                      ? `This records your sign-off. ${remainingSignOffs - 1} other ${remainingSignOffs === 2 ? "participant" : "participants"} still have to mark their part resolved.`
-                      : "You are the last participant, so this resolves the ticket."
-                    : "This marks the ticket as resolved and waits for the requestor to acknowledge."}
+                  : confirmStatusAction === "return_to_head"
+                    ? ticket.access?.can_assign
+                      ? "This recalls the ticket to the section head so it sits in the unassigned queue again."
+                      : "This returns the ticket to the section head so someone else can pick it up."
+                    : confirmStatusAction === "sign_off"
+                      ? remainingSignOffs > 1
+                        ? `This records your sign-off. ${remainingSignOffs - 1} other ${remainingSignOffs === 2 ? "participant" : "participants"} still have to mark their part resolved.`
+                        : "You are the last participant, so this resolves the ticket."
+                      : "This marks the ticket as resolved and waits for the requestor to acknowledge."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {confirmStatusAction === "sign_off" ? (
@@ -1497,9 +1560,13 @@ function TicketDetailPage() {
                 ? "Cancel ticket"
                 : confirmStatusAction === "return_approval"
                   ? "Send back"
-                  : confirmStatusAction === "sign_off"
-                    ? "Sign off"
-                    : "Mark resolved"}
+                  : confirmStatusAction === "return_to_head"
+                    ? ticket.access?.can_assign
+                      ? "Recall Ticket"
+                      : "Return Ticket"
+                    : confirmStatusAction === "sign_off"
+                      ? "Sign off"
+                      : "Mark resolved"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
