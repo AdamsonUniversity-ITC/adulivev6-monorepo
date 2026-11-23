@@ -201,6 +201,7 @@ export type Ticket = {
     can_internal?: boolean;
     can_submit_for_approval?: boolean;
     can_return_from_approval?: boolean;
+    can_return_to_head?: boolean;
     can_share?: boolean;
   };
   mentionable_staff?: Array<{ user_id: number; name: string | null }>;
@@ -410,6 +411,13 @@ export async function assignTicket(ticketNumber: string, assignedTo: number) {
   const { data } = await hrmdoSvc.post<{ data: Ticket }>(
     `v1/aduts/tickets/${ticketNumber}/assign`,
     { assigned_to: assignedTo },
+  );
+  return data.data;
+}
+
+export async function returnTicketToHead(ticketNumber: string) {
+  const { data } = await hrmdoSvc.post<{ data: Ticket }>(
+    `v1/aduts/tickets/${ticketNumber}/return-to-head`,
   );
   return data.data;
 }
