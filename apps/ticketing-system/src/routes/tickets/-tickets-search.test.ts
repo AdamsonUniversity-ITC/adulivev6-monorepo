@@ -96,3 +96,17 @@ describe("awaiting_ack filter", () => {
     expect(parseTicketsSearch({ awaiting_ack: false }).awaiting_ack).toBeUndefined();
   });
 });
+
+describe("unassigned filter", () => {
+  it("parses truthy unassigned flags", () => {
+    expect(parseTicketsSearch({ unassigned: "1" }).unassigned).toBe(true);
+    expect(parseTicketsSearch({ unassigned: true }).unassigned).toBe(true);
+    expect(parseTicketsSearch({ unassigned: "true" }).unassigned).toBe(true);
+  });
+
+  it("leaves unassigned unset when absent or falsy", () => {
+    expect(parseTicketsSearch({}).unassigned).toBeUndefined();
+    expect(parseTicketsSearch({ unassigned: "0" }).unassigned).toBeUndefined();
+    expect(parseTicketsSearch({ unassigned: false }).unassigned).toBeUndefined();
+  });
+});

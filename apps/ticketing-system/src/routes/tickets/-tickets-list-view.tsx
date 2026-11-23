@@ -13,9 +13,9 @@ import {
 } from "./-tickets-search";
 
 /**
- * Every tab but Transferred and Acknowledge toggles a value in the `status`
- * filter. Transferred and Acknowledge are not statuses, so each toggles its
- * own param. Acknowledge is mutually exclusive with status tabs: the API ANDs
+ * Every tab but Transferred, Unassigned, and Acknowledge toggles a value in
+ * the `status` filter. Those three are not statuses, so each toggles its own
+ * param. Acknowledge is mutually exclusive with status tabs: the API ANDs
  * awaiting_ack with status, and the default open/in_progress filter would
  * always return zero.
  */
@@ -24,6 +24,7 @@ const TABS = [
   { id: "in_progress", label: "In Progress", kind: "status" },
   { id: "pending_approval", label: "For Approval", kind: "status" },
   { id: "transferred", label: "Transferred", kind: "transferred" },
+  { id: "unassigned", label: "Unassigned", kind: "unassigned" },
   { id: "resolved", label: "Resolved", kind: "status" },
   { id: "closed", label: "Closed", kind: "status" },
   { id: "awaiting_ack", label: "Acknowledge", kind: "awaiting_ack" },
@@ -92,6 +93,18 @@ export function TicketsListView({
     });
   }
 
+  function toggleUnassigned() {
+    const next = search.unassigned === true ? undefined : true;
+    void navigate({
+      search: (prev) => {
+        const nextSearch = { ...prev, unassigned: next, page: 1 };
+        if (!next) delete nextSearch.unassigned;
+        delete nextSearch.awaiting_ack;
+        return nextSearch;
+      },
+    });
+  }
+
   function toggleAwaitingAck() {
     const next = search.awaiting_ack === true ? undefined : true;
     void navigate({
@@ -101,6 +114,7 @@ export function TicketsListView({
           delete nextSearch.awaiting_ack;
         } else {
           delete nextSearch.transferred;
+          delete nextSearch.unassigned;
         }
         return nextSearch;
       },
@@ -114,9 +128,13 @@ export function TicketsListView({
     if (search.awaiting_ack === true) {
       return false;
     }
-    return tab.kind === "transferred"
-      ? search.transferred === true
-      : selectedStatuses.includes(tab.id as TicketStatusId);
+    if (tab.kind === "transferred") {
+      return search.transferred === true;
+    }
+    if (tab.kind === "unassigned") {
+      return search.unassigned === true;
+    }
+    return selectedStatuses.includes(tab.id as TicketStatusId);
   }
 
   function onTabClick(tab: Tab) {
@@ -126,6 +144,10 @@ export function TicketsListView({
     }
     if (tab.kind === "transferred") {
       toggleTransferred();
+      return;
+    }
+    if (tab.kind === "unassigned") {
+      toggleUnassigned();
       return;
     }
     toggleStatus(tab.id as TicketStatusId);

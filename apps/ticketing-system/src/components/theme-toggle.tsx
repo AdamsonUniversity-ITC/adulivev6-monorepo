@@ -25,8 +25,8 @@ export function ThemeToggle() {
   const active =
     mounted && (theme === "light" || theme === "dark" || theme === "system")
       ? theme
-      : "dark";
-  const resolvedDark = !mounted || resolvedTheme !== "light";
+      : "light";
+  const resolvedDark = mounted && resolvedTheme === "dark";
   const TriggerIcon = resolvedDark ? Moon : Sun;
 
   return (

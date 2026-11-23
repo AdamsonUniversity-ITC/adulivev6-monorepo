@@ -12,6 +12,7 @@ import { requireSectionHeadOrBoardAdmin } from "@/lib/admin-guards";
 import {
   addBoardMember,
   createBoardSection,
+  deleteBoardSection,
   fetchBoardSections,
   fetchCurrentBoard,
   removeBoardMember,
@@ -206,6 +207,12 @@ function ManageStaffPage() {
     mutationFn: (memberId: number) => removeBoardMember(memberId),
     onSuccess: invalidate,
     onError: () => toast.error("Failed to remove member."),
+  });
+
+  const deleteSectionMutation = useMutation({
+    mutationFn: (sectionId: number) => deleteBoardSection(sectionId),
+    onSuccess: invalidate,
+    onError: () => toast.error("Failed to delete section."),
   });
 
   function onCreateSection(event: FormEvent) {
@@ -490,6 +497,24 @@ function ManageStaffPage() {
                           />
                           Approver section
                         </label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive h-8 px-2"
+                          disabled={deleteSectionMutation.isPending}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Delete section “${section.section_name}”?`,
+                              )
+                            ) {
+                              deleteSectionMutation.mutate(section.id);
+                            }
+                          }}
+                        >
+                          Delete
+                        </Button>
                       </>
                     ) : section.hr_section_id != null ? (
                       <Button
