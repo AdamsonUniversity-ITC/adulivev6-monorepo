@@ -67,15 +67,25 @@ function PlatformHome() {
             <a href={board.url} className="group block h-full outline-none">
               <Card className="hover:border-primary/50 h-full shadow-sm transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring">
                 <CardHeader className="p-5">
-                  <CardTitle className="text-lg">{board.board_name}</CardTitle>
-                  <CardDescription className="mt-1.5 truncate font-mono text-xs">
-                    {board.url}
-                  </CardDescription>
-                  {board.description ? (
-                    <CardDescription className="mt-1.5 line-clamp-2 text-sm">
-                      {board.description}
-                    </CardDescription>
-                  ) : null}
+                  <div className="flex items-start gap-3">
+                    <div className="bg-muted size-12 shrink-0 overflow-hidden rounded-md border">
+                      <img
+                        src={board.logo_url ?? "/assets/images/adulogo.png"}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-lg">
+                        {board.board_name}
+                      </CardTitle>
+                      {board.description ? (
+                        <CardDescription className="mt-1.5 line-clamp-2 text-sm">
+                          {board.description}
+                        </CardDescription>
+                      ) : null}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-5 pt-0">
                   <span className="text-primary text-sm font-medium">
