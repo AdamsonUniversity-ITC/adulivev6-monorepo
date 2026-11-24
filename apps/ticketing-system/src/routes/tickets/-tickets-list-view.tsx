@@ -17,6 +17,7 @@ import {
   parseStatusList,
   serializeStatusList,
   writeStoredStatusFilter,
+  writeStoredUnassigned,
   type TicketStatusId,
   type TicketsSearch,
 } from "./-tickets-search";
@@ -105,6 +106,7 @@ export function TicketsListView({
 
   function toggleUnassigned() {
     const next = search.unassigned === true ? undefined : true;
+    writeStoredUnassigned(next === true);
     void navigate({
       search: (prev) => {
         const nextSearch = { ...prev, unassigned: next, page: 1 };
@@ -125,6 +127,7 @@ export function TicketsListView({
         } else {
           delete nextSearch.transferred;
           delete nextSearch.unassigned;
+          writeStoredUnassigned(false);
         }
         return nextSearch;
       },

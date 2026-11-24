@@ -19,6 +19,7 @@ export const DEFAULT_STATUS_FILTER = "open,in_progress";
 /** Every status tab deselected. Distinct from an absent param, which defaults. */
 export const EMPTY_STATUS_FILTER = "none";
 export const STATUS_STORAGE_KEY = "aduts-tickets-status-filter";
+export const UNASSIGNED_STORAGE_KEY = "aduts-tickets-unassigned-filter";
 
 const ALLOWED_STATUSES = [
   "open",
@@ -105,6 +106,28 @@ export function writeStoredStatusFilter(status: string): void {
   }
 }
 
+export function readStoredUnassigned(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(UNASSIGNED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function writeStoredUnassigned(enabled: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      window.localStorage.setItem(UNASSIGNED_STORAGE_KEY, "1");
+    } else {
+      window.localStorage.removeItem(UNASSIGNED_STORAGE_KEY);
+    }
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export function parseTicketsSearch(
   search: Record<string, unknown>,
 ): TicketsSearch {
@@ -122,6 +145,18 @@ export function parseTicketsSearch(
       ? search.priority
       : undefined;
 
+  const unassignedFromQuery = parseFlag(search.unassigned);
+  const unassigned =
+    unassignedFromQuery === true
+      ? true
+      : search.unassigned === false ||
+          search.unassigned === "0" ||
+          search.unassigned === "false"
+        ? undefined
+        : readStoredUnassigned()
+          ? true
+          : undefined;
+
   return {
     status,
     keyword,
@@ -130,7 +165,7 @@ export function parseTicketsSearch(
     assigned_to: parsePositiveInt(search.assigned_to),
     category_id: parsePositiveInt(search.category_id),
     transferred: parseFlag(search.transferred),
-    unassigned: parseFlag(search.unassigned),
+    unassigned,
     awaiting_ack: parseFlag(search.awaiting_ack),
     page: parsePositiveInt(search.page) ?? 1,
     rows: parsePositiveInt(search.rows) ?? 15,
