@@ -97,17 +97,6 @@ function PlatformHome() {
           </li>
         ))}
       </ul>
-
-      <div className="pt-2">
-        <Button
-          variant="outline"
-          asChild
-          className="shadow-xs"
-          data-tour="my-tickets"
-        >
-          <Link to="/tickets">View my tickets across all boards</Link>
-        </Button>
-      </div>
     </PageShell>
   );
 }

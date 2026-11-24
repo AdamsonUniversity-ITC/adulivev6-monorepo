@@ -40,12 +40,6 @@ const ALL_STEPS: Step[] = [
       "Each card is an office. Open the office you need help from.",
   },
   {
-    target: '[data-tour="my-tickets"]',
-    title: "Your tickets",
-    content:
-      "See requests you filed across every office you can open.",
-  },
-  {
     target: '[data-tour="new-ticket"]',
     title: "File a request",
     content:

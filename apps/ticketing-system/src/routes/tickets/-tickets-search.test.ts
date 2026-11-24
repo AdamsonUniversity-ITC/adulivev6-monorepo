@@ -8,6 +8,7 @@ import {
   parseTicketsSearch,
   serializeStatusList,
   writeStoredStatusFilter,
+  writeStoredUnassigned,
 } from "./-tickets-search";
 
 // parseTicketsSearch reads localStorage, and jsdom keeps it for the whole file.
@@ -106,6 +107,19 @@ describe("unassigned filter", () => {
 
   it("leaves unassigned unset when absent or falsy", () => {
     expect(parseTicketsSearch({}).unassigned).toBeUndefined();
+    expect(parseTicketsSearch({ unassigned: "0" }).unassigned).toBeUndefined();
+    expect(parseTicketsSearch({ unassigned: false }).unassigned).toBeUndefined();
+  });
+
+  it("restores unassigned from localStorage when the param is absent", () => {
+    writeStoredUnassigned(true);
+
+    expect(parseTicketsSearch({}).unassigned).toBe(true);
+  });
+
+  it("lets an explicit off param win over stored unassigned", () => {
+    writeStoredUnassigned(true);
+
     expect(parseTicketsSearch({ unassigned: "0" }).unassigned).toBeUndefined();
     expect(parseTicketsSearch({ unassigned: false }).unassigned).toBeUndefined();
   });
