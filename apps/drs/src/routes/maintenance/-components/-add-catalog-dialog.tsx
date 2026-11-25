@@ -182,6 +182,11 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
           once_per_student: values.once_per_student,
           check_assessment: values.check_assessment,
           check_first_transaction: values.check_first_transaction,
+          supporting_document_requirements:
+            values.supporting_document_requirements.map((item, index) => ({
+              ...item,
+              sort_order: index,
+            })) as SupportingRequirementFormValue[],
           included_items: mapIncludedItemsPayload(values.included_items),
         },
         selectedGroup,
@@ -273,17 +278,16 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
             label="Restrict if a past graduation request exists"
           />
 
-          {kind === 'document' ? (
-            <SupportingRequirementsFields
-              form={form}
-              disabled={mutation.isPending}
-            />
-          ) : (
+          {kind === 'package' ? (
             <PackageIncludedItemsFields
               form={form}
               disabled={mutation.isPending}
             />
-          )}
+          ) : null}
+          <SupportingRequirementsFields
+            form={form}
+            disabled={mutation.isPending}
+          />
 
           <DialogFooter>
             <Button

@@ -7,12 +7,14 @@ import { useRef, useState } from 'react';
 
 import {
   type DownloadableForm,
+  type DownloadableFormOwnerKind,
   deleteDownloadableForm,
   uploadDownloadableForm,
 } from '../-lib/api/downloadableForms.ts';
 
 type Props = {
-  documentId: string | number;
+  ownerId: string | number;
+  ownerKind?: DownloadableFormOwnerKind;
   forms: DownloadableForm[];
   disabled?: boolean;
 };
@@ -25,7 +27,8 @@ function formatBytes(size: number): string {
 }
 
 export function DownloadableFormsFields({
-  documentId,
+  ownerId,
+  ownerKind = 'document',
   forms,
   disabled = false,
 }: Props) {
@@ -34,11 +37,14 @@ export function DownloadableFormsFields({
   const [pendingName, setPendingName] = useState<string | null>(null);
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['document_detail', documentId] });
+    queryClient.invalidateQueries({
+      queryKey: [`${ownerKind}_detail`, ownerId],
+    });
   };
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => uploadDownloadableForm(documentId, file),
+    mutationFn: (file: File) =>
+      uploadDownloadableForm(ownerId, file, ownerKind),
     onSuccess: () => {
       toast.success('Form uploaded.');
       setPendingName(null);
@@ -52,7 +58,7 @@ export function DownloadableFormsFields({
 
   const deleteMutation = useMutation({
     mutationFn: (mediaId: string | number) =>
-      deleteDownloadableForm(documentId, mediaId),
+      deleteDownloadableForm(ownerId, mediaId, ownerKind),
     onSuccess: () => {
       toast.success('Form removed.');
       invalidate();
@@ -66,7 +72,8 @@ export function DownloadableFormsFields({
         <div>
           <p className="text-sm font-medium">Downloadable forms</p>
           <p className="text-muted-foreground text-xs">
-            Blank forms students can download when requesting this document.
+            Blank forms students can download when requesting this{' '}
+            {ownerKind}.
           </p>
         </div>
         <div>

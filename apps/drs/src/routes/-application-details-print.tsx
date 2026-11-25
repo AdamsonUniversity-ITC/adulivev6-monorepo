@@ -1,7 +1,12 @@
 import { formatStatusLabel } from '@/components/drs-ui.tsx';
 
 import {
-  applicationCountsAsPaid,
+  formatPrintDateTime,
+  formatPrintMoney,
+  formatPrintReceiveMode,
+  valueOrDash,
+} from './-lib/print-format.ts';
+import {
   displayApplicationRef,
   type DRSApplicationDetail,
 } from './-lib/types/applications.ts';
@@ -20,45 +25,6 @@ type DetailLine = {
   isCancelled: boolean;
   optionAnswers: Array<{ label: string; value: string }>;
 };
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatDateTime(value: Date | string | null | undefined): string {
-  if (!value) return '-';
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleString();
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '-';
-
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-function formatReceiveMode(mode: DRSApplicationDetail['receive_mode']): string {
-  const labels: Record<DRSApplicationDetail['receive_mode'], string> = {
-    delivery: 'Delivery',
-    pickup: 'Pickup',
-  };
-
-  return labels[mode] ?? formatStatusLabel(mode);
-}
 
 function detailLinesFor(app: DRSApplicationDetail): DetailLine[] {
   return (
@@ -110,12 +76,6 @@ function detailTotalsFor(app: DRSApplicationDetail, lines: DetailLine[]) {
   };
 }
 
-function valueOrDash(value: string | number | null | undefined): string {
-  if (value == null || value === '') return '-';
-
-  return String(value);
-}
-
 function DetailField({
   label,
   value,
@@ -140,10 +100,7 @@ export function ApplicationDetailsPrint({
   const totals = detailTotalsFor(app, lines);
   const paymentSubmission = app.payment_submission;
   const paymentVerification = app.payment_verification;
-  const flagLabels =
-    app.flag_details?.map((flag) => flag.label).filter(Boolean) ??
-    app.flags ??
-    [];
+  const clearances = app.clearances ?? [];
 
   return (
     <section
@@ -162,44 +119,6 @@ export function ApplicationDetailsPrint({
             <strong>{requestReference}</strong>
           </div>
         </header>
-
-        <dl className="drs-receipt-grid">
-          <DetailField
-            label="Printed"
-            value={formatDateTime(printedAt ?? new Date())}
-          />
-          <DetailField
-            label="Submitted"
-            value={formatDateTime(app.created_at)}
-          />
-          <DetailField
-            label="Current stage"
-            value={app.current_stage?.name ?? formatStatusLabel(app.status)}
-          />
-          <DetailField
-            label="Payment status"
-            value={applicationCountsAsPaid(app) ? 'Paid' : 'Unpaid'}
-          />
-          <DetailField
-            label="Receive mode"
-            value={formatReceiveMode(app.receive_mode)}
-          />
-          <DetailField
-            label="Secure email (PDF)"
-            value={app.secure_email_requested ? 'Yes' : 'No'}
-          />
-          <DetailField
-            label="Cancelled"
-            value={app.is_cancelled ? 'Yes' : 'No'}
-          />
-          <DetailField
-            label="Foreigner student"
-            value={app.is_foreigner_student ? 'Yes' : 'No'}
-          />
-          {flagLabels.length > 0 ? (
-            <DetailField label="Flags" value={flagLabels.join(', ')} />
-          ) : null}
-        </dl>
 
         <section className="drs-receipt-section">
           <h2>Student Details</h2>
@@ -222,35 +141,35 @@ export function ApplicationDetailsPrint({
                 value={app.delivery_address}
               />
             ) : null}
-            {app.delivery_tracking_number ? (
-              <DetailField
-                label="Delivery tracking no."
-                value={app.delivery_tracking_number}
-              />
-            ) : null}
-            {app.pickup_date ? (
-              <DetailField
-                label="Pickup date"
-                value={formatDate(app.pickup_date)}
-              />
-            ) : null}
-            {app.release_date ? (
-              <DetailField
-                label="Release date"
-                value={formatDate(app.release_date)}
-              />
-            ) : null}
-            {app.date_released ? (
-              <DetailField
-                label="Date released"
-                value={formatDate(app.date_released)}
-              />
-            ) : null}
           </dl>
         </section>
 
         <section className="drs-receipt-section">
-          <h2>Requested Documents</h2>
+          <h2>Clearance Details</h2>
+          {clearances.length > 0 ? (
+            <table className="drs-receipt-table">
+              <thead>
+                <tr>
+                  <th scope="col">Clearance office</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clearances.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.clearance_name}</td>
+                    <td>{formatStatusLabel(row.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="drs-receipt-note">No clearance offices recorded.</p>
+          )}
+        </section>
+
+        <section className="drs-receipt-section">
+          <h2>Document Details</h2>
           <table className="drs-receipt-table">
             <thead>
               <tr>
@@ -281,10 +200,12 @@ export function ApplicationDetailsPrint({
                     <td>
                       {line.unitPrice == null
                         ? '-'
-                        : formatMoney(line.unitPrice)}
+                        : formatPrintMoney(line.unitPrice)}
                     </td>
                     <td>
-                      {line.amount == null ? '-' : formatMoney(line.amount)}
+                      {line.amount == null
+                        ? '-'
+                        : formatPrintMoney(line.amount)}
                     </td>
                   </tr>
                 ))
@@ -298,7 +219,7 @@ export function ApplicationDetailsPrint({
                   <td>{fee.label}</td>
                   <td>1</td>
                   <td>-</td>
-                  <td>{formatMoney(fee.amount)}</td>
+                  <td>{formatPrintMoney(fee.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -307,22 +228,25 @@ export function ApplicationDetailsPrint({
                 <th scope="row" colSpan={3}>
                   Line subtotal
                 </th>
-                <td>{formatMoney(totals.lineSubtotal)}</td>
+                <td>{formatPrintMoney(totals.lineSubtotal)}</td>
               </tr>
               <tr>
                 <th scope="row" colSpan={3}>
                   Other fees
                 </th>
-                <td>{formatMoney(totals.otherFeesTotal)}</td>
+                <td>{formatPrintMoney(totals.otherFeesTotal)}</td>
               </tr>
               <tr>
                 <th scope="row" colSpan={3}>
                   Total amount
                 </th>
-                <td>{formatMoney(totals.total)}</td>
+                <td>{formatPrintMoney(totals.total)}</td>
               </tr>
             </tfoot>
           </table>
+          <dl className="drs-receipt-grid">
+            <DetailField label="Purpose of request" value={app.purpose} />
+          </dl>
           {!totals.hasAmount ? (
             <p className="drs-receipt-note">
               No assessed payment amount has been recorded for this request.
@@ -331,66 +255,38 @@ export function ApplicationDetailsPrint({
         </section>
 
         <section className="drs-receipt-section">
-          <h2>Payment References</h2>
+          <h2>Timestamp Details</h2>
           <dl className="drs-receipt-grid">
             <DetailField
-              label="Student payment reference"
-              value={paymentSubmission?.reference_number}
+              label="Date printed"
+              value={formatPrintDateTime(printedAt ?? new Date())}
             />
             <DetailField
-              label="Payment submitted"
-              value={formatDateTime(paymentSubmission?.submitted_at)}
+              label="Date submitted"
+              value={formatPrintDateTime(app.created_at)}
+            />
+            <DetailField
+              label="Current stage"
+              value={app.current_stage?.name ?? formatStatusLabel(app.status)}
+            />
+            <DetailField
+              label="Receive mode"
+              value={formatPrintReceiveMode(app.receive_mode)}
+            />
+            <DetailField
+              label="Date paid"
+              value={formatPrintDateTime(paymentSubmission?.submitted_at)}
+            />
+            <DetailField
+              label="Date payment verified"
+              value={formatPrintDateTime(paymentVerification?.verified_at)}
             />
             <DetailField
               label="Mode of payment"
               value={app.payment_method?.name}
             />
-            <DetailField
-              label="Payment notes"
-              value={app.payment_method?.description}
-            />
-            <DetailField
-              label="Registrar reference / OR no."
-              value={paymentVerification?.reference_number}
-            />
-            <DetailField
-              label="Verified"
-              value={formatDateTime(paymentVerification?.verified_at)}
-            />
-            <DetailField
-              label="Receipt files"
-              value={
-                paymentSubmission?.receipts?.length
-                  ? paymentSubmission.receipts
-                      .map((file) => file.file_name || file.name)
-                      .join(', ')
-                  : null
-              }
-            />
           </dl>
-          {paymentSubmission?.remarks ? (
-            <p className="drs-receipt-note">
-              Student remarks: {paymentSubmission.remarks}
-            </p>
-          ) : null}
-          {paymentVerification?.remarks ? (
-            <p className="drs-receipt-note">
-              Registrar remarks: {paymentVerification.remarks}
-            </p>
-          ) : null}
         </section>
-
-        {app.purpose || app.remarks ? (
-          <section className="drs-receipt-section">
-            <h2>Request Notes</h2>
-            {app.purpose ? (
-              <p className="drs-receipt-note">Purpose: {app.purpose}</p>
-            ) : null}
-            {app.remarks ? (
-              <p className="drs-receipt-note">Remarks: {app.remarks}</p>
-            ) : null}
-          </section>
-        ) : null}
 
         <footer className="drs-receipt-footer">
           <p>

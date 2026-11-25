@@ -215,22 +215,21 @@ const detailToForm = (
       (detail as { check_first_transaction?: boolean }).check_first_transaction,
     ),
     rules,
-    supporting_document_requirements:
+    supporting_document_requirements: (
       kind === 'document'
-        ? (
-            (detail as DocumentDetail).supporting_document_requirements ?? []
-          ).map((requirement, index) => ({
-            id: requirement.id,
-            name: requirement.name,
-            instructions: requirement.instructions ?? '',
-            is_required: Boolean(requirement.is_required),
-            is_active: requirement.is_active !== false,
-            sort_order: requirement.sort_order ?? index,
-            allowed_mime_types: requirement.allowed_mime_types ?? [],
-            max_file_size_kb: requirement.max_file_size_kb ?? null,
-            max_files: requirement.max_files ?? 1,
-          }))
-        : [],
+        ? ((detail as DocumentDetail).supporting_document_requirements ?? [])
+        : ((detail as PackageDetail).supporting_document_requirements ?? [])
+    ).map((requirement, index) => ({
+      id: requirement.id,
+      name: requirement.name,
+      instructions: requirement.instructions ?? '',
+      is_required: Boolean(requirement.is_required),
+      is_active: requirement.is_active !== false,
+      sort_order: requirement.sort_order ?? index,
+      allowed_mime_types: requirement.allowed_mime_types ?? [],
+      max_file_size_kb: requirement.max_file_size_kb ?? null,
+      max_files: requirement.max_files ?? 1,
+    })),
     options:
       kind === 'document'
         ? ((detail as DocumentDetail).options ?? []).map((option, index) => ({
@@ -382,6 +381,11 @@ export const CatalogDetail = ({
         check_first_transaction: values.check_first_transaction,
         group_id: groupId,
         package_rules: values.rules,
+        supporting_document_requirements:
+          values.supporting_document_requirements.map((item, index) => ({
+            ...item,
+            sort_order: index,
+          })) as SupportingRequirementFormValue[],
         included_items: mapIncludedItemsPayload(values.included_items),
       });
     },
@@ -596,9 +600,10 @@ export const CatalogDetail = ({
               />
               <Separator />
               <DownloadableFormsFields
-                documentId={itemId}
+                ownerId={itemId}
+                ownerKind="document"
                 forms={
-                  detailQuery.data && kind === 'document'
+                  detailQuery.data
                     ? ((detailQuery.data as DocumentDetail)
                         .downloadable_forms ?? [])
                     : []
@@ -617,6 +622,23 @@ export const CatalogDetail = ({
               <Separator />
               <PackageIncludedItemsFields
                 form={form}
+                disabled={mutation.isPending}
+              />
+              <Separator />
+              <SupportingRequirementsFields
+                form={form}
+                disabled={mutation.isPending}
+              />
+              <Separator />
+              <DownloadableFormsFields
+                ownerId={itemId}
+                ownerKind="package"
+                forms={
+                  detailQuery.data
+                    ? ((detailQuery.data as PackageDetail)
+                        .downloadable_forms ?? [])
+                    : []
+                }
                 disabled={mutation.isPending}
               />
             </>

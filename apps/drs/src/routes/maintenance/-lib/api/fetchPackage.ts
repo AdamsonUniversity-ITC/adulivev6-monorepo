@@ -1,5 +1,8 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
+import type { DownloadableForm } from './downloadableForms.ts';
+import type { SupportingDocumentRequirement } from './fetchDocument.ts';
+
 export type PackageRule = {
   rule: {
     rule_name: string;
@@ -19,6 +22,8 @@ export type PackageDetail = {
   check_assessment?: boolean;
   check_first_transaction?: boolean;
   rules?: PackageRule[];
+  supporting_document_requirements?: SupportingDocumentRequirement[];
+  downloadable_forms?: DownloadableForm[];
   included_items?: Array<{
     id: number | string;
     document_id?: number | null;
@@ -34,7 +39,11 @@ export const fetchPackage = async (
 ): Promise<PackageDetail> => {
   const { data } = await registrarSvc.get<PackageDetail>(
     `v1/drs/packages/${packageId}`,
-    { params: { with: 'rules.rule,includedItems' } },
+    {
+      params: {
+        with: 'rules.rule,supportingDocumentRequirements,media,includedItems',
+      },
+    },
   );
   return data;
 };

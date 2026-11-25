@@ -15,6 +15,17 @@ export type EditPackagePayload = {
     enrolled?: boolean;
     unenrolled?: boolean;
   };
+  supporting_document_requirements?: Array<{
+    id?: number | string | null;
+    name: string;
+    instructions?: string | null;
+    is_required: boolean;
+    is_active?: boolean;
+    sort_order?: number | null;
+    allowed_mime_types?: string[] | null;
+    max_file_size_kb?: number | null;
+    max_files?: number | null;
+  }>;
   included_items?: Array<{
     id?: number | string | null;
     document_id?: number | null;

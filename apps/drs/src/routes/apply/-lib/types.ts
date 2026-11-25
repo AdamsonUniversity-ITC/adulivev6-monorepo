@@ -80,6 +80,8 @@ export type CatalogPackage = {
   already_requested?: boolean;
   has_unpaid_request?: boolean;
   rules?: DocumentRuleRow[] | null;
+  supporting_document_requirements?: SupportingDocumentRequirement[] | null;
+  downloadable_forms?: CatalogDownloadableForm[] | null;
   included_items?: Array<{ id: number; label: string }>;
 };
 

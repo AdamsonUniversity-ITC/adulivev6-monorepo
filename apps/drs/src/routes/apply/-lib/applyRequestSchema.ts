@@ -10,7 +10,7 @@ export const applyRequestFormSchema = z
     paymentMethodId: z.string().trim().min(1, 'Select a mode of payment'),
     secureEmail: z.boolean(),
     deliveryAddress: z.string().optional(),
-    purpose: z.string().max(2000).optional(),
+    purpose: z.string().trim().min(1, 'Purpose is required').max(2000),
   })
   .superRefine((data, ctx) => {
     if (data.receiveMode === 'delivery') {
