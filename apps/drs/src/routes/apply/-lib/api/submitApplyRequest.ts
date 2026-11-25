@@ -16,7 +16,7 @@ export type ApplyCartLine = {
 };
 
 export type ApplySupportingUpload = {
-  requestable_type: 'document';
+  requestable_type: 'document' | 'package';
   requestable_id: number;
   requirement_id: number;
   temp_upload_ids: number[];
@@ -29,7 +29,7 @@ export type ApplyRequestPayload = {
   payment_method_id: number;
   secure_email_requested: boolean;
   delivery_address: string | null;
-  purpose: string | null;
+  purpose: string;
   lines: ApplyRequestLine[];
   supporting_uploads?: ApplySupportingUpload[];
 };
@@ -204,7 +204,7 @@ export function buildApplyRequestPayload(
     payment_method_id: Number(values.paymentMethodId),
     secure_email_requested: values.secureEmail,
     delivery_address: values.deliveryAddress?.trim() || null,
-    purpose: values.purpose?.trim() || null,
+    purpose: values.purpose.trim(),
     lines,
     ...(supportingUploads.length > 0
       ? { supporting_uploads: supportingUploads }

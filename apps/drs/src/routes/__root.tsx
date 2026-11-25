@@ -21,7 +21,9 @@ const queryClient = new QueryClient({
 const RootLayout = () => (
   <QueryClientProvider client={queryClient}>
     <DrsThemeProvider>
-      <AuthLayout />
+      <div className="print:hidden">
+        <AuthLayout />
+      </div>
       <DrsAppNav />
       <ClientOnboarding />
       <Toaster richColors />

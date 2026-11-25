@@ -364,7 +364,7 @@ function ApplicationDetailPage() {
         secure_email_requested: secureEmail,
         delivery_address:
           receiveMode === 'delivery' ? deliveryAddress.trim() : null,
-        purpose: purpose.trim() || null,
+        purpose: purpose.trim(),
         lines: lines.map((l) => ({
           requestable_type: l.requestable_type,
           requestable_id: l.requestable_id,
@@ -437,6 +437,7 @@ function ApplicationDetailPage() {
     editable &&
     !patchMutation.isPending &&
     Boolean(paymentMethodId) &&
+    purpose.trim().length > 0 &&
     lines.length > 0 &&
     lines.every((l) => l.requestable_id > 0 && l.quantity >= 1);
 

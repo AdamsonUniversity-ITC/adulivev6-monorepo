@@ -94,6 +94,7 @@
 }
 
 @layer components {
+
   /* Flat canvas. Depth comes from layout and hairlines, not gradients. */
   .drs-surface {
     background-color: var(--background);
@@ -107,13 +108,13 @@
     padding-block: 0.75rem;
   }
 
-  .drs-card > [data-slot="card-header"],
-  .drs-card > [data-slot="card-content"],
-  .drs-card > [data-slot="card-footer"] {
+  .drs-card>[data-slot="card-header"],
+  .drs-card>[data-slot="card-content"],
+  .drs-card>[data-slot="card-footer"] {
     padding-inline: 1rem;
   }
 
-  .drs-card > [data-slot="card-header"] {
+  .drs-card>[data-slot="card-header"] {
     gap: 0.5rem;
     padding-bottom: 0;
   }
@@ -179,6 +180,8 @@
     font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 12px;
     line-height: 1.45;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .drs-receipt-paper {
@@ -190,7 +193,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 24px;
-    border-bottom: 2px solid #111827;
+    border-bottom: 2px solid var(--primary);
     padding-bottom: 16px;
   }
 
@@ -206,6 +209,7 @@
   }
 
   .drs-receipt-kicker {
+    color: var(--primary);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -214,7 +218,7 @@
 
   .drs-receipt-reference {
     min-width: 210px;
-    border: 1px solid #111827;
+    border: 1px solid var(--primary);
     padding: 10px 12px;
     text-align: right;
   }
@@ -266,8 +270,9 @@
 
   .drs-receipt-section h2 {
     margin: 0 0 8px;
-    border-bottom: 1px solid #d1d5db;
+    border-bottom: 1px solid color-mix(in oklch, var(--primary) 40%, #d1d5db);
     padding-bottom: 4px;
+    color: var(--primary);
     font-size: 13px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -315,7 +320,7 @@
     justify-content: space-between;
     gap: 16px;
     margin-top: 22px;
-    border-top: 1px solid #111827;
+    border-top: 1px solid var(--primary);
     padding-top: 10px;
     color: #4b5563;
     font-size: 10px;

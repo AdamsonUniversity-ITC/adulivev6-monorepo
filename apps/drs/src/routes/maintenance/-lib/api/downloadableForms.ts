@@ -11,14 +11,23 @@ export type DownloadableForm = {
   created_at?: string | null;
 };
 
+export type DownloadableFormOwnerKind = 'document' | 'package';
+
+function ownerPath(kind: DownloadableFormOwnerKind, id: string | number): string {
+  return kind === 'package'
+    ? `v1/drs/packages/${id}/downloadable-forms`
+    : `v1/drs/documents/${id}/downloadable-forms`;
+}
+
 export const uploadDownloadableForm = async (
-  documentId: string | number,
+  ownerId: string | number,
   file: File,
+  kind: DownloadableFormOwnerKind = 'document',
 ): Promise<DownloadableForm> => {
   const body = new FormData();
   body.append('file', file);
   const { data } = await registrarSvc.post<{ data: DownloadableForm }>(
-    `v1/drs/documents/${documentId}/downloadable-forms`,
+    ownerPath(kind, ownerId),
     body,
     {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -28,10 +37,9 @@ export const uploadDownloadableForm = async (
 };
 
 export const deleteDownloadableForm = async (
-  documentId: string | number,
+  ownerId: string | number,
   mediaId: string | number,
+  kind: DownloadableFormOwnerKind = 'document',
 ): Promise<void> => {
-  await registrarSvc.delete(
-    `v1/drs/documents/${documentId}/downloadable-forms/${mediaId}`,
-  );
+  await registrarSvc.delete(`${ownerPath(kind, ownerId)}/${mediaId}`);
 };

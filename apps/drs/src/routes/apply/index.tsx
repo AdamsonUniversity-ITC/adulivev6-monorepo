@@ -129,18 +129,20 @@ type SummaryLine = {
 };
 
 type SelectedSupportingRequirement = {
-  documentId: number;
-  documentName: string;
+  requestableType: 'document' | 'package';
+  requestableId: number;
+  requestableName: string;
   requirement: NonNullable<
     CatalogDocument['supporting_document_requirements']
   >[number];
 };
 
 function supportingUploadKey(
-  documentId: number,
+  requestableType: 'document' | 'package',
+  requestableId: number,
   requirementId: number,
 ): string {
-  return `${documentId}:${requirementId}`;
+  return `${requestableType}:${requestableId}:${requirementId}`;
 }
 
 function getSubmitErrorMessage(err: unknown): string {
@@ -477,11 +479,16 @@ function ApplyDocumentsPage() {
     React.useMemo((): SelectedSupportingRequirement[] => {
       const rows: SelectedSupportingRequirement[] = [];
       const selectedDocIds = new Set<number>();
+      const selectedPkgIds = new Set<number>();
       for (const cartLine of cartLines) {
-        if (cartLine.quantity <= 0 || !cartLine.catalogKey.startsWith('d:')) {
+        if (cartLine.quantity <= 0) {
           continue;
         }
-        selectedDocIds.add(Number(cartLine.catalogKey.slice(2)));
+        if (cartLine.catalogKey.startsWith('d:')) {
+          selectedDocIds.add(Number(cartLine.catalogKey.slice(2)));
+        } else if (cartLine.catalogKey.startsWith('p:')) {
+          selectedPkgIds.add(Number(cartLine.catalogKey.slice(2)));
+        }
       }
       for (const group of sortedGroups) {
         for (const doc of group.documents ?? []) {
@@ -495,8 +502,27 @@ function ApplyDocumentsPage() {
               continue;
             }
             rows.push({
-              documentId: doc.id,
-              documentName: doc.document_name,
+              requestableType: 'document',
+              requestableId: doc.id,
+              requestableName: doc.document_name,
+              requirement,
+            });
+          }
+        }
+        for (const pkg of group.packages ?? []) {
+          if (!selectedPkgIds.has(pkg.id)) {
+            continue;
+          }
+
+          for (const requirement of pkg.supporting_document_requirements ??
+            []) {
+            if (requirement.is_active === false) {
+              continue;
+            }
+            rows.push({
+              requestableType: 'package',
+              requestableId: pkg.id,
+              requestableName: pkg.package_name,
               requirement,
             });
           }
@@ -747,15 +773,19 @@ function ApplyDocumentsPage() {
         return;
       }
       const missingRequired = selectedSupportingRequirements.find(
-        ({ documentId, requirement }) => {
+        ({ requestableType, requestableId, requirement }) => {
           if (!requirement.is_required) return false;
-          const key = supportingUploadKey(documentId, requirement.id);
+          const key = supportingUploadKey(
+            requestableType,
+            requestableId,
+            requirement.id,
+          );
           return (supportingUploads[key] ?? []).length === 0;
         },
       );
       if (missingRequired) {
         toast.error(
-          `Upload ${missingRequired.requirement.name} for ${missingRequired.documentName}.`,
+          `Upload ${missingRequired.requirement.name} for ${missingRequired.requestableName}.`,
         );
         return;
       }
@@ -791,16 +821,20 @@ function ApplyDocumentsPage() {
       }
 
       const uploadRows: ApplySupportingUpload[] = selectedSupportingRequirements
-        .map(({ documentId, requirement }) => {
+        .map(({ requestableType, requestableId, requirement }) => {
           const tempUploadIds = (
             supportingUploads[
-              supportingUploadKey(documentId, requirement.id)
+              supportingUploadKey(
+                requestableType,
+                requestableId,
+                requirement.id,
+              )
             ] ?? []
           ).map((upload) => Number(upload.id));
 
           return {
-            requestable_type: 'document' as const,
-            requestable_id: documentId,
+            requestable_type: requestableType,
+            requestable_id: requestableId,
             requirement_id: requirement.id,
             temp_upload_ids: tempUploadIds,
           };
@@ -1167,6 +1201,9 @@ function ApplyDocumentsPage() {
                                         unitPrice={pkg.price}
                                         rules={pkg.rules}
                                         includedItems={pkg.included_items}
+                                        downloadableForms={
+                                          pkg.downloadable_forms ?? []
+                                        }
                                       />
                                     </li>
                                   );
@@ -1361,7 +1398,7 @@ function ApplyDocumentsPage() {
               />
 
               <div className="space-y-1.5">
-                <Label htmlFor="apply-purpose">Purpose (optional)</Label>
+                <Label htmlFor="apply-purpose">Purpose</Label>
                 <Textarea
                   id="apply-purpose"
                   rows={2}
@@ -1651,16 +1688,22 @@ function ApplyDocumentsPage() {
                     </h4>
                     <div className="space-y-4">
                       {selectedSupportingRequirements.map(
-                        ({ documentId, documentName, requirement }) => {
+                        ({
+                          requestableType,
+                          requestableId,
+                          requestableName,
+                          requirement,
+                        }) => {
                           const key = supportingUploadKey(
-                            documentId,
+                            requestableType,
+                            requestableId,
                             requirement.id,
                           );
 
                           return (
                             <div key={key} className="rounded-lg border p-3">
                               <p className="mb-2 text-xs font-semibold">
-                                {documentName}
+                                {requestableName}
                               </p>
                               <SupportingDocumentDropzone
                                 label={requirement.name}
