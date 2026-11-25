@@ -47,7 +47,7 @@ export function DrsPageShell({
     >
       <a
         href="#drs-main"
-        className="bg-background focus-visible:ring-ring fixed top-3 left-3 z-50 -translate-y-20 rounded-md border px-3 py-2 text-sm shadow-md transition focus-visible:translate-y-0 focus-visible:ring-2 focus-visible:outline-none"
+        className="bg-background focus-visible:ring-ring fixed top-3 left-3 z-50 -translate-y-20 rounded-md border px-3 py-2 text-sm shadow-md transition focus-visible:translate-y-0 focus-visible:ring-2 focus-visible:outline-none print:hidden"
       >
         Skip to content
       </a>
