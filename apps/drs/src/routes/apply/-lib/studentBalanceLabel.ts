@@ -35,5 +35,5 @@ export function formatStudentBalanceAmount(
   if (!balance) return null;
   const amount = balance.amount?.trim();
   if (!amount) return null;
-  return `PHP ${amount}`;
+  return `Account balance (PHP) ${amount}`;
 }

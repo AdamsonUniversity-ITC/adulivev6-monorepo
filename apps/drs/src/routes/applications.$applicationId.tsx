@@ -32,6 +32,7 @@ import { ConfirmActionDialog } from './maintenance/-clearance/-confirm-action-di
 import { fetchPaymentCollectionSettings } from './maintenance/-lib/api/paymentCollectionSettings.ts';
 
 import type { TempUpload } from '@/lib/tempUploads.ts';
+import { composeContactNumber, parseContactNumber } from './-lib/contact-number.ts';
 import {
   AddCatalogLinesDialog,
   ClearancesSection,
@@ -358,7 +359,13 @@ function ApplicationDetailPage() {
     mutationFn: () =>
       patchApplication(applicationId, {
         email: email.trim(),
-        contact_number: contactNumber.trim(),
+        contact_number: (() => {
+          const parsed = parseContactNumber(contactNumber);
+          return composeContactNumber(
+            parsed.dialCode,
+            parsed.nationalNumber,
+          );
+        })(),
         receive_mode: receiveMode,
         payment_method_id: Number(paymentMethodId),
         secure_email_requested: secureEmail,

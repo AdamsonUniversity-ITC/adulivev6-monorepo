@@ -45,6 +45,7 @@ export type DocumentDetail = {
   group_id?: string | number | null;
   document_name: string;
   price: number;
+  currency?: 'PHP' | 'USD' | string;
   account_code?: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;

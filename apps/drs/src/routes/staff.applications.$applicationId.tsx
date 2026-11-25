@@ -43,6 +43,12 @@ import * as React from 'react';
 
 import { PrivateFileLink } from '@/components/private-file-link.tsx';
 import {
+  formatDrsMoney,
+  normalizeDrsCurrency,
+  preferUsdFirst,
+  type DrsCurrencyCode,
+} from './-lib/money.ts';
+import {
   ClearancesSection,
   RequestDetailsSection,
   RequestSummaryPanel,
@@ -80,12 +86,11 @@ type CompleteMutationApi = {
   mutate: (vars: PendingCompleteAction) => void;
 };
 
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 2,
-  }).format(amount);
+function formatMoney(
+  amount: number,
+  currency: string | null | undefined = 'PHP',
+): string {
+  return formatDrsMoney(amount, currency);
 }
 
 function formatStageTat(
@@ -361,7 +366,8 @@ function PaymentVerificationTaskPanel({
         )}
         {total !== null ? (
           <p className="border-t pt-2 font-medium">
-            Amount due: {formatMoney(total)}
+            Amount due:{' '}
+            {formatMoney(total, app.payment_currency ?? app.assessment_currency)}
           </p>
         ) : null}
         {verification?.verified_at ? (
@@ -398,6 +404,9 @@ function PaymentVerificationTaskPanel({
                     ? 'Cancelled'
                     : formatMoney(
                         (line.assessed_unit_price ?? 0) * line.quantity,
+                        app.payment_currency ??
+                          app.assessment_currency ??
+                          line.currency,
                       )}
                 </span>
               </li>
@@ -478,9 +487,17 @@ function PaymentCollectionTaskPanel({
           Payment
         </p>
         {total !== null ? (
-          <p className="font-medium">Amount due: {formatMoney(total)}</p>
+          <p className="font-medium">
+            Amount due:{' '}
+            {formatMoney(total, app.payment_currency ?? app.assessment_currency)}
+          </p>
         ) : (
-          <p className="text-muted-foreground">No assessed amount available.</p>
+          <p className="text-muted-foreground">
+            {app.payment_currency == null &&
+            (app.lines?.length ?? 0) > 0
+              ? 'Mixed currencies — no single amount due until assessment.'
+              : 'No assessed amount available.'}
+          </p>
         )}
         {submission?.submitted_at ? (
           <p className="border-t pt-2 text-xs">
@@ -557,6 +574,65 @@ function AssessmentTaskPanel({
   const lineQuantities = lineQuantityByTask[task.id] ?? {};
   const lineCancelled = lineCancelledByTask[task.id] ?? {};
   const otherFees = otherFeesByTask[task.id] ?? [];
+
+  const lineCurrencies = (app.lines ?? [])
+    .filter((line) => !line.is_cancelled)
+    .map((line) => line.currency);
+  const mixedLineCurrencies =
+    new Set(lineCurrencies.map((c) => normalizeDrsCurrency(c))).size > 1;
+  const defaultAssessmentCurrency: DrsCurrencyCode = app.assessment_currency
+    ? normalizeDrsCurrency(app.assessment_currency)
+    : preferUsdFirst(lineCurrencies);
+  const [assessmentCurrency, setAssessmentCurrency] =
+    React.useState<DrsCurrencyCode>(defaultAssessmentCurrency);
+
+  const applyCurrencyAmounts = React.useCallback(
+    (currency: DrsCurrencyCode) => {
+      setLinePriceByTask((prev) => {
+        const nextForTask: Record<string, string> = {
+          ...(prev[task.id] ?? {}),
+        };
+        for (const line of app.lines ?? []) {
+          const origin = normalizeDrsCurrency(line.currency);
+          if (currency === 'USD' && origin === 'PHP') {
+            nextForTask[line.id] = '0';
+            continue;
+          }
+          nextForTask[line.id] =
+            line.assessed_unit_price != null
+              ? String(
+                  Math.round(line.assessed_unit_price * line.quantity * 100) /
+                    100,
+                )
+              : '';
+        }
+        return { ...prev, [task.id]: nextForTask };
+      });
+      setPackageItemPriceByTask((prev) => {
+        const nextForTask: Record<string, string> = {
+          ...(prev[task.id] ?? {}),
+        };
+        for (const line of app.lines ?? []) {
+          const origin = normalizeDrsCurrency(line.currency);
+          for (const item of line.package_items ?? []) {
+            if (currency === 'USD' && origin === 'PHP') {
+              nextForTask[item.id] = '0';
+            } else {
+              nextForTask[item.id] = String(item.amount);
+            }
+          }
+        }
+        return { ...prev, [task.id]: nextForTask };
+      });
+    },
+    [app.lines, setLinePriceByTask, setPackageItemPriceByTask, task.id],
+  );
+
+  React.useEffect(() => {
+    applyCurrencyAmounts(assessmentCurrency);
+    // Apply once when the panel mounts / currency default is known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const quantityFor = (line: DRSApplicationLineRow) => {
     const quantityRaw = Number.parseInt(
@@ -664,6 +740,7 @@ function AssessmentTaskPanel({
       confirmLabel: 'Complete assessment',
       payload: {
         remarks: remarkByTask[task.id]?.trim() || null,
+        currency: assessmentCurrency,
         line_updates,
         extra: {
           other_fees: normalizedOtherFees,
@@ -674,130 +751,78 @@ function AssessmentTaskPanel({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <Label htmlFor={`assessment-currency-${task.id}`}>
+            Assessment currency
+          </Label>
+          <Select
+            value={assessmentCurrency}
+            onValueChange={(value) => {
+              const next = normalizeDrsCurrency(value);
+              setAssessmentCurrency(next);
+              applyCurrencyAmounts(next);
+            }}
+          >
+            <SelectTrigger
+              id={`assessment-currency-${task.id}`}
+              className="w-[8rem]"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PHP">PHP</SelectItem>
+              <SelectItem value="USD">USD</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {mixedLineCurrencies ? (
+          <p className="text-muted-foreground max-w-sm text-xs leading-snug">
+            Requested items use different currencies. Assessment charges in{' '}
+            {assessmentCurrency}. PHP catalog amounts default to 0 under USD —
+            enter the USD fee (no conversion).
+          </p>
+        ) : null}
+      </div>
       <div className="space-y-2">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           Requested documents
         </p>
-        <div className="space-y-2 rounded-md border p-3">
+        <div className="divide-border divide-y rounded-md border">
           {app.lines?.length ? (
             app.lines.map((line) => {
               const cancelled = Boolean(lineCancelled[line.id]);
               const amount = lineAmount(line);
               const packageItems = line.package_items ?? [];
+              const catalogMismatch =
+                normalizeDrsCurrency(line.currency) !== assessmentCurrency;
               return (
                 <div
                   key={line.id}
-                  className={`grid gap-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_7rem_auto] ${
-                    cancelled ? 'opacity-60' : ''
-                  }`}
+                  className={`space-y-3 p-3 ${cancelled ? 'opacity-60' : ''}`}
                 >
-                  <div className="min-w-0 space-y-2">
-                    <p
-                      className={`truncate text-sm font-medium ${
-                        cancelled ? 'text-muted-foreground line-through' : ''
-                      }`}
-                    >
-                      {line.request_name}
-                    </p>
-                    {cancelled ? (
-                      <p className="text-muted-foreground text-xs">Cancelled</p>
-                    ) : null}
-                    {packageItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-2"
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p
+                        className={`truncate text-sm font-medium ${
+                          cancelled
+                            ? 'text-muted-foreground line-through'
+                            : ''
+                        }`}
                       >
-                        <p className="text-muted-foreground truncate text-sm">
-                          {item.label}
-                        </p>
-                        <Input
-                          id={`package-item-${task.id}-${item.id}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          disabled={cancelled}
-                          aria-label={`${item.label} amount`}
-                          value={packageItemPrices[item.id] ?? ''}
-                          onChange={(event) =>
-                            setPackageItemPriceByTask((prev) => ({
-                              ...prev,
-                              [task.id]: {
-                                ...(prev[task.id] ?? {}),
-                                [item.id]: event.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="0.00"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor={`line-qty-${task.id}-${line.id}`}>
-                      Qty
-                    </Label>
-                    <Input
-                      id={`line-qty-${task.id}-${line.id}`}
-                      type="number"
-                      min="1"
-                      step="1"
-                      disabled={cancelled}
-                      value={lineQuantities[line.id] ?? String(line.quantity)}
-                      onChange={(event) =>
-                        setLineQuantityByTask((prev) => ({
-                          ...prev,
-                          [task.id]: {
-                            ...(prev[task.id] ?? {}),
-                            [line.id]: event.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  {packageItems.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">Line total</p>
-                      <p className="text-sm tabular-nums">
-                        {formatMoney(amount ?? 0)}
+                        {line.request_name}
                       </p>
+                      {cancelled ? (
+                        <p className="text-muted-foreground text-xs">
+                          Cancelled
+                        </p>
+                      ) : null}
                     </div>
-                  ) : (
-                  <div className="space-y-1">
-                    <Label htmlFor={`line-price-${task.id}-${line.id}`}>
-                      Line total
-                    </Label>
-                    <Input
-                      id={`line-price-${task.id}-${line.id}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      disabled={cancelled}
-                      value={linePrices[line.id] ?? ''}
-                      onChange={(event) =>
-                        setLinePriceByTask((prev) => ({
-                          ...prev,
-                          [task.id]: {
-                            ...(prev[task.id] ?? {}),
-                            [line.id]: event.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                  )}
-                  <div className="flex items-end gap-2">
-                    <span
-                      className={`text-muted-foreground hidden text-sm sm:inline ${
-                        cancelled ? 'line-through' : ''
-                      }`}
-                    >
-                      {formatMoney(amount ?? 0)}
-                    </span>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="shrink-0"
                       onClick={() =>
                         setLineCancelledByTask((prev) => ({
                           ...prev,
@@ -811,11 +836,118 @@ function AssessmentTaskPanel({
                       {cancelled ? 'Restore' : 'Cancel'}
                     </Button>
                   </div>
+
+                  {packageItems.length > 0 ? (
+                    <div className="space-y-2 pl-3">
+                      {packageItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3"
+                        >
+                          <p className="text-muted-foreground truncate text-sm">
+                            {item.label}
+                          </p>
+                          <Input
+                            id={`package-item-${task.id}-${item.id}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            disabled={cancelled}
+                            aria-label={`${item.label} amount`}
+                            className="w-36 justify-self-end"
+                            value={packageItemPrices[item.id] ?? ''}
+                            onChange={(event) =>
+                              setPackageItemPriceByTask((prev) => ({
+                                ...prev,
+                                [task.id]: {
+                                  ...(prev[task.id] ?? {}),
+                                  [item.id]: event.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="0.00"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor={`line-qty-${task.id}-${line.id}`}>
+                        Qty
+                      </Label>
+                      <Input
+                        id={`line-qty-${task.id}-${line.id}`}
+                        type="number"
+                        min="1"
+                        step="1"
+                        disabled={cancelled}
+                        className="w-20"
+                        value={
+                          lineQuantities[line.id] ?? String(line.quantity)
+                        }
+                        onChange={(event) =>
+                          setLineQuantityByTask((prev) => ({
+                            ...prev,
+                            [task.id]: {
+                              ...(prev[task.id] ?? {}),
+                              [line.id]: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    {packageItems.length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-sm leading-none font-medium">
+                          Line total ({assessmentCurrency})
+                        </p>
+                        <p
+                          className={`pt-2 text-sm tabular-nums ${
+                            cancelled ? 'line-through' : ''
+                          }`}
+                        >
+                          {formatMoney(amount ?? 0, assessmentCurrency)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Label htmlFor={`line-price-${task.id}-${line.id}`}>
+                          Line total ({assessmentCurrency})
+                        </Label>
+                        <Input
+                          id={`line-price-${task.id}-${line.id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          disabled={cancelled}
+                          className="w-36"
+                          value={linePrices[line.id] ?? ''}
+                          onChange={(event) =>
+                            setLinePriceByTask((prev) => ({
+                              ...prev,
+                              [task.id]: {
+                                ...(prev[task.id] ?? {}),
+                                [line.id]: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {catalogMismatch ? (
+                    <p className="text-muted-foreground text-xs">
+                      Catalog: {normalizeDrsCurrency(line.currency)}
+                    </p>
+                  ) : null}
                 </div>
               );
             })
           ) : (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground p-3 text-sm">
               No requested documents.
             </p>
           )}
@@ -847,42 +979,62 @@ function AssessmentTaskPanel({
           </Button>
         </div>
         {otherFees.length > 0 ? (
-          <div className="space-y-2 rounded-md border p-3">
+          <div className="space-y-3 rounded-md border p-3">
             {otherFees.map((fee) => (
               <div
                 key={fee.id}
-                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto]"
+                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-end"
               >
-                <Input
-                  value={fee.fee_name}
-                  onChange={(event) =>
-                    updateOtherFee(fee.id, { fee_name: event.target.value })
-                  }
-                  placeholder="Fee name"
-                />
-                <Input
-                  value={fee.account_code}
-                  maxLength={50}
-                  onChange={(event) =>
-                    updateOtherFee(fee.id, { account_code: event.target.value })
-                  }
-                  placeholder="Account code"
-                  aria-label="Account code"
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={fee.amount}
-                  onChange={(event) =>
-                    updateOtherFee(fee.id, { amount: event.target.value })
-                  }
-                  placeholder="0.00"
-                />
+                <div className="space-y-1">
+                  <Label htmlFor={`other-fee-name-${task.id}-${fee.id}`}>
+                    Fee name
+                  </Label>
+                  <Input
+                    id={`other-fee-name-${task.id}-${fee.id}`}
+                    value={fee.fee_name}
+                    onChange={(event) =>
+                      updateOtherFee(fee.id, { fee_name: event.target.value })
+                    }
+                    placeholder="Fee name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`other-fee-account-${task.id}-${fee.id}`}>
+                    Account code
+                  </Label>
+                  <Input
+                    id={`other-fee-account-${task.id}-${fee.id}`}
+                    value={fee.account_code}
+                    maxLength={50}
+                    onChange={(event) =>
+                      updateOtherFee(fee.id, {
+                        account_code: event.target.value,
+                      })
+                    }
+                    placeholder="Account code"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`other-fee-amount-${task.id}-${fee.id}`}>
+                    Amount
+                  </Label>
+                  <Input
+                    id={`other-fee-amount-${task.id}-${fee.id}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={fee.amount}
+                    onChange={(event) =>
+                      updateOtherFee(fee.id, { amount: event.target.value })
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="shrink-0 self-end"
                   onClick={() =>
                     setOtherFeesByTask((prev) => ({
                       ...prev,
@@ -908,15 +1060,17 @@ function AssessmentTaskPanel({
       <div className="bg-muted/40 rounded-md border p-3 text-sm">
         <div className="flex justify-between gap-2">
           <span>Documents total</span>
-          <span>{formatMoney(lineTotal)}</span>
+          <span>{formatMoney(lineTotal, assessmentCurrency)}</span>
         </div>
         <div className="flex justify-between gap-2">
           <span>Other payments</span>
-          <span>{formatMoney(otherFeesTotal)}</span>
+          <span>{formatMoney(otherFeesTotal, assessmentCurrency)}</span>
         </div>
         <div className="mt-2 flex justify-between gap-2 border-t pt-2 font-medium">
-          <span>Assessment total</span>
-          <span>{formatMoney(lineTotal + otherFeesTotal)}</span>
+          <span>Assessment total ({assessmentCurrency})</span>
+          <span>
+            {formatMoney(lineTotal + otherFeesTotal, assessmentCurrency)}
+          </span>
         </div>
       </div>
 

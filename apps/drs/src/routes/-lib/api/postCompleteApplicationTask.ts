@@ -11,6 +11,7 @@ export type CompleteApplicationTaskPayload = {
   pickup_date?: string | null;
   eta?: string | null;
   amount?: number | null;
+  currency?: 'PHP' | 'USD' | string | null;
   extra?: Record<string, unknown> | null;
   line_prices?: Array<{
     application_document_id: string | number;

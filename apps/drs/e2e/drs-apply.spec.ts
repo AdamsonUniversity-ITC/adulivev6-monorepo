@@ -215,7 +215,7 @@ test.describe('DRS student request simulation', () => {
     await page
       .getByRole('textbox', { name: 'Email' })
       .fill('student@example.edu.ph');
-    await page.getByLabel('Contact number').fill('09171234567');
+    await page.getByLabel('Contact number').fill('9171234567');
     await page.getByRole('combobox', { name: 'Receive documents by' }).click();
     await page.getByRole('option', { name: 'Courier delivery' }).click();
     await page.getByRole('combobox', { name: 'Mode of payment' }).click();
@@ -251,7 +251,7 @@ test.describe('DRS student request simulation', () => {
 
     expect(api.getSubmittedPayload()).toEqual({
       email: 'student@example.edu.ph',
-      contact_number: '09171234567',
+      contact_number: '+639171234567',
       receive_mode: 'delivery',
       payment_method_id: 11,
       secure_email_requested: false,
@@ -276,7 +276,7 @@ test.describe('DRS student request simulation', () => {
     await page
       .getByRole('textbox', { name: 'Email' })
       .fill('student@example.edu.ph');
-    await page.getByLabel('Contact number').fill('09171234567');
+    await page.getByLabel('Contact number').fill('9171234567');
 
     await expect(
       page.getByRole('button', { name: 'Review and submit' }),
@@ -295,7 +295,7 @@ test.describe('DRS student request simulation', () => {
     await page
       .getByRole('textbox', { name: 'Email' })
       .fill('student@example.edu.ph');
-    await page.getByLabel('Contact number').fill('09171234567');
+    await page.getByLabel('Contact number').fill('9171234567');
     await page.getByRole('combobox', { name: 'Mode of payment' }).click();
     await page.getByRole('option', { name: 'Cashier payment' }).click();
     await page

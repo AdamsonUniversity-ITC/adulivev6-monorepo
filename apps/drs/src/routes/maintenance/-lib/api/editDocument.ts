@@ -3,6 +3,7 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 export type EditDocumentPayload = {
   document_name: string;
   price: number;
+  currency: 'PHP' | 'USD';
   account_code: string;
   is_active: boolean;
   allow_multiple_per_request: boolean;

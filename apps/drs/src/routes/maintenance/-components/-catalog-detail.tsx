@@ -80,6 +80,7 @@ const makeDetailFormSchema = (kind: CatalogKind) =>
   z.object({
     name: z.string().min(1, { message: 'This field is required.' }).max(255),
     price: z.coerce.number().min(0).max(999999999),
+    currency: z.enum(['PHP', 'USD']),
     waive_fees: z.boolean(),
     account_code:
       kind === 'document'
@@ -197,6 +198,7 @@ const detailToForm = (
   return {
     name,
     price: Number(detail.price ?? 0),
+    currency: detail.currency === 'USD' ? 'USD' : 'PHP',
     waive_fees:
       kind === 'package'
         ? Boolean((detail as PackageDetail).waive_fees)
@@ -301,6 +303,7 @@ export const CatalogDetail = ({
     defaultValues: {
       name: '',
       price: 0,
+      currency: 'PHP',
       waive_fees: false,
       account_code: '',
       group_id: selectedGroup,
@@ -340,6 +343,7 @@ export const CatalogDetail = ({
         return editDocument(itemId, {
           document_name: values.name,
           price: values.price,
+          currency: values.currency,
           account_code: values.account_code,
           is_active: values.is_active,
           allow_multiple_per_request: values.once_per_student
@@ -371,6 +375,7 @@ export const CatalogDetail = ({
 
       return editPackage(itemId, {
         package_name: values.name,
+        currency: values.currency,
         waive_fees: values.waive_fees,
         is_active: values.is_active,
         allow_multiple_per_request: values.once_per_student
@@ -480,6 +485,24 @@ export const CatalogDetail = ({
                 label="Price (per copy)"
               />
             )}
+            <Controller
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <div className="space-y-1">
+                  <Label htmlFor={`${kind}-currency-select`}>Currency</Label>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id={`${kind}-currency-select`}>
+                      <SelectValue placeholder="Currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PHP">PHP</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            />
             {kind === 'document' ? (
               <FormInput
                 form={form}

@@ -59,8 +59,15 @@ export type RevenueReport = {
   grand_total: number;
   paid_total: number;
   unpaid_total: number;
+  totals_by_currency?: Array<{
+    currency: string;
+    grand_total: number;
+    paid_total: number;
+    unpaid_total: number;
+  }>;
   rows: Array<{
     name: string;
+    currency?: string;
     total_quantity: number;
     total_amount: number;
     share_percent: number;
@@ -148,6 +155,7 @@ export type DayToDayReport = {
     course: string;
     documents_requested: string;
     assessment_amount: number;
+    assessment_currency?: string;
     drs_no: string | null;
     purpose: string | null;
     graduation_date: string | null;

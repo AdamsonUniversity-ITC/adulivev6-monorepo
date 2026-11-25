@@ -1,5 +1,9 @@
 import { registrarSvc } from '@repo/axios-config/registrar-service';
 
+import {
+  composeContactNumber,
+  dialForCountryCode,
+} from '../../../-lib/contact-number.ts';
 import type { ApplyRequestFormValues } from '../applyRequestSchema.ts';
 
 export type ApplyRequestLine = {
@@ -199,7 +203,10 @@ export function buildApplyRequestPayload(
 ): ApplyRequestPayload {
   return {
     email: values.email.trim(),
-    contact_number: values.contactNumber.trim(),
+    contact_number: composeContactNumber(
+      dialForCountryCode(values.contactCountryCode),
+      values.contactNationalNumber,
+    ),
     receive_mode: values.receiveMode,
     payment_method_id: Number(values.paymentMethodId),
     secure_email_requested: values.secureEmail,

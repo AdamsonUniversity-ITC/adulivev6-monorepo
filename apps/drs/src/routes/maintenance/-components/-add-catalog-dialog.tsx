@@ -10,13 +10,21 @@ import {
   DialogTrigger,
 } from '@repo/ui/components/dialog';
 import { toast } from '@repo/ui/exports';
+import { Label } from '@repo/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/select';
 import { FormCheckbox } from '@repo/ui/form-components/form-checkbox';
 import { FormInput } from '@repo/ui/form-components/form-input';
 import { FormSwitch } from '@repo/ui/form-components/form-switch';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { createDocument } from '../-lib/api/createDocument.ts';
 import { createPackage } from '../-lib/api/createPackage.ts';
@@ -54,6 +62,7 @@ const makeCatalogFormSchema = (kind: CatalogKind) =>
   z.object({
     name: z.string().min(1, { message: 'Name is required.' }).max(255),
     price: z.coerce.number().min(0).max(999999999),
+    currency: z.enum(['PHP', 'USD']),
     waive_fees: z.boolean(),
     account_code:
       kind === 'document'
@@ -124,6 +133,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
     defaultValues: {
       name: '',
       price: 0,
+      currency: 'PHP',
       waive_fees: false,
       account_code: '',
       is_active: true,
@@ -153,6 +163,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
           {
             document_name: values.name,
             price: values.price,
+            currency: values.currency,
             account_code: values.account_code ?? '',
             is_active: values.is_active,
             allow_multiple_per_request: values.once_per_student
@@ -174,6 +185,7 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
       return createPackage(
         {
           package_name: values.name,
+          currency: values.currency,
           waive_fees: values.waive_fees,
           is_active: values.is_active,
           allow_multiple_per_request: values.once_per_student
@@ -241,6 +253,24 @@ export const AddCatalogDialog = ({ kind, selectedGroup }: Props) => {
           ) : (
             <PackagePriceSummary form={form} />
           )}
+          <Controller
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <div className="space-y-1">
+                <Label>Currency</Label>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PHP">PHP</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          />
           {kind === 'document' ? (
             <FormInput
               form={form}

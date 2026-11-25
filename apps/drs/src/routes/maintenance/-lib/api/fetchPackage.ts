@@ -15,6 +15,7 @@ export type PackageDetail = {
   group_id?: string | number | null;
   package_name: string;
   price: number;
+  currency?: 'PHP' | 'USD' | string;
   waive_fees?: boolean;
   is_active: boolean;
   allow_multiple_per_request: boolean;

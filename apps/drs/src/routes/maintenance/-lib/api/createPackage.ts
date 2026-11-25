@@ -2,6 +2,7 @@ import { registrarSvc } from '@repo/axios-config/registrar-service';
 
 export type CreatePackagePayload = {
   package_name: string;
+  currency: 'PHP' | 'USD';
   waive_fees?: boolean;
   is_active: boolean;
   allow_multiple_per_request: boolean;

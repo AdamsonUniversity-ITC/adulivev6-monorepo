@@ -81,6 +81,20 @@ import type {
   CatalogGroup,
   CatalogPackage,
 } from './-lib/types.ts';
+import {
+  CONTACT_DIAL_CODES,
+  DEFAULT_COUNTRY_CODE,
+  dialCodeLabel,
+  dialForCountryCode,
+  flagEmojiFromCountryCode,
+  optionForCountryCode,
+} from '../-lib/contact-number.ts';
+import {
+  allSameCurrency,
+  formatDrsMoneyLabel,
+  normalizeDrsCurrency,
+  type DrsCurrencyCode,
+} from '../-lib/money.ts';
 
 export const Route = createFileRoute('/apply/')({
   beforeLoad: async () => {
@@ -126,6 +140,7 @@ type SummaryLine = {
   qty: number;
   unit: number;
   line: number;
+  currency: DrsCurrencyCode;
 };
 
 type SelectedSupportingRequirement = {
@@ -334,15 +349,21 @@ function ApplyDocumentsPage() {
 
   /** All rule-visible items (ignores search) so cart totals stay correct when filtering. */
   const priceIndex = React.useMemo(() => {
-    const m = new Map<string, number>();
+    const m = new Map<string, { price: number; currency: DrsCurrencyCode }>();
     for (const g of sortedGroups) {
       for (const d of g.documents ?? []) {
         if (!itemVisibleForRules(d.rules, ctx)) continue;
-        m.set(docKey(d.id), parsePriceNumber(d.price));
+        m.set(docKey(d.id), {
+          price: parsePriceNumber(d.price),
+          currency: normalizeDrsCurrency(d.currency),
+        });
       }
       for (const p of g.packages ?? []) {
         if (!itemVisibleForRules(p.rules, ctx)) continue;
-        m.set(pkgKey(p.id), parsePriceNumber(p.price));
+        m.set(pkgKey(p.id), {
+          price: parsePriceNumber(p.price),
+          currency: normalizeDrsCurrency(p.currency),
+        });
       }
     }
     return m;
@@ -461,7 +482,8 @@ function ApplyDocumentsPage() {
     const rows: SummaryLine[] = [];
     for (const [key, qty] of byKey) {
       const meta = catalogLookup.get(key);
-      const unit = priceIndex.get(key) ?? 0;
+      const entry = priceIndex.get(key);
+      const unit = entry?.price ?? 0;
       rows.push({
         key,
         title: meta?.title ?? key,
@@ -469,6 +491,7 @@ function ApplyDocumentsPage() {
         qty,
         unit,
         line: unit * qty,
+        currency: entry?.currency ?? 'PHP',
       });
     }
     rows.sort((a, b) => a.title.localeCompare(b.title));
@@ -532,19 +555,31 @@ function ApplyDocumentsPage() {
       return rows;
     }, [cartLines, sortedGroups]);
 
-  const { totalSelected, lineCount, unitCount } = React.useMemo(() => {
-    let total = 0;
-    let lines = 0;
-    let units = 0;
-    for (const cartLine of cartLines) {
-      if (cartLine.quantity <= 0) continue;
-      const unit = priceIndex.get(cartLine.catalogKey) ?? 0;
-      total += unit * cartLine.quantity;
-      lines += 1;
-      units += cartLine.quantity;
-    }
-    return { totalSelected: total, lineCount: lines, unitCount: units };
-  }, [cartLines, priceIndex]);
+  const { totalSelected, lineCount, unitCount, cartCurrency, cartIsMixed } =
+    React.useMemo(() => {
+      let total = 0;
+      let lines = 0;
+      let units = 0;
+      const currencies: DrsCurrencyCode[] = [];
+      for (const cartLine of cartLines) {
+        if (cartLine.quantity <= 0) continue;
+        const entry = priceIndex.get(cartLine.catalogKey);
+        const unit = entry?.price ?? 0;
+        const currency = entry?.currency ?? 'PHP';
+        total += unit * cartLine.quantity;
+        lines += 1;
+        units += cartLine.quantity;
+        currencies.push(currency);
+      }
+      const same = allSameCurrency(currencies);
+      return {
+        totalSelected: total,
+        lineCount: lines,
+        unitCount: units,
+        cartCurrency: same ?? 'PHP',
+        cartIsMixed: same === null && currencies.length > 0,
+      };
+    }, [cartLines, priceIndex]);
 
   React.useEffect(() => {
     setCartLines((prev) => {
@@ -1068,6 +1103,7 @@ function ApplyDocumentsPage() {
                                         }}
                                         title={doc.document_name}
                                         unitPrice={doc.price}
+                                        currency={doc.currency}
                                         rules={doc.rules}
                                         options={doc.options ?? []}
                                         downloadableForms={
@@ -1199,6 +1235,7 @@ function ApplyDocumentsPage() {
                                         }}
                                         title={pkg.package_name}
                                         unitPrice={pkg.price}
+                                        currency={pkg.currency}
                                         rules={pkg.rules}
                                         includedItems={pkg.included_items}
                                         downloadableForms={
@@ -1253,16 +1290,57 @@ function ApplyDocumentsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="apply-contact">Contact number</Label>
-                  <Input
-                    id="apply-contact"
-                    type="tel"
-                    autoComplete="tel"
-                    {...register('contactNumber')}
-                    aria-invalid={errors.contactNumber ? true : undefined}
-                  />
-                  {errors.contactNumber ? (
+                  <div className="flex gap-2">
+                    <Controller
+                      name="contactCountryCode"
+                      control={control}
+                      render={({ field }) => {
+                        const selected =
+                          optionForCountryCode(
+                            field.value || DEFAULT_COUNTRY_CODE,
+                          ) ?? CONTACT_DIAL_CODES[0]!;
+                        return (
+                          <Select
+                            value={field.value || DEFAULT_COUNTRY_CODE}
+                            onValueChange={field.onChange}
+                          >
+                            <SelectTrigger
+                              className="w-[7.5rem] shrink-0"
+                              aria-label={`Country code ${selected.label}`}
+                            >
+                              <SelectValue placeholder="Code">
+                                {dialCodeLabel(selected)}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CONTACT_DIAL_CODES.map((option) => (
+                                <SelectItem
+                                  key={option.code}
+                                  value={option.code}
+                                  aria-label={`${option.label} ${option.dial}`}
+                                >
+                                  {dialCodeLabel(option)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      }}
+                    />
+                    <Input
+                      id="apply-contact"
+                      type="tel"
+                      autoComplete="tel"
+                      inputMode="numeric"
+                      {...register('contactNationalNumber')}
+                      aria-invalid={
+                        errors.contactNationalNumber ? true : undefined
+                      }
+                    />
+                  </div>
+                  {errors.contactNationalNumber ? (
                     <p className="text-destructive text-xs">
-                      {errors.contactNumber.message}
+                      {errors.contactNationalNumber.message}
                     </p>
                   ) : null}
                 </div>
@@ -1463,7 +1541,7 @@ function ApplyDocumentsPage() {
                         </span>
                       </span>
                       <span className="shrink-0 tabular-nums">
-                        PHP {formatPrice(line.line)}
+                        {formatDrsMoneyLabel(line.line, line.currency)}
                       </span>
                     </li>
                   ))}
@@ -1474,9 +1552,16 @@ function ApplyDocumentsPage() {
                 <span className="text-muted-foreground text-xs">
                   Estimated total
                 </span>
-                <span className="text-xl font-semibold tabular-nums">
-                  PHP {formatPrice(totalSelected)}
-                </span>
+                {cartIsMixed ? (
+                  <span className="text-muted-foreground max-w-[14rem] text-right text-xs leading-snug">
+                    This request mixes PHP and USD prices, so a single total
+                    cannot be shown.
+                  </span>
+                ) : (
+                  <span className="text-xl font-semibold tabular-nums">
+                    {formatDrsMoneyLabel(totalSelected, cartCurrency)}
+                  </span>
+                )}
               </div>
 
               <Button
@@ -1524,9 +1609,15 @@ function ApplyDocumentsPage() {
             <p className="text-muted-foreground text-xs">
               {unitCount} cop{unitCount === 1 ? 'y' : 'ies'} · estimated
             </p>
-            <p className="text-base font-semibold tabular-nums">
-              PHP {formatPrice(totalSelected)}
-            </p>
+            {cartIsMixed ? (
+              <p className="text-muted-foreground text-xs leading-snug">
+                Mixed PHP/USD — no single total
+              </p>
+            ) : (
+              <p className="text-base font-semibold tabular-nums">
+                {formatDrsMoneyLabel(totalSelected, cartCurrency)}
+              </p>
+            )}
           </div>
           <Button
             type="submit"
@@ -1571,7 +1662,11 @@ function ApplyDocumentsPage() {
                         Contact
                       </dt>
                       <dd className="text-right">
-                        {formSnapshot.contactNumber}
+                        {flagEmojiFromCountryCode(
+                          formSnapshot.contactCountryCode,
+                        )}{' '}
+                        {dialForCountryCode(formSnapshot.contactCountryCode)}
+                        {formSnapshot.contactNationalNumber}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-3 px-3 py-2">
@@ -1669,16 +1764,24 @@ function ApplyDocumentsPage() {
                               {row.qty}
                             </td>
                             <td className="px-2 py-1.5 text-right tabular-nums">
-                              PHP {formatPrice(row.line)}
+                              {formatDrsMoneyLabel(row.line, row.currency)}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-right text-sm font-semibold tabular-nums">
-                    Estimated total: PHP {formatPrice(totalSelected)}
-                  </p>
+                  {cartIsMixed ? (
+                    <p className="text-muted-foreground text-right text-xs leading-snug">
+                      This request mixes PHP and USD prices, so a single total
+                      cannot be shown.
+                    </p>
+                  ) : (
+                    <p className="text-right text-sm font-semibold tabular-nums">
+                      Estimated total:{' '}
+                      {formatDrsMoneyLabel(totalSelected, cartCurrency)}
+                    </p>
+                  )}
                 </section>
 
                 {selectedSupportingRequirements.length > 0 ? (
@@ -1771,6 +1874,7 @@ function CatalogLineRow({
   copyIndex,
   title,
   unitPrice,
+  currency,
   rules,
   includedItems,
   locked = false,
@@ -1795,6 +1899,7 @@ function CatalogLineRow({
   copyIndex?: number;
   title: string;
   unitPrice: string | number;
+  currency?: string | null;
   rules: CatalogDocument['rules'];
   includedItems?: Array<{ id: number; label: string }>;
   locked?: boolean;
@@ -1808,6 +1913,7 @@ function CatalogLineRow({
 }) {
   const unit = parsePriceNumber(unitPrice);
   const lineTotal = unit * quantity;
+  const moneyCurrency = normalizeDrsCurrency(currency);
   const inCart = quantity > 0;
   const unavailable =
     alreadyRequested ||
@@ -1895,14 +2001,14 @@ function CatalogLineRow({
             </ul>
           ) : null}
           <div className="text-muted-foreground mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs tabular-nums">
-            <span>PHP {formatPrice(unit)} each</span>
+            <span>{formatDrsMoneyLabel(unit, moneyCurrency)} each</span>
             {inCart ? (
               <>
                 <span aria-hidden="true">·</span>
                 <span>
-                  {quantity} x PHP {formatPrice(unit)} ={' '}
+                  {quantity} x {formatDrsMoneyLabel(unit, moneyCurrency)} ={' '}
                   <span className="text-foreground font-semibold">
-                    PHP {formatPrice(lineTotal)}
+                    {formatDrsMoneyLabel(lineTotal, moneyCurrency)}
                   </span>
                 </span>
               </>

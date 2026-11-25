@@ -280,6 +280,10 @@ export function PackagePriceSummary({
   const waiveFees = Boolean(
     useWatch({ control: form.control, name: 'waive_fees' }),
   );
+  const currency =
+    useWatch({ control: form.control, name: 'currency' }) === 'USD'
+      ? 'USD'
+      : 'PHP';
   const sum = items.reduce(
     (total, item) => total + (Number(item?.amount) || 0),
     0,
@@ -291,6 +295,7 @@ export function PackagePriceSummary({
       <div className="space-y-1">
         <Label>Price (per copy)</Label>
         <p className="text-sm font-medium tabular-nums">
+          {currency}{' '}
           {price.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,

@@ -647,33 +647,62 @@ export function ReportsPage() {
             >
               <ReportKpiCards
                 aria-label="Revenue"
-                items={[
-                  {
-                    label: 'Grand total',
-                    value: formatReportCurrency(
-                      revenueQuery.data?.grand_total ?? 0,
-                    ),
-                  },
-                  {
-                    label: 'Paid',
-                    value: formatReportCurrency(
-                      revenueQuery.data?.paid_total ?? 0,
-                    ),
-                  },
-                  {
-                    label: 'Unpaid',
-                    value: formatReportCurrency(
-                      revenueQuery.data?.unpaid_total ?? 0,
-                    ),
-                  },
-                ]}
+                items={
+                  (revenueQuery.data?.totals_by_currency?.length ?? 0) > 0
+                    ? (revenueQuery.data?.totals_by_currency ?? []).flatMap(
+                        (total) => [
+                          {
+                            label: `${total.currency} grand total`,
+                            value: formatReportCurrency(
+                              total.grand_total,
+                              total.currency,
+                            ),
+                          },
+                          {
+                            label: `${total.currency} paid`,
+                            value: formatReportCurrency(
+                              total.paid_total,
+                              total.currency,
+                            ),
+                          },
+                          {
+                            label: `${total.currency} unpaid`,
+                            value: formatReportCurrency(
+                              total.unpaid_total,
+                              total.currency,
+                            ),
+                          },
+                        ],
+                      )
+                    : [
+                        {
+                          label: 'Grand total',
+                          value: formatReportCurrency(
+                            revenueQuery.data?.grand_total ?? 0,
+                          ),
+                        },
+                        {
+                          label: 'Paid',
+                          value: formatReportCurrency(
+                            revenueQuery.data?.paid_total ?? 0,
+                          ),
+                        },
+                        {
+                          label: 'Unpaid',
+                          value: formatReportCurrency(
+                            revenueQuery.data?.unpaid_total ?? 0,
+                          ),
+                        },
+                      ]
+                }
               />
               <SimpleReportTable
-                columns={['Document', 'Quantity', 'Amount', 'Share']}
+                columns={['Document', 'Currency', 'Quantity', 'Amount', 'Share']}
                 rows={(revenueQuery.data?.rows ?? []).map((row) => [
                   row.name,
+                  row.currency ?? 'PHP',
                   formatReportCount(row.total_quantity),
-                  formatReportCurrency(row.total_amount),
+                  formatReportCurrency(row.total_amount, row.currency),
                   formatReportPercent(row.share_percent),
                 ])}
               />
@@ -868,7 +897,10 @@ export function ReportsPage() {
                   row.name,
                   row.course,
                   row.documents_requested,
-                  formatReportCurrency(row.assessment_amount),
+                  formatReportCurrency(
+                    row.assessment_amount,
+                    row.assessment_currency,
+                  ),
                   row.drs_no,
                   row.purpose,
                   row.graduation_date,
