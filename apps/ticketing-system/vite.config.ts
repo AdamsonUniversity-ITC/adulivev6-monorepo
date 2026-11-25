@@ -1,9 +1,32 @@
-import { defineConfig } from "vite";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { resolve } from "node:path";
+import { defineConfig, type Plugin } from "vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import reactSwc from "@vitejs/plugin-react-swc";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 const isVitest = Boolean(process.env.VITEST);
+
+/** Vite empties `dist` before writing. Keep an existing IIS `web.config`. */
+function preserveWebConfig(): Plugin {
+  let outDir = "";
+
+  return {
+    name: "preserve-web-config",
+    apply: "build",
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
+    buildStart() {
+      if (!outDir || !existsSync(outDir)) return;
+
+      for (const entry of readdirSync(outDir)) {
+        if (entry === "web.config" || entry === ".git") continue;
+        rmSync(resolve(outDir, entry), { recursive: true, force: true });
+      }
+    },
+  };
+}
 
 export default defineConfig({
   resolve: {
@@ -25,6 +48,7 @@ export default defineConfig({
     ],
   },
   plugins: [
+    preserveWebConfig(),
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,
@@ -44,6 +68,9 @@ export default defineConfig({
         }
       : null,
   ].filter(Boolean),
+  build: {
+    emptyOutDir: false,
+  },
   server: {
     host: true,
     allowedHosts: [
