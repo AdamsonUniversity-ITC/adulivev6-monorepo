@@ -10,6 +10,7 @@ export type CatalogItem = {
   id: string | number;
   name: string;
   price: number;
+  currency: 'PHP' | 'USD';
   is_active: boolean;
   allow_multiple_per_request: boolean;
 };

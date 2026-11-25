@@ -52,6 +52,7 @@ const toCatalogItem = (
       ? (raw as DocumentListItem).document_name
       : (raw as PackageListItem).package_name,
   price: Number(raw.price ?? 0),
+  currency: raw.currency === 'USD' ? 'USD' : 'PHP',
   is_active: Boolean(raw.is_active),
   allow_multiple_per_request: raw.allow_multiple_per_request !== false,
 });
@@ -150,7 +151,11 @@ export const CatalogPane = ({ kind, selectedGroup }: Props) => {
                         {item.name}
                       </p>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        ₱{item.price.toLocaleString()}
+                        {item.currency}{' '}
+                        {item.price.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </p>
                     </div>
                     <Badge

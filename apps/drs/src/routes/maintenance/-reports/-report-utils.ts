@@ -6,10 +6,15 @@ export function formatReportCount(value: number): string {
   return value.toLocaleString();
 }
 
-export function formatReportCurrency(value: number): string {
+export function formatReportCurrency(
+  value: number,
+  currency: string | null | undefined = 'PHP',
+): string {
+  const code =
+    String(currency ?? 'PHP').toUpperCase() === 'USD' ? 'USD' : 'PHP';
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: 'PHP',
+    currency: code,
     minimumFractionDigits: 2,
   }).format(value);
 }

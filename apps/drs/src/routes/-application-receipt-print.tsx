@@ -51,6 +51,7 @@ function receiptTotalsFor(app: DRSApplicationDetail, lines: ReceiptLine[]) {
     })) ?? [];
   const otherFeesTotal = otherFees.reduce((sum, fee) => sum + fee.amount, 0);
   const computedTotal = lineSubtotal + otherFeesTotal;
+  const currency = app.payment_currency ?? app.assessment_currency ?? 'PHP';
   const total =
     typeof app.payment_total === 'number' ? app.payment_total : computedTotal;
 
@@ -59,6 +60,7 @@ function receiptTotalsFor(app: DRSApplicationDetail, lines: ReceiptLine[]) {
     otherFees,
     otherFeesTotal,
     total,
+    currency,
     hasAmount:
       lines.some((line) => line.amount != null) ||
       otherFees.length > 0 ||
@@ -175,12 +177,12 @@ export function ApplicationReceiptPrint({
                     <td>
                       {line.unitPrice == null
                         ? '-'
-                        : formatPrintMoney(line.unitPrice)}
+                        : formatPrintMoney(line.unitPrice, totals.currency)}
                     </td>
                     <td>
                       {line.amount == null
                         ? '-'
-                        : formatPrintMoney(line.amount)}
+                        : formatPrintMoney(line.amount, totals.currency)}
                     </td>
                   </tr>
                 ))
@@ -194,7 +196,7 @@ export function ApplicationReceiptPrint({
                   <td>{fee.label}</td>
                   <td>1</td>
                   <td>-</td>
-                  <td>{formatPrintMoney(fee.amount)}</td>
+                  <td>{formatPrintMoney(fee.amount, totals.currency)}</td>
                 </tr>
               ))}
             </tbody>
@@ -203,19 +205,21 @@ export function ApplicationReceiptPrint({
                 <th scope="row" colSpan={3}>
                   Line subtotal
                 </th>
-                <td>{formatPrintMoney(totals.lineSubtotal)}</td>
+                <td>{formatPrintMoney(totals.lineSubtotal, totals.currency)}</td>
               </tr>
               <tr>
                 <th scope="row" colSpan={3}>
                   Other fees
                 </th>
-                <td>{formatPrintMoney(totals.otherFeesTotal)}</td>
+                <td>
+                  {formatPrintMoney(totals.otherFeesTotal, totals.currency)}
+                </td>
               </tr>
               <tr>
                 <th scope="row" colSpan={3}>
                   Total amount
                 </th>
-                <td>{formatPrintMoney(totals.total)}</td>
+                <td>{formatPrintMoney(totals.total, totals.currency)}</td>
               </tr>
             </tfoot>
           </table>

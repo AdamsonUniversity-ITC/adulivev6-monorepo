@@ -37,7 +37,71 @@ import { PrivateFileLink } from '@/components/private-file-link.tsx';
 import { SupportingDocumentDropzone } from '@/components/supporting-document-dropzone.tsx';
 import { type TempUpload } from '@/lib/tempUploads.ts';
 import { ApplicationMessagesPanel } from './-application-messages-panel.tsx';
+import {
+  CONTACT_DIAL_CODES,
+  DEFAULT_COUNTRY_CODE,
+  composeContactNumber,
+  dialCodeLabel,
+  dialForCountryCode,
+  optionForCountryCode,
+  parseContactNumber,
+} from './-lib/contact-number.ts';
 import { postApplicationSupportingRequirementUploads } from './-lib/api/postApplicationSupportingRequirementUploads.ts';
+
+function ContactNumberFields({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const parsed = parseContactNumber(value);
+  const selected =
+    optionForCountryCode(parsed.countryCode || DEFAULT_COUNTRY_CODE) ??
+    CONTACT_DIAL_CODES[0]!;
+  return (
+    <div className="flex gap-2">
+      <Select
+        value={parsed.countryCode || DEFAULT_COUNTRY_CODE}
+        onValueChange={(countryCode) =>
+          onChange(
+            composeContactNumber(
+              dialForCountryCode(countryCode),
+              parsed.nationalNumber,
+            ),
+          )
+        }
+      >
+        <SelectTrigger
+          className="w-[7.5rem] shrink-0"
+          aria-label={`Country code ${selected.label}`}
+        >
+          <SelectValue placeholder="Code">{dialCodeLabel(selected)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {CONTACT_DIAL_CODES.map((option) => (
+            <SelectItem
+              key={option.code}
+              value={option.code}
+              aria-label={`${option.label} ${option.dial}`}
+            >
+              {dialCodeLabel(option)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        id="contact"
+        type="tel"
+        inputMode="numeric"
+        value={parsed.nationalNumber}
+        onChange={(e) =>
+          onChange(composeContactNumber(parsed.dialCode, e.target.value))
+        }
+      />
+    </div>
+  );
+}
 import {
   applicationCountsAsPaid,
   type DRSApplicationClearanceRow,
@@ -85,15 +149,22 @@ export function isPaymentCollectionOpen(app: DRSApplicationDetail): boolean {
   );
 }
 
-function formatMoney(amount: number): string {
+function formatMoney(
+  amount: number,
+  currency: string | null | undefined = 'PHP',
+): string {
+  const code =
+    String(currency ?? 'PHP').toUpperCase() === 'USD' ? 'USD' : 'PHP';
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: 'PHP',
+    currency: code,
     minimumFractionDigits: 2,
   }).format(amount);
 }
 
 function paymentBreakdownFor(app: DRSApplicationDetail) {
+  const moneyCurrency =
+    app.payment_currency ?? app.assessment_currency ?? null;
   const lines =
     app.lines
       ?.filter((line) => line.assessed_unit_price != null && !line.is_cancelled)
@@ -105,6 +176,7 @@ function paymentBreakdownFor(app: DRSApplicationDetail) {
           quantity: line.quantity,
           unitPrice,
           amount: unitPrice * line.quantity,
+          currency: line.currency ?? moneyCurrency ?? 'PHP',
         };
       }) ?? [];
 
@@ -118,15 +190,24 @@ function paymentBreakdownFor(app: DRSApplicationDetail) {
   const computedTotal =
     lines.reduce((sum, line) => sum + line.amount, 0) +
     otherFees.reduce((sum, fee) => sum + fee.amount, 0);
-  const total =
-    typeof app.payment_total === 'number' ? app.payment_total : computedTotal;
+  const hasSingleCurrency =
+    typeof app.payment_total === 'number' || moneyCurrency != null;
+  const total = hasSingleCurrency
+    ? typeof app.payment_total === 'number'
+      ? app.payment_total
+      : computedTotal
+    : null;
 
   return {
     lines,
     otherFees,
     total,
+    currency: moneyCurrency,
     hasBreakdown: lines.length > 0 || otherFees.length > 0,
-    hasAmount: lines.length > 0 || otherFees.length > 0 || total > 0,
+    hasAmount:
+      lines.length > 0 ||
+      otherFees.length > 0 ||
+      (typeof total === 'number' && total > 0),
   };
 }
 
@@ -315,9 +396,11 @@ export function RequestSummaryPanel({
         <p className="text-muted-foreground text-xs">Total amount due</p>
         <div className="mt-1 flex flex-wrap items-baseline gap-2">
           <p className="text-2xl font-semibold tracking-tight tabular-nums">
-            {breakdown.hasAmount
-              ? formatMoney(breakdown.total)
-              : 'Not assessed'}
+            {breakdown.hasAmount && breakdown.total != null
+              ? formatMoney(breakdown.total, breakdown.currency)
+              : breakdown.hasBreakdown
+                ? 'Mixed currencies'
+                : 'Not assessed'}
           </p>
           {breakdown.hasAmount ? (
             <DrsStatusBadge
@@ -771,11 +854,18 @@ export function PaymentBreakdownSection({
                 <td className="py-2 pr-4">
                   <span className="block">{line.label}</span>
                   <span className="text-muted-foreground text-xs tabular-nums">
-                    {formatMoney(line.unitPrice)} &times; {line.quantity}
+                    {formatMoney(
+                      line.unitPrice,
+                      breakdown.currency ?? line.currency,
+                    )}{' '}
+                    &times; {line.quantity}
                   </span>
                 </td>
                 <td className="py-2 text-right align-top tabular-nums">
-                  {formatMoney(line.amount)}
+                  {formatMoney(
+                    line.amount,
+                    breakdown.currency ?? line.currency,
+                  )}
                 </td>
               </tr>
             ))}
@@ -783,7 +873,7 @@ export function PaymentBreakdownSection({
               <tr key={fee.id}>
                 <td className="py-2 pr-4">{fee.label}</td>
                 <td className="py-2 text-right tabular-nums">
-                  {formatMoney(fee.amount)}
+                  {formatMoney(fee.amount, breakdown.currency)}
                 </td>
               </tr>
             ))}
@@ -795,7 +885,9 @@ export function PaymentBreakdownSection({
               Total amount due
             </th>
             <td className="py-2 text-right text-base font-semibold tabular-nums">
-              {formatMoney(breakdown.total)}
+              {breakdown.total != null
+                ? formatMoney(breakdown.total, breakdown.currency)
+                : '—'}
             </td>
           </tr>
         </tfoot>
@@ -1057,10 +1149,9 @@ export function EditRequestSection({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contact">Contact number</Label>
-            <Input
-              id="contact"
+            <ContactNumberFields
               value={contactNumber}
-              onChange={(e) => onContactNumberChange(e.target.value)}
+              onChange={onContactNumberChange}
             />
           </div>
         </div>

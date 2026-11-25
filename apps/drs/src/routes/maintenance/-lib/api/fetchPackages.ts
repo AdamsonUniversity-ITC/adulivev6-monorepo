@@ -4,6 +4,7 @@ export type PackageListItem = {
   id: string | number;
   package_name: string;
   price: number;
+  currency?: 'PHP' | 'USD' | string;
   is_active: boolean;
   allow_multiple_per_request?: boolean;
 };

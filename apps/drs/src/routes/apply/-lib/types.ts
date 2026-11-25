@@ -45,6 +45,7 @@ export type CatalogDocument = {
   id: number;
   document_name: string;
   price: string | number;
+  currency?: 'PHP' | 'USD' | string;
   is_active: boolean;
   allow_multiple_per_request?: boolean;
   once_per_student?: boolean;
@@ -72,6 +73,7 @@ export type CatalogPackage = {
   id: number;
   package_name: string;
   price: string | number;
+  currency?: 'PHP' | 'USD' | string;
   is_active: boolean;
   allow_multiple_per_request?: boolean;
   once_per_student?: boolean;

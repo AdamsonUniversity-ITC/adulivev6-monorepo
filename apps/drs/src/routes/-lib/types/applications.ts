@@ -10,6 +10,7 @@ export type DRSApplicationLineRow = {
   requestable_id?: string;
   request_name: string;
   quantity: number;
+  currency?: 'PHP' | 'USD' | string | null;
   assessed_unit_price?: number | null;
   is_cancelled?: boolean;
   package_items?: Array<{
@@ -177,6 +178,7 @@ export type DRSApplicationRow = {
   disposal_metadata?: Record<string, unknown> | null;
   is_foreigner_student: boolean;
   paid_in_assessment?: boolean;
+  assessment_currency?: 'PHP' | 'USD' | string | null;
   release_date: string | null;
   date_released: string | null;
   cleared: DRSApplicationClearedRef;
@@ -227,6 +229,7 @@ export type DRSApplicationDetail = DRSApplicationRow & {
   payment_submission?: DRSPaymentSubmission | null;
   payment_verification?: DRSPaymentVerification | null;
   payment_total?: number | null;
+  payment_currency?: 'PHP' | 'USD' | string | null;
   assessment_other_fees?: DRSAssessmentOtherFee[];
   current_stage?: DRSApplicationStagePayload | null;
   stage_runs?: Array<{

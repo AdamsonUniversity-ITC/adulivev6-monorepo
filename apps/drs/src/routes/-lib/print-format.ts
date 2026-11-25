@@ -25,10 +25,15 @@ export function formatPrintDateTime(
   return `${month} ${day}, ${year} ${time}`;
 }
 
-export function formatPrintMoney(amount: number): string {
+export function formatPrintMoney(
+  amount: number,
+  currency: string | null | undefined = 'PHP',
+): string {
+  const code =
+    String(currency ?? 'PHP').toUpperCase() === 'USD' ? 'USD' : 'PHP';
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: 'PHP',
+    currency: code,
     minimumFractionDigits: 2,
   }).format(amount);
 }
