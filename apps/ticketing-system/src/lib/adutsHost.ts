@@ -40,3 +40,33 @@ export function boardUrl(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `http://${slug}.${baseDomain}${normalizedPath}`;
 }
+
+type LocationParts = Pick<Location, "protocol" | "hostname" | "port">;
+
+/**
+ * URL of the platform host (the "Your Boards" list), derived from the current
+ * location by swapping the board label for `ticketing`. Protocol and port are
+ * kept so it works in local dev (`itc-ts.localhost.test:5174` becomes
+ * `ticketing.localhost.test:5174`). Hosts without a board label are returned
+ * unchanged.
+ */
+export function platformUrl(
+  path = "/",
+  loc: LocationParts | undefined = typeof window !== "undefined"
+    ? window.location
+    : undefined,
+): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (!loc) return normalizedPath;
+
+  const hostname = loc.hostname.toLowerCase();
+  const port = loc.port ? `:${loc.port}` : "";
+
+  if (getBoardSubdomain(hostname) === "") {
+    return `${loc.protocol}//${hostname}${port}${normalizedPath}`;
+  }
+
+  const rest = hostname.split(".").slice(1).join(".");
+  const platformHost = rest ? `ticketing.${rest}` : hostname;
+  return `${loc.protocol}//${platformHost}${port}${normalizedPath}`;
+}

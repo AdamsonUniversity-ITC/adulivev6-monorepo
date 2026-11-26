@@ -8,6 +8,8 @@ import { LoadingState } from "@/components/loading-state";
 import { PageShell } from "@/components/page-shell";
 import { PeopleSearchPicker } from "@/components/people-search-picker";
 import { PersonIdentity } from "@/components/person-identity";
+import { SearchableScrollList } from "@/components/searchable-scroll-list";
+import { matchesQuery, useListFilter } from "@/components/use-list-filter";
 import { requireSectionHeadOrBoardAdmin } from "@/lib/admin-guards";
 import {
   addBoardMember,
@@ -23,6 +25,7 @@ import {
   type SectionRow,
 } from "@/lib/aduts-api";
 import { getAxiosStatus } from "@/lib/axios-status";
+import { compareByLastName } from "@/lib/person-display";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -76,6 +79,7 @@ function ManageStaffPage() {
   ]);
 
   const [sectionName, setSectionName] = useState("");
+  const [rosterQuery, setRosterQuery] = useState("");
   const [createHrSectionId, setCreateHrSectionId] = useState("");
   const [memberSectionId, setMemberSectionId] = useState("");
   const [selectedPerson, setSelectedPerson] =
@@ -272,6 +276,23 @@ function ManageStaffPage() {
     return <AccessDeniedState description="Could not load staff." />;
   }
 
+  const rosterSections = visibleSections.filter((section) =>
+    matchesQuery(
+      [
+        section.section_name,
+        section.hr_section_name,
+        ...(section.members ?? []).flatMap((m) => [
+          m.name,
+          m.emp_no,
+          m.student_no,
+          m.agency_no,
+          m.email,
+        ]),
+      ],
+      rosterQuery,
+    ),
+  );
+
   return (
     <PageShell
       title="Staff"
@@ -417,8 +438,25 @@ function ManageStaffPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
+            {visibleSections.length >= 4 || rosterQuery.trim() !== "" ? (
+              <div className="flex items-center gap-3 border-t p-4 pb-0">
+                <Input
+                  type="search"
+                  value={rosterQuery}
+                  onChange={(event) => setRosterQuery(event.target.value)}
+                  placeholder="Search sections or members"
+                  aria-label="Search sections or members"
+                  className="h-9 max-w-sm shadow-xs"
+                />
+                {rosterQuery.trim() !== "" ? (
+                  <span className="text-muted-foreground shrink-0 text-xs">
+                    Showing {rosterSections.length} of {visibleSections.length}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             <div className="divide-y">
-              {visibleSections.map((section) => (
+              {rosterSections.map((section) => (
                 <div
                   key={section.id}
                   className="flex flex-col gap-4 p-4 md:flex-row md:items-start"
@@ -533,109 +571,27 @@ function ManageStaffPage() {
                     ) : null}
                   </div>
 
-                  <div className="bg-card/80 overflow-hidden rounded-lg border md:flex-1">
-                    <ul className="divide-y text-sm">
-                      {(section.members ?? []).map((m) => (
-                        <li
-                          key={m.id}
-                          className="hover:bg-muted/30 flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                            <PersonIdentity
-                              person={{
-                                name: m.name,
-                                emp_no: m.emp_no,
-                                student_no: m.student_no,
-                                agency_no: m.agency_no,
-                                person_type: m.person_type,
-                                email: m.email,
-                              }}
-                              size="sm"
-                            />
-                            {m.is_section_head ? (
-                              <Badge className="border-amber-200 bg-amber-100 text-amber-900">
-                                Head
-                              </Badge>
-                            ) : null}
-                            {m.has_assign_access ? (
-                              <Badge className="border-emerald-200 bg-emerald-100 text-emerald-900">
-                                Assign
-                              </Badge>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1">
-                            {!m.is_section_head ? (
-                              <>
-                                {isBoardAdmin ? (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8"
-                                    disabled={updateMemberMutation.isPending}
-                                    onClick={() =>
-                                      updateMemberMutation.mutate({
-                                        memberId: m.id,
-                                        payload: {
-                                          is_section_head: true,
-                                          has_assign_access: true,
-                                        },
-                                      })
-                                    }
-                                  >
-                                    Make Head
-                                  </Button>
-                                ) : null}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8"
-                                  disabled={updateMemberMutation.isPending}
-                                  onClick={() =>
-                                    updateMemberMutation.mutate({
-                                      memberId: m.id,
-                                      payload: {
-                                        has_assign_access: !m.has_assign_access,
-                                      },
-                                    })
-                                  }
-                                >
-                                  {m.has_assign_access
-                                    ? "Remove assign"
-                                    : "Give assign"}
-                                </Button>
-                              </>
-                            ) : null}
-                            {isBoardAdmin || !m.is_section_head ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  removeMemberMutation.mutate(m.id)
-                                }
-                                disabled={removeMemberMutation.isPending}
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
-                              >
-                                Remove
-                              </Button>
-                            ) : null}
-                          </div>
-                        </li>
-                      ))}
-                      {(section.members?.length ?? 0) === 0 ? (
-                        <li className="text-muted-foreground p-4 text-center text-sm">
-                          No members assigned
-                        </li>
-                      ) : null}
-                    </ul>
-                  </div>
+                  <SectionMembersList
+                    members={section.members ?? []}
+                    isBoardAdmin={isBoardAdmin}
+                    updatePending={updateMemberMutation.isPending}
+                    removePending={removeMemberMutation.isPending}
+                    onUpdate={(memberId, payload) =>
+                      updateMemberMutation.mutate({ memberId, payload })
+                    }
+                    onRemove={(memberId) =>
+                      removeMemberMutation.mutate(memberId)
+                    }
+                  />
                 </div>
               ))}
               {visibleSections.length === 0 ? (
                 <div className="text-muted-foreground p-6 text-center text-sm">
                   No sections created yet.
+                </div>
+              ) : rosterSections.length === 0 ? (
+                <div className="text-muted-foreground p-6 text-center text-sm">
+                  No sections or members match your search.
                 </div>
               ) : null}
             </div>
@@ -643,5 +599,143 @@ function ManageStaffPage() {
         </Card>
       </div>
     </PageShell>
+  );
+}
+
+type SectionMember = NonNullable<SectionRow["members"]>[number];
+
+type SectionMembersListProps = {
+  members: SectionMember[];
+  isBoardAdmin: boolean;
+  updatePending: boolean;
+  removePending: boolean;
+  onUpdate: (
+    memberId: number,
+    payload: { is_section_head?: boolean; has_assign_access?: boolean },
+  ) => void;
+  onRemove: (memberId: number) => void;
+};
+
+/** One section's roster, with its own search and a capped scroll height. */
+function SectionMembersList({
+  members,
+  isBoardAdmin,
+  updatePending,
+  removePending,
+  onUpdate,
+  onRemove,
+}: SectionMembersListProps) {
+  const sortedMembers = useMemo(
+    () => [...members].sort(compareByLastName),
+    [members],
+  );
+  const list = useListFilter(sortedMembers, (m) => [
+    m.name,
+    m.emp_no,
+    m.student_no,
+    m.agency_no,
+    m.email,
+    m.user_id,
+  ]);
+
+  return (
+    <div className="md:flex-1">
+      <SearchableScrollList
+        query={list.query}
+        onQueryChange={list.setQuery}
+        total={members.length}
+        shown={list.filtered.length}
+        placeholder="Search members"
+        maxHeightClassName="max-h-80"
+        scrollClassName="bg-card/80 rounded-lg border"
+      >
+        <ul className="divide-y text-sm">
+          {list.filtered.map((m) => (
+            <li
+              key={m.id}
+              className="hover:bg-muted/30 flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <PersonIdentity
+                  person={{
+                    name: m.name,
+                    emp_no: m.emp_no,
+                    student_no: m.student_no,
+                    agency_no: m.agency_no,
+                    person_type: m.person_type,
+                    email: m.email,
+                  }}
+                  size="sm"
+                />
+                {m.is_section_head ? (
+                  <Badge className="border-amber-200 bg-amber-100 text-amber-900">
+                    Head
+                  </Badge>
+                ) : null}
+                {m.has_assign_access ? (
+                  <Badge className="border-emerald-200 bg-emerald-100 text-emerald-900">
+                    Assign
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                {!m.is_section_head ? (
+                  <>
+                    {isBoardAdmin ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        disabled={updatePending}
+                        onClick={() =>
+                          onUpdate(m.id, {
+                            is_section_head: true,
+                            has_assign_access: true,
+                          })
+                        }
+                      >
+                        Make Head
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      disabled={updatePending}
+                      onClick={() =>
+                        onUpdate(m.id, {
+                          has_assign_access: !m.has_assign_access,
+                        })
+                      }
+                    >
+                      {m.has_assign_access ? "Remove assign" : "Give assign"}
+                    </Button>
+                  </>
+                ) : null}
+                {isBoardAdmin || !m.is_section_head ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(m.id)}
+                    disabled={removePending}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+              </div>
+            </li>
+          ))}
+          {members.length === 0 ? (
+            <li className="text-muted-foreground p-4 text-center text-sm">
+              No members assigned
+            </li>
+          ) : null}
+        </ul>
+      </SearchableScrollList>
+    </div>
   );
 }

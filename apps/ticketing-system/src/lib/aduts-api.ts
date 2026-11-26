@@ -23,12 +23,16 @@ export type CancellationReason = {
   in_use?: boolean;
 };
 
+export type BoardVisibilityMode = "production" | "maintenance";
+
 export type Board = {
   id: number;
   board_name: string;
   slug: string;
   description: string | null;
   is_public: boolean;
+  /** `maintenance` limits the board to global admins and its allowlist. */
+  visibility_mode: BoardVisibilityMode;
   url: string;
   kb_url?: string | null;
   frontend_url?: string | null;
@@ -816,6 +820,7 @@ export async function createBoard(payload: {
   slug?: string;
   description?: string;
   is_public?: boolean;
+  visibility_mode?: BoardVisibilityMode;
   frontend_url?: string | null;
   sections?: Array<{ section_name: string }>;
 }) {
@@ -833,6 +838,7 @@ export async function updateAdminBoard(
     slug: string;
     description: string | null;
     is_public: boolean;
+    visibility_mode: BoardVisibilityMode;
     sla_resolve_hours: number | null;
     kb_url: string | null;
     frontend_url: string | null;
@@ -870,6 +876,34 @@ export async function addAdminBoardAdmin(boardId: number, userId: number) {
 
 export async function removeAdminBoardAdmin(boardId: number, userId: number) {
   await hrmdoSvc.delete(`v1/aduts/admin/boards/${boardId}/admins/${userId}`);
+}
+
+export async function fetchAdminMaintenanceUsers(boardId: number) {
+  const { data } = await hrmdoSvc.get<{ data: BoardAdminRow[] }>(
+    `v1/aduts/admin/boards/${boardId}/maintenance-users`,
+  );
+  return data.data;
+}
+
+export async function addAdminMaintenanceUser(
+  boardId: number,
+  userId: number,
+) {
+  const { data } = await hrmdoSvc.post<{
+    data: { id: number; board_id: number; user_id: number };
+  }>(`v1/aduts/admin/boards/${boardId}/maintenance-users`, {
+    user_id: userId,
+  });
+  return data.data;
+}
+
+export async function removeAdminMaintenanceUser(
+  boardId: number,
+  userId: number,
+) {
+  await hrmdoSvc.delete(
+    `v1/aduts/admin/boards/${boardId}/maintenance-users/${userId}`,
+  );
 }
 
 /** Tenant manage */

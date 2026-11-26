@@ -1,13 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+import { SearchableScrollList } from "@/components/searchable-scroll-list";
+import { useListFilter } from "@/components/use-list-filter";
 import { requireSuperAdmin } from "@/lib/admin-guards";
 import {
   addAdminBoardAdmin,
+  addAdminMaintenanceUser,
   deleteAdminBoard,
   fetchAdminBoardAdmins,
   fetchAdminBoards,
+  fetchAdminMaintenanceUsers,
+  type BoardVisibilityMode,
   removeAdminBoardAdmin,
+  removeAdminMaintenanceUser,
   updateAdminBoard,
 } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
@@ -46,7 +52,29 @@ function AdminBoardDetailPage() {
     enabled: Number.isFinite(id),
   });
 
+  const maintenanceUsersQuery = useQuery({
+    queryKey: ["aduts", "admin", "boards", id, "maintenance-users"],
+    queryFn: () => fetchAdminMaintenanceUsers(id),
+    enabled: Number.isFinite(id),
+  });
+
+  const allAdmins = adminsQuery.data ?? [];
+  const adminList = useListFilter(allAdmins, (a) => [
+    a.name,
+    a.email,
+    a.user_id,
+  ]);
+  const allMaintenanceUsers = maintenanceUsersQuery.data ?? [];
+  const maintenanceList = useListFilter(allMaintenanceUsers, (a) => [
+    a.name,
+    a.email,
+    a.user_id,
+  ]);
+
   const [name, setName] = useState("");
+  const [visibilityMode, setVisibilityMode] =
+    useState<BoardVisibilityMode>("production");
+  const [maintenanceUserId, setMaintenanceUserId] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [frontendUrl, setFrontendUrl] = useState("");
@@ -58,6 +86,7 @@ function AdminBoardDetailPage() {
     setSlug(board.slug);
     setDescription(board.description ?? "");
     setFrontendUrl(board.frontend_url ?? board.url ?? "");
+    setVisibilityMode(board.visibility_mode ?? "production");
     setHydrated(true);
   }
 
@@ -68,6 +97,7 @@ function AdminBoardDetailPage() {
         slug,
         description: description || null,
         frontend_url: frontendUrl.trim() || null,
+        visibility_mode: visibilityMode,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -92,6 +122,25 @@ function AdminBoardDetailPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ["aduts", "admin", "boards", id, "admins"],
+      });
+    },
+  });
+
+  const addMaintenanceUserMutation = useMutation({
+    mutationFn: () => addAdminMaintenanceUser(id, Number(maintenanceUserId)),
+    onSuccess: () => {
+      setMaintenanceUserId("");
+      void queryClient.invalidateQueries({
+        queryKey: ["aduts", "admin", "boards", id, "maintenance-users"],
+      });
+    },
+  });
+
+  const removeMaintenanceUserMutation = useMutation({
+    mutationFn: (userId: number) => removeAdminMaintenanceUser(id, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["aduts", "admin", "boards", id, "maintenance-users"],
       });
     },
   });
@@ -122,6 +171,12 @@ function AdminBoardDetailPage() {
     event.preventDefault();
     if (!adminUserId) return;
     addAdminMutation.mutate();
+  }
+
+  function onAddMaintenanceUser(event: FormEvent) {
+    event.preventDefault();
+    if (!maintenanceUserId) return;
+    addMaintenanceUserMutation.mutate();
   }
 
   return (
@@ -162,6 +217,24 @@ function AdminBoardDetailPage() {
               </p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="visibility-mode">Visibility</Label>
+              <select
+                id="visibility-mode"
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs"
+                value={visibilityMode}
+                onChange={(e) =>
+                  setVisibilityMode(e.target.value as BoardVisibilityMode)
+                }
+              >
+                <option value="production">Production</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+              <p className="text-muted-foreground text-xs">
+                In maintenance, only global admins and the users listed below
+                can see or open this board.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Description</Label>
               <Textarea
                 rows={3}
@@ -186,27 +259,36 @@ function AdminBoardDetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ul className="space-y-2 text-sm">
-            {(adminsQuery.data ?? []).map((admin) => (
-              <li
-                key={admin.id}
-                className="flex items-center justify-between gap-2"
-              >
-                <span>User {admin.user_id}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeAdminMutation.mutate(admin.user_id)}
+          <SearchableScrollList
+            query={adminList.query}
+            onQueryChange={adminList.setQuery}
+            total={allAdmins.length}
+            shown={adminList.filtered.length}
+            placeholder="Search admins"
+            maxHeightClassName="max-h-72"
+          >
+            <ul className="space-y-2 text-sm">
+              {adminList.filtered.map((admin) => (
+                <li
+                  key={admin.id}
+                  className="flex items-center justify-between gap-2"
                 >
-                  Remove
-                </Button>
-              </li>
-            ))}
-            {(adminsQuery.data?.length ?? 0) === 0 && (
-              <li className="text-muted-foreground">No board admins yet.</li>
-            )}
-          </ul>
+                  <span>{admin.name ?? `User ${admin.user_id}`}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeAdminMutation.mutate(admin.user_id)}
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+              {allAdmins.length === 0 && (
+                <li className="text-muted-foreground">No board admins yet.</li>
+              )}
+            </ul>
+          </SearchableScrollList>
           <form onSubmit={onAddAdmin} className="flex flex-wrap gap-2">
             <Input
               type="number"
@@ -222,6 +304,74 @@ function AdminBoardDetailPage() {
           </form>
         </CardContent>
       </Card>
+
+      {visibilityMode === "maintenance" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Maintenance access</CardTitle>
+            <CardDescription>
+              Only these users (plus global admins) can access this board while
+              it is in maintenance. Section members, customers and board admins
+              are blocked unless listed here.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SearchableScrollList
+              query={maintenanceList.query}
+              onQueryChange={maintenanceList.setQuery}
+              total={allMaintenanceUsers.length}
+              shown={maintenanceList.filtered.length}
+              placeholder="Search allowlisted users"
+              maxHeightClassName="max-h-72"
+            >
+              <ul className="space-y-2 text-sm">
+                {maintenanceList.filtered.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span>{row.name ?? `User ${row.user_id}`}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        removeMaintenanceUserMutation.mutate(row.user_id)
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+                {allMaintenanceUsers.length === 0 && (
+                  <li className="text-muted-foreground">
+                    No allowlisted users yet.
+                  </li>
+                )}
+              </ul>
+            </SearchableScrollList>
+            <form
+              onSubmit={onAddMaintenanceUser}
+              className="flex flex-wrap gap-2"
+            >
+              <Input
+                type="number"
+                min={1}
+                placeholder="User ID"
+                className="w-40"
+                value={maintenanceUserId}
+                onChange={(e) => setMaintenanceUserId(e.target.value)}
+              />
+              <Button
+                type="submit"
+                disabled={addMaintenanceUserMutation.isPending}
+              >
+                Add user
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <Button
         type="button"

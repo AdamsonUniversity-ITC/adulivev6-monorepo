@@ -1,7 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import "./mock-apis";
+import { fetchBoardCustomers } from "@/lib/aduts-api";
 import {
   PLATFORM_HOST,
   authBoardAdmin,
@@ -179,6 +180,7 @@ describe("ticketing page smokes", () => {
       expect(
         screen.getByRole("heading", { name: fixtureBoard.board_name }),
       ).toBeInTheDocument();
+      expect(screen.getByLabelText("Visibility")).toHaveValue("production");
     });
   });
 
@@ -233,6 +235,27 @@ describe("ticketing page smokes", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("heading", { name: "Customers" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders a search box on long customer lists", async () => {
+    vi.mocked(fetchBoardCustomers).mockResolvedValueOnce(
+      Array.from({ length: 7 }, (_, i) => ({
+        id: i + 1,
+        user_id: 100 + i,
+        name: `Customer ${i + 1}`,
+      })),
+    );
+
+    await renderApp({
+      initialPath: "/manage/customers",
+      authUser: authBoardAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("searchbox", { name: /search by name/i }),
       ).toBeInTheDocument();
     });
   });

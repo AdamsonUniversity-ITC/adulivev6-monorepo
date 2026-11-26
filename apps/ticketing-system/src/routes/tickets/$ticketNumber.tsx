@@ -74,6 +74,7 @@ import { getAxiosMessage, getAxiosStatus } from "@/lib/axios-status";
 import { authUserQueryOptions } from "@/lib/auth-queries";
 import { formatPriority, formatStatus } from "@/lib/format-labels";
 import {
+  compareByLastName,
   getPersonAvatarUrl,
   getPersonDisplayName,
   getPersonInitials,
@@ -301,13 +302,21 @@ function TicketDetailPage() {
       toast.error(getAxiosMessage(error, "Could not update category.")),
   });
 
+  const [pendingAssigneeId, setPendingAssigneeId] = useState<number | null>(
+    null,
+  );
+
   const assignMutation = useMutation({
     mutationFn: (assignedTo: number) => assignTicket(ticketNumber, assignedTo),
     onSuccess: () => {
+      setPendingAssigneeId(null);
       invalidate();
       toast.success("Assignee updated");
     },
-    onError: () => toast.error("Could not assign"),
+    onError: () => {
+      setPendingAssigneeId(null);
+      toast.error("Could not assign");
+    },
   });
 
   const returnToHeadMutation = useMutation({
@@ -318,7 +327,10 @@ function TicketDetailPage() {
     },
     onError: (error) =>
       toast.error(
-        getAxiosMessage(error, "Could not return this ticket to the section head."),
+        getAxiosMessage(
+          error,
+          "Could not return this ticket to the section head.",
+        ),
       ),
   });
 
@@ -367,15 +379,17 @@ function TicketDetailPage() {
     const section = (boardQuery.data?.sections ?? []).find(
       (s) => s.id === ticket.section_id,
     );
-    return section?.members ?? [];
+    return [...(section?.members ?? [])].sort(compareByLastName);
   }, [boardQuery.data?.sections, ticket?.section_id]);
 
   const mentionableStaff = useMemo(() => {
     if (ticket?.mentionable_staff && ticket.mentionable_staff.length > 0) {
-      return ticket.mentionable_staff.map((member) => ({
-        user_id: member.user_id,
-        name: member.name?.trim() || `User ${member.user_id}`,
-      }));
+      return ticket.mentionable_staff
+        .map((member) => ({
+          user_id: member.user_id,
+          name: member.name?.trim() || `User ${member.user_id}`,
+        }))
+        .sort(compareByLastName);
     }
 
     const seen = new Set<number>();
@@ -394,7 +408,7 @@ function TicketDetailPage() {
         fallback.push({ user_id: member.user_id, name });
       }
     }
-    return fallback;
+    return fallback.sort(compareByLastName);
   }, [
     boardQuery.data?.sections,
     ticket?.mentionable_staff,
@@ -919,7 +933,8 @@ function TicketDetailPage() {
               <PriorityBadge priority={ticket.priority} size="md" />
             )}
 
-            {transferSections.length > 0 && ticket.access?.can_change_section ? (
+            {transferSections.length > 0 &&
+            ticket.access?.can_change_section ? (
               <BadgeMenu
                 ariaLabel="Transfer section"
                 badge={(chevron) => (
@@ -1085,9 +1100,12 @@ function TicketDetailPage() {
                   value={
                     ticket.assigned_to ? String(ticket.assigned_to) : undefined
                   }
-                  onValueChange={(value) =>
-                    assignMutation.mutate(Number(value))
-                  }
+                  onValueChange={(value) => {
+                    const next = Number(value);
+                    if (next !== ticket.assigned_to) {
+                      setPendingAssigneeId(next);
+                    }
+                  }}
                   disabled={assignMutation.isPending}
                 >
                   <SelectTrigger className="h-8 min-w-36 shadow-xs">
@@ -1446,6 +1464,49 @@ function TicketDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={pendingAssigneeId != null}
+        onOpenChange={(open) => {
+          if (!open && !assignMutation.isPending) setPendingAssigneeId(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign this ticket?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const next = sectionMembers.find(
+                  (m) => m.user_id === pendingAssigneeId,
+                );
+                const nextName =
+                  next?.name?.trim() || `User #${pendingAssigneeId}`;
+                const currentName = ticket.assignee?.name?.trim();
+                return ticket.assigned_to && currentName
+                  ? `Reassign ${ticket.ticket_number} from ${currentName} to ${nextName}?`
+                  : `Assign ${ticket.ticket_number} to ${nextName}?`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={assignMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={assignMutation.isPending}
+              onClick={(event) => {
+                // Stay open until the request settles.
+                event.preventDefault();
+                if (pendingAssigneeId != null) {
+                  assignMutation.mutate(pendingAssigneeId);
+                }
+              }}
+            >
+              {assignMutation.isPending ? "Assigning…" : "Assign"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={confirmStatusAction != null}
@@ -2344,7 +2405,7 @@ function TicketChatCard({
               >
                 <div
                   ref={messagesScrollRef}
-                  className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain p-3 sm:p-4"
+                  className="flex flex-1 flex-col gap-3 overflow-y-auto p-3 sm:p-4"
                 >
                   {messages.map((msg) => (
                     <MessageBubble
