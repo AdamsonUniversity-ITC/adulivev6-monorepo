@@ -5,6 +5,8 @@ import { type FormEvent, useState } from "react";
 import { AccessDeniedState } from "@/components/access-denied-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageShell } from "@/components/page-shell";
+import { SearchableScrollList } from "@/components/searchable-scroll-list";
+import { matchesQuery } from "@/components/use-list-filter";
 import { requireSuperAdmin } from "@/lib/admin-guards";
 import {
   createCancellationReason,
@@ -44,6 +46,7 @@ function AdminCancellationReasonsPage() {
   });
   const [label, setLabel] = useState("");
   const [editing, setEditing] = useState<CancellationReason | null>(null);
+  const [reasonQuery, setReasonQuery] = useState("");
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
@@ -110,6 +113,12 @@ function AdminCancellationReasonsPage() {
   }
 
   const reasons = reasonsQuery.data ?? [];
+  const visibleReasons = reasons.filter((reason) =>
+    matchesQuery(
+      [reason.label, reason.is_active === false ? "Inactive" : "Active"],
+      reasonQuery,
+    ),
+  );
 
   function onCreate(event: FormEvent) {
     event.preventDefault();
@@ -163,105 +172,126 @@ function AdminCancellationReasonsPage() {
               configured
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {reasons.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No reasons yet. Staff cannot cancel a ticket until at least one
-                is active.
-              </p>
-            ) : (
-              reasons.map((reason) =>
-                editing?.id === reason.id ? (
-                  <div
-                    key={reason.id}
-                    className="bg-muted/20 space-y-3 rounded-lg border p-3"
-                  >
-                    <Input
-                      value={editing.label}
-                      maxLength={191}
-                      onChange={(event) =>
-                        setEditing({ ...editing, label: event.target.value })
-                      }
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={
-                          updateMutation.isPending || !editing.label.trim()
-                        }
-                        onClick={() => updateMutation.mutate(editing)}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditing(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
+          <CardContent>
+            <SearchableScrollList
+              query={reasonQuery}
+              onQueryChange={setReasonQuery}
+              total={reasons.length}
+              shown={visibleReasons.length}
+              placeholder="Search reasons"
+              maxHeightClassName="max-h-[32rem]"
+              scrollClassName="pr-1"
+            >
+              <div className="space-y-3">
+                {reasons.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No reasons yet. Staff cannot cancel a ticket until at least
+                    one is active.
+                  </p>
                 ) : (
-                  <div
-                    key={reason.id}
-                    className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <p className="font-medium">{reason.label}</p>
-                      <Badge
-                        variant={
-                          reason.is_active === false ? "outline" : "secondary"
-                        }
+                  visibleReasons.map((reason) =>
+                    editing?.id === reason.id ? (
+                      <div
+                        key={reason.id}
+                        className="bg-muted/20 space-y-3 rounded-lg border p-3"
                       >
-                        {reason.is_active === false ? "Inactive" : "Active"}
-                      </Badge>
-                      {reason.in_use ? (
-                        <span className="text-muted-foreground text-xs">
-                          In use
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditing(reason)}
-                      >
-                        Rename
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={toggleMutation.isPending}
-                        onClick={() => toggleMutation.mutate(reason)}
-                      >
-                        {reason.is_active === false ? "Activate" : "Deactivate"}
-                      </Button>
-                      {/* Deleting a reason in use would erase why those tickets closed. */}
-                      {reason.in_use ? null : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (
-                              window.confirm(`Delete reason “${reason.label}”?`)
-                            ) {
-                              deleteMutation.mutate(reason.id);
+                        <Input
+                          value={editing.label}
+                          maxLength={191}
+                          onChange={(event) =>
+                            setEditing({
+                              ...editing,
+                              label: event.target.value,
+                            })
+                          }
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            disabled={
+                              updateMutation.isPending || !editing.label.trim()
                             }
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ),
-              )
-            )}
+                            onClick={() => updateMutation.mutate(editing)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditing(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        key={reason.id}
+                        className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <p className="font-medium">{reason.label}</p>
+                          <Badge
+                            variant={
+                              reason.is_active === false
+                                ? "outline"
+                                : "secondary"
+                            }
+                          >
+                            {reason.is_active === false ? "Inactive" : "Active"}
+                          </Badge>
+                          {reason.in_use ? (
+                            <span className="text-muted-foreground text-xs">
+                              In use
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditing(reason)}
+                          >
+                            Rename
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={toggleMutation.isPending}
+                            onClick={() => toggleMutation.mutate(reason)}
+                          >
+                            {reason.is_active === false
+                              ? "Activate"
+                              : "Deactivate"}
+                          </Button>
+                          {/* Deleting a reason in use would erase why those tickets closed. */}
+                          {reason.in_use ? null : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              disabled={deleteMutation.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Delete reason “${reason.label}”?`,
+                                  )
+                                ) {
+                                  deleteMutation.mutate(reason.id);
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ),
+                  )
+                )}
+              </div>
+            </SearchableScrollList>
           </CardContent>
         </Card>
       </div>

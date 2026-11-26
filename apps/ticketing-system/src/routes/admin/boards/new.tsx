@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 
 import { PageShell } from "@/components/page-shell";
 import { requireSuperAdmin } from "@/lib/admin-guards";
-import { createBoard } from "@/lib/aduts-api";
+import { type BoardVisibilityMode, createBoard } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -29,6 +29,8 @@ function NewBoardPage() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [frontendUrl, setFrontendUrl] = useState("");
+  const [visibilityMode, setVisibilityMode] =
+    useState<BoardVisibilityMode>("production");
   const [sectionName, setSectionName] = useState("Helpdesk");
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +53,7 @@ function NewBoardPage() {
       slug: slug || undefined,
       description: description || undefined,
       frontend_url: frontendUrl.trim() || null,
+      visibility_mode: visibilityMode,
       sections: sectionName ? [{ section_name: sectionName }] : [],
     });
   }
@@ -102,6 +105,24 @@ function NewBoardPage() {
               </p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="visibility-mode">Visibility</Label>
+              <select
+                id="visibility-mode"
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs"
+                value={visibilityMode}
+                onChange={(e) =>
+                  setVisibilityMode(e.target.value as BoardVisibilityMode)
+                }
+              >
+                <option value="production">Production</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+              <p className="text-muted-foreground text-xs">
+                Maintenance boards are limited to global admins and an allowlist
+                you set after creating the board.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="board-desc">Description</Label>
               <Textarea
                 id="board-desc"
@@ -121,7 +142,11 @@ function NewBoardPage() {
               />
             </div>
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
-            <Button type="submit" disabled={mutation.isPending} className="shadow-xs">
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="shadow-xs"
+            >
               {mutation.isPending ? "Creating…" : "Create board"}
             </Button>
           </form>

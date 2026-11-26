@@ -5,6 +5,8 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { AccessDeniedState } from "@/components/access-denied-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageShell } from "@/components/page-shell";
+import { SearchableScrollList } from "@/components/searchable-scroll-list";
+import { matchesQuery } from "@/components/use-list-filter";
 import { requireSectionHeadOrBoardAdmin } from "@/lib/admin-guards";
 import {
   createBoardCategory,
@@ -50,6 +52,7 @@ function ManageCategoriesPage() {
   const [name, setName] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [editing, setEditing] = useState<BoardCategory | null>(null);
+  const [categoryQuery, setCategoryQuery] = useState("");
 
   const isBoardAdmin = boardQuery.data?.access?.is_board_admin === true;
   const headedSectionIds = boardQuery.data?.access?.headed_section_ids ?? [];
@@ -143,6 +146,19 @@ function ManageCategoriesPage() {
     ]),
   );
 
+  const visibleCategories = categories.filter((category) =>
+    matchesQuery(
+      [
+        category.name,
+        category.section_id != null
+          ? sectionNames.get(category.section_id)
+          : "Unassigned",
+        category.is_active === false ? "Inactive" : "Active",
+      ],
+      categoryQuery,
+    ),
+  );
+
   function onCreate(event: FormEvent) {
     event.preventDefault();
     if (!name.trim() || !sectionId) return;
@@ -167,7 +183,10 @@ function ManageCategoriesPage() {
             <form onSubmit={onCreate} className="space-y-3">
               <div className="space-y-2">
                 <Label>Section</Label>
-                <Select value={sectionId || undefined} onValueChange={setSectionId}>
+                <Select
+                  value={sectionId || undefined}
+                  onValueChange={setSectionId}
+                >
                   <SelectTrigger className="shadow-xs">
                     <SelectValue placeholder="Select section" />
                   </SelectTrigger>
@@ -192,7 +211,9 @@ function ManageCategoriesPage() {
               </div>
               <Button
                 type="submit"
-                disabled={createMutation.isPending || !sectionId || !name.trim()}
+                disabled={
+                  createMutation.isPending || !sectionId || !name.trim()
+                }
               >
                 {createMutation.isPending ? "Saving…" : "Add category"}
               </Button>
@@ -204,133 +225,158 @@ function ManageCategoriesPage() {
           <CardHeader>
             <CardTitle>Categories</CardTitle>
             <CardDescription>
-              {categories.length} categor{categories.length === 1 ? "y" : "ies"} in
-              your scope
+              {categoryQuery.trim() !== ""
+                ? `${visibleCategories.length} of ${categories.length} `
+                : `${categories.length} `}
+              categor{categories.length === 1 ? "y" : "ies"} in your scope
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {categories.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No categories have been created for these sections.
-              </p>
-            ) : (
-              categories.map((category) =>
-                editing?.id === category.id ? (
-                  <div
-                    key={category.id}
-                    className="bg-muted/20 space-y-3 rounded-lg border p-3"
-                  >
-                    <Input
-                      value={editing.name}
-                      onChange={(event) =>
-                        setEditing({ ...editing, name: event.target.value })
-                      }
-                      autoFocus
-                    />
-                    <Select
-                      value={
-                        editing.section_id != null
-                          ? String(editing.section_id)
-                          : undefined
-                      }
-                      onValueChange={(value) =>
-                        setEditing({ ...editing, section_id: Number(value) })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sections.map((section) => (
-                          <SelectItem
-                            key={section.id}
-                            value={String(section.id)}
-                          >
-                            {section.section_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={
-                          updateMutation.isPending ||
-                          !editing.name.trim() ||
-                          editing.section_id == null
-                        }
-                        onClick={() => updateMutation.mutate(editing)}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditing(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
+          <CardContent>
+            <SearchableScrollList
+              query={categoryQuery}
+              onQueryChange={setCategoryQuery}
+              total={categories.length}
+              shown={visibleCategories.length}
+              placeholder="Search categories or sections"
+              maxHeightClassName="max-h-[32rem]"
+              scrollClassName="pr-1"
+            >
+              <div className="space-y-3">
+                {categories.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No categories have been created for these sections.
+                  </p>
                 ) : (
-                  <div
-                    key={category.id}
-                    className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{category.name}</p>
-                        <Badge
-                          variant={
-                            category.is_active === false ? "outline" : "secondary"
+                  visibleCategories.map((category) =>
+                    editing?.id === category.id ? (
+                      <div
+                        key={category.id}
+                        className="bg-muted/20 space-y-3 rounded-lg border p-3"
+                      >
+                        <Input
+                          value={editing.name}
+                          onChange={(event) =>
+                            setEditing({ ...editing, name: event.target.value })
+                          }
+                          autoFocus
+                        />
+                        <Select
+                          value={
+                            editing.section_id != null
+                              ? String(editing.section_id)
+                              : undefined
+                          }
+                          onValueChange={(value) =>
+                            setEditing({
+                              ...editing,
+                              section_id: Number(value),
+                            })
                           }
                         >
-                          {category.is_active === false ? "Inactive" : "Active"}
-                        </Badge>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select section" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sections.map((section) => (
+                              <SelectItem
+                                key={section.id}
+                                value={String(section.id)}
+                              >
+                                {section.section_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            disabled={
+                              updateMutation.isPending ||
+                              !editing.name.trim() ||
+                              editing.section_id == null
+                            }
+                            onClick={() => updateMutation.mutate(editing)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditing(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        {category.section_id != null
-                          ? (sectionNames.get(category.section_id) ??
-                            "Unknown section")
-                          : "Unassigned"}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditing(category)}
+                    ) : (
+                      <div
+                        key={category.id}
+                        className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        Rename
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={toggleMutation.isPending}
-                        onClick={() => toggleMutation.mutate(category)}
-                      >
-                        {category.is_active === false ? "Activate" : "Deactivate"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => {
-                          if (
-                            window.confirm(`Delete category “${category.name}”?`)
-                          ) {
-                            deleteMutation.mutate(category.id);
-                          }
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ),
-              )
-            )}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{category.name}</p>
+                            <Badge
+                              variant={
+                                category.is_active === false
+                                  ? "outline"
+                                  : "secondary"
+                              }
+                            >
+                              {category.is_active === false
+                                ? "Inactive"
+                                : "Active"}
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {category.section_id != null
+                              ? (sectionNames.get(category.section_id) ??
+                                "Unknown section")
+                              : "Unassigned"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditing(category)}
+                          >
+                            Rename
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={toggleMutation.isPending}
+                            onClick={() => toggleMutation.mutate(category)}
+                          >
+                            {category.is_active === false
+                              ? "Activate"
+                              : "Deactivate"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Delete category “${category.name}”?`,
+                                )
+                              ) {
+                                deleteMutation.mutate(category.id);
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ),
+                  )
+                )}
+              </div>
+            </SearchableScrollList>
           </CardContent>
         </Card>
       </div>

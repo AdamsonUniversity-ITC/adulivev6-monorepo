@@ -13,7 +13,7 @@ import {
   UserCog,
   Wrench,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import {
   Collapsible,
@@ -35,7 +35,11 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@repo/ui/components/sidebar";
-import { getBoardSubdomain, isPlatformHost } from "@/lib/adutsHost";
+import {
+  getBoardSubdomain,
+  isPlatformHost,
+  platformUrl,
+} from "@/lib/adutsHost";
 import { fetchCurrentBoard } from "@/lib/aduts-api";
 import { authUserQueryOptions } from "@/lib/auth-queries";
 import {
@@ -60,6 +64,27 @@ function isNavItemActive(pathname: string, url: string) {
 
 function isMaintenancePath(pathname: string) {
   return pathname.startsWith("/admin") || pathname.startsWith("/manage");
+}
+
+/**
+ * The brand block returns to the boards list. On a board host that list lives
+ * on the platform host, so it is a full navigation rather than a router link.
+ */
+function BrandLink({
+  platform,
+  children,
+}: {
+  platform: boolean;
+  children: ReactNode;
+}) {
+  if (platform) {
+    return <Link to="/">{children}</Link>;
+  }
+  return (
+    <a href={platformUrl("/")} aria-label="Back to boards">
+      {children}
+    </a>
+  );
 }
 
 export function AppSidebar() {
@@ -143,8 +168,12 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip="AdUTS">
-              <Link to="/">
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              tooltip={platform ? "AdUTS" : "Back to boards"}
+            >
+              <BrandLink platform={platform}>
                 <div className="ring-primary/10 flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1">
                   <img
                     src={
@@ -168,7 +197,7 @@ export function AppSidebar() {
                     {headerLabel}
                   </span>
                 </div>
-              </Link>
+              </BrandLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

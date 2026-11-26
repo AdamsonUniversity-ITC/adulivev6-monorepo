@@ -23,6 +23,17 @@ import {
 import { isPlatformHost } from "@/lib/adutsHost";
 import { getAxiosMessage } from "@/lib/axios-status";
 import { formatPriority, formatStatus } from "@/lib/format-labels";
+import { compareByLastName } from "@/lib/person-display";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@repo/ui/components/alert-dialog";
 import { Button } from "@repo/ui/components/button";
 import {
   Select,
@@ -83,6 +94,8 @@ export function TicketsDatatable({
   const [bulkStatus, setBulkStatus] = React.useState("");
   const [bulkCancelReasonId, setBulkCancelReasonId] = React.useState("");
   const [bulkAssignee, setBulkAssignee] = React.useState("");
+  const [bulkAssignConfirmOpen, setBulkAssignConfirmOpen] =
+    React.useState(false);
 
   const status = search.status ?? DEFAULT_STATUS_FILTER;
   const keyword = search.keyword ?? "";
@@ -228,11 +241,7 @@ export function TicketsDatatable({
         byId.set(member.user_id, member);
       }
     }
-    return Array.from(byId.values()).sort((a, b) =>
-      (a.name ?? `User ${a.user_id}`).localeCompare(
-        b.name ?? `User ${b.user_id}`,
-      ),
-    );
+    return Array.from(byId.values()).sort(compareByLastName);
   }, [scopedSections]);
 
   const invalidateTickets = () => {
@@ -268,12 +277,16 @@ export function TicketsDatatable({
         assigneeId,
       ),
     onSuccess: () => {
+      setBulkAssignConfirmOpen(false);
       setRowSelection({});
       setBulkAssignee("");
       invalidateTickets();
       toast.success("Assignee updated for selected tickets.");
     },
-    onError: () => toast.error("Could not assign all selected tickets."),
+    onError: () => {
+      setBulkAssignConfirmOpen(false);
+      toast.error("Could not assign all selected tickets.");
+    },
   });
 
   const patchSearch = React.useCallback(
@@ -381,6 +394,44 @@ export function TicketsDatatable({
 
   return (
     <div className="space-y-3" data-tour="ticket-table">
+      <AlertDialog
+        open={bulkAssignConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !bulkAssignMutation.isPending) {
+            setBulkAssignConfirmOpen(false);
+          }
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign selected tickets?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const member = sectionMembers.find(
+                  (m) => String(m.user_id) === bulkAssignee,
+                );
+                const name = member?.name?.trim() || `User #${bulkAssignee}`;
+                const count = selectedTickets.length;
+                return `Assign ${count} selected ticket${count === 1 ? "" : "s"} to ${name}? Existing assignees will be replaced.`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkAssignMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkAssignMutation.isPending || !bulkAssignee}
+              onClick={(event) => {
+                event.preventDefault();
+                bulkAssignMutation.mutate(Number(bulkAssignee));
+              }}
+            >
+              {bulkAssignMutation.isPending ? "Assigning…" : "Assign"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {selectedTickets.length > 0 ? (
         <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border p-2">
           <span className="text-muted-foreground px-1 text-sm">
@@ -472,7 +523,7 @@ export function TicketsDatatable({
                 type="button"
                 size="sm"
                 disabled={!bulkAssignee || bulkAssignMutation.isPending}
-                onClick={() => bulkAssignMutation.mutate(Number(bulkAssignee))}
+                onClick={() => setBulkAssignConfirmOpen(true)}
               >
                 Assign
               </Button>

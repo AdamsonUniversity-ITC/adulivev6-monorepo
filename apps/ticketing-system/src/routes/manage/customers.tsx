@@ -5,6 +5,8 @@ import { type FormEvent, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { PeopleSearchPicker } from "@/components/people-search-picker";
 import { PersonIdentity } from "@/components/person-identity";
+import { SearchableScrollList } from "@/components/searchable-scroll-list";
+import { useListFilter } from "@/components/use-list-filter";
 import { requireBoardAdminCapability } from "@/lib/admin-guards";
 import {
   addBoardCustomer,
@@ -38,6 +40,16 @@ function ManageCustomersPage() {
     queryKey: ["aduts", "board", "customers"],
     queryFn: fetchBoardCustomers,
   });
+
+  const allRows = customersQuery.data ?? [];
+  const list = useListFilter(allRows, (row) => [
+    row.name,
+    row.emp_no,
+    row.student_no,
+    row.agency_no,
+    row.email,
+    row.user_id,
+  ]);
 
   const addMutation = useMutation({
     mutationFn: () => addBoardCustomer(Number(selectedPerson?.user_id)),
@@ -75,9 +87,17 @@ function ManageCustomersPage() {
           <CardTitle>Board Customers</CardTitle>
         </CardHeader>
         <CardContent className="max-w-2xl space-y-6">
-          <div className="overflow-hidden rounded-xl border shadow-xs">
+          <SearchableScrollList
+            query={list.query}
+            onQueryChange={list.setQuery}
+            total={allRows.length}
+            shown={list.filtered.length}
+            placeholder="Search by name, ID or email"
+            maxHeightClassName="max-h-96"
+            scrollClassName="bg-card rounded-xl border shadow-xs"
+          >
             <ul className="divide-y text-sm">
-              {(customersQuery.data ?? []).map((c) => (
+              {list.filtered.map((c) => (
                 <li
                   key={c.id}
                   className="bg-card flex items-center justify-between gap-3 p-3 px-4"
@@ -104,13 +124,13 @@ function ManageCustomersPage() {
                   </Button>
                 </li>
               ))}
-              {(customersQuery.data?.length ?? 0) === 0 && (
+              {allRows.length === 0 && (
                 <li className="text-muted-foreground p-4 text-center">
                   No customers assigned.
                 </li>
               )}
             </ul>
-          </div>
+          </SearchableScrollList>
           <form onSubmit={onAdd} className="space-y-3 pt-2">
             <Label className="text-sm font-medium">Add customer</Label>
             <PeopleSearchPicker

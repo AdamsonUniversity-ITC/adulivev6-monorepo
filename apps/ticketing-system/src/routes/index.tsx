@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 
 import { PageShell } from "@/components/page-shell";
@@ -8,7 +9,6 @@ import { isPlatformHost } from "@/lib/adutsHost";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -59,16 +59,20 @@ function PlatformHome() {
       )}
 
       <ul
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         data-tour="boards-list"
       >
         {(boardsQuery.data ?? []).map((board) => (
           <li key={board.id}>
-            <a href={board.url} className="group block h-full outline-none">
-              <Card className="hover:border-primary/50 h-full shadow-sm transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring">
-                <CardHeader className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-muted size-12 shrink-0 overflow-hidden rounded-md border">
+            <a
+              href={board.url}
+              aria-label={`Open ${board.board_name}`}
+              className="group block h-full outline-none"
+            >
+              <Card className="hover:border-primary/50 group-focus-visible:ring-ring h-full shadow-sm transition-colors group-focus-visible:ring-2">
+                <CardHeader className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-muted size-9 shrink-0 overflow-hidden rounded-md border">
                       <img
                         src={board.logo_url ?? "/assets/images/adulogo.png"}
                         alt=""
@@ -76,22 +80,21 @@ function PlatformHome() {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-lg">
+                      <CardTitle className="truncate text-base">
                         {board.board_name}
                       </CardTitle>
                       {board.description ? (
-                        <CardDescription className="mt-1.5 line-clamp-2 text-sm">
+                        <CardDescription className="line-clamp-1 text-xs">
                           {board.description}
                         </CardDescription>
                       ) : null}
                     </div>
+                    <ArrowRight
+                      className="text-muted-foreground group-hover:text-primary size-4 shrink-0 transition-colors"
+                      aria-hidden="true"
+                    />
                   </div>
                 </CardHeader>
-                <CardContent className="p-5 pt-0">
-                  <span className="text-primary text-sm font-medium">
-                    Open board →
-                  </span>
-                </CardContent>
               </Card>
             </a>
           </li>
@@ -158,11 +161,7 @@ function BoardHome() {
       dense
       className="-mx-1 -my-2 sm:-mx-2 sm:-my-3 md:-my-4"
     >
-      <TicketsListView
-        search={search}
-        from="/"
-        onMetricsChange={setMetrics}
-      />
+      <TicketsListView search={search} from="/" onMetricsChange={setMetrics} />
     </PageShell>
   );
 }

@@ -112,3 +112,45 @@ export function getPersonSecondaryLine(
 
   return bits.join(" · ");
 }
+
+/**
+ * Last name used for sorting. Names are stored as "Last, First" for employees;
+ * anything else ("First Last") falls back to the final word.
+ */
+export function getPersonLastName(name?: string | null): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes(",")) {
+    const last = trimmed.split(",")[0]?.trim();
+    return last || trimmed;
+  }
+  const words = trimmed.split(/\s+/);
+  return words[words.length - 1] ?? trimmed;
+}
+
+const nameCollator = new Intl.Collator(undefined, {
+  sensitivity: "base",
+  numeric: true,
+});
+
+/**
+ * Orders people by last name, then full name. Entries with no name sort last,
+ * ordered by user id so the result is stable.
+ */
+export function compareByLastName(
+  a: { name?: string | null; user_id?: number | null },
+  b: { name?: string | null; user_id?: number | null },
+): number {
+  const lastA = getPersonLastName(a.name);
+  const lastB = getPersonLastName(b.name);
+
+  if (lastA === null || lastB === null) {
+    if (lastA === lastB) return (a.user_id ?? 0) - (b.user_id ?? 0);
+    return lastA === null ? 1 : -1;
+  }
+
+  return (
+    nameCollator.compare(lastA, lastB) ||
+    nameCollator.compare(a.name!.trim(), b.name!.trim())
+  );
+}
