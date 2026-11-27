@@ -197,7 +197,7 @@ export const fixtureTatReport: TatReport = {
     first_response: emptyTatSummary,
     ticket_count: 0,
   },
-  assignment_time: emptyTatSummary,
+  assignment_time: { ...emptyTatSummary, pending_count: 0 },
   sharing: {
     shared_ticket_count: 0,
     sign_off_count: 0,
@@ -205,6 +205,97 @@ export const fixtureTatReport: TatReport = {
     handling_time: emptyTatSummary,
   },
   per_staff: [],
+  volume: {
+    months: [
+      { month: "2026-07", label: "Jul 2026", count: 2, partial: false },
+      { month: "2026-08", label: "Aug 2026", count: 1, partial: false },
+    ],
+    total: 3,
+    monthly_average: 1.5,
+    average_basis: "completed_months",
+    peak: { month: "2026-07", label: "Jul 2026", count: 2 },
+    weekdays: [
+      { day: "Monday", count: 2 },
+      { day: "Tuesday", count: 1 },
+    ],
+    hours: [
+      { hour: 9, label: "09:00", count: 2 },
+      { hour: 10, label: "10:00", count: 1 },
+    ],
+    peak_weekday: "Monday",
+    peak_hour: "09:00",
+  },
+  priority_mix: [
+    { priority: "urgent", count: 0, share: 0 },
+    { priority: "high", count: 1, share: 1 / 3 },
+    { priority: "medium", count: 2, share: 2 / 3 },
+    { priority: "low", count: 0, share: 0 },
+  ],
+  categories: [
+    {
+      kind: "category",
+      category_id: 1,
+      name: "Hardware",
+      section_name: "Operations",
+      count: 2,
+      share: 2 / 3,
+      avg_resolve_hours: 6,
+    },
+    {
+      kind: "uncategorized",
+      category_id: null,
+      name: "Uncategorized",
+      section_name: null,
+      count: 1,
+      share: 1 / 3,
+      avg_resolve_hours: null,
+    },
+  ],
+  requestors: [
+    { user_id: 5, name: "Ana Cruz", count: 2, share: 2 / 3 },
+    { user_id: 6, name: null, count: 1, share: 1 / 3 },
+  ],
+  sla: {
+    target_hours: 24,
+    resolved_count: 2,
+    met_count: 1,
+    compliance_rate: 0.5,
+    overdue_open_count: 1,
+  },
+  backlog: {
+    total: 1,
+    buckets: [
+      { key: "under_1d", label: "Under 1 day", count: 1 },
+      { key: "1_3d", label: "1 to 3 days", count: 0 },
+      { key: "3_7d", label: "3 to 7 days", count: 0 },
+      { key: "over_7d", label: "Over 7 days", count: 0 },
+    ],
+  },
+  csat: {
+    average: 4,
+    rated_count: 2,
+    eligible_count: 3,
+    response_rate: 2 / 3,
+    distribution: [
+      { score: 1, count: 0 },
+      { score: 2, count: 0 },
+      { score: 3, count: 0 },
+      { score: 4, count: 1 },
+      { score: 5, count: 1 },
+    ],
+  },
+  cancellations: {
+    cancelled_count: 1,
+    rate: 1 / 3,
+    avg_cancel_hours: 4,
+    median_cancel_hours: 4,
+    reasons: [{ reason_id: 1, label: "Duplicate", count: 1 }],
+  },
+  reopens: {
+    reopened_count: 1,
+    ever_completed_count: 2,
+    rate: 0.5,
+  },
   per_application: {
     data: [],
     meta: {

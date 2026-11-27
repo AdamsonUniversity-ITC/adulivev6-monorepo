@@ -594,6 +594,9 @@ export type TatSummary = {
   count: number;
 };
 
+/** Creation to the first delegation to staff. Tickets not yet delegated are pending. */
+export type TatAssignmentSummary = TatSummary & { pending_count?: number };
+
 export type TatStaffReport = {
   user_id: number;
   name: string | null;
@@ -604,7 +607,7 @@ export type TatStaffReport = {
     first_response: TatSummary;
     ticket_count: number;
   };
-  assignment_time: TatSummary;
+  assignment_time: TatAssignmentSummary;
   per_status: Record<string, TatSummary>;
   /** Work this person did on tickets shared across sections. */
   shared?: {
@@ -627,7 +630,7 @@ export type TatReport = {
     first_response: TatSummary;
     ticket_count: number;
   };
-  assignment_time: TatSummary;
+  assignment_time: TatAssignmentSummary;
   sharing?: {
     shared_ticket_count: number;
     sign_off_count: number;
@@ -635,6 +638,60 @@ export type TatReport = {
     handling_time: TatSummary;
   };
   per_staff?: TatStaffReport[];
+  /** Monthly, weekday and hour volume of tickets created in the filter. */
+  volume?: {
+    months: Array<{ month: string; label: string; count: number; partial: boolean }>;
+    total: number;
+    /** Average over completed months; the in-progress month only when it is the sole month. */
+    monthly_average: number | null;
+    average_basis: "completed_months" | "current_month";
+    peak: { month: string; label: string; count: number } | null;
+    weekdays: Array<{ day: string; count: number }>;
+    hours: Array<{ hour: number; label: string; count: number }>;
+    peak_weekday: string | null;
+    peak_hour: string | null;
+  };
+  priority_mix?: Array<{ priority: string; count: number; share: number | null }>;
+  categories?: Array<{
+    kind: "category" | "other" | "uncategorized";
+    category_id: number | null;
+    name: string;
+    section_name: string | null;
+    count: number;
+    share: number | null;
+    avg_resolve_hours: number | null;
+  }>;
+  requestors?: Array<{ user_id: number; name: string | null; count: number; share: number | null }>;
+  sla?: {
+    target_hours: number | null;
+    resolved_count: number;
+    met_count: number;
+    compliance_rate: number | null;
+    overdue_open_count: number;
+  };
+  backlog?: {
+    total: number;
+    buckets: Array<{ key: string; label: string; count: number }>;
+  };
+  csat?: {
+    average: number | null;
+    rated_count: number;
+    eligible_count: number;
+    response_rate: number | null;
+    distribution: Array<{ score: number; count: number }>;
+  };
+  cancellations?: {
+    cancelled_count: number;
+    rate: number | null;
+    avg_cancel_hours: number | null;
+    median_cancel_hours: number | null;
+    reasons: Array<{ reason_id: number; label: string; count: number }>;
+  };
+  reopens?: {
+    reopened_count: number;
+    ever_completed_count: number;
+    rate: number | null;
+  };
   per_application: {
     data: Array<{
       id: number;
@@ -646,6 +703,8 @@ export type TatReport = {
       status_hours: Record<string, number | null>;
       resolve_hours: number | null;
       close_hours: number | null;
+      /** Creation to cancellation; only set for cancelled tickets. */
+      cancel_hours?: number | null;
       first_response_hours: number | null;
       assignment_hours: number | null;
       shares?: Array<{

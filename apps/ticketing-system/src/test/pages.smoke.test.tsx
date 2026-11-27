@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { AxiosError, type AxiosResponse } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -142,6 +142,60 @@ describe("ticketing page smokes", () => {
         screen.getByRole("heading", { name: "Reports" }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("shows the turnaround figures with readable durations and pending assignments", async () => {
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Turnaround" })).toBeInTheDocument();
+    });
+    expect(screen.getByText("Time to Assignment")).toBeInTheDocument();
+    expect(screen.getByText("0 awaiting assignment")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Average wait from creation until a section head assigns/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows demand figures on the Demand tab", async () => {
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Demand" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Volume summary")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Monthly average")).toBeInTheDocument();
+    expect(screen.getByText("1.5")).toBeInTheDocument();
+    expect(screen.getByText("Top requestors")).toBeInTheDocument();
+    expect(screen.getByText("Ana Cruz")).toBeInTheDocument();
+    expect(screen.getByText("User #6")).toBeInTheDocument();
+  });
+
+  it("shows service and quality figures on the Service and quality tab", async () => {
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    fireEvent.mouseDown(
+      await screen.findByRole("tab", { name: "Service and quality" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("SLA compliance")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("50%").length).toBeGreaterThan(0);
+    expect(screen.getByText("Cancellation rate")).toBeInTheDocument();
+    expect(screen.getByText("Duplicate")).toBeInTheDocument();
+    expect(screen.getByText("Reopen rate")).toBeInTheDocument();
+    expect(screen.getByText("4.00 / 5")).toBeInTheDocument();
   });
 
   it("renders admin boards", async () => {
