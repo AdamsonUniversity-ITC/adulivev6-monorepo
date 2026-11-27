@@ -61,6 +61,8 @@ export function TicketsListView({
 }: TicketsListViewProps) {
   const navigate = useNavigate({ from });
   const [metrics, setMetrics] = useState<TicketsMetrics | null>(null);
+  // Filter tabs have nothing to filter once the list is refused with 403.
+  const [forbidden, setForbidden] = useState(false);
 
   useEffect(() => {
     onMetricsChange?.(metrics);
@@ -190,6 +192,7 @@ export function TicketsListView({
 
   return (
     <>
+      {forbidden ? null : (
       <div className="flex flex-wrap items-center gap-2" data-tour="status-tabs">
         {PRIMARY_TABS.map((tab) => (
           <Button
@@ -233,11 +236,13 @@ export function TicketsListView({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      )}
 
       <TicketsDatatable
         search={search}
         onSearchChange={onSearchChange}
         onMetricsChange={setMetrics}
+        onForbiddenChange={setForbidden}
       />
     </>
   );

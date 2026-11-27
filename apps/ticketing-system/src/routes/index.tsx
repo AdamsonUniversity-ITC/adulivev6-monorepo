@@ -6,6 +6,8 @@ import { useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { fetchBoards, fetchCurrentBoard } from "@/lib/aduts-api";
 import { isPlatformHost } from "@/lib/adutsHost";
+import { getAxiosStatus } from "@/lib/axios-status";
+import { AccessDeniedState } from "@/components/access-denied-state";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -42,6 +44,8 @@ function PlatformHome() {
     queryKey: ["aduts", "boards"],
     queryFn: fetchBoards,
   });
+  const boardsForbidden =
+    boardsQuery.isError && getAxiosStatus(boardsQuery.error) === 403;
 
   return (
     <PageShell
@@ -52,7 +56,14 @@ function PlatformHome() {
       {boardsQuery.isLoading && (
         <p className="text-muted-foreground text-sm">Loading boards…</p>
       )}
-      {boardsQuery.isError && (
+      {boardsForbidden ? (
+        <AccessDeniedState
+          description="You do not have access to any boards on this platform."
+          backTo="/"
+          backLabel="Back to home"
+        />
+      ) : null}
+      {boardsQuery.isError && !boardsForbidden && (
         <p className="text-destructive text-sm">
           Could not load boards. Sign in and retry.
         </p>

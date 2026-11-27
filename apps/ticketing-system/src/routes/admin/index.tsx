@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { PageShell } from "@/components/page-shell";
 import { SearchableScrollList } from "@/components/searchable-scroll-list";
 import { useListFilter } from "@/components/use-list-filter";
+import { AccessDeniedState } from "@/components/access-denied-state";
 import { requireSuperAdmin } from "@/lib/admin-guards";
 import { fetchAdminBoards } from "@/lib/aduts-api";
+import { getAxiosStatus } from "@/lib/axios-status";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -27,6 +29,8 @@ function AdminBoardsPage() {
     queryKey: ["aduts", "admin", "boards"],
     queryFn: () => fetchAdminBoards(),
   });
+  const boardsForbidden =
+    boardsQuery.isError && getAxiosStatus(boardsQuery.error) === 403;
   const allBoards = boardsQuery.data ?? [];
   const list = useListFilter(allBoards, (board) => [
     board.board_name,
@@ -57,7 +61,14 @@ function AdminBoardsPage() {
       {boardsQuery.isLoading && (
         <p className="text-muted-foreground text-sm">Loading boards…</p>
       )}
-      {boardsQuery.isError && (
+      {boardsForbidden ? (
+        <AccessDeniedState
+          description="You need super-admin access to manage board tenants."
+          backTo="/"
+          backLabel="Back to home"
+        />
+      ) : null}
+      {boardsQuery.isError && !boardsForbidden && (
         <p className="text-destructive text-sm">Could not load boards.</p>
       )}
 

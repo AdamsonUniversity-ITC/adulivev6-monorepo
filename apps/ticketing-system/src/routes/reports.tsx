@@ -271,6 +271,20 @@ function ReportsPage() {
   const showAllSectionsOption =
     isAdminScope || sectionOptions.length > 1;
 
+  const forbidden =
+    (boardQuery.isError && getAxiosStatus(boardQuery.error) === 403) ||
+    (reportQuery.isError && getAxiosStatus(reportQuery.error) === 403);
+
+  if (forbidden) {
+    return (
+      <AccessDeniedState
+        description="You do not have permission to view reports."
+        backTo="/"
+        backLabel="Back to home"
+      />
+    );
+  }
+
   return (
     <PageShell
       width="wide"
@@ -378,13 +392,7 @@ function ReportsPage() {
           <LoadingState label="Loading report…" />
         ) : null}
         {reportQuery.isError ? (
-          getAxiosStatus(reportQuery.error) === 403 ? (
-            <AccessDeniedState description="You do not have permission to view reports." />
-          ) : (
-            <p className="text-destructive text-sm">
-              Could not load TAT report.
-            </p>
-          )
+          <p className="text-destructive text-sm">Could not load TAT report.</p>
         ) : null}
 
         {report ? (
