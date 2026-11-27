@@ -14,6 +14,7 @@ import {
   type TatSummary,
 } from "@/lib/aduts-api";
 import { getAxiosStatus } from "@/lib/axios-status";
+import { formatDuration } from "@/lib/format-duration";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -30,8 +31,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui/components/tabs";
 
 import { ReportDatePicker, parseReportDate } from "./-report-date-picker";
+import { ReportDemandTab } from "./-report-demand";
+import { ReportServiceTab } from "./-report-service";
 
 export const Route = createFileRoute("/reports")({
   beforeLoad: async ({ context }) => {
@@ -40,32 +49,39 @@ export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-function formatHours(value: number | null | undefined) {
-  if (value === null || value === undefined) return "—";
-  return `${value.toFixed(2)}h`;
+/** Exact decimal hours, shown on hover for anyone who wants the raw figure. */
+function exactHours(value: number | null | undefined) {
+  if (value === null || value === undefined) return undefined;
+  return `${value.toFixed(2)} hours`;
 }
 
 function MetricCard({
   title,
   summary,
   description,
+  footnote,
 }: {
   title: string;
   summary?: TatSummary;
   description: string;
+  footnote?: string;
 }) {
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <p className="text-2xl font-semibold tabular-nums">
-          {formatHours(summary?.avg)}
+        <p
+          className="text-2xl font-semibold tabular-nums"
+          title={exactHours(summary?.avg)}
+        >
+          {formatDuration(summary?.avg)}
         </p>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="text-muted-foreground space-y-1 text-sm">
-        <p>Median {formatHours(summary?.median)}</p>
+        <p>Median {formatDuration(summary?.median)}</p>
         <p>n={summary?.count ?? 0}</p>
+        {footnote ? <p>{footnote}</p> : null}
       </CardContent>
     </Card>
   );
@@ -103,10 +119,10 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             Create → Resolved
           </p>
           <p className="text-lg font-semibold tabular-nums">
-            {formatHours(staff.overall.create_to_resolved.avg)}
+            {formatDuration(staff.overall.create_to_resolved.avg)}
           </p>
           <p className="text-muted-foreground text-xs">
-            Median {formatHours(staff.overall.create_to_resolved.median)} · n=
+            Median {formatDuration(staff.overall.create_to_resolved.median)} · n=
             {staff.overall.create_to_resolved.count}
           </p>
         </div>
@@ -115,10 +131,10 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             Create → Closed
           </p>
           <p className="text-lg font-semibold tabular-nums">
-            {formatHours(staff.overall.create_to_closed.avg)}
+            {formatDuration(staff.overall.create_to_closed.avg)}
           </p>
           <p className="text-muted-foreground text-xs">
-            Median {formatHours(staff.overall.create_to_closed.median)} · n=
+            Median {formatDuration(staff.overall.create_to_closed.median)} · n=
             {staff.overall.create_to_closed.count}
           </p>
         </div>
@@ -127,10 +143,10 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             First Response
           </p>
           <p className="text-lg font-semibold tabular-nums">
-            {formatHours(staff.overall.first_response.avg)}
+            {formatDuration(staff.overall.first_response.avg)}
           </p>
           <p className="text-muted-foreground text-xs">
-            Median {formatHours(staff.overall.first_response.median)} · n=
+            Median {formatDuration(staff.overall.first_response.median)} · n=
             {staff.overall.first_response.count}
           </p>
         </div>
@@ -139,11 +155,14 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             Time to Assignment
           </p>
           <p className="text-lg font-semibold tabular-nums">
-            {formatHours(staff.assignment_time.avg)}
+            {formatDuration(staff.assignment_time.avg)}
           </p>
           <p className="text-muted-foreground text-xs">
-            Median {formatHours(staff.assignment_time.median)} · n=
+            Median {formatDuration(staff.assignment_time.median)} · n=
             {staff.assignment_time.count}
+            {(staff.assignment_time.pending_count ?? 0) > 0
+              ? ` · ${staff.assignment_time.pending_count} awaiting assignment`
+              : null}
           </p>
         </div>
         <div className="space-y-1">
@@ -151,7 +170,7 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             Open dwell
           </p>
           <p className="tabular-nums">
-            {formatHours(staff.per_status.open?.avg)}
+            {formatDuration(staff.per_status.open?.avg)}
           </p>
         </div>
         <div className="space-y-1">
@@ -159,7 +178,7 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             In Progress dwell
           </p>
           <p className="tabular-nums">
-            {formatHours(staff.per_status.in_progress?.avg)}
+            {formatDuration(staff.per_status.in_progress?.avg)}
           </p>
         </div>
         <div className="space-y-1">
@@ -167,7 +186,7 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             Resolved dwell
           </p>
           <p className="tabular-nums">
-            {formatHours(staff.per_status.resolved?.avg)}
+            {formatDuration(staff.per_status.resolved?.avg)}
           </p>
         </div>
         <div className="space-y-1">
@@ -175,7 +194,7 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
             Closed dwell
           </p>
           <p className="tabular-nums">
-            {formatHours(staff.per_status.closed?.avg)}
+            {formatDuration(staff.per_status.closed?.avg)}
           </p>
         </div>
         {staff.shared && staff.shared.shared_count > 0 ? (
@@ -184,10 +203,10 @@ function StaffTatCard({ staff }: { staff: TatStaffReport }) {
               Shared work · own handling time
             </p>
             <p className="text-lg font-semibold tabular-nums">
-              {formatHours(staff.shared.handling_time.avg)}
+              {formatDuration(staff.shared.handling_time.avg)}
             </p>
             <p className="text-muted-foreground text-xs">
-              Median {formatHours(staff.shared.handling_time.median)} · n=
+              Median {formatDuration(staff.shared.handling_time.median)} · n=
               {staff.shared.handling_time.count}
               {staff.shared.pending_count > 0
                 ? ` · ${staff.shared.pending_count} awaiting sign-off`
@@ -396,7 +415,14 @@ function ReportsPage() {
         ) : null}
 
         {report ? (
-          <>
+          <Tabs defaultValue="turnaround" className="gap-6">
+            <TabsList>
+              <TabsTrigger value="turnaround">Turnaround</TabsTrigger>
+              <TabsTrigger value="demand">Demand</TabsTrigger>
+              <TabsTrigger value="service">Service and quality</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="turnaround" className="space-y-6">
             <div>
               <h2 className="mb-3 text-sm font-semibold tracking-wide uppercase">
                 Overall
@@ -405,22 +431,23 @@ function ReportsPage() {
                 <MetricCard
                   title="Create → Resolved"
                   summary={report.overall.create_to_resolved}
-                  description="Average hours from ticket creation until marked resolved."
+                  description="Average time from creation until marked resolved. Excludes cancelled tickets."
                 />
                 <MetricCard
                   title="Create → Closed"
                   summary={report.overall.create_to_closed}
-                  description="Average hours from ticket creation until closed."
+                  description="Average time from creation until closed. Excludes cancelled tickets."
                 />
                 <MetricCard
                   title="First Response"
                   summary={report.overall.first_response}
-                  description="Average hours until the first staff public reply."
+                  description="Average time from creation until the first staff public reply."
                 />
                 <MetricCard
                   title="Time to Assignment"
                   summary={report.assignment_time}
-                  description="Average hours until the ticket is first assigned."
+                  description="Average wait from creation until a section head assigns the ticket to staff."
+                  footnote={`${report.assignment_time.pending_count ?? 0} awaiting assignment`}
                 />
               </div>
             </div>
@@ -448,7 +475,7 @@ function ReportsPage() {
                 <MetricCard
                   title="Closed"
                   summary={report.per_status.closed}
-                  description="Average dwell time recorded in Closed status."
+                  description="Average time completed tickets spent in Closed status. Excludes cancelled tickets."
                 />
               </div>
             </div>
@@ -497,6 +524,7 @@ function ReportsPage() {
                         <th className="px-4 py-3 font-medium">In Progress</th>
                         <th className="px-4 py-3 font-medium">Resolve</th>
                         <th className="px-4 py-3 font-medium">Close</th>
+                        <th className="px-4 py-3 font-medium">Cancel</th>
                         <th className="px-4 py-3 font-medium">1st Resp.</th>
                         <th className="px-4 py-3 font-medium">Assign</th>
                       </tr>
@@ -524,22 +552,25 @@ function ReportsPage() {
                             <PriorityBadge priority={row.priority} />
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {formatHours(row.status_hours.open)}
+                            {formatDuration(row.status_hours.open)}
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {formatHours(row.status_hours.in_progress)}
+                            {formatDuration(row.status_hours.in_progress)}
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {formatHours(row.resolve_hours)}
+                            {formatDuration(row.resolve_hours)}
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {formatHours(row.close_hours)}
+                            {formatDuration(row.close_hours)}
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {formatHours(row.first_response_hours)}
+                            {formatDuration(row.cancel_hours)}
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {formatHours(row.assignment_hours)}
+                            {formatDuration(row.first_response_hours)}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums">
+                            {formatDuration(row.assignment_hours)}
                           </td>
                         </tr>
                         {(row.shares ?? []).map((share) => (
@@ -555,14 +586,14 @@ function ReportsPage() {
                             </td>
                             <td
                               className="text-muted-foreground py-2"
-                              colSpan={7}
+                              colSpan={8}
                             >
                               {share.resolved_at
-                                ? `Signed off in ${formatHours(share.handling_hours)}`
+                                ? `Signed off in ${formatDuration(share.handling_hours)}`
                                 : "Awaiting sign-off"}
                             </td>
                             <td className="px-4 py-2 tabular-nums">
-                              {formatHours(share.handling_hours)}
+                              {formatDuration(share.handling_hours)}
                             </td>
                           </tr>
                         ))}
@@ -571,7 +602,7 @@ function ReportsPage() {
                       {report.per_application.data.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             className="text-muted-foreground px-4 py-8 text-center"
                           >
                             No tickets in this range.
@@ -612,7 +643,16 @@ function ReportsPage() {
                 ) : null}
               </CardContent>
             </Card>
-          </>
+            </TabsContent>
+
+            <TabsContent value="demand">
+              <ReportDemandTab report={report} />
+            </TabsContent>
+
+            <TabsContent value="service">
+              <ReportServiceTab report={report} />
+            </TabsContent>
+          </Tabs>
         ) : null}
       </div>
     </PageShell>

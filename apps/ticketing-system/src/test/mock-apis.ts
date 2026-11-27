@@ -128,6 +128,8 @@ vi.mock("@/lib/aduts-api", async (importOriginal) => {
       async () => getApiMocks().board.cancellation_reasons ?? [],
     ),
     fetchAdminBoardAdmins: vi.fn(async () => []),
+    fetchAdminMaintenanceUsers: vi.fn(async () => []),
+    searchAdminPeople: vi.fn(async () => []),
     fetchBoardAdmins: vi.fn(async () => []),
     fetchBoardCustomers: vi.fn(async () => []),
     fetchBoardSections: vi.fn(async () => getApiMocks().board.sections ?? []),

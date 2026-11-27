@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { AxiosError, type AxiosResponse } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -144,6 +144,60 @@ describe("ticketing page smokes", () => {
     });
   });
 
+  it("shows the turnaround figures with readable durations and pending assignments", async () => {
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Turnaround" })).toBeInTheDocument();
+    });
+    expect(screen.getByText("Time to Assignment")).toBeInTheDocument();
+    expect(screen.getByText("0 awaiting assignment")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Average wait from creation until a section head assigns/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows demand figures on the Demand tab", async () => {
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Demand" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Volume summary")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Monthly average")).toBeInTheDocument();
+    expect(screen.getByText("1.5")).toBeInTheDocument();
+    expect(screen.getByText("Top requestors")).toBeInTheDocument();
+    expect(screen.getByText("Ana Cruz")).toBeInTheDocument();
+    expect(screen.getByText("User #6")).toBeInTheDocument();
+  });
+
+  it("shows service and quality figures on the Service and quality tab", async () => {
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    fireEvent.mouseDown(
+      await screen.findByRole("tab", { name: "Service and quality" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("SLA compliance")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("50%").length).toBeGreaterThan(0);
+    expect(screen.getByText("Cancellation rate")).toBeInTheDocument();
+    expect(screen.getByText("Duplicate")).toBeInTheDocument();
+    expect(screen.getByText("Reopen rate")).toBeInTheDocument();
+    expect(screen.getByText("4.00 / 5")).toBeInTheDocument();
+  });
+
   it("renders admin boards", async () => {
     await renderApp({
       initialPath: "/admin/",
@@ -199,6 +253,29 @@ describe("ticketing page smokes", () => {
       ).toBeInTheDocument();
       expect(screen.getByLabelText("Visibility")).toHaveValue("production");
     });
+  });
+
+  it("uses employee search instead of raw user ids on admin board detail", async () => {
+    await renderApp({
+      initialPath: `/admin/boards/${fixtureBoard.id}`,
+      hostname: PLATFORM_HOST,
+      authUser: authSuperAdmin,
+      boards: [{ ...fixtureBoard, visibility_mode: "maintenance" }],
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Maintenance access")).toBeInTheDocument();
+    });
+
+    // One picker for board admins and one for the maintenance allowlist.
+    expect(
+      screen.getAllByPlaceholderText("Name, ID, or email (min 2 characters)"),
+    ).toHaveLength(2);
+    expect(screen.queryByPlaceholderText("User ID")).not.toBeInTheDocument();
+    // Employee-only: no person type select.
+    expect(screen.queryByText("Type")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add admin" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add user" })).toBeDisabled();
   });
 
   it("renders manage board settings", async () => {

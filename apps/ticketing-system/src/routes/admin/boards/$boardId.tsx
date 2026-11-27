@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+import { PeopleSearchPicker } from "@/components/people-search-picker";
+import { PersonIdentity } from "@/components/person-identity";
 import { SearchableScrollList } from "@/components/searchable-scroll-list";
 import { useListFilter } from "@/components/use-list-filter";
 import { requireSuperAdmin } from "@/lib/admin-guards";
@@ -11,9 +13,12 @@ import {
   fetchAdminBoardAdmins,
   fetchAdminBoards,
   fetchAdminMaintenanceUsers,
+  type BoardPersonRow,
   type BoardVisibilityMode,
+  type PersonSearchResult,
   removeAdminBoardAdmin,
   removeAdminMaintenanceUser,
+  searchAdminPeople,
   updateAdminBoard,
 } from "@/lib/aduts-api";
 import { Button } from "@repo/ui/components/button";
@@ -34,6 +39,26 @@ export const Route = createFileRoute("/admin/boards/$boardId")({
   },
   component: AdminBoardDetailPage,
 });
+
+function PersonRow({ person }: { person: BoardPersonRow }) {
+  if (!person.name && !person.emp_no && !person.email) {
+    return <span>User {person.user_id}</span>;
+  }
+
+  return (
+    <PersonIdentity
+      person={{
+        name: person.name,
+        emp_no: person.emp_no,
+        student_no: person.student_no,
+        agency_no: person.agency_no,
+        person_type: person.person_type,
+        email: person.email,
+      }}
+      size="sm"
+    />
+  );
+}
 
 function AdminBoardDetailPage() {
   const { boardId } = Route.useParams();
@@ -61,12 +86,14 @@ function AdminBoardDetailPage() {
   const allAdmins = adminsQuery.data ?? [];
   const adminList = useListFilter(allAdmins, (a) => [
     a.name,
+    a.emp_no,
     a.email,
     a.user_id,
   ]);
   const allMaintenanceUsers = maintenanceUsersQuery.data ?? [];
   const maintenanceList = useListFilter(allMaintenanceUsers, (a) => [
     a.name,
+    a.emp_no,
     a.email,
     a.user_id,
   ]);
@@ -74,11 +101,15 @@ function AdminBoardDetailPage() {
   const [name, setName] = useState("");
   const [visibilityMode, setVisibilityMode] =
     useState<BoardVisibilityMode>("production");
-  const [maintenanceUserId, setMaintenanceUserId] = useState("");
+  const [selectedMaintenanceUser, setSelectedMaintenanceUser] =
+    useState<PersonSearchResult | null>(null);
+  const [maintenancePickerKey, setMaintenancePickerKey] = useState(0);
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [frontendUrl, setFrontendUrl] = useState("");
-  const [adminUserId, setAdminUserId] = useState("");
+  const [selectedAdmin, setSelectedAdmin] =
+    useState<PersonSearchResult | null>(null);
+  const [adminPickerKey, setAdminPickerKey] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
   if (board && !hydrated) {
@@ -108,9 +139,10 @@ function AdminBoardDetailPage() {
   });
 
   const addAdminMutation = useMutation({
-    mutationFn: () => addAdminBoardAdmin(id, Number(adminUserId)),
+    mutationFn: () => addAdminBoardAdmin(id, Number(selectedAdmin?.user_id)),
     onSuccess: () => {
-      setAdminUserId("");
+      setSelectedAdmin(null);
+      setAdminPickerKey((key) => key + 1);
       void queryClient.invalidateQueries({
         queryKey: ["aduts", "admin", "boards", id, "admins"],
       });
@@ -127,9 +159,11 @@ function AdminBoardDetailPage() {
   });
 
   const addMaintenanceUserMutation = useMutation({
-    mutationFn: () => addAdminMaintenanceUser(id, Number(maintenanceUserId)),
+    mutationFn: () =>
+      addAdminMaintenanceUser(id, Number(selectedMaintenanceUser?.user_id)),
     onSuccess: () => {
-      setMaintenanceUserId("");
+      setSelectedMaintenanceUser(null);
+      setMaintenancePickerKey((key) => key + 1);
       void queryClient.invalidateQueries({
         queryKey: ["aduts", "admin", "boards", id, "maintenance-users"],
       });
@@ -169,13 +203,13 @@ function AdminBoardDetailPage() {
 
   function onAddAdmin(event: FormEvent) {
     event.preventDefault();
-    if (!adminUserId) return;
+    if (!selectedAdmin?.user_id) return;
     addAdminMutation.mutate();
   }
 
   function onAddMaintenanceUser(event: FormEvent) {
     event.preventDefault();
-    if (!maintenanceUserId) return;
+    if (!selectedMaintenanceUser?.user_id) return;
     addMaintenanceUserMutation.mutate();
   }
 
@@ -273,7 +307,7 @@ function AdminBoardDetailPage() {
                   key={admin.id}
                   className="flex items-center justify-between gap-2"
                 >
-                  <span>{admin.name ?? `User ${admin.user_id}`}</span>
+                  <PersonRow person={admin} />
                   <Button
                     type="button"
                     variant="outline"
@@ -289,16 +323,21 @@ function AdminBoardDetailPage() {
               )}
             </ul>
           </SearchableScrollList>
-          <form onSubmit={onAddAdmin} className="flex flex-wrap gap-2">
-            <Input
-              type="number"
-              min={1}
-              placeholder="User ID"
-              className="w-40"
-              value={adminUserId}
-              onChange={(e) => setAdminUserId(e.target.value)}
+          <form onSubmit={onAddAdmin} className="space-y-3">
+            <Label>Add admin</Label>
+            <PeopleSearchPicker
+              key={adminPickerKey}
+              searchFn={searchAdminPeople}
+              searchScope="admin"
+              types={["employee"]}
+              selected={selectedAdmin}
+              onSelect={setSelectedAdmin}
+              onClear={() => setSelectedAdmin(null)}
             />
-            <Button type="submit" disabled={addAdminMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={addAdminMutation.isPending || !selectedAdmin?.user_id}
+            >
               Add admin
             </Button>
           </form>
@@ -330,7 +369,7 @@ function AdminBoardDetailPage() {
                     key={row.id}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span>{row.name ?? `User ${row.user_id}`}</span>
+                    <PersonRow person={row} />
                     <Button
                       type="button"
                       variant="outline"
@@ -350,21 +389,23 @@ function AdminBoardDetailPage() {
                 )}
               </ul>
             </SearchableScrollList>
-            <form
-              onSubmit={onAddMaintenanceUser}
-              className="flex flex-wrap gap-2"
-            >
-              <Input
-                type="number"
-                min={1}
-                placeholder="User ID"
-                className="w-40"
-                value={maintenanceUserId}
-                onChange={(e) => setMaintenanceUserId(e.target.value)}
+            <form onSubmit={onAddMaintenanceUser} className="space-y-3">
+              <Label>Add user</Label>
+              <PeopleSearchPicker
+                key={maintenancePickerKey}
+                searchFn={searchAdminPeople}
+                searchScope="admin"
+                types={["employee"]}
+                selected={selectedMaintenanceUser}
+                onSelect={setSelectedMaintenanceUser}
+                onClear={() => setSelectedMaintenanceUser(null)}
               />
               <Button
                 type="submit"
-                disabled={addMaintenanceUserMutation.isPending}
+                disabled={
+                  addMaintenanceUserMutation.isPending ||
+                  !selectedMaintenanceUser?.user_id
+                }
               >
                 Add user
               </Button>
