@@ -23,6 +23,15 @@ type PeopleSearchPickerProps = {
   onSelect: (person: PersonSearchResult) => void;
   selected?: PersonSearchResult | null;
   onClear?: () => void;
+  /** Custom lookup (defaults to the board-scoped people search). */
+  searchFn?: (
+    query: string,
+    type: PersonSearchType,
+  ) => Promise<PersonSearchResult[]>;
+  /** Cache namespace so different lookups never share results. */
+  searchScope?: string;
+  /** Limit selectable person types. A single type hides the type select. */
+  types?: PersonSearchType[];
 };
 
 const TYPE_OPTIONS: Array<{ value: PersonSearchType; label: string }> = [
@@ -36,14 +45,23 @@ export function PeopleSearchPicker({
   onSelect,
   selected,
   onClear,
+  searchFn = searchPeople,
+  searchScope = "board",
+  types,
 }: PeopleSearchPickerProps) {
-  const [type, setType] = useState<PersonSearchType>("employee");
+  const typeOptions = types?.length
+    ? TYPE_OPTIONS.filter((option) => types.includes(option.value))
+    : TYPE_OPTIONS;
+  const singleType = typeOptions.length === 1;
+  const [type, setType] = useState<PersonSearchType>(
+    typeOptions[0]?.value ?? "employee",
+  );
   const [query, setQuery] = useState("");
   const debounced = useDebouncedValue(query, 300);
 
   const searchQuery = useQuery({
-    queryKey: ["aduts", "people-search", type, debounced],
-    queryFn: () => searchPeople(debounced, type),
+    queryKey: ["aduts", "people-search", searchScope, type, debounced],
+    queryFn: () => searchFn(debounced, type),
     enabled: debounced.trim().length >= 2,
   });
 
@@ -71,25 +89,31 @@ export function PeopleSearchPicker({
 
   return (
     <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-[8rem_1fr]">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Type</Label>
-          <Select
-            value={type}
-            onValueChange={(value) => setType(value as PersonSearchType)}
-          >
-            <SelectTrigger className="shadow-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div
+        className={
+          singleType ? "grid gap-2" : "grid gap-2 sm:grid-cols-[8rem_1fr]"
+        }
+      >
+        {singleType ? null : (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Type</Label>
+            <Select
+              value={type}
+              onValueChange={(value) => setType(value as PersonSearchType)}
+            >
+              <SelectTrigger className="shadow-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {typeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label className="text-xs">Search</Label>
           <Input

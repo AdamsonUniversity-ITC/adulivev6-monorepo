@@ -201,6 +201,29 @@ describe("ticketing page smokes", () => {
     });
   });
 
+  it("uses employee search instead of raw user ids on admin board detail", async () => {
+    await renderApp({
+      initialPath: `/admin/boards/${fixtureBoard.id}`,
+      hostname: PLATFORM_HOST,
+      authUser: authSuperAdmin,
+      boards: [{ ...fixtureBoard, visibility_mode: "maintenance" }],
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Maintenance access")).toBeInTheDocument();
+    });
+
+    // One picker for board admins and one for the maintenance allowlist.
+    expect(
+      screen.getAllByPlaceholderText("Name, ID, or email (min 2 characters)"),
+    ).toHaveLength(2);
+    expect(screen.queryByPlaceholderText("User ID")).not.toBeInTheDocument();
+    // Employee-only: no person type select.
+    expect(screen.queryByText("Type")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add admin" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add user" })).toBeDisabled();
+  });
+
   it("renders manage board settings", async () => {
     await renderApp({
       initialPath: "/manage/",

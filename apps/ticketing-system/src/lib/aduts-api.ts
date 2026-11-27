@@ -579,6 +579,15 @@ export async function searchPeople(
   return data.data;
 }
 
+/** Platform-admin employee lookup; works without a board host. */
+export async function searchAdminPeople(query: string) {
+  const { data } = await hrmdoSvc.get<{ data: PersonSearchResult[] }>(
+    "v1/aduts/admin/people-search",
+    { params: { q: query } },
+  );
+  return data.data;
+}
+
 export type TatSummary = {
   avg: number | null;
   median: number | null;
