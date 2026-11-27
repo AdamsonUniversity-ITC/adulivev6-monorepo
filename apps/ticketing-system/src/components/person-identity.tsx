@@ -17,6 +17,8 @@ type PersonIdentityProps = {
   className?: string;
   showSecondary?: boolean;
   secondaryMode?: "identity" | "section";
+  /** Wrap long names instead of truncating them (e.g. inside table cells). */
+  wrap?: boolean;
 };
 
 export function PersonIdentity({
@@ -25,10 +27,12 @@ export function PersonIdentity({
   className,
   showSecondary = true,
   secondaryMode = "identity",
+  wrap = false,
 }: PersonIdentityProps) {
   const name = getPersonDisplayName(person);
   const avatarUrl = getPersonAvatarUrl(person);
   const secondary = getPersonSecondaryLine(person, secondaryMode);
+  const textFit = wrap ? "break-words" : "truncate";
 
   return (
     <div
@@ -39,9 +43,11 @@ export function PersonIdentity({
         <AvatarFallback>{getPersonInitials(person)}</AvatarFallback>
       </Avatar>
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{name}</p>
+        <p className={`${textFit} text-sm font-medium`}>{name}</p>
         {showSecondary && secondary ? (
-          <p className="text-muted-foreground truncate text-xs">{secondary}</p>
+          <p className={`text-muted-foreground ${textFit} text-xs`}>
+            {secondary}
+          </p>
         ) : null}
       </div>
     </div>
