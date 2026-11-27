@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   assignTicket,
@@ -37,6 +37,7 @@ import {
   useState,
 } from "react";
 import {
+  ArrowLeft,
   ChevronDown,
   Download,
   EllipsisVertical,
@@ -72,6 +73,10 @@ import { PriorityBadge, StatusBadge } from "@/components/ticket-badges";
 import { TicketChecklistCard } from "@/components/ticket-checklist-card";
 import { getAxiosMessage, getAxiosStatus } from "@/lib/axios-status";
 import { authUserQueryOptions } from "@/lib/auth-queries";
+import {
+  parseTicketsSearch,
+  readRememberedTicketsSearch,
+} from "./-tickets-search";
 import { formatPriority, formatStatus } from "@/lib/format-labels";
 import {
   compareByLastName,
@@ -869,6 +874,21 @@ function TicketDetailPage() {
 
   return (
     <section className="-mx-1 -my-2 w-full max-w-none space-y-4 sm:-mx-2 sm:-my-3">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground -ml-2"
+      >
+        <Link
+          to="/tickets"
+          search={readRememberedTicketsSearch() ?? parseTicketsSearch({})}
+        >
+          <ArrowLeft className="size-4" />
+          Back to tickets
+        </Link>
+      </Button>
+
       {/* ======================================================== */}
       {/* 1. Ticket Details                                        */}
       {/* ======================================================== */}

@@ -131,6 +131,19 @@ describe("ticketing page smokes", () => {
     });
   });
 
+  it("links back to the tickets list from ticket detail", async () => {
+    await renderApp({
+      initialPath: `/tickets/${fixtureTicket.ticket_number}`,
+      authUser: authBoardAdmin,
+    });
+
+    const back = await screen.findByRole("link", { name: /back to tickets/i });
+    // The list itself lives at /tickets on the platform host and at / on a
+    // board host, which redirects with the search intact; either way the
+    // target path starts at /tickets.
+    expect(back.getAttribute("href")).toMatch(/^\/tickets/);
+  });
+
   it("renders reports", async () => {
     await renderApp({
       initialPath: "/reports",
