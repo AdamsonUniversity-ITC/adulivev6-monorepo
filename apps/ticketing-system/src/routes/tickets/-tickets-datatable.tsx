@@ -21,7 +21,8 @@ import {
   type Ticket,
 } from "@/lib/aduts-api";
 import { isPlatformHost } from "@/lib/adutsHost";
-import { getAxiosMessage } from "@/lib/axios-status";
+import { getAxiosMessage, getAxiosStatus } from "@/lib/axios-status";
+import { AccessDeniedState } from "@/components/access-denied-state";
 import { formatPriority, formatStatus } from "@/lib/format-labels";
 import { compareByLastName } from "@/lib/person-display";
 import {
@@ -80,12 +81,15 @@ type TicketsDatatableProps = {
   search: TicketsSearch;
   onSearchChange: (patch: Partial<TicketsSearch>) => void;
   onMetricsChange?: (metrics: TicketsMetrics | null) => void;
+  /** Reports whether the ticket list request was refused with 403. */
+  onForbiddenChange?: (forbidden: boolean) => void;
 };
 
 export function TicketsDatatable({
   search,
   onSearchChange,
   onMetricsChange,
+  onForbiddenChange,
 }: TicketsDatatableProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -221,6 +225,13 @@ export function TicketsDatatable({
       awaiting_ack: raw.awaiting_ack ?? 0,
     });
   }, [onMetricsChange, ticketsQuery.data?.metrics]);
+
+  const forbidden =
+    ticketsQuery.isError && getAxiosStatus(ticketsQuery.error) === 403;
+
+  React.useEffect(() => {
+    onForbiddenChange?.(forbidden);
+  }, [forbidden, onForbiddenChange]);
 
   const rows = ticketsQuery.data?.data ?? [];
   const total = ticketsQuery.data?.meta.total ?? 0;
@@ -393,6 +404,16 @@ export function TicketsDatatable({
     ],
     [],
   );
+
+  if (forbidden) {
+    return (
+      <AccessDeniedState
+        description="You do not have permission to view tickets on this board."
+        backTo="/"
+        backLabel="Back to home"
+      />
+    );
+  }
 
   return (
     <div className="space-y-3" data-tour="ticket-table">

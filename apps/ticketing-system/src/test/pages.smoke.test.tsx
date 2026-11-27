@@ -1,8 +1,15 @@
 import { screen, waitFor } from "@testing-library/react";
+import { AxiosError, type AxiosResponse } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import "./mock-apis";
-import { fetchBoardCustomers } from "@/lib/aduts-api";
+import {
+  fetchAdminBoards,
+  fetchBoardCustomers,
+  fetchBoards,
+  fetchTatReport,
+  fetchTickets,
+} from "@/lib/aduts-api";
 import {
   PLATFORM_HOST,
   authBoardAdmin,
@@ -11,6 +18,16 @@ import {
   fixtureTicket,
 } from "./fixtures";
 import { renderApp } from "./render-app";
+
+function forbiddenError() {
+  return new AxiosError(
+    "Request failed with status code 403",
+    "ERR_BAD_REQUEST",
+    undefined,
+    undefined,
+    { status: 403, data: { message: "Forbidden." } } as AxiosResponse,
+  );
+}
 
 describe("ticketing page smokes", () => {
   beforeEach(() => {
@@ -258,6 +275,81 @@ describe("ticketing page smokes", () => {
         screen.getByRole("searchbox", { name: /search by name/i }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("shows access denied on the board ticket list when refused with 403", async () => {
+    vi.mocked(fetchTickets).mockRejectedValueOnce(forbiddenError());
+
+    await renderApp({
+      initialPath: "/",
+      authUser: authBoardAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Access denied" }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /In Progress/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Failed to load tickets.")).not.toBeInTheDocument();
+  });
+
+  it("shows access denied on platform home when boards are refused with 403", async () => {
+    vi.mocked(fetchBoards).mockRejectedValueOnce(forbiddenError());
+
+    await renderApp({
+      initialPath: "/",
+      hostname: PLATFORM_HOST,
+      authUser: authSuperAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Access denied" }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText("Could not load boards. Sign in and retry."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows access denied on reports when the report is refused with 403", async () => {
+    vi.mocked(fetchTatReport).mockRejectedValueOnce(forbiddenError());
+
+    await renderApp({
+      initialPath: "/reports",
+      authUser: authBoardAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Access denied" }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("heading", { name: "Reports" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows access denied on admin boards when refused with 403", async () => {
+    vi.mocked(fetchAdminBoards).mockRejectedValueOnce(forbiddenError());
+
+    await renderApp({
+      initialPath: "/admin/",
+      hostname: PLATFORM_HOST,
+      authUser: authSuperAdmin,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Access denied" }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText("Could not load boards."),
+    ).not.toBeInTheDocument();
   });
 
   it("renders manage categories", async () => {
