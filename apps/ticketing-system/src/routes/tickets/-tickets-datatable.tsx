@@ -310,7 +310,7 @@ export function TicketsDatatable({
         cell: ({ row }) => {
           const title = row.original.title;
           return (
-            <div className="min-w-0 max-w-[16rem] space-y-0.5">
+            <div className="max-w-[24rem] min-w-[12rem] space-y-0.5">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-medium">
                   {row.original.ticket_number}
@@ -321,7 +321,7 @@ export function TicketsDatatable({
                   mentions={row.original.unread_mentions_count}
                 />
               </div>
-              <p className="truncate text-sm">{title}</p>
+              <p className="text-sm break-words">{title}</p>
             </div>
           );
         },
@@ -338,6 +338,7 @@ export function TicketsDatatable({
               person={row.original.requester}
               size="sm"
               secondaryMode="section"
+              wrap
             />
           ) : (
             <span className="text-muted-foreground text-sm">—</span>
@@ -355,6 +356,7 @@ export function TicketsDatatable({
               person={row.original.assignee}
               size="sm"
               secondaryMode="section"
+              wrap
             />
           ) : (
             <span className="text-muted-foreground text-sm">Unassigned</span>
@@ -541,6 +543,7 @@ export function TicketsDatatable({
       ) : null}
 
       <DataTable<Ticket>
+        tableClassName="[&_td]:align-top [&_td]:whitespace-normal"
         columns={columns}
         data={rows}
         getRowId={(row) => String(row.id)}

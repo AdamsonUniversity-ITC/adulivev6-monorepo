@@ -1,5 +1,7 @@
 import { hrmdoSvc } from "@repo/axios-config/hrmdo-service";
 
+import { sortBoardLists, sortSectionsByName } from "./sort-by-name";
+
 export type BoardCategory = {
   id: number;
   name: string;
@@ -252,12 +254,12 @@ export type TicketListResponse = {
 
 export async function fetchBoards() {
   const { data } = await hrmdoSvc.get<{ data: Board[] }>("v1/aduts/boards");
-  return data.data;
+  return data.data.map(sortBoardLists);
 }
 
 export async function fetchCurrentBoard() {
   const { data } = await hrmdoSvc.get<{ data: Board }>("v1/aduts/board");
-  return data.data;
+  return sortBoardLists(data.data);
 }
 
 export type OnboardingStatus = {
@@ -975,7 +977,7 @@ export async function fetchBoardSections() {
   const { data } = await hrmdoSvc.get<{ data: SectionRow[] }>(
     "v1/aduts/board/sections",
   );
-  return data.data;
+  return sortSectionsByName(data.data);
 }
 
 export async function createBoardSection(payload: {

@@ -8,6 +8,7 @@ import { TicketAttachmentDropzone } from "@/components/ticket-attachment-dropzon
 import { createTicket, fetchCurrentBoard, fetchTickets } from "@/lib/aduts-api";
 import { isPlatformHost } from "@/lib/adutsHost";
 import { getAxiosMessage } from "@/lib/axios-status";
+import { compareNames } from "@/lib/sort-by-name";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -67,11 +68,7 @@ function NewTicketPage() {
           Number.isFinite(categorySectionId) && categorySectionId === sectionId
         );
       })
-      .sort((a, b) => {
-        const order = (a.sort_order ?? 0) - (b.sort_order ?? 0);
-        if (order !== 0) return order;
-        return a.name.localeCompare(b.name);
-      });
+      .sort((a, b) => compareNames(a.name, b.name));
   }, [boardQuery.data?.categories, section]);
 
   const categoryRequired = categoryOptions.length > 0;

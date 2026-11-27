@@ -94,7 +94,7 @@ function RootComponent() {
         <ClientOnboarding />
         <SidebarProvider className="bg-transparent has-data-[variant=inset]:bg-transparent! min-h-0 min-h-[calc(100svh-3.5rem)] flex-1">
           <AppSidebar />
-          <SidebarInset className="bg-background/50 supports-backdrop-filter:bg-background/35 backdrop-blur-[2px]">
+          <SidebarInset className="bg-background/50 supports-backdrop-filter:bg-background/35 min-w-0 backdrop-blur-[2px]">
             <header className="border-border/50 bg-background/65 supports-backdrop-filter:bg-background/45 sticky top-14 z-20 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-md sm:px-6">
               <SidebarTrigger className="-ml-2" />
               <div className="min-w-0 flex-1">
@@ -120,7 +120,7 @@ function RootComponent() {
               </Button>
               <ThemeToggle />
             </header>
-            <div className="aduts-page-enter flex flex-1 flex-col px-4 py-6 sm:px-6 md:py-8">
+            <div className="aduts-page-enter flex min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 md:py-8">
               <Outlet />
             </div>
           </SidebarInset>

@@ -63,7 +63,7 @@ function PlatformHome() {
         data-tour="boards-list"
       >
         {(boardsQuery.data ?? []).map((board) => (
-          <li key={board.id}>
+          <li key={board.id} className="min-w-0">
             <a
               href={board.url}
               aria-label={`Open ${board.board_name}`}
