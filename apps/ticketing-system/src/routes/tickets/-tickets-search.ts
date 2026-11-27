@@ -128,6 +128,41 @@ export function writeStoredUnassigned(enabled: boolean): void {
   }
 }
 
+export const LAST_SEARCH_STORAGE_KEY = "aduts-tickets-last-search";
+
+/**
+ * Remembers the list state (filters, page, keyword) for this browser tab so the
+ * ticket page can send the user back to the same view. Session storage, not
+ * local: a different tab should not inherit it.
+ */
+export function rememberTicketsSearch(search: TicketsSearch): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      LAST_SEARCH_STORAGE_KEY,
+      JSON.stringify(search),
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+/** The remembered list state, re-parsed so stale or tampered values are normalised. */
+export function readRememberedTicketsSearch(): TicketsSearch | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(LAST_SEARCH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parseTicketsSearch(parsed as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
 export function parseTicketsSearch(
   search: Record<string, unknown>,
 ): TicketsSearch {

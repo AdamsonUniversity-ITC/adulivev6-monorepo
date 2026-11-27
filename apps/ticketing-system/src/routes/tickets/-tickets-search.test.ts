@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_STATUS_FILTER,
   EMPTY_STATUS_FILTER,
+  LAST_SEARCH_STORAGE_KEY,
   normalizeStatusFilter,
   parseStatusList,
   parseTicketsSearch,
+  readRememberedTicketsSearch,
+  rememberTicketsSearch,
   serializeStatusList,
   writeStoredStatusFilter,
   writeStoredUnassigned,
@@ -95,6 +98,60 @@ describe("awaiting_ack filter", () => {
     expect(parseTicketsSearch({}).awaiting_ack).toBeUndefined();
     expect(parseTicketsSearch({ awaiting_ack: "0" }).awaiting_ack).toBeUndefined();
     expect(parseTicketsSearch({ awaiting_ack: false }).awaiting_ack).toBeUndefined();
+  });
+});
+
+describe("remembered list search", () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it("returns null when nothing was remembered", () => {
+    expect(readRememberedTicketsSearch()).toBeNull();
+  });
+
+  it("round-trips filters, keyword and page", () => {
+    rememberTicketsSearch({
+      status: "resolved",
+      keyword: "printer",
+      priority: "high",
+      section_id: 3,
+      page: 4,
+      rows: 30,
+    });
+
+    expect(readRememberedTicketsSearch()).toMatchObject({
+      status: "resolved",
+      keyword: "printer",
+      priority: "high",
+      section_id: 3,
+      page: 4,
+      rows: 30,
+    });
+  });
+
+  it("returns null for malformed or non-object values", () => {
+    window.sessionStorage.setItem(LAST_SEARCH_STORAGE_KEY, "{not json");
+    expect(readRememberedTicketsSearch()).toBeNull();
+
+    window.sessionStorage.setItem(LAST_SEARCH_STORAGE_KEY, '"just a string"');
+    expect(readRememberedTicketsSearch()).toBeNull();
+
+    window.sessionStorage.setItem(LAST_SEARCH_STORAGE_KEY, "[1,2]");
+    expect(readRememberedTicketsSearch()).toBeNull();
+  });
+
+  it("normalises tampered values instead of trusting them", () => {
+    window.sessionStorage.setItem(
+      LAST_SEARCH_STORAGE_KEY,
+      JSON.stringify({ status: "bogus", page: -5, section_id: "abc" }),
+    );
+
+    expect(readRememberedTicketsSearch()).toMatchObject({
+      status: DEFAULT_STATUS_FILTER,
+      page: 1,
+      section_id: undefined,
+    });
   });
 });
 

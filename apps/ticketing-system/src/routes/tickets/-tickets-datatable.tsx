@@ -50,6 +50,7 @@ import { toast } from "@repo/ui/exports";
 import {
   DEFAULT_STATUS_FILTER,
   EMPTY_STATUS_FILTER,
+  rememberTicketsSearch,
   type TicketsSearch,
 } from "./-tickets-search";
 
@@ -576,12 +577,14 @@ export function TicketsDatatable({
           state: rowSelection,
           onChange: setRowSelection,
         }}
-        onRowClick={(row) =>
+        onRowClick={(row) => {
+          // So "Back to tickets" can restore this exact view.
+          rememberTicketsSearch(search);
           void navigate({
             to: "/tickets/$ticketNumber",
             params: { ticketNumber: row.original.ticket_number },
-          })
-        }
+          });
+        }}
         server={{
           pagination: {
             rowCount: total,
